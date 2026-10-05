@@ -1,0 +1,229 @@
+/* =========================================
+   Input Container
+========================================= */
+
+.sila-input-group {
+  min-width: 0;
+}
+
+/* =========================================
+   Field Wrapper
+   Label sits above the field (label is rendered
+   after the input in the DOM, so order it first).
+========================================= */
+
+.sila-input__field-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+}
+
+/* =========================================
+   Input / Textarea
+========================================= */
+
+.sila-input__field {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  box-shadow: var(--sila-shadow-xs);
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+  transition: var(--sila-transition);
+}
+
+.sila-input__field::placeholder {
+  color: var(--sila-text-subtle);
+}
+
+/* =========================================
+   Label
+========================================= */
+
+.sila-input__label {
+  order: -1;
+  display: block;
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text-secondary);
+}
+
+/* =========================================
+   Required
+========================================= */
+
+.sila-input__required {
+  margin-left: 0.125rem;
+  color: var(--sila-danger);
+  font-weight: 600;
+}
+
+/* =========================================
+   Hover / Focus
+========================================= */
+
+.sila-input__field:hover:not(:disabled) {
+  border-color: var(--sila-text-subtle);
+}
+
+.sila-input__field:focus {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+/* =========================================
+   Error
+========================================= */
+
+.sila-input-group--error .sila-input__field,
+.sila-input-group--error .sila-input__field:hover:not(:disabled) {
+  border-color: var(--sila-danger);
+}
+
+.sila-input-group--error .sila-input__field:focus {
+  border-color: var(--sila-danger);
+  box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.sila-input-group--error .sila-input__label {
+  color: var(--sila-danger);
+}
+
+/* =========================================
+   Password Toggle.
+========================================= */
+
+.sila-input__password-toggle {
+  --sila-input-toggle-size: 1.75rem;
+  position: absolute;
+  bottom: calc((var(--sila-control-height) - var(--sila-input-toggle-size)) / 2);
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sila-input-toggle-size);
+  height: var(--sila-input-toggle-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.sila-input__password-toggle:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.sila-input__password-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.sila-input__password-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Reserve space for the toggle and hide native reveal buttons */
+.sila-input__field[type="password"],
+.sila-input__field[type="text"]:has(~ .sila-input__password-toggle) {
+  padding-right: 2.5rem;
+}
+
+.sila-input__field[type="password"]::-ms-reveal,
+.sila-input__field[type="password"]::-ms-clear {
+  display: none;
+}
+
+.sila-input__field[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none;
+}
+
+/* =========================================
+   Messages
+========================================= */
+
+.sila-input__message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+  padding: 0 0.125rem;
+  font-size: var(--sila-text-xs);
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+.sila-input__message svg {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+/* Full text is available via the title tooltip */
+.sila-input__message span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  cursor: help;
+}
+
+.sila-input__message--info,
+.sila-input__message--info svg {
+  color: var(--sila-text-muted);
+}
+
+.sila-input__message--error,
+.sila-input__message--error svg {
+  color: var(--sila-danger);
+}
+
+.sila-input__message--error {
+  font-weight: var(--sila-weight-medium);
+}
+
+/* =========================================
+   Textarea
+========================================= */
+
+.sila-input-group--textarea .sila-input__field {
+  height: auto;
+  min-height: 7.5rem;
+  padding: var(--sila-space-3);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* =========================================
+   Disabled
+========================================= */
+
+.sila-input-group--disabled .sila-input__field {
+  background: var(--sila-surface-muted);
+  color: var(--sila-text-subtle);
+  cursor: not-allowed;
+}
+
+.sila-input-group--disabled .sila-input__label {
+  color: var(--sila-text-subtle);
+}
+
+.sila-input-group--disabled .sila-input__password-toggle {
+  cursor: not-allowed;
+  color: var(--sila-text-subtle);
+}

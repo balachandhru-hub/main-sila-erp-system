@@ -1,0 +1,283 @@
+/* Department & Cost Center List — standalone master-data page.
+   Controls, table, modal and states use the shared .sila-* classes; the rules below only
+   add layout and a few scoped overrides. */
+
+.dcl-page-container {
+  min-height: 100vh;
+  background: var(--sila-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.dcl-top-header {
+  display: flex;
+  align-items: center;
+  height: var(--sila-topbar-height);
+  padding: 0 var(--sila-page-padding-x);
+  background: var(--sila-surface);
+  border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.dcl-top-logo {
+  height: 1.75rem;
+  width: auto;
+}
+
+.dcl-content-wrapper {
+  flex: 1;
+  width: 100%;
+  max-width: 75rem;
+  margin: 0 auto;
+  padding: var(--sila-page-padding-y) var(--sila-page-padding-x);
+  box-sizing: border-box;
+}
+
+.dcl-close-btn {
+  flex-shrink: 0;
+}
+
+/* ---- Filter toolbar -------------------------------------------------- */
+
+.dcl-filters-bar {
+  justify-content: flex-start;
+}
+
+.dcl-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  width: 100%;
+  max-width: 22.5rem;
+}
+
+.dcl-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dcl-form-select {
+  box-sizing: border-box;
+  padding-right: 3.75rem;
+}
+
+.dcl-clear-select-btn {
+  position: absolute;
+  right: 1.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  font-size: var(--sila-text-2xs);
+  color: var(--sila-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.dcl-clear-select-btn:hover {
+  color: var(--sila-text);
+  background: var(--sila-surface-hover);
+}
+
+/* ---- Alerts / toast -------------------------------------------------- */
+
+.dcl-error-banner {
+  align-items: center;
+  padding-bottom: var(--sila-space-4);
+  color: var(--sila-danger-strong);
+}
+
+.dcl-error-icon {
+  flex-shrink: 0;
+  color: var(--sila-danger);
+}
+
+.dcl-toast {
+  position: fixed;
+  top: var(--sila-space-4);
+  right: var(--sila-space-4);
+  z-index: var(--sila-z-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  max-width: 25rem;
+  padding: var(--sila-space-3) var(--sila-space-4);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  border: 0.0625rem solid;
+  border-radius: var(--sila-radius);
+  box-shadow: var(--sila-shadow-md);
+  animation: dcl-toast-in var(--sila-duration) var(--sila-ease);
+}
+
+@keyframes dcl-toast-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dcl-toast-error {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger-strong);
+  border-color: var(--sila-danger-border);
+}
+
+.dcl-toast-success {
+  background: var(--sila-success-soft);
+  color: var(--sila-success-strong);
+  border-color: var(--sila-success-border);
+}
+
+.dcl-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: var(--sila-text-xs);
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.dcl-toast-close:hover,
+.dcl-toast-close:focus-visible {
+  opacity: 1;
+}
+
+/* ---- Table card ------------------------------------------------------ */
+
+.dcl-table-section {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+}
+
+.dcl-loading-container {
+  padding: var(--sila-space-12) var(--sila-space-6);
+}
+
+.dcl-table-wrapper {
+  overflow-x: auto;
+}
+
+.dcl-table {
+  min-width: 37.5rem;
+}
+
+.dcl-th-dept { width: 32%; }
+.dcl-th-cc { width: 44%; }
+
+.dcl-table .dcl-th-edit,
+.dcl-table .dcl-th-delete,
+.dcl-table .dcl-td-edit,
+.dcl-table .dcl-td-delete {
+  width: 12%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Department / action cells span every cost-center row */
+.dcl-table .dcl-td-dept,
+.dcl-table .dcl-td-edit,
+.dcl-table .dcl-td-delete {
+  vertical-align: top;
+  padding-top: var(--sila-space-2);
+  border-right: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.dcl-table .dcl-td-delete {
+  border-right: 0;
+}
+
+.dcl-dept-name {
+  display: inline-block;
+  padding-top: var(--sila-space-1-5);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.dcl-cc-name {
+  font-size: var(--sila-text-sm);
+}
+
+.dcl-table tbody tr.dcl-row-editing td {
+  background: var(--sila-primary-soft);
+}
+
+.dcl-edit-input {
+  box-sizing: border-box;
+  height: var(--sila-control-height-sm);
+  min-width: 7.5rem;
+  font-size: var(--sila-text-sm);
+}
+
+.dcl-cc-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.dcl-edit-actions {
+  display: inline-flex;
+  gap: var(--sila-space-1);
+}
+
+.dcl-table .dcl-delete-btn:hover:not(:disabled),
+.dcl-table .dcl-cc-delete-btn:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+}
+
+.dcl-table td.dcl-no-data {
+  height: auto;
+  padding: 0;
+}
+
+.dcl-no-cc {
+  font-style: italic;
+  color: var(--sila-text-muted);
+}
+
+/* ---- Delete confirmation --------------------------------------------- */
+
+.dcl-popup {
+  max-width: 27.5rem;
+}
+
+.dcl-popup-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+}
+
+.dcl-popup-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--sila-radius);
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+  font-size: var(--sila-text-md);
+}
+
+@media (max-width: 48rem) {
+  .dcl-filter-group {
+    max-width: none;
+  }
+}

@@ -1,0 +1,458 @@
+/* Create user dialog — matches .sila-overlay / .sila-modal. */
+
+.nad-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-6);
+  background: rgba(15, 23, 42, 0.45);
+  animation: nad-fade-in var(--sila-duration) var(--sila-ease);
+}
+
+@keyframes nad-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.nad-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 40rem;
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+  animation: nad-modal-in var(--sila-duration-slow) var(--sila-ease);
+}
+
+@keyframes nad-modal-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+.nad-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface);
+  flex-shrink: 0;
+}
+
+.nad-modal-title {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.nad-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-md);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.nad-modal-close:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.nad-modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.nad-modal-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.nad-modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+}
+
+.nad-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sila-space-5);
+}
+
+.nad-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-5);
+  padding-bottom: var(--sila-space-4);
+}
+
+.nad-modal-body > .nad-form-group {
+  padding-bottom: var(--sila-space-4);
+}
+
+.nad-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+}
+
+.nad-form-row:last-child {
+  margin-bottom: 0;
+}
+
+.nad-form-row:last-child .nad-form-group {
+  grid-column: auto;
+}
+
+.nad-label {
+  display: block;
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text-secondary);
+}
+
+.nad-required {
+  padding-left: 0.125rem;
+  color: var(--sila-danger);
+  font-weight: var(--sila-weight-semibold);
+}
+
+.nad-input,
+.nad-select-trigger {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  box-shadow: var(--sila-shadow-xs);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+  outline: none;
+  transition: var(--sila-transition);
+}
+
+.nad-input::placeholder,
+.nad-search-field::placeholder {
+  color: var(--sila-text-subtle);
+}
+
+.nad-input:hover:not(:disabled),
+.nad-select-trigger:hover:not(:disabled) {
+  border-color: var(--sila-text-subtle);
+}
+
+.nad-input:focus,
+.nad-select-trigger:focus,
+.nad-select-trigger:focus-visible {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.nad-input:disabled,
+.nad-select-trigger:disabled {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.nad-input.error,
+.nad-select-trigger.error,
+.nad-input[aria-invalid="true"] {
+  border-color: var(--sila-danger);
+}
+
+.nad-input.error:focus,
+.nad-select-trigger.error:focus {
+  box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.nad-error-text {
+  margin: 0;
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-danger);
+}
+
+/* ---- Country combobox ------------------------------------------------- */
+
+.nad-country-select {
+  position: relative;
+  width: 100%;
+}
+
+.nad-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nad-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sila-text);
+}
+
+.nad-select-icon {
+  flex-shrink: 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  transition: transform var(--sila-duration-fast) var(--sila-ease);
+}
+
+.nad-select-icon.open {
+  transform: rotate(180deg);
+  color: var(--sila-primary);
+}
+
+.nad-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: var(--sila-z-dropdown);
+  overflow: hidden;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-lg);
+}
+
+.nad-search-countries-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--sila-space-2);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+}
+
+.nad-search-countries-wrapper .nad-search-icon {
+  position: absolute;
+  left: 1.125rem;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-subtle);
+  pointer-events: none;
+}
+
+.nad-search-field {
+  width: 100%;
+  height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-3) 0 1.875rem;
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+  outline: none;
+  transition: var(--sila-transition);
+}
+
+.nad-search-field:focus {
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.nad-options-list {
+  max-height: 16.25rem;
+  overflow-y: auto;
+  padding: var(--sila-space-1);
+}
+
+.nad-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.125rem;
+  padding: 0 var(--sila-space-3);
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.nad-option:hover,
+.nad-option:focus-visible {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+  outline: none;
+}
+
+.nad-option.selected {
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+}
+
+.nad-country-code {
+  padding-left: var(--sila-space-2);
+  font-family: var(--sila-font-mono);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.nad-no-results {
+  padding: var(--sila-space-6) var(--sila-space-3);
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.nad-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-4);
+  color: var(--sila-primary);
+}
+
+/* ---- Password reveal ------------------------------------------------- */
+
+.nad-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.nad-password-wrapper .nad-input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 2.5rem;
+}
+
+.nad-password-wrapper input::-ms-reveal,
+.nad-password-wrapper input::-ms-clear {
+  display: none;
+}
+
+.nad-password-wrapper input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
+.nad-toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-md);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: var(--sila-transition);
+}
+
+.nad-toggle-password:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.nad-toggle-password:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---- Footer ---------------------------------------------------------- */
+
+.nad-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+  flex-shrink: 0;
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+}
+
+/* Buttons also carry sila-btn classes; these keep the legacy names aligned. */
+.nad-modal-footer .nad-btn-cancel,
+.nad-modal-footer .nad-btn-submit {
+  min-width: 6rem;
+}
+
+@media (max-width: 37.5rem) {
+  .nad-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .nad-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: var(--sila-radius-lg) var(--sila-radius-lg) 0 0;
+  }
+
+  .nad-form-row {
+    grid-template-columns: 1fr;
+    gap: var(--sila-space-4);
+  }
+
+  .nad-modal-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .nad-modal-footer .nad-btn-cancel,
+  .nad-modal-footer .nad-btn-submit {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nad-modal-overlay,
+  .nad-modal {
+    animation: none;
+  }
+}

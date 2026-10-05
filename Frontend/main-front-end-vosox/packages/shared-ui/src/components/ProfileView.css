@@ -1,0 +1,167 @@
+/* Personal profile page (shared by every remote's profile route).
+   Rendered inside the AppShell content area, so no page padding/background here.
+   Keep all selectors under .profile-*. */
+
+.profile-page {
+  width: 100%;
+  max-width: 60rem;
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+}
+
+/* ---- Header ---------------------------------------------------------- */
+.profile-header {
+  align-items: center;
+}
+
+.profile-banner-name {
+  align-items: center;
+}
+
+.profile-back-btn {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  min-width: 3rem;
+  border-radius: 50%;
+  background: var(--sila-primary-soft);
+  border: 0.0625rem solid var(--sila-primary-border);
+  font-size: var(--sila-text-xl);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+}
+
+.profile-hero-text {
+  min-width: 0;
+}
+
+.profile-hero-name {
+  overflow-wrap: anywhere;
+}
+
+.profile-hero-sub {
+  padding-top: 0.125rem;
+  overflow-wrap: anywhere;
+}
+
+.profile-role-pill {
+  text-transform: none;
+}
+
+/* ---- Section card ---------------------------------------------------- */
+.profile-section-card {
+  overflow: hidden;
+}
+
+.profile-section-header {
+  align-items: center;
+}
+
+.profile-edit-btn svg,
+.profile-update-btn svg,
+.profile-cancel-btn svg {
+  flex-shrink: 0;
+}
+
+.profile-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-5) var(--sila-space-6);
+  margin: 0;
+  padding: var(--sila-space-5);
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+}
+
+/* Read-only view: label/value pairs */
+.profile-field-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1-5);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.profile-field-icon {
+  display: inline-flex;
+  color: var(--sila-text-subtle);
+}
+
+.profile-field-value {
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.profile-field-value--empty {
+  color: var(--sila-text-subtle);
+  font-weight: var(--sila-weight-regular);
+}
+
+/* Edit footer */
+.profile-edit-actions {
+  gap: var(--sila-space-2);
+}
+
+/* ---- Loading / error ------------------------------------------------- */
+.profile-page-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-5);
+}
+
+.profile-skeleton-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+}
+
+.profile-skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+}
+
+.profile-page-error {
+  overflow: hidden;
+}
+
+/* ---- Responsive ------------------------------------------------------ */
+@media (max-width: 40rem) {
+  .profile-fields-grid {
+    grid-template-columns: 1fr;
+    gap: var(--sila-space-4);
+    padding: var(--sila-space-4);
+  }
+
+  .profile-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    font-size: var(--sila-text-lg);
+  }
+
+  .profile-edit-actions {
+    justify-content: stretch;
+  }
+
+  .profile-edit-actions > .sila-btn {
+    flex: 1;
+  }
+}

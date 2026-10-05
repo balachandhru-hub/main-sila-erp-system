@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+   <ItemGroup>
+    <ProjectReference Include="..\Buyer.Domain\Buyer.Domain.csproj" />
+      <ProjectReference Include="..\..\..\Platform\SharedKernel\SharedKernel.csproj" />
+    <ProjectReference Include="..\Buyer.Infrastructure\Buyer.Infrastructure.csproj" />
+    
+  </ItemGroup>
+   <ItemGroup>
+     <PackageReference Include="ClosedXML" Version="0.105.0" />
+     <PackageReference Include="MediatR" Version="12.4.1" />
+     <PackageReference Include="Quartz" Version="3.18.2" />
+   </ItemGroup>
+
+</Project>

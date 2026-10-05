@@ -1,0 +1,248 @@
+/* Item Master — standalone master-data page.
+   Controls, table, modal and states use the shared .sila-* classes; the rules below only
+   add layout and a few scoped overrides. */
+
+.im-page-container {
+  min-height: 100vh;
+  background: var(--sila-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.im-top-header {
+  display: flex;
+  align-items: center;
+  height: var(--sila-topbar-height);
+  padding: 0 var(--sila-page-padding-x);
+  background: var(--sila-surface);
+  border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.im-top-logo {
+  height: 1.75rem;
+  width: auto;
+}
+
+.im-content-wrapper {
+  flex: 1;
+  width: 100%;
+  max-width: 75rem;
+  margin: 0 auto;
+  padding: var(--sila-page-padding-y) var(--sila-page-padding-x);
+  box-sizing: border-box;
+}
+
+.im-close-btn {
+  flex-shrink: 0;
+}
+
+/* ---- Create form card ---------------------------------------------- */
+
+.im-form-section {
+  margin-bottom: var(--sila-space-4);
+  padding: var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.im-section-title {
+  padding: 0 0 var(--sila-space-4);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.im-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.im-form-group {
+  margin: 0;
+}
+
+.im-form-input {
+  box-sizing: border-box;
+}
+
+.im-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  margin-top: var(--sila-space-5);
+  padding-top: var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.im-file-input {
+  display: none;
+}
+
+/* ---- Toast ----------------------------------------------------------- */
+
+.im-toast {
+  position: fixed;
+  top: var(--sila-space-4);
+  right: var(--sila-space-4);
+  z-index: var(--sila-z-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  max-width: 25rem;
+  padding: var(--sila-space-3) var(--sila-space-4);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  border: 0.0625rem solid;
+  border-radius: var(--sila-radius);
+  box-shadow: var(--sila-shadow-md);
+  animation: im-toast-in var(--sila-duration) var(--sila-ease);
+}
+
+@keyframes im-toast-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.im-toast-error {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger-strong);
+  border-color: var(--sila-danger-border);
+}
+
+.im-toast-success {
+  background: var(--sila-success-soft);
+  color: var(--sila-success-strong);
+  border-color: var(--sila-success-border);
+}
+
+.im-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: var(--sila-text-xs);
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.im-toast-close:hover,
+.im-toast-close:focus-visible {
+  opacity: 1;
+}
+
+/* ---- Table card ------------------------------------------------------ */
+
+.im-table-section {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+}
+
+.im-loading-container {
+  padding: var(--sila-space-12) var(--sila-space-6);
+}
+
+.im-table-wrapper {
+  overflow-x: auto;
+}
+
+.im-table {
+  min-width: 40rem;
+}
+
+.im-th-desc { width: 34%; }
+.im-th-code { width: 22%; }
+.im-th-group { width: 24%; }
+
+.im-table .im-th-edit,
+.im-table .im-th-delete,
+.im-table .im-td-edit,
+.im-table .im-td-delete {
+  width: 10%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.im-td-desc {
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.im-td-group {
+  color: var(--sila-text-secondary);
+}
+
+.im-table tbody tr.im-row-editing td {
+  background: var(--sila-primary-soft);
+}
+
+.im-edit-input {
+  box-sizing: border-box;
+  height: var(--sila-control-height-sm);
+  min-width: 7.5rem;
+  font-size: var(--sila-text-sm);
+}
+
+.im-edit-actions {
+  display: inline-flex;
+  gap: var(--sila-space-1);
+}
+
+.im-table .im-delete-btn:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+}
+
+.im-table td.im-no-data {
+  height: auto;
+  padding: 0;
+}
+
+/* ---- Delete confirmation --------------------------------------------- */
+
+.im-popup {
+  max-width: 26.25rem;
+}
+
+.im-popup-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+}
+
+.im-popup-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--sila-radius);
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+  font-size: var(--sila-text-md);
+}
+
+@media (max-width: 48rem) {
+  .im-form-actions {
+    justify-content: stretch;
+  }
+
+  .im-form-actions .im-btn-create,
+  .im-form-actions .im-btn-upload {
+    flex: 1 1 100%;
+  }
+}

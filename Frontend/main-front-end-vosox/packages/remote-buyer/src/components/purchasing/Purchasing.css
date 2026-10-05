@@ -1,0 +1,26 @@
+/* Purchasing dashboard and purchase order list. */
+
+.pdash-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-5);
+  font-family: var(--sila-font);
+}
+
+.pdash-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: var(--sila-space-4);
+}
+
+.pdash-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: var(--sila-space-5);
+}
+
+.pdash-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}

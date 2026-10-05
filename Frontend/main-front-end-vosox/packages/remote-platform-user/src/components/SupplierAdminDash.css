@@ -1,0 +1,1262 @@
+.sad-shell {
+    display: flex;
+    min-height: 100vh;
+    background: var(--sila-bg);
+    font-family: var(--sila-font);
+    color: var(--sila-text);
+}
+
+.sad-sidebar {
+    display: none !important;
+    width: 15.5rem;
+    background: var(--sila-surface);
+    border-right: 0.0625rem solid var(--sila-border);
+    flex-direction: column;
+    z-index: 100;
+    overflow-y: auto;
+    transition: width 0.3s ease, padding 0.3s ease, border 0.3s ease;
+}
+
+.sad-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sad-logo-img {
+    height: 4rem;
+    width: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.sad-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.75rem 0.75rem;
+}
+
+.sad-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    color: var(--sila-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+}
+
+.sad-nav-item:hover {
+    background: var(--sila-surface-hover);
+}
+
+.sad-nav-item-active {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+.sad-nav-item-active:hover {
+    background: var(--sila-primary);
+}
+
+.sad-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sad-nav-label {
+    flex: 1;
+}
+
+.sad-nav-badge {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 62.4375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3125rem;
+}
+
+.sad-nav-item-active .sad-nav-badge {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.sad-nav-item-logout {
+    color: var(--sila-danger);
+    margin-top: auto;
+}
+
+.sad-nav-item-logout:hover {
+    background: var(--sila-danger-soft);
+    color: var(--sila-danger-hover);
+}
+
+.sad-nav-item-logout .sad-nav-icon {
+    color: var(--sila-danger);
+}
+
+.sad-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sad-content {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-4);
+}
+
+
+/* ======================================================================
+   Page content (runs inside the shared AppShell content area)
+   ====================================================================== */
+
+/* Card that wraps the All RFQs list */
+.sad-border {
+    padding: var(--sila-space-5);
+    background-color: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.sad-catalog-view {
+    min-width: 0;
+}
+
+.sad-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-4);
+}
+
+.sad-border .sad-row-clickable {
+    cursor: pointer;
+}
+
+.sad-border .sad-row-clickable:focus-visible {
+    outline: 0.125rem solid var(--sila-primary);
+    outline-offset: -0.125rem;
+}
+
+.sad-border .sad-cell-sno {
+    color: var(--sila-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.sad-border .sad-cell-strong {
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text);
+}
+
+.sad-rfq-row:focus-visible {
+    outline: 0.125rem solid var(--sila-primary);
+    outline-offset: -0.125rem;
+}
+/* ======================================================================
+   Page content (runs inside the shared AppShell content area)
+   ====================================================================== */
+
+/* Card that wraps list pages (All RFQs, Material, Contract) */
+
+.sad-table-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sila-space-4);
+    padding-bottom: var(--sila-space-4);
+}
+
+.sad-page-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1);
+}
+
+.sad-title {
+    padding: 0 0 var(--sila-space-1) 0;
+    font-family: var(--sila-font);
+    font-size: var(--sila-text-2xl);
+    font-weight: var(--sila-weight-semibold);
+    line-height: var(--sila-leading-tight);
+    letter-spacing: -0.01em;
+    color: var(--sila-text);
+}
+
+.sad-page-header .sad-title {
+    margin: 0;
+}
+
+.sad-subtitle {
+    margin: 0;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-regular);
+    color: var(--sila-text-muted);
+}
+
+/* Loading / empty / error states */
+.sad-state-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 15rem;
+}
+
+.sad-state-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sila-space-2);
+    text-align: center;
+    font-size: var(--sila-text-md);
+    color: var(--sila-text-muted);
+}
+
+.sad-state-message {
+    padding: var(--sila-space-6);
+    text-align: center;
+    font-size: var(--sila-text-md);
+    color: var(--sila-text-muted);
+}
+
+.sad-state-inner.sad-state-error,
+.sad-state-message.sad-state-error {
+    color: var(--sila-danger);
+}
+
+.sad-panel-list.sad-panel-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 11.25rem;
+    padding: var(--sila-space-4);
+}
+
+/* ---------- KPI cards (sila-kpi look, one neutral icon tile) ---------- */
+.sad-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
+    gap: var(--sila-space-4);
+}
+
+.sad-stat-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1);
+    min-width: 0;
+    padding: var(--sila-space-4) var(--sila-space-5);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    overflow: hidden;
+    transition: var(--sila-transition);
+}
+
+button.sad-stat-card {
+    cursor: pointer;
+}
+
+button.sad-stat-card:hover {
+    border-color: var(--sila-primary-border);
+    box-shadow: var(--sila-shadow-sm);
+}
+
+button.sad-stat-card:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.sad-stat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-2);
+}
+
+.sad-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-muted);
+}
+
+.sad-stat-icon svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Legacy colour variants all resolve to the same neutral tile */
+.sad-stat-icon-blue .sad-stat-icon,
+.sad-stat-icon-indigo .sad-stat-icon,
+.sad-stat-icon-green .sad-stat-icon,
+.sad-stat-icon-purple .sad-stat-icon,
+.sad-stat-icon-orange .sad-stat-icon,
+.sad-stat-icon-teal .sad-stat-icon,
+.sad-stat-icon.sad-stat-icon-blue,
+.sad-stat-icon.sad-stat-icon-indigo,
+.sad-stat-icon.sad-stat-icon-green,
+.sad-stat-icon.sad-stat-icon-purple,
+.sad-stat-icon.sad-stat-icon-orange,
+.sad-stat-icon.sad-stat-icon-teal {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-muted);
+}
+
+/* Small overline label */
+.sad-stat-label {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--sila-text-muted);
+}
+
+.sad-stat-value {
+    font-size: var(--sila-text-3xl);
+    font-weight: var(--sila-weight-semibold);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text);
+}
+
+.sad-stat-link {
+    padding-top: var(--sila-space-1);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-primary);
+    text-decoration: none;
+}
+
+/* ---------- All RFQs pagination (matches .sila-pagination) ---------- */
+
+/* ---------- Dashboard panels ---------- */
+.sad-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sila-space-4);
+}
+
+.sad-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    overflow: hidden;
+}
+
+.sad-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-3);
+    min-height: 3.25rem;
+    padding: var(--sila-space-3) var(--sila-space-5);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sad-panel-title {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.sad-panel-subtitle {
+    padding-top: 0.125rem;
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.sad-panel-link {
+    flex-shrink: 0;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-primary);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.sad-panel-link:hover {
+    text-decoration: underline;
+}
+
+.sad-panel-list {
+    display: flex;
+    flex-direction: column;
+}
+
+/* RFQ list rows */
+
+/* Purchase order rows */
+.sad-po-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-4);
+    padding: var(--sila-space-3) var(--sila-space-5);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+    transition: var(--sila-transition);
+}
+
+.sad-po-row:first-child {
+    border-top: none;
+}
+
+.sad-po-row:hover {
+    background: var(--sila-surface-subtle);
+}
+
+.sad-po-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1);
+    min-width: 0;
+}
+
+.sad-po-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-2);
+}
+
+.sad-po-code {
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text);
+}
+
+/* Colours come from StatusBadge */
+.sad-status-badge {
+    white-space: nowrap;
+}
+
+.sad-po-company {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text);
+}
+
+.sad-po-date {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1);
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.sad-po-date svg {
+    width: 0.8125rem;
+    height: 0.8125rem;
+    color: var(--sila-text-subtle);
+}
+
+.sad-po-right {
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.sad-po-amount {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text);
+}
+
+.sad-po-process {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-primary);
+    text-decoration: none;
+}
+
+.sad-po-process:hover {
+    text-decoration: underline;
+}
+
+/* ---------- Buttons ---------- */
+.sad-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-2);
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-4);
+    border: 0.0625rem solid transparent;
+    border-radius: var(--sila-radius);
+    font-family: inherit;
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.sad-btn svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    flex-shrink: 0;
+}
+
+.sad-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.sad-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sad-btn-outline {
+    width: fit-content;
+    background: var(--sila-surface);
+    border-color: var(--sila-border-strong);
+    color: var(--sila-text-secondary);
+}
+
+.sad-btn-outline:hover:not(:disabled) {
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text);
+}
+
+.sad-btn-flex {
+    flex: 1;
+}
+
+.sad-btn-message,
+.sad-btn-interest {
+    background: var(--sila-primary);
+    border-color: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+.sad-btn-message:hover:not(:disabled),
+.sad-btn-interest:hover:not(:disabled) {
+    background: var(--sila-primary-hover);
+    border-color: var(--sila-primary-hover);
+}
+
+/* ---------- Supplier network (match cards) ---------- */
+.sad-matchmaker {
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    overflow: hidden;
+}
+
+.sad-matchmaker-header {
+    padding: var(--sila-space-3) var(--sila-space-5);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sad-matchmaker-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+}
+
+.sad-matchmaker-icon {
+    display: inline-flex;
+    color: var(--sila-text-muted);
+}
+
+.sad-matchmaker-icon svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.sad-matchmaker-title {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.sad-matchmaker-subtitle {
+    padding-top: 0.125rem;
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.sad-match-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+    gap: var(--sila-space-4);
+    padding: var(--sila-space-4) var(--sila-space-5);
+}
+
+.sad-match-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-3);
+    padding: var(--sila-space-4);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    transition: var(--sila-transition);
+}
+
+.sad-match-card:hover {
+    border-color: var(--sila-border-strong);
+}
+
+.sad-match-location {
+    position: absolute;
+    top: var(--sila-space-4);
+    right: var(--sila-space-4);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1);
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.sad-match-location svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.sad-match-top {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-3);
+    padding-right: 6rem;
+}
+
+.sad-match-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--sila-radius);
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.sad-match-name {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.sad-match-seeking {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1);
+    padding-top: 0.125rem;
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.sad-match-seeking svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.sad-match-desc {
+    margin: 0;
+    font-size: var(--sila-text-sm);
+    line-height: var(--sila-leading);
+    color: var(--sila-text-secondary);
+}
+
+.sad-match-rep-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-1);
+    font-size: var(--sila-text-xs);
+}
+
+.sad-match-rep-label {
+    color: var(--sila-text-muted);
+}
+
+.sad-match-rep-name {
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text);
+}
+
+.sad-match-actions {
+    display: flex;
+    gap: var(--sila-space-2);
+    margin-top: auto;
+}
+
+.sad-pagination {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sila-space-2);
+    padding: 0 var(--sila-space-5) var(--sila-space-4);
+}
+
+.sad-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--sila-control-height-sm);
+    height: var(--sila-control-height-sm);
+    padding: 0;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface);
+    color: var(--sila-text-secondary);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.sad-page-btn:hover:not(:disabled) {
+    background: var(--sila-surface-hover);
+}
+
+.sad-page-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.sad-page-btn-disabled,
+.sad-page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.sad-page-btn-active {
+    border-color: var(--sila-primary-border);
+    color: var(--sila-primary);
+}
+
+/* ---------- Modal (profile / quotation comparison page) ---------- */
+.sad-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--sila-z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sila-space-6);
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.sad-modal {
+    width: 100%;
+    max-width: 38.75rem;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-lg);
+    box-shadow: var(--sila-shadow-lg);
+}
+
+.sad-modal-header {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-2);
+    padding: var(--sila-space-4) var(--sila-space-5);
+    padding-right: 3.5rem;
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sad-modal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    width: fit-content;
+    height: 1.375rem;
+    padding: 0 var(--sila-space-2);
+    border: 0.0625rem solid var(--sila-primary-border);
+    border-radius: var(--sila-radius-full);
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.sad-modal-badge svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.sad-modal-close {
+    position: absolute;
+    top: var(--sila-space-3);
+    right: var(--sila-space-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--sila-control-height-sm);
+    height: var(--sila-control-height-sm);
+    padding: 0;
+    border: none;
+    border-radius: var(--sila-radius);
+    background: transparent;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.sad-modal-close svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.sad-modal-close:hover {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text);
+}
+
+.sad-modal-close:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.sad-modal-name {
+    margin: 0;
+    font-size: var(--sila-text-xl);
+    font-weight: var(--sila-weight-semibold);
+    line-height: var(--sila-leading-tight);
+    color: var(--sila-text);
+}
+
+.sad-modal-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-2) var(--sila-space-4);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+
+.sad-modal-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1);
+}
+
+.sad-modal-meta svg {
+    width: 0.8125rem;
+    height: 0.8125rem;
+}
+
+.sad-modal-body {
+    padding: var(--sila-space-5);
+}
+
+.sad-modal-section-title {
+    padding: 0 0 var(--sila-space-2);
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.sad-modal-desc {
+    padding: 0 0 var(--sila-space-5);
+    font-size: var(--sila-text-md);
+    line-height: var(--sila-leading);
+    color: var(--sila-text-secondary);
+}
+
+.sad-modal-analytics {
+    margin-bottom: var(--sila-space-5);
+    padding: var(--sila-space-4);
+    border: 0.0625rem solid var(--sila-border-subtle);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface-subtle);
+}
+
+.sad-modal-analytics-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding-bottom: var(--sila-space-3);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.sad-modal-analytics-title svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    color: var(--sila-text-muted);
+}
+
+.sad-modal-analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sila-space-4);
+}
+
+.sad-modal-analytics-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sila-space-2);
+}
+
+.sad-modal-check {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--sila-success);
+}
+
+.sad-modal-check svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.sad-modal-analytics-label,
+.sad-modal-info-label {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+}
+
+.sad-modal-analytics-value,
+.sad-modal-info-value {
+    padding-top: 0.125rem;
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text);
+}
+
+.sad-modal-analytics-note {
+    padding-top: 0.125rem;
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.sad-modal-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sila-space-4) var(--sila-space-6);
+}
+
+.sad-modal-info-link {
+    font-size: var(--sila-text-sm);
+    color: var(--sila-primary);
+    text-decoration: none;
+}
+
+.sad-modal-info-link:hover {
+    text-decoration: underline;
+}
+
+.sad-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--sila-space-2);
+    padding: var(--sila-space-3) var(--sila-space-5);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+    background: var(--sila-surface-subtle);
+    border-radius: 0 0 var(--sila-radius-lg) var(--sila-radius-lg);
+}
+
+.sad-modal-footer-btn {
+    min-width: 10rem;
+}
+
+/* ---------- Legacy shell pieces (sidebar toggle is unused inside AppShell) ---------- */
+
+/* ---------- Full-page RFQ / docs ---------- */
+
+
+.sad-col-sno {
+    width: 3rem;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 64rem) {
+    .sad-panels {
+        grid-template-columns: 1fr;
+    }
+
+    .sad-main,
+    .sad-content {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 48rem) {
+
+    .sad-po-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sad-po-right {
+        text-align: left;
+    }
+
+    .sad-match-top {
+        padding-right: 0;
+    }
+
+    .sad-match-location {
+        position: static;
+    }
+
+    .sad-match-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .sad-match-actions .sad-btn {
+        width: 100%;
+    }
+
+    .sad-modal-overlay {
+        padding: var(--sila-space-4);
+    }
+
+    .sad-modal-analytics-grid,
+    .sad-modal-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sad-modal-header,
+    .sad-modal-body,
+    .sad-modal-footer {
+        padding-left: var(--sila-space-4);
+        padding-right: var(--sila-space-4);
+    }
+}
+
+.pud-pagination {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 1.25rem;
+}
+
+.pud-page-btn {
+    width: 2.125rem;
+    height: 2.125rem;
+    border-radius: 50%;
+    border: 0.0625rem solid var(--sila-border);
+    background: var(--sila-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--sila-text-muted);
+}
+
+.pud-page-btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pud-page-btn-active {
+    background: var(--sila-primary);
+    border-color: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+.pud-page-number {
+    font-size: 0.8125rem;
+    padding: 0 0.375rem;
+}
+
+
+.sad-dashboard-header .pud-title {
+    font-family: var(--sila-font);
+    font-size: 1.4375rem;
+    font-weight: 500;
+    color: var(--sila-text);
+    letter-spacing: -0.02em;
+    padding: 0 0 0.375rem 0;
+}
+
+.pud-subtitle {
+    font-size: 0.9375rem;
+    color: var(--sila-text-muted);
+}
+
+.pud-btn-flex {
+    flex: 1;
+}
+
+.pud-btn-interest {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+.pud-btn-interest:hover {
+    background: var(--sila-primary);
+}
+
+.pud-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    color: var(--sila-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+}
+
+.pud-nav-item:hover {
+    background: var(--sila-surface-hover);
+}
+
+.pud-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pud-nav-label {
+    flex: 1;
+}
+
+.pud-nav-chevron {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+    color: inherit;
+}
+
+.pud-nav-subgroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.125rem 0 0.375rem 1.375rem;
+}
+
+.pud-nav-subitem {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    color: #5b6472;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-left: 0.125rem solid var(--sila-border);
+}
+
+.pud-nav-subitem:hover {
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+    border-left-color: var(--sila-primary);
+}
+
+.pud-nav-subitem-count {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 62.4375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3125rem;
+    margin-left: auto;
+}
+
+.pud-allrfqs-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    padding: 0.75rem 0;
+}
+
+.pud-allrfqs-page-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: 0.375rem;
+
+    background: var(--sila-surface);
+    color: var(--sila-text-secondary);
+
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pud-allrfqs-page-btn:hover:not(:disabled) {
+    background: var(--sila-primary-soft);
+    border-color: var(--sila-primary);
+    color: var(--sila-primary);
+}
+
+.pud-allrfqs-page-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.pud-allrfqs-page-number {
+    min-width: 4.375rem;
+    text-align: center;
+
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sila-text-secondary);
+}
+
+.ua-table {
+    background-color: var(--sila-surface);
+}
+
+.ua-table-body tr {
+    cursor: pointer;
+}
+
+
+@media (max-width: 30rem) {
+    .profile-banner {
+        align-items: center;
+    }
+}

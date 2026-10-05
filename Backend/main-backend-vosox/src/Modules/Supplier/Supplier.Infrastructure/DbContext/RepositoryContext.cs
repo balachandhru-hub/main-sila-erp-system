@@ -1,0 +1,166 @@
+using Microsoft.EntityFrameworkCore;
+using SharedKernel.Integration.Entities;
+using Supplier.Domain.Entities;
+using SharedKernel.Models;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.Configuration;
+using SharedKernel.Util;
+using Supplier.Domain.Common;
+
+namespace Supplier.Infrastructure.DbContext
+{
+    public class RepositoryContext : Microsoft.EntityFrameworkCore.DbContext
+    {
+        private readonly IConfiguration _configuration;
+
+        public RepositoryContext(DbContextOptions<RepositoryContext> options, IConfiguration configuration)
+            : base(options)
+        {
+            _configuration = configuration;
+        }
+
+        
+        public DbSet<SupplierBankAccount> SupplierBankAccount { get; set; }
+        public DbSet<SupplierBusinessProfile> SupplierBusinessProfile { get; set; }
+        public DbSet<SupplierDispatchLocation> SupplierDispatchLocation { get; set; }
+       public DbSet<SupplierRegistration> SupplierRegistration { get; set; }
+       public DbSet<Asset>Assets {get;set;}
+       public DbSet<SupplierCatalog> SupplierCatalog {get;set;}
+       public DbSet<CatalogAssetMapping> CatalogAssetMapping {get;set;}
+       public DbSet<SupplierRFQ> SupplierRFQ {get;set;}
+       public DbSet<SupplierRFQItem> SupplierRFQItem {get;set;}
+       public DbSet<SupplierQuotation> SupplierQuotation {get;set;}
+       public DbSet<SupplierQuotationItem> SupplierQuotationItem {get;set;}
+        public DbSet<RFQSupplierMapping> RFQSupplierMapping {get;set;}
+        public DbSet<SupplierRFQQuestionAnswer> SupplierRFQQuestionAnswer {get;set;}
+        public DbSet<SupplierRFQAnswerOption> SupplierRFQAnswerOption {get;set;}
+        public DbSet<SupplierCategory> SupplierCategory {get;set;}
+
+        public DbSet<SupplierVerificationAnswer> SupplierVerificationAnswer { get; set; }
+        public DbSet<SupplierVerificationAnswerOption> SupplierVerificationAnswerOption { get; set; }
+        public DbSet<SupplierEmailVerification> SupplierEmailVerification{get;set;}
+        public DbSet<SupplierQuotationHistory> SupplierQuotationHistory { get; set; }
+        public DbSet<SupplierQuotationItemHistory> SupplierQuotationItemHistory { get; set; }
+        public DbSet<RFQOrganizationUserMapping> RFQOrganizationUserMapping { get; set; }
+        public DbSet<RFQAttachmentMapping> RFQAttachmentMapping { get; set; }
+        public DbSet<SupplierErpIntegrationConfiguration> SupplierErpIntegrationConfiguration { get; set; }
+        public DbSet<SupplierPurchaseDocument> SupplierPurchaseDocument { get; set; }
+        public DbSet<ApiIntegrationConfiguration> ApiIntegrationConfiguration { get; set; }
+        public DbSet<ApiFieldMapping> ApiFieldMapping { get; set; }
+        public DbSet<ApiIntegrationExecution> ApiIntegrationExecution { get; set; }
+        public DbSet<IntegrationSchemaSnapshot> IntegrationSchemaSnapshot { get; set; }
+
+        protected override void OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder)
+        {
+            _ = modelBuilder.HasDefaultSchema(_configuration[Common.APPLICATION_SCHEMA]);
+            _ = modelBuilder.Entity<SupplierBankAccount>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierBusinessProfile>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierDispatchLocation>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierRegistration>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<Asset>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierCatalog>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<CatalogAssetMapping>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierRFQ>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierRFQItem>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierQuotation>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierQuotationItem>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<RFQSupplierMapping>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierVerificationAnswerOption>().HasIndex(a=> a.IsActive);
+            _ = modelBuilder.Entity<SupplierVerificationAnswer>().HasIndex(a=> a.IsActive);
+            _=  modelBuilder.Entity<SupplierRFQQuestionAnswer>().HasIndex(a=> a.IsActive);
+            _=  modelBuilder.Entity<SupplierRFQAnswerOption>().HasIndex(a=> a.IsActive);
+            _=  modelBuilder.Entity<SupplierCategory>().HasIndex(a=>a.IsActive);
+            _ = modelBuilder.Entity<SupplierEmailVerification>().HasIndex(a=>a.IsActive);
+            _ = modelBuilder.Entity<SupplierQuotationHistory>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierQuotationItemHistory>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<RFQOrganizationUserMapping>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<RFQAttachmentMapping>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierErpIntegrationConfiguration>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierPurchaseDocument>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<SupplierPurchaseDocument>()
+                .HasIndex(a => a.IdempotencyKey)
+                .IsUnique();
+            _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => new { a.OrganizationId, a.EntityCode, a.ProcessType }).IsUnique();
+            _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => new { a.Status, a.NextRunAt });
+            _ = modelBuilder.Entity<IntegrationSchemaSnapshot>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<ApiFieldMapping>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<ApiFieldMapping>().HasIndex(a => new { a.ConfigurationId, a.SourceField, a.TargetField }).IsUnique();
+            _ = modelBuilder.Entity<ApiIntegrationExecution>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<ApiIntegrationExecution>().HasIndex(a => new { a.ConfigurationId, a.StartedAt });
+
+                modelBuilder.Entity<SupplierQuotationItem>()
+                    .HasOne(x => x.SupplierRFQItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.SupplierRFQItemId)
+                    .OnDelete(DeleteBehavior.NoAction);
+             base.OnModelCreating(modelBuilder);
+           
+
+            foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entity in modelBuilder.Model.GetEntityTypes())
+            {
+
+                entity.SetTableName(entity.GetTableName()!.ConvertToSnakeCase());
+                var storeObjectIdentifier = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
+                foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableProperty property in entity.GetProperties())
+                {
+
+                    property.SetColumnName(property.GetColumnName(storeObjectIdentifier)!.ConvertToSnakeCase());
+                }
+
+                foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableKey key in entity.GetKeys())
+                {
+                    key.SetName(key.GetName()!.ConvertToSnakeCase());
+                }
+
+                foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableForeignKey key in entity.GetForeignKeys())
+                {
+                    key.SetConstraintName(key.GetConstraintName()!.ConvertToSnakeCase());
+                }
+
+                foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableIndex index in entity.GetIndexes())
+                {
+                    index.SetDatabaseName(index.GetDatabaseName()!.ConvertToSnakeCase());
+                }
+            }
+        }
+             public void OnBeforeSaving(Guid UserId)
+        {
+            System.Collections.Generic.IEnumerable<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry> entries = ChangeTracker.Entries();
+            foreach (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry in entries)
+            {
+                if (entry.Entity is BaseModel trackable)
+                {
+                    DateTime now = DateTime.UtcNow;
+                    Guid user = UserId;
+                    switch (entry.State)
+                    {
+                        case EntityState.Modified:
+                            trackable.DateUpdated = now;
+                            trackable.UpdatedBy = user;
+                            break;
+                        case EntityState.Added:
+                            trackable.DateCreated = now;
+                            trackable.CreatedBy = user;
+                            trackable.DateUpdated = now;
+                            trackable.UpdatedBy = user;
+                            trackable.IsActive = true;
+                            break;
+                        case EntityState.Detached:
+                            break;
+                        case EntityState.Unchanged:
+                            break;
+                        case EntityState.Deleted:
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+
+  
+
+     
+    }
+}

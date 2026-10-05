@@ -1,0 +1,408 @@
+/* SILA application shell: full-width top bar with horizontal navigation, scrolling content.
+   Rendered by <AppShell>. The document scrolls (not an inner container) so existing
+   window scroll listeners and sticky elements in pages keep working. */
+
+.sila-shell {
+  min-height: 100vh;
+  background: var(--sila-bg);
+}
+
+/* ---------------------------------------------------------------- Top bar */
+
+.sila-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--sila-z-topbar);
+  display: flex;
+  align-items: stretch;
+  gap: var(--sila-space-2);
+  height: var(--sila-topbar-height);
+  padding: 0 var(--sila-page-padding-x);
+  background: var(--sila-surface);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.sila-topbar-logo-btn {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: var(--sila-space-6);
+  padding: 0 var(--sila-space-1);
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: none;
+  cursor: pointer;
+}
+.sila-topbar-logo-btn:focus-visible { outline: none; box-shadow: var(--sila-focus-ring); }
+
+.sila-topbar-logo {
+  display: block;
+  height: 1.875rem;
+  width: auto;
+}
+
+.sila-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--sila-radius);
+  background: transparent;
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+.sila-icon-btn:hover { background: var(--sila-surface-hover); color: var(--sila-text); }
+.sila-icon-btn:focus-visible { outline: none; box-shadow: var(--sila-focus-ring); }
+
+.sila-topbar-menu-btn { display: none; align-self: center; margin-left: calc(var(--sila-space-2) * -1); }
+
+/* ---------------------------------------------------------------- Horizontal navigation */
+
+.sila-topnav {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sila-topnav::-webkit-scrollbar { display: none; }
+
+.sila-topnav-list {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sila-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sila-topnav-entry {
+  display: flex;
+}
+
+.sila-topnav-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1-5);
+  padding: 0 var(--sila-space-3);
+  border: 0;
+  background: none;
+  font-family: "DM Sans", var(--sila-font);
+  font-size: 0.8125rem;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.sila-topnav-item::after {
+  content: "";
+  position: absolute;
+  left: var(--sila-space-3);
+  right: var(--sila-space-3);
+  bottom: -0.0625rem;
+  height: 0.125rem;
+  border-radius: 0.125rem 0.125rem 0 0;
+  background: transparent;
+  transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.sila-topnav-item:hover,
+.sila-topnav-item[aria-expanded="true"] { color: var(--sila-text); }
+.sila-topnav-item:hover::after { background: var(--sila-border-strong); }
+
+.sila-topnav-item--active,
+.sila-topnav-item--active:hover {
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+}
+.sila-topnav-item--active::after,
+.sila-topnav-item--active:hover::after { background: var(--sila-primary); }
+
+.sila-topnav-item:focus-visible { outline: none; box-shadow: inset 0 0 0 0.125rem var(--sila-primary); border-radius: var(--sila-radius-sm); }
+
+.sila-topnav-chevron {
+  display: inline-flex;
+  color: var(--sila-text-subtle);
+  transition: transform var(--sila-duration) var(--sila-ease);
+}
+.sila-topnav-item[aria-expanded="true"] .sila-topnav-chevron { transform: rotate(180deg); }
+.sila-topnav-item--active .sila-topnav-chevron { color: currentColor; }
+
+.sila-topnav-menu {
+  position: fixed;
+  top: var(--sila-menu-top);
+  left: var(--sila-menu-left);
+  min-width: 13.75rem;
+  padding-top: 0.25rem;
+}
+
+.sila-menu-item--active,
+.sila-menu-item--active:hover {
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+}
+
+/* ---------------------------------------------------------------- Account menu */
+
+.sila-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  margin-left: auto;
+  padding-left: var(--sila-space-4);
+  flex-shrink: 0;
+}
+
+.sila-user {
+  position: relative;
+}
+
+.sila-user-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  height: 2.625rem;
+  padding: 0 var(--sila-space-2) 0 var(--sila-space-1);
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius-md);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+.sila-user-btn:hover,
+.sila-user-btn[aria-expanded="true"] { background: var(--sila-surface-hover); }
+.sila-user-btn:focus-visible { outline: none; box-shadow: var(--sila-focus-ring); }
+
+.sila-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 50%;
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.sila-user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 12.5rem;
+  line-height: 1.25;
+}
+
+.sila-user-name {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sila-user-email {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sila-user-chevron { color: var(--sila-text-subtle); display: inline-flex; }
+
+.sila-user .sila-menu {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  width: 15rem;
+}
+
+.sila-menu-header {
+  padding: var(--sila-space-2) var(--sila-space-3) var(--sila-space-3);
+  margin-bottom: var(--sila-space-1);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+.sila-menu-header .sila-user-name,
+.sila-menu-header .sila-user-email { display: block; }
+
+/* ---------------------------------------------------------------- Drawer (below 64rem) */
+
+.sila-drawer,
+.sila-drawer-backdrop { display: none; }
+
+.sila-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sila-space-3) var(--sila-space-2) var(--sila-space-4);
+}
+
+.sila-nav-section { margin: 0; padding: 0; list-style: none; }
+
+.sila-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  width: 100%;
+  height: 2.375rem;
+  margin: 0.0625rem 0;
+  padding: 0 var(--sila-space-3);
+  border: 0;
+  border-radius: var(--sila-radius);
+  background: none;
+  font-family: "DM Sans", var(--sila-font);
+  font-size: 0.8125rem;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+.sila-nav-item:hover { background: var(--sila-surface-hover); color: var(--sila-text); }
+.sila-nav-item:focus-visible { outline: none; box-shadow: inset 0 0 0 0.125rem var(--sila-primary); }
+.sila-nav-item[aria-current="page"] { background: var(--sila-primary-soft); color: var(--sila-primary); font-weight: var(--sila-weight-semibold); }
+.sila-nav-item--parent-active { color: var(--sila-text); font-weight: var(--sila-weight-semibold); }
+
+.sila-nav-icon { display: inline-flex; width: 1.125rem; height: 1.125rem; flex-shrink: 0; color: var(--sila-text-muted); }
+.sila-nav-icon svg { width: 1.125rem; height: 1.125rem; }
+.sila-nav-item[aria-current="page"] .sila-nav-icon { color: var(--sila-primary); }
+.sila-nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sila-nav-chevron { display: inline-flex; color: var(--sila-text-subtle); transition: transform var(--sila-duration) var(--sila-ease); }
+.sila-nav-item[aria-expanded="true"] .sila-nav-chevron { transform: rotate(90deg); }
+
+.sila-nav-sub { position: relative; margin: 0; padding: 0 0 var(--sila-space-1) 1.875rem; list-style: none; }
+.sila-nav-sub::before { content: ""; position: absolute; left: 1.25rem; top: 0.125rem; bottom: 0.125rem; width: 0.0625rem; background: var(--sila-border); }
+.sila-nav-sub .sila-nav-item { height: 2.125rem; font-weight: var(--sila-weight-regular); }
+.sila-nav-sub .sila-nav-item[aria-current="page"] { font-weight: var(--sila-weight-semibold); }
+
+/* A group nested inside a parent (More › Approval › Material): one step further in, same guide line. */
+.sila-nav-sub .sila-nav-sub { padding-left: 1.25rem; }
+.sila-nav-sub .sila-nav-sub::before { left: 0.75rem; }
+
+/* ---------------------------------------------------------------- Main */
+
+.sila-main {
+  min-width: 0;
+  padding-top: var(--sila-topbar-height);
+}
+
+.sila-content {
+  width: 100%;
+  max-width: var(--sila-content-max-width);
+  margin: 0 auto;
+  padding: var(--sila-page-padding-y) var(--sila-page-padding-x) var(--sila-space-10);
+}
+
+.sila-content--flush { padding: 0; max-width: none; }
+
+/* ---------------------------------------------------------------- Responsive */
+
+@media (max-width: 63.9375rem) {
+  .sila-topbar-menu-btn { display: inline-flex; }
+  .sila-topnav { display: none; }
+  .sila-topbar-logo-btn { margin-right: 0; }
+
+  .sila-drawer {
+    position: fixed;
+    top: var(--sila-topbar-height);
+    bottom: 0;
+    left: 0;
+    z-index: var(--sila-z-sidebar);
+    display: flex;
+    flex-direction: column;
+    width: 17.5rem;
+    max-width: 85vw;
+    background: var(--sila-surface);
+    border-right: 0.0625rem solid var(--sila-border);
+    transform: translateX(-100%);
+    transition: transform var(--sila-duration-slow) var(--sila-ease);
+  }
+
+  .sila-shell--drawer-open .sila-drawer {
+    transform: translateX(0);
+    box-shadow: var(--sila-shadow-lg);
+  }
+
+  .sila-shell--drawer-open .sila-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--sila-topbar-height) 0 0 0;
+    z-index: calc(var(--sila-z-sidebar) - 1);
+    background: rgba(15, 23, 42, 0.35);
+    animation: sila-fade-in var(--sila-duration) var(--sila-ease);
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .sila-user-text,
+  .sila-user-chevron { display: none; }
+  .sila-topbar-logo { height: 1.625rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sila-drawer,
+  .sila-topnav-chevron,
+  .sila-nav-chevron { transition: none; }
+}
+
+/* ---------------------------------------------------------------- Nested submenus (e.g. More › Approval) */
+
+.sila-submenu { position: relative; }
+
+.sila-submenu-trigger { justify-content: space-between; }
+.sila-submenu-trigger[aria-expanded="true"] { background: var(--sila-surface-hover); color: var(--sila-text); }
+
+.sila-submenu-chevron {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--sila-text-subtle);
+}
+.sila-submenu-chevron svg { width: 0.875rem; height: 0.875rem; }
+
+.sila-menu-item--parent-active { color: var(--sila-primary); font-weight: var(--sila-weight-semibold); }
+.sila-menu-item--parent-active .sila-submenu-chevron { color: var(--sila-primary); }
+
+.sila-submenu-menu {
+  position: absolute;
+  top: calc(var(--sila-space-1) * -1 - 0.0625rem);
+  left: 100%;
+  min-width: 13.75rem;
+  margin-left: var(--sila-space-2);
+}
+
+/* Invisible bridge across the gap so the pointer can travel into the flyout. */
+.sila-submenu-menu::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sila-space-2) * -1);
+  width: var(--sila-space-2);
+}
+
+.sila-submenu-menu--left {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  padding-right: var(--sila-space-2);
+}
+.sila-submenu-menu--left::before { left: auto; right: calc(var(--sila-space-2) * -1); }

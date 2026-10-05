@@ -1,0 +1,37 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/Chervic-Advisory-Services/main-front-end-vosox.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "integration"]
+	remote = origin
+	merge = refs/heads/integration
+	vscode-merge-base = origin/integration
+[branch "feature/cline-integration"]
+	remote = origin
+	merge = refs/heads/feature/cline-integration
+	vscode-merge-base = origin/feature/cline-integration
+[branch "task/css-modification"]
+	remote = origin
+	merge = refs/heads/task/css-modification
+	vscode-merge-base = origin/task/css-modification
+[branch "feature/cursor-css-modification"]
+	remote = origin
+	merge = refs/heads/feature/cursor-css-modification
+	vscode-merge-base = origin/feature/cursor-css-modification
+[branch "task/cursor-wishlist-feature"]
+	remote = origin
+	merge = refs/heads/task/cursor-wishlist-feature
+	vscode-merge-base = origin/task/cursor-wishlist-feature
+[remote "cursor-origin"]
+	url = https://github.com/balachandhru-hub/main-front-end-sila.git
+	fetch = +refs/heads/*:refs/remotes/cursor-origin/*

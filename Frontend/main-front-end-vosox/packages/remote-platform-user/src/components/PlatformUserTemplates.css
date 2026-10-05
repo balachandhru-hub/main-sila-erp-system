@@ -1,0 +1,117 @@
+/* Platform user — verification templates (standalone page outside the AppShell) */
+
+.put-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sila-bg);
+  color: var(--sila-text);
+}
+
+/* ─── Top bar ─── */
+
+.put-header {
+  display: flex;
+  align-items: center;
+  height: var(--sila-topbar-height);
+  padding: 0 var(--sila-page-padding-x);
+  background: var(--sila-surface);
+  border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.put-logo {
+  display: block;
+  height: 1.875rem;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ─── Main area ─── */
+
+.put-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: var(--sila-page-padding-y) var(--sila-page-padding-x);
+}
+
+.put-content-wrapper {
+  width: 100%;
+  max-width: var(--sila-content-max-width);
+  min-width: 0;
+}
+
+/* ─── Page header ─── */
+
+.put-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding-bottom: var(--sila-space-4);
+}
+
+.put-title-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.put-page-description {
+  margin: 0;
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+  line-height: var(--sila-leading);
+  visibility: hidden;
+}
+
+.put-close-btn {
+  flex-shrink: 0;
+}
+
+/* ─── Template area ─── */
+
+.put-template-area {
+  width: 100%;
+  min-width: 0;
+}
+
+.put-template-container {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ─── Loading / error / empty ─── */
+
+.put-loading-container,
+.put-error-container,
+.put-empty-container {
+  width: 100%;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.put-loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 15rem;
+}
+
+.put-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sila-space-3);
+}
+
+.put-loading-spinner {
+  color: var(--sila-primary);
+}
+
+.put-loading-text {
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+}

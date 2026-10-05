@@ -1,0 +1,701 @@
+/* ---------- Catalog: sidebar sub-nav ---------- */
+.pud-nav-subitem-count {
+    background: var(--sila-surface-sunken);
+    color: var(--sila-text-secondary);
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    border-radius: var(--sila-radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3125rem;
+    margin-left: auto;
+}
+
+.pud-nav-chevron {
+    display: inline-flex;
+    transition: transform var(--sila-duration) var(--sila-ease);
+}
+
+.pud-nav-chevron-expanded {
+    transform: rotate(90deg);
+}
+
+/* ---------- Catalog: alerts ---------- */
+.pud-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding: var(--sila-space-3) var(--sila-space-4);
+    border-radius: var(--sila-radius);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    margin-bottom: var(--sila-space-4);
+}
+
+.pud-alert-success {
+    background: var(--sila-success-soft);
+    border: 0.0625rem solid var(--sila-success-border);
+    color: var(--sila-success-strong);
+}
+
+.pud-alert-error {
+    background: var(--sila-danger-soft);
+    border: 0.0625rem solid var(--sila-danger-border);
+    color: var(--sila-danger-strong);
+}
+
+/* ---------- Catalog: form fields ---------- */
+.pud-catalog-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13.75rem, 1fr));
+    gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.pud-catalog-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1-5);
+    min-width: 0;
+}
+
+.pud-catalog-form-label {
+    display: block;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-secondary);
+    font-weight: var(--sila-weight-medium);
+    margin-bottom: 0;
+}
+
+.pud-catalog-form-section {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    margin: var(--sila-space-2) 0 0;
+    padding-top: var(--sila-space-4);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.pud-catalog-form-section:first-child {
+    padding-top: 0;
+    border-top: none;
+    margin-top: 0;
+}
+
+.pud-catalog-form-section-title {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.pud-catalog-form-full {
+    grid-column: 1 / -1;
+}
+
+.pud-catalog-form-input,
+.pud-catalog-form-select,
+.pud-catalog-form-textarea {
+    width: 100%;
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-3);
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius);
+    font-size: var(--sila-text-md);
+    font-family: inherit;
+    color: var(--sila-text);
+    background-color: var(--sila-surface);
+    transition: var(--sila-transition);
+}
+
+.pud-catalog-form-input:focus,
+.pud-catalog-form-select:focus,
+.pud-catalog-form-textarea:focus {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+.pud-catalog-form-textarea {
+    height: auto;
+    min-height: 5.5rem;
+    padding: var(--sila-space-2) var(--sila-space-3);
+    line-height: var(--sila-leading);
+    resize: vertical;
+}
+
+.pud-catalog-form-hint {
+    padding-top: var(--sila-space-1);
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-num {
+    font-variant-numeric: tabular-nums;
+}
+
+.pud-catalog-checkbox-field {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sila-space-2);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-secondary);
+}
+
+.pud-catalog-checkbox-field input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--sila-primary);
+    cursor: pointer;
+}
+
+.pud-catalog-checkbox-field label {
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+.pud-catalog-hidden-input {
+    display: none;
+}
+
+.pud-btn-cancel {
+    padding-right: 0.625rem;
+}
+
+.pud-btn-primary {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+/* ---------- Catalog: drop zones ---------- */
+.pud-catalog-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-2);
+    text-align: center;
+    padding: var(--sila-space-6) var(--sila-space-5);
+    border: 0.0625rem dashed var(--sila-border-strong);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface-subtle);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.pud-catalog-dropzone:hover {
+    border-color: var(--sila-primary);
+    background: var(--sila-primary-soft);
+}
+
+.pud-catalog-dropzone:focus-visible {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+.pud-catalog-dropzone-active {
+    border-color: var(--sila-primary);
+    background: var(--sila-primary-soft);
+}
+
+.pud-catalog-dropzone-large {
+    padding: var(--sila-space-10) var(--sila-space-5);
+}
+
+.pud-catalog-dropzone-icon {
+    color: var(--sila-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pud-catalog-dropzone-icon svg {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+
+.pud-catalog-dropzone-preview {
+    max-height: 6.875rem;
+    max-width: 100%;
+    border-radius: var(--sila-radius);
+    object-fit: contain;
+}
+
+.pud-catalog-dropzone-text {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.pud-catalog-dropzone-subtext {
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-dropzone-remove {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    color: var(--sila-danger);
+    cursor: pointer;
+}
+
+.pud-catalog-dropzone-remove:hover {
+    background: var(--sila-danger-soft);
+    color: var(--sila-danger-strong);
+}
+
+/* ---------- Catalog: uploaded file list ---------- */
+.pud-catalog-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-2);
+    margin: var(--sila-space-4) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pud-catalog-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-3);
+    padding: var(--sila-space-2) var(--sila-space-3);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius);
+}
+
+.pud-catalog-file-thumb {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--sila-radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.pud-catalog-file-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pud-catalog-file-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.pud-catalog-file-name {
+    display: block;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pud-catalog-file-size {
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-file-remove {
+    flex-shrink: 0;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+}
+
+.pud-catalog-file-remove:hover {
+    background: var(--sila-danger-soft);
+    color: var(--sila-danger);
+}
+
+/* ---------- Catalog: modals ---------- */
+.pud-catalog-modal .pud-catalog-modal-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.pud-catalog-modal .pud-modal-badge {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-modal .pud-modal-name {
+    overflow-wrap: anywhere;
+}
+
+.pud-catalog-modal .pud-modal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sila-space-1) var(--sila-space-4);
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-modal .pud-modal-close {
+    flex-shrink: 0;
+    margin: -0.25rem -0.5rem 0 0;
+    color: var(--sila-text-muted);
+}
+
+/* The create form wraps body + footer, so it has to pass the modal's column layout through */
+.pud-catalog-modal .pud-catalog-modal-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.pud-catalog-modal .pud-alert {
+    margin-bottom: var(--sila-space-4);
+}
+
+.pud-catalog-modal .pud-catalog-form-input,
+.pud-catalog-modal .pud-catalog-form-select {
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-3);
+}
+
+.pud-catalog-modal .pud-catalog-form-select {
+    padding-right: 2rem;
+}
+
+.pud-catalog-modal .pud-catalog-form-textarea {
+    height: auto;
+    padding: var(--sila-space-2) var(--sila-space-3);
+}
+
+.pud-catalog-modal .pud-catalog-dropzone {
+    border-width: 0.0625rem;
+    border-radius: var(--sila-radius-md);
+}
+
+.pud-catalog-modal .pud-catalog-file-item:hover {
+    border-color: var(--sila-border-strong);
+    background: var(--sila-surface-subtle);
+}
+
+/* ---------- Catalog: detail modal ---------- */
+.pud-catalog-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-5);
+}
+
+.pud-catalog-detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-2);
+}
+
+.pud-catalog-detail .pud-modal-section-title {
+    margin: 0;
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.pud-catalog-detail-desc {
+    margin: 0;
+    font-size: var(--sila-text-sm);
+    line-height: var(--sila-leading);
+    color: var(--sila-text-secondary);
+    white-space: pre-wrap;
+}
+
+.pud-catalog-detail-meta {
+    padding: var(--sila-space-4);
+    background: var(--sila-surface-subtle);
+    border: 0.0625rem solid var(--sila-border-subtle);
+    border-radius: var(--sila-radius-md);
+}
+
+.pud-catalog-detail-meta .sila-meta-value {
+    margin: 0;
+}
+
+.pud-catalog-detail-meta-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pud-catalog-detail-code {
+    font-size: var(--sila-text-sm);
+}
+
+/* ---------- Catalog: full-page "Show Catalogs" view ---------- */
+.pud-catalog-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pud-catalog-fullview-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sila-space-3) var(--sila-space-4);
+    padding-bottom: var(--sila-space-5);
+}
+
+.pud-catalog-fullview-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-2);
+}
+
+.pud-catalog-list-card {
+    overflow: hidden;
+}
+
+.pud-catalog-item-cell {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-3);
+    min-width: 13.75rem;
+    max-width: 26.25rem;
+}
+
+.pud-catalog-item-thumb {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 0.0625rem solid var(--sila-border-subtle);
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-subtle);
+}
+
+.pud-catalog-item-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pud-catalog-item-text {
+    min-width: 0;
+}
+
+.pud-catalog-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pud-catalog-item-desc {
+    padding-top: 0.125rem;
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pud-catalog-item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sila-space-1);
+}
+
+.pud-catalog-nowrap {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Catalog: card grid (legacy class names, kept for shared selectors) ---------- */
+.pud-catalog-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-2);
+    text-align: center;
+    padding: var(--sila-space-12) var(--sila-space-6);
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-empty-state .pud-catalog-dropzone-icon {
+    color: var(--sila-text-subtle);
+}
+
+.pud-catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11.875rem, 1fr));
+    gap: var(--sila-space-4);
+    padding-bottom: var(--sila-space-2);
+}
+
+.pud-catalog-card {
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    overflow: hidden;
+    background: var(--sila-surface);
+    box-shadow: var(--sila-shadow-xs);
+    transition: var(--sila-transition);
+}
+
+.pud-catalog-card:hover {
+    border-color: var(--sila-border-strong);
+    box-shadow: var(--sila-shadow-sm);
+}
+
+.pud-catalog-card-media {
+    position: relative;
+    width: 100%;
+    height: 6.875rem;
+    background: var(--sila-surface-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.pud-catalog-card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pud-catalog-card-media-placeholder {
+    color: var(--sila-text-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pud-catalog-card-source {
+    position: absolute;
+    top: var(--sila-space-2);
+    left: var(--sila-space-2);
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    padding: 0.125rem 0.375rem;
+    border: 0.0625rem solid var(--sila-neutral-border);
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-surface);
+    color: var(--sila-text-secondary);
+}
+
+.pud-catalog-card-source-created,
+.pud-catalog-card-source-uploaded {
+    color: var(--sila-text-secondary);
+}
+
+.pud-catalog-card-body {
+    padding: var(--sila-space-3) var(--sila-space-4) var(--sila-space-4);
+}
+
+.pud-catalog-card-name {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-bottom: var(--sila-space-1);
+}
+
+.pud-catalog-card-desc {
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+    line-height: 1.4;
+    padding-bottom: var(--sila-space-2);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pud-catalog-card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding-bottom: var(--sila-space-1-5);
+}
+
+.pud-catalog-card-price {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text);
+}
+
+.pud-catalog-card-uom {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-secondary);
+    background: var(--sila-surface-hover);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--sila-radius-sm);
+}
+
+.pud-catalog-card-date {
+    font-size: var(--sila-text-2xs);
+    color: var(--sila-text-muted);
+}
+
+.pud-catalog-card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sila-space-1);
+    padding: var(--sila-space-1) 0;
+}
+
+.pud-catalog-card-tag {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-secondary);
+    width: fit-content;
+}
+
+.pud-catalog-card-tag-punchout {
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+}
+
+@media (max-width: 48rem) {
+    .pud-catalog-fullview-header {
+        align-items: flex-start;
+    }
+
+    .pud-catalog-fullview-actions {
+        width: 100%;
+    }
+
+    .pud-catalog-fullview-actions .sila-btn {
+        flex: 1;
+    }
+
+    .pud-catalog-detail-meta-2 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

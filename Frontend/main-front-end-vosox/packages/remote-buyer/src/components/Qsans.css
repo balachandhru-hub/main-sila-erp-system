@@ -1,0 +1,525 @@
+/* =========================================================================
+   RFQ Questions & Answers
+   ========================================================================= */
+
+.qsans-page {
+    display: flex;
+    flex-direction: column;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    box-shadow: var(--sila-shadow-xs);
+    color: var(--sila-text);
+    font-family: var(--sila-font);
+}
+
+/* -------- Header -------- */
+
+.qsans-header {
+    position: relative;
+    flex-shrink: 0;
+    background: var(--sila-surface);
+    padding: var(--sila-space-4) 4rem var(--sila-space-4) var(--sila-space-5);
+    border-bottom: 0.0625rem solid var(--sila-border);
+    color: var(--sila-text);
+}
+
+.qsans-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    background: var(--sila-primary-soft);
+    border: 0.0625rem solid var(--sila-primary-border);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    padding: 0.0625rem var(--sila-space-2);
+    border-radius: var(--sila-radius-full);
+    margin-bottom: var(--sila-space-2);
+}
+
+.qsans-badge svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.qsans-close {
+    position: absolute;
+    top: var(--sila-space-4);
+    right: var(--sila-space-4);
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: var(--sila-radius);
+    border: 0.0625rem solid transparent;
+    background: transparent;
+    color: var(--sila-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.qsans-close svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.qsans-close:hover {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text);
+}
+
+.qsans-close:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.qsans-title {
+    font-size: var(--sila-text-2xl);
+    line-height: var(--sila-leading-tight);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: -0.015em;
+    margin: 0;
+    color: var(--sila-text);
+    word-break: break-word;
+}
+
+.qsans-header-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding-top: var(--sila-space-1);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.qsans-header-dot {
+    width: 0.1875rem;
+    height: 0.1875rem;
+    border-radius: var(--sila-radius-full);
+    background: var(--sila-text-subtle);
+}
+
+/* -------- Body -------- */
+
+.qsans-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--sila-space-5);
+    background: var(--sila-bg);
+}
+
+.qsans-section-head {
+    padding-bottom: var(--sila-space-4);
+}
+
+.qsans-section-title {
+    font-size: var(--sila-text-lg);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    margin: 0;
+}
+
+.qsans-section-sub {
+    padding: var(--sila-space-0-5) 0 0 0;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+
+/* Empty / error use the shared EmptyState (.sila-empty) */
+.qsans-empty,
+.qsans-error {
+    background: var(--sila-surface);
+    border: 0.0625rem dashed var(--sila-border);
+    border-radius: var(--sila-radius-md);
+}
+
+.qsans-error {
+    border-style: solid;
+    border-color: var(--sila-danger-border);
+}
+
+.qsans-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 18.75rem;
+}
+
+/* -------- Suppliers -------- */
+
+.qsans-suppliers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-4);
+}
+
+.qsans-supplier-block {
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface);
+    padding: var(--sila-space-4) var(--sila-space-5) var(--sila-space-5);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.qsans-supplier-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-3);
+    margin-bottom: var(--sila-space-4);
+    padding-bottom: var(--sila-space-3);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.qsans-supplier-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--sila-radius);
+    background: var(--sila-primary-soft);
+    border: 0.0625rem solid var(--sila-primary-border);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.qsans-supplier-name {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.qsans-supplier-progress {
+    flex-shrink: 0;
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-warning-strong);
+    background: var(--sila-warning-soft);
+    border: 0.0625rem solid var(--sila-warning-border);
+    padding: 0.0625rem var(--sila-space-2);
+    border-radius: var(--sila-radius-full);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.qsans-supplier-progress.is-complete {
+    color: var(--sila-success-strong);
+    background: var(--sila-success-soft);
+    border-color: var(--sila-success-border);
+}
+
+/* -------- Question / Answer cards -------- */
+
+.qsans-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-2);
+}
+
+.qsans-qa-card {
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius);
+    padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+.qsans-qa-question-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sila-space-2);
+}
+
+.qsans-qa-index {
+    flex-shrink: 0;
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-muted);
+    background: var(--sila-neutral-soft);
+    border: 0.0625rem solid var(--sila-neutral-border);
+    border-radius: var(--sila-radius-sm);
+    padding: 0 var(--sila-space-1-5);
+    line-height: 1.6;
+    margin-top: 0.0625rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.qsans-qa-question {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    line-height: var(--sila-leading);
+    color: var(--sila-text);
+    word-break: break-word;
+}
+
+.qsans-qa-tags {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-1);
+    flex-shrink: 0;
+}
+
+.qsans-qa-type,
+.qsans-qa-required {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-medium);
+    padding: 0 var(--sila-space-2);
+    line-height: 1.6;
+    border-radius: var(--sila-radius-full);
+    white-space: nowrap;
+}
+
+.qsans-qa-type {
+    color: var(--sila-neutral);
+    background: var(--sila-neutral-soft);
+    border: 0.0625rem solid var(--sila-neutral-border);
+}
+
+.qsans-qa-required {
+    color: var(--sila-warning-strong);
+    background: var(--sila-warning-soft);
+    border: 0.0625rem solid var(--sila-warning-border);
+}
+
+.qsans-qa-answer-row {
+    margin-top: var(--sila-space-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-3);
+    flex-wrap: wrap;
+    background: var(--sila-surface-subtle);
+    border: 0.0625rem solid var(--sila-border-subtle);
+    border-radius: var(--sila-radius);
+    padding: var(--sila-space-2) var(--sila-space-3);
+}
+
+.qsans-qa-answer {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    min-width: 0;
+    font-size: var(--sila-text-sm);
+    line-height: var(--sila-leading);
+    color: var(--sila-text-secondary);
+    word-break: break-word;
+}
+
+.qsans-qa-answer-icon {
+    display: inline-flex;
+    color: var(--sila-text-muted);
+    flex-shrink: 0;
+}
+
+.qsans-qa-answer-icon svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.qsans-qa-answer-text {
+    min-width: 0;
+    word-break: break-word;
+}
+
+.qsans-qa-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    flex-shrink: 0;
+}
+
+.qsans-qa-empty {
+    margin-top: var(--sila-space-2);
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+    background: var(--sila-surface-subtle);
+    border: 0.0625rem dashed var(--sila-border);
+    border-radius: var(--sila-radius);
+    padding: var(--sila-space-1-5) var(--sila-space-3);
+}
+
+.qsans-asset-error {
+    margin-top: var(--sila-space-1);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-danger-strong);
+    background: var(--sila-danger-soft);
+    border: 0.0625rem solid var(--sila-danger-border);
+    border-radius: var(--sila-radius);
+    padding: var(--sila-space-2) var(--sila-space-3);
+}
+
+/* -------- Buttons -------- */
+
+.qsans-btn {
+    height: var(--sila-control-height-sm);
+    padding: 0 var(--sila-space-3);
+    border-radius: var(--sila-radius);
+    font-family: inherit;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    cursor: pointer;
+    border: 0.0625rem solid transparent;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-1-5);
+    transition: var(--sila-transition);
+}
+
+.qsans-btn:focus-visible {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+.qsans-btn-outline {
+    background: var(--sila-surface);
+    border-color: var(--sila-border-strong);
+    color: var(--sila-text-secondary);
+}
+
+.qsans-btn-outline:hover:not(:disabled) {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text);
+}
+
+.qsans-btn-outline:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* -------- Footer -------- */
+
+.qsans-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding: var(--sila-space-3) var(--sila-space-5);
+    background: var(--sila-surface-subtle);
+    border-top: 0.0625rem solid var(--sila-border);
+}
+
+.qsans-footer .qsans-btn {
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-4);
+    font-size: var(--sila-text-md);
+}
+
+/* -------- Attachment viewer -------- */
+
+.qsans-attachment-viewer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 32.5rem;
+}
+
+.qsans-attachment-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-3);
+    padding-bottom: var(--sila-space-3);
+}
+
+.qsans-attachment-name {
+    min-width: 0;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.qsans-attachment-spacer {
+    width: 4.375rem;
+    flex-shrink: 0;
+}
+
+.qsans-attachment-frame {
+    flex: 1;
+    width: 100%;
+    min-height: 30rem;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface);
+}
+
+/* -------- Scrollbar -------- */
+
+.qsans-body::-webkit-scrollbar {
+    width: 0.5rem;
+}
+
+.qsans-body::-webkit-scrollbar-thumb {
+    background: var(--sila-border-strong);
+    border-radius: var(--sila-radius-full);
+}
+
+.qsans-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* -------- Responsive -------- */
+
+@media (max-width: 35rem) {
+
+    .qsans-header,
+    .qsans-body,
+    .qsans-footer {
+        padding-left: var(--sila-space-4);
+        padding-right: var(--sila-space-4);
+    }
+
+    .qsans-header {
+        padding-right: 3.5rem;
+    }
+
+    .qsans-title {
+        font-size: var(--sila-text-xl);
+    }
+
+    .qsans-qa-question-row {
+        flex-wrap: wrap;
+    }
+
+    .qsans-qa-tags {
+        width: 100%;
+        padding-left: 1.75rem;
+    }
+
+    .qsans-qa-answer-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .qsans-attachment-spacer {
+        display: none;
+    }
+
+    .qsans-footer .qsans-btn {
+        flex: 1;
+    }
+}

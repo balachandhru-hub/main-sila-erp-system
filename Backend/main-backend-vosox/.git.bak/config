@@ -1,0 +1,33 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/Chervic-Advisory-Services/main-backend-vosox.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "integration"]
+	remote = origin
+	merge = refs/heads/integration
+	vscode-merge-base = origin/integration
+[branch "feature/bug-fix"]
+	remote = origin
+	merge = refs/heads/feature/bug-fix
+	vscode-merge-base = origin/feature/bug-fix
+[branch "feature/claude-code-fix"]
+	remote = origin
+	merge = refs/heads/feature/claude-code-fix
+	vscode-merge-base = origin/feature/claude-code-fix
+[branch "task/cursor-wishlist-feature"]
+	remote = origin
+	merge = refs/heads/task/cursor-wishlist-feature
+	vscode-merge-base = origin/task/cursor-wishlist-feature
+[remote "cursor-origin"]
+	url = https://github.com/balachandhru-hub/main-backend-sila.git
+	fetch = +refs/heads/*:refs/remotes/cursor-origin/*

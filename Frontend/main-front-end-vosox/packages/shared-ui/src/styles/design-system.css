@@ -1,0 +1,654 @@
+/* SILA enterprise design system — tokens and shared patterns.
+   Loaded by the host and each remote so module-federation apps stay visually aligned
+   without competing global resets. */
+
+:root {
+  --sila-font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Roboto", Helvetica, Arial, sans-serif;
+  --sila-font-size: 0.875rem;
+  --sila-line-height: 1.45;
+
+  --sila-bg: #f3f5f7;
+  --sila-surface: #ffffff;
+  --sila-surface-muted: #f7f8fa;
+  --sila-surface-hover: #eef2f6;
+
+  --sila-text: #1a2332;
+  --sila-text-secondary: #3d4c5f;
+  --sila-text-muted: #5c6b7a;
+  --sila-text-inverse: #ffffff;
+
+  --sila-primary: #1a4f8b;
+  --sila-primary-hover: #163f6e;
+  --sila-primary-active: #123258;
+  --sila-primary-soft: #e8f0f8;
+  --sila-primary-border: #c5d7ea;
+
+  --sila-success: #1b7f4e;
+  --sila-success-soft: #e8f6ee;
+  --sila-warning: #b45309;
+  --sila-warning-soft: #fef6e8;
+  --sila-danger: #b42318;
+  --sila-danger-soft: #fdecec;
+  --sila-info: #1a4f8b;
+  --sila-info-soft: #e8f0f8;
+
+  --sila-border: #dce3ea;
+  --sila-border-strong: #c5d0db;
+  --sila-focus: #1a4f8b;
+
+  --sila-radius-sm: 0.25rem;
+  --sila-radius: 0.375rem;
+  --sila-radius-md: 0.5rem;
+  --sila-radius-lg: 0.625rem;
+
+  --sila-shadow-xs: 0 0.0625rem 0.125rem rgba(16, 24, 40, 0.04);
+  --sila-shadow-sm: 0 0.0625rem 0.1875rem rgba(16, 24, 40, 0.06);
+  --sila-shadow-md: 0 0.25rem 0.75rem rgba(16, 24, 40, 0.08);
+
+  --sila-space-1: 0.25rem;
+  --sila-space-2: 0.5rem;
+  --sila-space-3: 0.75rem;
+  --sila-space-4: 1rem;
+  --sila-space-5: 1.25rem;
+  --sila-space-6: 1.5rem;
+  --sila-space-8: 2rem;
+
+  --sila-header-height: 3.5rem;
+  --sila-sidebar-width: 14.75rem;
+  --sila-transition: 150ms ease;
+
+  /* Back-compat aliases used across existing CSS */
+  --bg-color: var(--sila-bg);
+  --surface-color: var(--sila-surface);
+  --surface-hover: var(--sila-surface-hover);
+  --border-color: var(--sila-border);
+  --border-hover: var(--sila-primary);
+  --primary-color: var(--sila-primary);
+  --primary-glow: rgba(26, 79, 139, 0.12);
+  --accent-color: var(--sila-primary-hover);
+  --accent-glow: rgba(26, 79, 139, 0.08);
+  --success-color: var(--sila-success);
+  --warning-color: var(--sila-warning);
+  --danger-color: var(--sila-danger);
+  --text-color: var(--sila-text);
+  --text-muted: var(--sila-text-muted);
+  --text-dark: var(--sila-text-secondary);
+  --font-sans: var(--sila-font);
+  --font-heading: var(--sila-font);
+  --transition-smooth: color var(--sila-transition), background-color var(--sila-transition),
+    border-color var(--sila-transition), box-shadow var(--sila-transition);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared components                                                          */
+/* -------------------------------------------------------------------------- */
+
+.sila-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--sila-bg);
+  padding-top: var(--sila-header-height);
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+}
+
+.sila-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding-bottom: var(--sila-space-4);
+}
+
+.sila-page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--sila-text);
+  line-height: 1.3;
+}
+
+.sila-page-subtitle {
+  padding: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--sila-text-muted);
+  font-weight: 400;
+}
+
+.sila-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--sila-text-muted);
+  padding-bottom: 0.5rem;
+}
+
+.sila-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--sila-text-muted);
+  background: var(--sila-surface);
+  border: 0.0625rem dashed var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  gap: 0.5rem;
+}
+
+.sila-empty-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--sila-text-secondary);
+}
+
+.sila-empty-text {
+  font-size: 0.8125rem;
+  max-width: 22.5rem;
+}
+
+.sila-skeleton {
+  background: linear-gradient(90deg, #eef1f4 0%, #f7f8fa 50%, #eef1f4 100%);
+  background-size: 200% 100%;
+  animation: sila-shimmer 1.2s ease-in-out infinite;
+  border-radius: var(--sila-radius-sm);
+}
+
+@keyframes sila-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Buttons */
+.vosox-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: var(--sila-radius);
+  cursor: pointer;
+  border: 0.0625rem solid transparent;
+  transition: var(--transition-smooth);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.vosox-button:focus-visible {
+  outline: 0.125rem solid var(--sila-focus);
+  outline-offset: 0.125rem;
+}
+
+.vosox-button:disabled,
+.vosox-button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.vosox-button.btn-primary {
+  background: var(--sila-primary);
+  color: #fff;
+  box-shadow: none;
+}
+
+.vosox-button.btn-primary:hover:not(:disabled) {
+  background: var(--sila-primary-hover);
+}
+
+.vosox-button.btn-primary:active:not(:disabled) {
+  background: var(--sila-primary-active);
+}
+
+.vosox-button.btn-secondary {
+  background: var(--sila-surface);
+  color: var(--sila-text);
+  border-color: var(--sila-border-strong);
+}
+
+.vosox-button.btn-secondary:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+}
+
+.vosox-button.btn-outline {
+  background: var(--sila-surface);
+  color: var(--sila-primary);
+  border-color: var(--sila-primary-border);
+}
+
+.vosox-button.btn-outline:hover:not(:disabled) {
+  background: var(--sila-primary-soft);
+}
+
+.vosox-button.btn-ghost {
+  background: transparent;
+  color: var(--sila-text-muted);
+  box-shadow: none;
+}
+
+.vosox-button.btn-ghost:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.vosox-button.btn-sm { padding: 0.3125rem 0.625rem; font-size: 0.8125rem; }
+.vosox-button.btn-md { padding: 0.5rem 0.875rem; font-size: 0.875rem; }
+.vosox-button.btn-lg { padding: 0.625rem 1rem; font-size: 0.9375rem; }
+.vosox-button.btn-full { width: 100%; }
+
+/* Inputs */
+.sila-input,
+.form-input,
+.vx-input,
+.bd-input,
+.bd-select,
+.bd-textarea {
+  border-radius: var(--sila-radius) !important;
+}
+
+.form-input:focus,
+.vx-input:focus,
+.bd-input:focus,
+.bd-select:focus,
+.bd-textarea:focus,
+.vosox-dtp-trigger:focus {
+  outline: none;
+  border-color: var(--sila-primary) !important;
+  box-shadow: 0 0 0 0.1875rem var(--sila-primary-glow) !important;
+}
+
+/* Tables */
+.sila-table,
+.premium-table,
+.nad-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.sila-table thead th,
+.premium-table th,
+.nad-table th {
+  background: var(--sila-surface-muted);
+  color: var(--sila-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 0.0625rem solid var(--sila-border);
+  white-space: nowrap;
+}
+
+.sila-table td,
+.premium-table td,
+.nad-table td {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 0.0625rem solid var(--sila-border);
+  color: var(--sila-text);
+  vertical-align: middle;
+}
+
+.sila-table tbody tr:hover td,
+.premium-table tbody tr:hover td,
+.nad-table tbody tr:hover td {
+  background: var(--sila-surface-hover);
+}
+
+/* Badges */
+.badge,
+.pud-status-badge,
+.bad-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 62.4375rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  border: 0.0625rem solid transparent;
+  text-transform: none;
+}
+
+.badge-success,
+.pud-status-badge-accepted {
+  background: var(--sila-success-soft);
+  color: var(--sila-success);
+  border-color: #c6ead6;
+}
+
+.badge-warning {
+  background: var(--sila-warning-soft);
+  color: var(--sila-warning);
+  border-color: #f3d7a5;
+}
+
+.badge-danger {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+  border-color: #f3c4c0;
+}
+
+.badge-info {
+  background: var(--sila-info-soft);
+  color: var(--sila-info);
+  border-color: var(--sila-primary-border);
+}
+
+.pud-status-badge-delivered {
+  background: var(--sila-info-soft);
+  color: var(--sila-info);
+  border-color: var(--sila-primary-border);
+}
+
+/* Cards / KPI */
+.glass-card {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  backdrop-filter: none;
+}
+
+.glass-card:hover {
+  transform: none;
+  box-shadow: var(--sila-shadow-sm);
+  border-color: var(--sila-border-strong);
+}
+
+.pud-stat-card,
+.pud-panel,
+.bd-rfq-card,
+.bad-table {
+  border-radius: var(--sila-radius-md) !important;
+  box-shadow: var(--sila-shadow-xs) !important;
+}
+
+.pud-stat-card:hover {
+  transform: none !important;
+  box-shadow: var(--sila-shadow-sm) !important;
+}
+
+.pud-stat-value,
+.metric-value {
+  font-size: 1.5rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.03em;
+}
+
+/* Application shell — header */
+.vsx-header {
+  height: var(--sila-header-height) !important;
+  background: var(--sila-surface) !important;
+  border-bottom: 0.0625rem solid var(--sila-border) !important;
+  box-shadow: var(--sila-shadow-xs) !important;
+  padding: 0 1.25rem !important;
+}
+
+.vsx-header-logo {
+  height: 2.25rem !important;
+  max-height: 2.25rem !important;
+}
+
+.vsx-header-logo:hover {
+  transform: none !important;
+}
+
+.vsx-header-nav-item {
+  font-size: 0.8125rem !important;
+  color: var(--sila-text-secondary) !important;
+  height: var(--sila-header-height);
+  padding: 0 0.75rem !important;
+}
+
+.vsx-header-nav-item:hover {
+  color: var(--sila-primary) !important;
+  background: transparent !important;
+}
+
+.vsx-header-nav-item:focus-visible {
+  outline: 0.125rem solid var(--sila-focus);
+  outline-offset: -0.25rem;
+}
+
+.vsx-header-nav-item-active {
+  color: var(--sila-primary) !important;
+  border-bottom-color: var(--sila-primary) !important;
+  font-weight: 650 !important;
+}
+
+.vsx-header-user-card {
+  border-radius: var(--sila-radius) !important;
+  background: var(--sila-surface-muted) !important;
+}
+
+.vsx-header-user-card:hover {
+  border-color: var(--sila-primary-border) !important;
+  box-shadow: none !important;
+}
+
+.vsx-header-user-card:focus-visible {
+  outline: 0.125rem solid var(--sila-focus);
+  outline-offset: 0.125rem;
+}
+
+.vsx-header-avatar {
+  background: var(--sila-primary) !important;
+  box-shadow: none !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  font-size: 0.8125rem !important;
+}
+
+.vsx-header-account-name {
+  font-weight: 600 !important;
+}
+
+.vsx-profile-dropdown,
+.vsx-header-nav-dropdown-menu,
+.bad-header-dropdown-menu {
+  border-radius: var(--sila-radius-md) !important;
+  box-shadow: var(--sila-shadow-md) !important;
+  border-color: var(--sila-border) !important;
+}
+
+/* Sidebars */
+.pud-sidebar,
+.bad-sidebar,
+.sad-sidebar {
+  display: flex !important;
+  flex-direction: column;
+  width: var(--sila-sidebar-width) !important;
+  flex-shrink: 0;
+  background: var(--sila-surface);
+  border-right: 0.0625rem solid var(--sila-border);
+  position: sticky;
+  top: var(--sila-header-height);
+  height: calc(100vh - var(--sila-header-height));
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem 0 1rem;
+}
+
+.pud-nav,
+.bad-nav,
+.sad-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0 0.625rem 1rem;
+  flex: 1;
+}
+
+.pud-nav-section-title,
+.bad-nav-section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sila-text-muted);
+  padding: 0.875rem 0.625rem 0.375rem;
+}
+
+.pud-nav-item,
+.bad-nav-item,
+.sad-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--sila-radius);
+  color: var(--sila-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 0.0625rem solid transparent;
+  transition: var(--transition-smooth);
+}
+
+.pud-nav-item:hover,
+.bad-nav-item:hover,
+.sad-nav-item:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+  transform: none;
+}
+
+.pud-nav-item-active,
+.bad-nav-item-active,
+.sad-nav-item-active {
+  background: var(--sila-primary-soft) !important;
+  color: var(--sila-primary) !important;
+  border-color: transparent;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+  border-left: none !important;
+  border-radius: var(--sila-radius) !important;
+}
+
+.pud-nav-item:focus-visible,
+.bad-nav-item:focus-visible,
+.sad-nav-item:focus-visible {
+  outline: 0.125rem solid var(--sila-focus);
+  outline-offset: 0.0625rem;
+}
+
+.pud-nav-subitem,
+.bad-nav-subitem {
+  padding: 0.375rem 0.625rem 0.375rem 2.125rem;
+  border-radius: var(--sila-radius);
+  font-size: 0.78125rem;
+}
+
+.pud-nav-dropdown-menu {
+  display: flex !important;
+  flex-direction: column;
+  padding: 0.125rem 0 0.375rem;
+}
+
+.plat-sidebar {
+  background: var(--sila-surface);
+  border-right: 0.0625rem solid var(--sila-border);
+}
+
+.plat-sidebar-brand {
+  height: var(--sila-header-height);
+}
+
+/* Desktop: sidebar is primary nav. Mobile: keep header nav, hide sidebar. */
+@media (min-width: 68.75rem) {
+  .sila-app .vsx-header-nav {
+    display: none;
+  }
+}
+
+@media (max-width: 68.6875rem) {
+  .pud-sidebar,
+  .bad-sidebar,
+  .sad-sidebar {
+    display: none !important;
+  }
+
+  .sila-app .vsx-header-nav {
+    display: flex;
+  }
+}
+
+/* Content density */
+.pud-content,
+.bad-main,
+.sad-content,
+.plat-content {
+  padding-top: 1rem;
+}
+
+.pud-shell,
+.bad-shell,
+.sad-shell {
+  background: var(--sila-bg) !important;
+}
+
+/* Forms / RFQ */
+.bd-rfq-header {
+  background: var(--sila-surface-muted) !important;
+  border-bottom: 0.0625rem solid var(--sila-border) !important;
+}
+
+.bd-step-active {
+  background: var(--sila-primary) !important;
+}
+
+.bd-label::after {
+  content: none;
+}
+
+/* Pagination */
+.budp-page-btn-active {
+  background: var(--sila-primary) !important;
+  border-color: var(--sila-primary) !important;
+}
+
+/* Focus for interactive chrome */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 0.125rem solid var(--sila-focus);
+  outline-offset: 0.125rem;
+}
+
+/* Loader */
+.vosox-loader-spinner {
+  border: 0.1875rem solid #e8edf2;
+  border-top-color: var(--sila-primary);
+  border-radius: 50%;
+  animation: vosox-spin 0.8s linear infinite;
+}
+
+@keyframes vosox-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5d0db;
+  border-radius: 0.5rem;
+  border: 0.125rem solid var(--sila-bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9aabc0;
+}

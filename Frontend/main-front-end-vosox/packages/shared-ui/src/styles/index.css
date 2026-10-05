@@ -1,0 +1,5 @@
+/* SILA design system entry. Imported once by @vosox/shared-ui's index, so the host and
+   every remote (including a remote running standalone) load identical tokens and styles. */
+@import './tokens.css';
+@import './components.css';
+@import './shell.css';

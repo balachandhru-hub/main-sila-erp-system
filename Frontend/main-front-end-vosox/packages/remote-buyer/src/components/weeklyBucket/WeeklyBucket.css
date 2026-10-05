@@ -1,0 +1,35 @@
+/* Weekly bucket: second, quieter line inside a table cell (original name, refreshed time, storage location) */
+.wb-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* Status badges shown side by side (bucket status + FROZEN) */
+.wb-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* Notices stacked inside a card body or a dialog */
+.wb-stack,
+.wb-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Lines listed in the freeze confirmation */
+.wb-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: 0 0 0 var(--sila-space-5);
+  margin: 0;
+}
+
+.wb-outlet-picker {
+  min-width: 16rem;
+}

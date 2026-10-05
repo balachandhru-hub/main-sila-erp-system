@@ -1,0 +1,133 @@
+/* SILA ME stock movements: transfers, goods issues, stock adjustments. */
+
+/* Screen: header, then cards stacked */
+.smov-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Dialog body: sections stacked */
+.smov-dialog,
+.smov-lines,
+.smov-action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.smov-action {
+  gap: var(--sila-space-2);
+}
+
+/* Filter row above a table */
+.smov-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+.smov-filters .sila-field {
+  min-width: 12rem;
+}
+
+/* Second, quieter line inside a table cell or a list item */
+.smov-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* Numbers right-aligned */
+.sila-table .smov-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Received below dispatched */
+.sila-table .smov-short {
+  color: var(--sila-danger);
+  font-weight: var(--sila-weight-semibold);
+}
+
+/* Quantity / unit controls inside table cells */
+.smov-qty {
+  width: 7.5rem;
+  text-align: right;
+}
+
+.smov-uom {
+  min-width: 5.5rem;
+}
+
+/* Button aligned with the fields of a form row */
+.smov-field-action {
+  justify-content: flex-end;
+}
+
+/* Material search results */
+.smov-results {
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  padding: var(--sila-space-2);
+}
+
+.smov-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.smov-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-2);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.smov-result:last-child {
+  border-bottom: 0;
+}
+
+/* Weekly bucket the goods issue is linked to */
+.smov-bucket {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.smov-actions {
+  flex-wrap: wrap;
+}
+
+/* Transfer timeline */
+.smov-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-2) 0 0 var(--sila-space-4);
+  margin: 0;
+  border-left: 0.125rem solid var(--sila-border);
+  list-style: none;
+}
+
+.smov-event {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.smov-event-comment {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}

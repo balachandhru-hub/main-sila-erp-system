@@ -1,0 +1,108 @@
+/* "Needs your attention" panel of the buyer-side dashboards. */
+
+.nya-panel {
+  font-family: var(--sila-font);
+}
+
+.nya-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: var(--sila-space-5);
+}
+
+.nya-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-2);
+  min-width: 0;
+}
+
+.nya-heading {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.nya-empty {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+  margin: 0;
+}
+
+.nya-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  width: 100%;
+}
+
+.nya-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  color: var(--sila-text);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.nya-item:hover {
+  border-color: var(--sila-border-strong);
+  background: var(--sila-surface-hover);
+}
+
+.nya-item:focus-visible {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.nya-item--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-1);
+}
+
+.nya-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  min-width: 0;
+}
+
+.nya-item-label {
+  font-weight: var(--sila-weight-medium);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nya-item-note {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.nya-failed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-warning-strong);
+  padding-top: var(--sila-space-4);
+  margin: 0;
+}

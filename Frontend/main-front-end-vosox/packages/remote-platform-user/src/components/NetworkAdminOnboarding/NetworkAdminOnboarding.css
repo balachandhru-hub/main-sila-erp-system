@@ -1,0 +1,1115 @@
+/* Network admin onboarding wizard. Shares its markup and .bp-* class names with the buyer
+   profile wizard (remote-buyer/BuyerProfile.css); the base rules below mirror that file value for
+   value so the two stylesheets converge when both are loaded. Everything is scoped under .bp-page. */
+
+
+.bp-page,
+.bp-page *,
+.bp-page *::before,
+.bp-page *::after {
+    box-sizing: border-box;
+}
+
+.bp-page {
+    min-height: 100vh;
+    background: var(--sila-bg);
+    font-family: var(--sila-font);
+    font-size: var(--sila-text-md);
+    line-height: var(--sila-leading);
+    color: var(--sila-text);
+}
+
+/* ---------------------------- header ---------------------------- */
+
+.bp-page .bp-header {
+    display: flex;
+    align-items: center;
+    height: var(--sila-topbar-height);
+    padding: 0 var(--sila-page-padding-x);
+    background: var(--sila-surface);
+    border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.bp-page .bp-logo {
+    font-size: var(--sila-text-lg);
+    font-weight: var(--sila-weight-bold);
+    letter-spacing: 0.04em;
+    line-height: var(--sila-leading-tight);
+    color: var(--sila-text);
+}
+
+.bp-page .bp-logo-accent {
+    color: var(--sila-primary);
+}
+
+.bp-page .bp-logo-tagline {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-medium);
+    letter-spacing: 0.04em;
+    color: var(--sila-text-muted);
+    text-transform: uppercase;
+}
+
+/* ---------------------------- layout ---------------------------- */
+
+.bp-page .bp-main {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sila-space-6);
+    max-width: 75rem;
+    margin: 0 auto;
+    padding: var(--sila-space-6) var(--sila-page-padding-x);
+}
+
+.bp-page .bp-main-centered {
+    justify-content: center;
+}
+
+.bp-page .bp-sidebar-wrap {
+    position: sticky;
+    top: var(--sila-space-6);
+    flex: 0 0 15rem;
+    padding: var(--sila-space-4);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.bp-page .bp-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-4);
+    flex: 1;
+    min-width: 0;
+}
+
+/* ---------------------------- vertical stepper ---------------------------- */
+
+.bp-page .bp-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.bp-page .bp-step-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-3);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--sila-space-2);
+    border: none;
+    border-radius: var(--sila-radius);
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: default;
+    transition: var(--sila-transition);
+}
+
+/* connector line between markers */
+.bp-page .bp-step-item + .bp-step-item::before {
+    content: "";
+    position: absolute;
+    top: -0.625rem;
+    left: calc(var(--sila-space-2) + 0.6875rem);
+    width: 0.125rem;
+    height: 1.25rem;
+    background: var(--sila-border);
+}
+
+.bp-page .bp-step-clickable {
+    cursor: pointer;
+}
+
+.bp-page .bp-step-clickable:hover {
+    background: var(--sila-surface-hover);
+}
+
+.bp-page .bp-step-item:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .bp-step-item:disabled {
+    cursor: default;
+}
+
+.bp-page .bp-step-circle {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0.0938rem solid var(--sila-border-strong);
+    border-radius: 50%;
+    background: var(--sila-surface);
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.bp-page .bp-step-circle svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.bp-page .bp-step-circle.bp-step-current {
+    border-color: var(--sila-primary);
+    color: var(--sila-primary);
+    box-shadow: 0 0 0 0.1875rem var(--sila-primary-soft);
+}
+
+.bp-page .bp-step-circle.bp-step-complete {
+    border-color: var(--sila-primary);
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+.bp-page .bp-step-label {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+}
+
+.bp-page .bp-step-current-label {
+    color: var(--sila-primary);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.bp-page .bp-step-complete-label {
+    color: var(--sila-text-secondary);
+}
+
+/* ---------------------------- panel (card) ---------------------------- */
+
+.bp-page .bp-panel {
+    padding: 0 var(--sila-space-5) var(--sila-space-5);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.bp-page .bp-panel-title {
+    margin: 0;
+    padding: var(--sila-space-4) 0 var(--sila-space-3);
+    font-size: var(--sila-text-lg);
+    font-weight: var(--sila-weight-semibold);
+    line-height: var(--sila-leading-tight);
+    color: var(--sila-text);
+}
+
+.bp-page .bp-divider {
+    height: 0.0625rem;
+    margin: 0 calc(-1 * var(--sila-space-5)) var(--sila-space-5);
+    background: var(--sila-border-subtle);
+}
+
+/* ---------------------------- form grid ---------------------------- */
+
+.bp-page .bp-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.bp-page .bp-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1-5);
+    min-width: 0;
+}
+
+.bp-page .bp-field-wide {
+    grid-column: 1 / -1;
+}
+
+.bp-page .bp-field label,
+.bp-page .bp-field-label {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-secondary);
+}
+
+.bp-page .bp-required {
+    padding-left: 0.125rem;
+    color: var(--sila-danger);
+}
+
+.bp-page .bp-label-context {
+    font-weight: var(--sila-weight-regular);
+    color: var(--sila-text-muted);
+}
+
+.bp-page .bp-field input[type="text"],
+.bp-page .bp-field input[type="number"],
+.bp-page .bp-field input[type="url"],
+.bp-page .bp-field input[type="email"],
+.bp-page .bp-field input[type="tel"],
+.bp-page .bp-field input[type="date"],
+.bp-page .bp-field select,
+.bp-page .bp-field textarea {
+    width: 100%;
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-3);
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface);
+    color: var(--sila-text);
+    font-family: inherit;
+    font-size: var(--sila-text-md);
+    transition: var(--sila-transition);
+}
+
+.bp-page .bp-field textarea {
+    height: auto;
+    min-height: 6rem;
+    padding: var(--sila-space-2) var(--sila-space-3);
+    line-height: var(--sila-leading);
+    resize: vertical;
+}
+
+.bp-page .bp-field input::placeholder,
+.bp-page .bp-field textarea::placeholder {
+    color: var(--sila-text-subtle);
+}
+
+.bp-page .bp-field input:focus,
+.bp-page .bp-field select:focus,
+.bp-page .bp-field textarea:focus {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .bp-field input:disabled,
+.bp-page .bp-field select:disabled {
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text-muted);
+    cursor: not-allowed;
+}
+
+/* ---------------------------- dropzone ---------------------------- */
+
+.bp-page .bp-field .bp-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-1);
+    padding: var(--sila-space-6) var(--sila-space-4);
+    border: 0.0625rem dashed var(--sila-border-strong);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-regular);
+    text-align: center;
+    word-break: break-word;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .bp-dropzone-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--sila-text-subtle);
+}
+
+.bp-page .bp-field .bp-dropzone:hover {
+    border-color: var(--sila-primary);
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+}
+
+.bp-page .bp-field .bp-dropzone:hover .bp-dropzone-icon {
+    color: var(--sila-primary);
+}
+
+.bp-page .bp-field:focus-within .bp-dropzone {
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+/* Visually hidden but still keyboard-focusable */
+.bp-page .bp-hidden-file-input {
+    position: absolute;
+    width: 0.0625rem;
+    height: 0.0625rem;
+    margin: -0.0625rem;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------------------------- actions ---------------------------- */
+
+.bp-page .bp-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding-top: var(--sila-space-5);
+}
+
+.bp-page .bp-actions-right {
+    justify-content: flex-end;
+}
+
+.bp-page .bp-actions-between {
+    justify-content: space-between;
+}
+
+.bp-page .bp-actions-footer {
+    margin: var(--sila-space-5) calc(-1 * var(--sila-space-5)) calc(-1 * var(--sila-space-5));
+    padding: var(--sila-space-3) var(--sila-space-5);
+    background: var(--sila-surface-subtle);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+    border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+.bp-page .bp-actions-standalone {
+    margin-top: 0;
+}
+
+.bp-page .bp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-1-5);
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-4);
+    border: 0.0625rem solid transparent;
+    border-radius: var(--sila-radius);
+    font-family: inherit;
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-medium);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .bp-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .bp-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bp-page .bp-btn-primary {
+    background: var(--sila-primary);
+    border-color: var(--sila-primary);
+    color: var(--sila-text-inverse);
+}
+
+.bp-page .bp-btn-primary:hover:not(:disabled) {
+    background: var(--sila-primary-hover);
+    border-color: var(--sila-primary-hover);
+}
+
+.bp-page .bp-btn-secondary {
+    background: var(--sila-surface);
+    border-color: var(--sila-border-strong);
+    color: var(--sila-text-secondary);
+}
+
+.bp-page .bp-btn-secondary:hover:not(:disabled) {
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text);
+}
+
+/* ---------------------------- tables ---------------------------- */
+
+.bp-page .bp-table-wrap {
+    margin-top: var(--sila-space-5);
+    overflow-x: auto;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+}
+
+.bp-page .bp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--sila-text-sm);
+}
+
+.bp-page .bp-table th {
+    height: 2.25rem;
+    padding: 0 var(--sila-space-3);
+    background: var(--sila-surface-subtle);
+    border-bottom: 0.0625rem solid var(--sila-border);
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.bp-page .bp-table td {
+    height: 2.75rem;
+    padding: var(--sila-space-2) var(--sila-space-3);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    color: var(--sila-text);
+    vertical-align: middle;
+}
+
+.bp-page .bp-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.bp-page .bp-table tbody tr:hover td {
+    background: var(--sila-surface-subtle);
+}
+
+.bp-page .bp-table .bp-col-action {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.bp-page .bp-table td.bp-empty-row {
+    padding: var(--sila-space-6) var(--sila-space-4);
+    color: var(--sila-text-muted);
+    text-align: center;
+}
+
+.bp-page .bp-table tbody tr:hover td.bp-empty-row {
+    background: transparent;
+}
+
+/* attachment reference inside a table cell (.sila-file-like) */
+.bp-page .bp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    max-width: 12rem;
+    height: 1.5rem;
+    padding: 0 var(--sila-space-2);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text-secondary);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    white-space: nowrap;
+}
+
+.bp-page .bp-pill-icon {
+    width: 0.6875rem;
+    height: 0.6875rem;
+    color: var(--sila-primary);
+    flex-shrink: 0;
+}
+
+.bp-page .bp-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 1.125rem;
+    margin-left: var(--sila-space-2);
+    padding: 0 0.375rem;
+    border: 0.0625rem solid var(--sila-info-border);
+    border-radius: var(--sila-radius-full);
+    background: var(--sila-info-soft);
+    color: var(--sila-info);
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    vertical-align: middle;
+}
+
+.bp-page .bp-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--sila-control-height-sm);
+    height: var(--sila-control-height-sm);
+    padding: 0;
+    border: 0.0625rem solid transparent;
+    border-radius: var(--sila-radius);
+    background: none;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .bp-icon-btn svg {
+    width: 0.8125rem;
+    height: 0.8125rem;
+}
+
+.bp-page .bp-icon-btn:hover {
+    background: var(--sila-danger-soft);
+    color: var(--sila-danger);
+}
+
+.bp-page .bp-icon-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+/* ---------------------------- checkboxes ---------------------------- */
+
+.bp-page .bp-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-secondary);
+    cursor: pointer;
+}
+
+.bp-page .bp-checkbox-label input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--sila-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.bp-page .bp-checkbox-label a {
+    color: var(--sila-primary);
+    text-decoration: none;
+}
+
+.bp-page .bp-checkbox-label a:hover {
+    text-decoration: underline;
+}
+
+.bp-page .bp-agreements {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-2);
+    margin-top: var(--sila-space-5);
+    padding: var(--sila-space-4);
+    background: var(--sila-surface-subtle);
+    border: 0.0625rem solid var(--sila-border-subtle);
+    border-radius: var(--sila-radius);
+}
+
+.bp-page .bp-error {
+    padding-top: var(--sila-space-4);
+    color: var(--sila-danger-strong);
+    font-size: var(--sila-text-sm);
+}
+
+/* ---------------------------- success state ---------------------------- */
+
+.bp-page .bp-success-card {
+    max-width: 26.25rem;
+    padding: var(--sila-space-10) var(--sila-space-8);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    text-align: center;
+}
+
+.bp-page .bp-success-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0 auto var(--sila-space-4);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-success-soft);
+    color: var(--sila-success);
+}
+
+.bp-page .bp-success-icon svg {
+    width: 1.125rem;
+    height: 1.125rem;
+}
+
+.bp-page .bp-success-card h2 {
+    padding: 0 0 var(--sila-space-2);
+    font-size: var(--sila-text-xl);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.bp-page .bp-success-card p {
+    padding: 0 0 var(--sila-space-6);
+    font-size: var(--sila-text-md);
+    color: var(--sila-text-muted);
+}
+
+/* ---------------------------- company info (read only) ---------------------------- */
+
+.bp-page .bp-company-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+    gap: var(--sila-space-4) var(--sila-space-6);
+}
+
+.bp-page .bp-company-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.bp-page .bp-company-info-item-full {
+    grid-column: 1 / -1;
+}
+
+.bp-page .bp-company-info-label {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+}
+
+.bp-page .bp-company-info-value {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-medium);
+    line-height: var(--sila-leading);
+    color: var(--sila-text);
+    word-break: break-word;
+}
+
+/* Default location indicator */
+.bp-page .bp-table-row-default td:first-child {
+    box-shadow: inset 0.1875rem 0 0 var(--sila-success);
+}
+
+.bp-page .bp-default-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-left: var(--sila-space-2);
+    border-radius: 50%;
+    background-color: var(--sila-success);
+    vertical-align: middle;
+}
+
+/* -------------------- custom dropdown selectors -------------------- */
+
+.bp-page .custom-dropdown-container {
+    position: relative;
+    width: 100%;
+}
+
+.bp-page .custom-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-2);
+    width: 100%;
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-3);
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface);
+    color: var(--sila-text-subtle);
+    font-family: inherit;
+    font-size: var(--sila-text-md);
+    text-align: left;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .custom-dropdown-trigger:focus-visible,
+.bp-page .custom-dropdown-trigger[aria-expanded="true"] {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .custom-dropdown-trigger-disabled,
+.bp-page .custom-dropdown-trigger:disabled {
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text-subtle);
+    cursor: not-allowed;
+}
+
+.bp-page .custom-dropdown-trigger span {
+    color: var(--sila-text-subtle);
+}
+
+.bp-page .custom-dropdown-caret {
+    width: 0.6875rem;
+    height: 0.6875rem;
+    color: var(--sila-text-muted);
+    flex-shrink: 0;
+}
+
+.bp-page .custom-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: var(--sila-z-dropdown);
+    max-height: 18.75rem;
+    margin-top: var(--sila-space-1);
+    overflow-y: auto;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-lg);
+}
+
+.bp-page .custom-dropdown-item-loading,
+.bp-page .custom-dropdown-item-empty {
+    padding: var(--sila-space-2) var(--sila-space-4);
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-sm);
+}
+
+.bp-page .bp-category-tags .custom-dropdown-item-empty {
+    padding: 0;
+}
+
+.bp-page .segment-row,
+.bp-page .class-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2.25rem;
+    padding: 0 var(--sila-space-2) 0 var(--sila-space-4);
+    background-color: var(--sila-surface-subtle);
+    color: var(--sila-text-secondary);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    cursor: pointer;
+}
+
+.bp-page .segment-row:hover,
+.bp-page .class-row:hover {
+    background-color: var(--sila-surface-hover);
+}
+
+.bp-page .segment-row button,
+.bp-page .class-row button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--sila-radius-sm);
+    background: none;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+}
+
+.bp-page .segment-row button svg,
+.bp-page .class-row button svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.bp-page .segment-row button:focus-visible,
+.bp-page .class-row button:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .nested-items-container {
+    background-color: var(--sila-surface);
+}
+
+.bp-page .nested-item-row {
+    padding: var(--sila-space-2) var(--sila-space-6);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    color: var(--sila-text-secondary);
+    font-size: var(--sila-text-sm);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .nested-item-row:hover,
+.bp-page .nested-item-row:focus-visible {
+    outline: none;
+    background-color: var(--sila-primary-soft);
+    color: var(--sila-text);
+}
+
+.bp-page .custom-dropdown-item-wrapper {
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+/* -------------------- selected category/product tags -------------------- */
+
+.bp-page .bp-category-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-3);
+    width: 100%;
+}
+
+.bp-page .bp-category-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sila-space-2);
+}
+
+.bp-page .bp-category-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    height: 1.75rem;
+    padding: 0 var(--sila-space-1) 0 var(--sila-space-3);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius);
+    background-color: var(--sila-surface-subtle);
+    color: var(--sila-text-secondary);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .bp-category-tag:hover {
+    background-color: var(--sila-surface-hover);
+    border-color: var(--sila-border-strong);
+}
+
+.bp-page .bp-category-tag:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .bp-category-tag.bp-category-tag-active {
+    background-color: var(--sila-primary-soft);
+    border-color: var(--sila-primary-border);
+    color: var(--sila-primary);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.bp-page .bp-category-tag.bp-category-tag-active-sub {
+    background-color: var(--sila-surface);
+    border-color: var(--sila-border);
+    color: var(--sila-text-secondary);
+    font-weight: var(--sila-weight-medium);
+    cursor: default;
+}
+
+.bp-page .bp-category-tag button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--sila-radius-xs);
+    background: none;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+}
+
+.bp-page .bp-category-tag button svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.bp-page .bp-category-tag button:hover {
+    background: var(--sila-danger-soft);
+    color: var(--sila-danger);
+}
+
+.bp-page .bp-category-tag button:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .bp-category-tag-active button {
+    color: var(--sila-primary);
+}
+
+.bp-page .bp-selector-divider {
+    margin: var(--sila-space-2) 0;
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.bp-page .bp-category-section-subtitle {
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+/* ---------------------------- responsive ---------------------------- */
+
+@media (max-width: 53.75rem) {
+    .bp-page .bp-main {
+        flex-direction: column;
+        padding: var(--sila-space-4);
+    }
+
+    .bp-page .bp-sidebar-wrap {
+        position: static;
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    .bp-page .bp-sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: var(--sila-space-1);
+    }
+
+    .bp-page .bp-step-item {
+        width: auto;
+    }
+
+    .bp-page .bp-step-item + .bp-step-item::before {
+        display: none;
+    }
+
+    .bp-page .bp-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bp-page .bp-panel {
+        padding: 0 var(--sila-space-4) var(--sila-space-4);
+    }
+
+    .bp-page .bp-divider {
+        margin: 0 calc(-1 * var(--sila-space-4)) var(--sila-space-4);
+    }
+
+    .bp-page .bp-actions-footer {
+        margin: var(--sila-space-4) calc(-1 * var(--sila-space-4)) calc(-1 * var(--sila-space-4));
+        padding: var(--sila-space-3) var(--sila-space-4);
+    }
+
+    .bp-page .bp-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bp-page .bp-actions .bp-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 30rem) {
+    .bp-page .bp-success-card {
+        padding: var(--sila-space-6) var(--sila-space-4);
+    }
+}
+
+/* ======================================================================== */
+/* Network-admin onboarding additions                                       */
+/* ======================================================================== */
+
+.bp-page .bp-header {
+    justify-content: space-between;
+    gap: var(--sila-space-4);
+}
+
+.bp-page .bp-header-logout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    height: var(--sila-control-height-sm);
+    padding: 0 var(--sila-space-3);
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface);
+    color: var(--sila-text-secondary);
+    font-family: inherit;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bp-page .bp-header-logout-btn:hover:not(:disabled) {
+    background: var(--sila-danger-soft);
+    border-color: var(--sila-danger-border);
+    color: var(--sila-danger);
+}
+
+.bp-page .bp-header-logout-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bp-page .bp-header-logout-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Titled groups inside a step panel (.sila-form-section look) */
+.bp-page .bp-divider + .bp-form-section,
+.bp-page form > .bp-form-section:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.bp-page .bp-form-section-title {
+    padding-bottom: var(--sila-space-3);
+}
+
+.bp-page .bp-form-section-title + .bp-table-wrap {
+    margin-top: 0;
+}
+
+/* Validation */
+.bp-page .bp-field select.bp-input-error,
+.bp-page .bp-field input.bp-input-error,
+.bp-page .bp-field select[aria-invalid="true"],
+.bp-page .bp-field input[aria-invalid="true"] {
+    border-color: var(--sila-danger);
+}
+
+.bp-page .bp-field select[aria-invalid="true"]:focus,
+.bp-page .bp-field input[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.bp-page .bp-error-text {
+    gap: var(--sila-space-1);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-danger);
+}
+
+.bp-page .bp-error-text svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+}
+
+.bp-page .bp-error.sila-alert {
+    align-items: center;
+}
+
+.bp-page .bp-error-icon {
+    flex-shrink: 0;
+    color: var(--sila-danger);
+}
+
+.bp-page .bp-mono {
+    font-family: var(--sila-font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.bp-page .bp-dropzone-text {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.bp-page .bp-btn svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+}
+
+/* Declarations rendered as a fieldset */
+.bp-page fieldset.bp-agreements {
+    min-width: 0;
+    margin: var(--sila-space-5) 0 0;
+}

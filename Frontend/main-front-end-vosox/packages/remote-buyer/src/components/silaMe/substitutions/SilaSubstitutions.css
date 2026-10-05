@@ -1,0 +1,177 @@
+/* SILA ME recipe substitution: suggestion list, yes/no prompt and the drag-and-drop review. */
+
+.ssub-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.ssub-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-table .ssub-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  justify-content: flex-end;
+}
+
+.ssub-pager {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+/* Yes / No prompt */
+.ssub-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-5);
+}
+
+.ssub-prompt-question {
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.ssub-prompt-reason {
+  color: var(--sila-text-secondary);
+}
+
+/* Review: suggestions left, ingredients right */
+.ssub-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--sila-space-4);
+  align-items: start;
+}
+
+@media (max-width: 56rem) {
+  .ssub-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ssub-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-4);
+}
+
+.ssub-column-title {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+}
+
+.ssub-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface);
+  cursor: grab;
+}
+
+.ssub-suggestion:focus-within {
+  box-shadow: var(--sila-focus-ring);
+}
+
+.ssub-suggestion--used {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ssub-suggestion--dim {
+  opacity: 0.45;
+}
+
+.ssub-suggestion-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  align-items: baseline;
+}
+
+.ssub-ingredient {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3);
+  border: 0.0625rem dashed var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface);
+}
+
+.ssub-ingredient--short {
+  border-color: var(--sila-danger-border);
+  background: var(--sila-danger-soft);
+}
+
+.ssub-ingredient--target {
+  border-style: solid;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.ssub-ingredient--replaced {
+  border-style: solid;
+  border-color: var(--sila-success-border);
+  background: var(--sila-success-soft);
+}
+
+.ssub-ingredient-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-0-5);
+  min-width: 0;
+}
+
+.ssub-old {
+  text-decoration: line-through;
+  color: var(--sila-text-muted);
+}
+
+.ssub-new {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-success-strong);
+}
+
+.ssub-delta-up {
+  color: var(--sila-danger);
+}
+
+.ssub-delta-down {
+  color: var(--sila-success-strong);
+}
+
+.ssub-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-4);
+}
+
+.ssub-change-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: 0 0 0 var(--sila-space-4);
+}

@@ -1,0 +1,35 @@
+/* Slim public header for the sign-in and registration pages. */
+
+.vx-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--sila-z-sticky);
+    background: var(--sila-surface);
+    border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.vx-header-inner {
+    display: flex;
+    align-items: center;
+    max-width: 75rem;
+    height: var(--sila-topbar-height);
+    margin: 0 auto;
+    padding: 0 var(--sila-page-padding-x);
+}
+
+.vx-header-brand {
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* The logo PNG carries wide transparent padding (content ~ x 96-508, y 119-212 of 677x369).
+   Negative margins trim it so the visible mark sits at ~1.625rem high on the 3.5rem bar. */
+.vx-logo-img {
+    display: block;
+    height: 6.25rem;
+    width: auto;
+    max-width: none;
+    margin: -2rem -2.875rem -2.625rem -1.625rem;
+    object-fit: contain;
+}

@@ -1,0 +1,134 @@
+/* Contract approvals list. Carries its own card/title styles (ctr-*) so it renders the
+   same whether or not the host app has loaded BuyerAdminDash.css. */
+.ctr-panel {
+  padding: var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.ctr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.ctr-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+}
+
+.ctr-title {
+  padding: 0 0 var(--sila-space-1);
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+}
+
+.ctr-subtitle {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.ctr-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.ctr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-3);
+}
+
+.ctr-search {
+  flex: 1 1 16rem;
+  max-width: 26rem;
+}
+
+.ctr-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  min-height: 15rem;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text-muted);
+}
+
+.ctr-table th,
+.ctr-table td {
+  white-space: nowrap;
+}
+
+.ctr-col-sno {
+  width: 3.5rem;
+}
+
+.ctr-sno {
+  color: var(--sila-text-muted);
+}
+
+.ctr-table .ctr-title-cell {
+  min-width: 14rem;
+  white-space: normal;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.ctr-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.ctr-rfq-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 12rem;
+  white-space: normal;
+}
+
+.ctr-rfq-title {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.ctr-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.ctr-attachment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  color: var(--sila-text-secondary);
+}
+
+.ctr-cell-chevron {
+  width: 1%;
+  color: var(--sila-text-subtle);
+  text-align: right;
+}
+.ctr-table tbody tr:hover .ctr-cell-chevron {
+  color: var(--sila-primary);
+}
+
+@media (max-width: 48rem) {
+  .ctr-panel {
+    padding: var(--sila-space-4);
+  }
+
+  .ctr-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
