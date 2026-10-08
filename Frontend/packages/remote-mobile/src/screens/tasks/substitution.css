@@ -1,0 +1,99 @@
+/* Recipe change suggestion: suggestions (left) dragged onto the ingredients (right). */
+
+.sm-sub-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.sm-sub-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sm-sub-column h2 {
+  font-size: 0.9375rem;
+}
+
+.sm-sub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem;
+  border: 0.0625rem solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  background: var(--sm-surface);
+  font-size: 0.875rem;
+}
+
+.sm-sub-card--used {
+  opacity: 0.55;
+}
+
+.sm-sub-card--dragging {
+  border-color: var(--sm-primary);
+  background: var(--sm-light);
+}
+
+/* Drag handle: the only part that does not scroll the page on touch. */
+.sm-sub-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 0.0625rem dashed var(--sm-primary);
+  border-radius: var(--sm-radius);
+  background: var(--sm-light);
+  color: var(--sm-primary);
+  font-weight: 600;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.sm-sub-ingredient {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem;
+  border: 0.0625rem dashed var(--sm-border);
+  border-radius: var(--sm-radius);
+  background: var(--sm-surface);
+  font-size: 0.875rem;
+}
+
+.sm-sub-ingredient--short {
+  border-color: var(--sm-error);
+}
+
+.sm-sub-ingredient--over {
+  border-style: solid;
+  border-color: var(--sm-primary);
+  background: var(--sm-light);
+}
+
+.sm-sub-ingredient--replaced {
+  border-style: solid;
+  border-color: var(--sm-success);
+}
+
+.sm-sub-old {
+  text-decoration: line-through;
+  color: var(--sm-secondary);
+}
+
+.sm-sub-new {
+  font-weight: 600;
+  color: var(--sm-success);
+}
+
+.sm-sub-up {
+  color: var(--sm-error);
+}
+
+.sm-sub-down {
+  color: var(--sm-success);
+}

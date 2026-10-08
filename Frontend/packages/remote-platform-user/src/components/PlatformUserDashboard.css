@@ -1,0 +1,543 @@
+/* ==========================================================================
+   Platform Administrator Dashboard
+   Layout chrome (sidebar, top bar, account menu) comes from the shared AppShell;
+   this file only styles the page body. All values resolve to --sila-* tokens.
+   ========================================================================== */
+
+.plat-main-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  color: var(--sila-text);
+}
+
+/* Settings icon button (still used by the Company Profile header) */
+.plat-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sila-control-height);
+  height: var(--sila-control-height);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  color: var(--sila-text-secondary);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  box-shadow: var(--sila-shadow-xs);
+  transition: var(--sila-transition);
+}
+
+.plat-icon-btn:hover {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text);
+}
+
+.plat-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+/* ==========================================================================
+   CONTROLS BAR (search, segmented tabs, view switcher)
+   ========================================================================== */
+.plat-main-content .plat-controls-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.plat-main-content .plat-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 20rem;
+  min-width: 13.75rem;
+  max-width: 32.5rem;
+}
+
+.plat-main-content .plat-search-lens {
+  position: absolute;
+  left: 0.6875rem;
+  color: var(--sila-text-subtle);
+  font-size: 0.8125rem;
+  pointer-events: none;
+}
+
+.plat-main-content .plat-search-field {
+  padding-left: 2rem;
+  padding-right: 2.125rem;
+}
+
+.plat-main-content .plat-search-field::-webkit-search-cancel-button {
+  display: none;
+}
+
+.plat-main-content .plat-search-clear {
+  position: absolute;
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: none;
+  color: var(--sila-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.plat-main-content .plat-search-clear:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.plat-main-content .plat-search-clear:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.plat-main-content .plat-controls-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.plat-main-content .plat-segmented-tabs,
+.plat-main-content .plat-view-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  background: var(--sila-surface-hover);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+}
+
+.plat-main-content .plat-seg-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1-5);
+  height: 1.875rem;
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.plat-main-content .plat-seg-tab:hover {
+  color: var(--sila-text);
+}
+
+.plat-main-content .plat-seg-tab.active-buyer-tab,
+.plat-main-content .plat-seg-tab.active-supplier-tab {
+  background: var(--sila-surface);
+  border-color: var(--sila-border);
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.plat-main-content .plat-seg-tab:focus-visible,
+.plat-main-content .plat-view-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.plat-main-content .plat-seg-icon {
+  font-size: 0.75rem;
+}
+
+.plat-main-content .plat-seg-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-surface-sunken);
+  color: var(--sila-text-secondary);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.plat-main-content .plat-seg-tab.active-buyer-tab .plat-seg-count,
+.plat-main-content .plat-seg-tab.active-supplier-tab .plat-seg-count {
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+}
+
+.plat-main-content .plat-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.plat-main-content .plat-view-btn:hover {
+  color: var(--sila-text);
+}
+
+.plat-main-content .plat-view-btn.active {
+  background: var(--sila-surface);
+  border-color: var(--sila-border);
+  color: var(--sila-primary);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+/* ==========================================================================
+   ORGANISATION CARDS (GRID VIEW)
+   ========================================================================== */
+.plat-main-content .plat-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18.75rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.plat-main-content .plat-grid-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.plat-main-content .plat-v2-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  min-width: 0;
+  padding: var(--sila-space-4);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  cursor: pointer;
+  text-align: left;
+  transition: var(--sila-transition);
+}
+
+.plat-main-content .plat-v2-card:hover {
+  border-color: var(--sila-primary-border);
+  box-shadow: var(--sila-shadow-sm);
+}
+
+.plat-main-content .plat-v2-card:focus-visible {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.plat-main-content .plat-v2-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+}
+
+.plat-main-content .plat-v2-avatar,
+.plat-main-content .plat-tbl-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--sila-radius);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.plat-main-content .plat-v2-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: var(--sila-text-sm);
+}
+
+.plat-main-content .plat-tbl-avatar {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--sila-text-xs);
+}
+
+.plat-main-content .plat-v2-header-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.plat-main-content .plat-v2-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  padding-bottom: var(--sila-space-1-5);
+}
+
+.plat-main-content .plat-v2-card-title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plat-main-content .plat-v2-status-chip {
+  flex-shrink: 0;
+}
+
+.plat-main-content .plat-v2-badge-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-1-5);
+}
+
+.plat-main-content .plat-v2-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 1.25rem;
+  padding: 0 var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-neutral-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-neutral-soft);
+  color: var(--sila-text-secondary);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plat-main-content .plat-v2-pill-industry {
+  background: var(--sila-surface);
+  color: var(--sila-text-muted);
+}
+
+.plat-main-content .plat-v2-desc {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  line-height: var(--sila-leading);
+  color: var(--sila-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.plat-main-content .plat-v2-contact-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  margin-top: auto;
+  padding-top: var(--sila-space-3);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.plat-main-content .plat-v2-contact-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  min-width: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+}
+
+.plat-main-content .plat-v2-contact-icon {
+  flex-shrink: 0;
+  width: 0.8125rem;
+  font-size: 0.8125rem;
+  color: var(--sila-text-subtle);
+}
+
+.plat-main-content .plat-v2-contact-val {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plat-main-content .plat-v2-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  min-width: 0;
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-medium);
+  text-decoration: none;
+}
+
+.plat-main-content .plat-v2-link:hover {
+  text-decoration: underline;
+}
+
+.plat-main-content .plat-v2-link-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plat-main-content .plat-v2-link-icon {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+}
+
+/* ==========================================================================
+   TABLE VIEW (layers on .sila-table)
+   ========================================================================== */
+.plat-main-content .plat-table-container {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow-x: auto;
+}
+
+.plat-main-content .plat-data-table {
+  min-width: 53.75rem;
+}
+
+.plat-main-content .plat-tbl-org {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  min-width: 0;
+}
+
+.plat-main-content .plat-tbl-org-text {
+  min-width: 0;
+}
+
+.plat-main-content .plat-tbl-org-name {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.plat-main-content .plat-tbl-org-id {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.plat-main-content .plat-tbl-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.plat-main-content .plat-tbl-phone,
+.plat-main-content .plat-tbl-location {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* ==========================================================================
+   LOADING, EMPTY & ERROR STATES
+   ========================================================================== */
+.plat-main-content .plat-loading-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-3);
+  min-height: 17.5rem;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.plat-main-content .plat-spinner {
+  color: var(--sila-primary);
+}
+
+.plat-main-content .plat-loading-text {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.plat-main-content .plat-loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-4);
+  color: var(--sila-text-muted);
+}
+
+.plat-main-content .plat-loading-more-text {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+}
+
+.plat-main-content .plat-empty-card {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.plat-main-content .plat-error-alert {
+  align-items: center;
+  color: var(--sila-danger-strong);
+  font-weight: var(--sila-weight-medium);
+}
+
+.plat-main-content .plat-error-icon {
+  flex-shrink: 0;
+  color: var(--sila-danger);
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width: 48rem) {
+  .plat-main-content .plat-controls-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .plat-main-content .plat-search-bar {
+    max-width: none;
+    flex-basis: auto;
+  }
+
+  .plat-main-content .plat-controls-right {
+    justify-content: space-between;
+  }
+
+  .plat-main-content .plat-grid-container {
+    grid-template-columns: 1fr;
+  }
+}

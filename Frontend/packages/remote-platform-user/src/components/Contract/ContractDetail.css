@@ -1,0 +1,440 @@
+/* Contract detail view. Carries its own card/section styles (ctrd-*), mirroring the
+   ctr-* list styles, so it renders correctly whether or not the host app's own CSS is loaded. */
+
+.ctrd-detail {
+  display: flex;
+  flex-direction: column;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.ctrd-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-5) var(--sila-space-6);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.ctrd-detail-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  min-width: 0;
+}
+
+.ctrd-detail-ref-badge {
+  align-self: flex-start;
+  padding: 0.125rem var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-primary-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-size: var(--sila-text-xs);
+}
+
+.ctrd-detail-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.ctrd-detail-title {
+  margin: 0;
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: -0.015em;
+  color: var(--sila-text);
+}
+
+.ctrd-detail-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+.ctrd-detail-dot { color: var(--sila-border-strong); }
+
+.ctrd-detail-body { padding: var(--sila-space-5) var(--sila-space-6) var(--sila-space-6); }
+
+.ctrd-detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-6);
+}
+
+.ctrd-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sila-space-2);
+  padding: 0 0 var(--sila-space-3);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.ctrd-section-count {
+  padding: 0.0625rem var(--sila-space-2);
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-surface-sunken);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Contract info: compact field list in one panel */
+.ctrd-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-6);
+  margin: 0;
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface);
+}
+
+.ctrd-info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  padding-left: var(--sila-space-3);
+  border-left: 0.125rem solid var(--sila-border-subtle);
+}
+
+.ctrd-info-label {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.ctrd-info-value {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  line-height: 1.5;
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+/* Attachments */
+.ctrd-attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctrd-attachment-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface);
+}
+
+.ctrd-attachment-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+}
+
+.ctrd-attachment-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.ctrd-attachment-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  flex-shrink: 0;
+}
+
+/* Approval chain: left-to-right cards joined by arrows */
+.ctrd-approver-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: var(--sila-space-1) var(--sila-space-1) var(--sila-space-3);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.ctrd-approver-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2.5rem;
+  position: relative;
+  color: var(--sila-border-strong);
+}
+.ctrd-approver-connector::before {
+  content: "";
+  position: absolute;
+  left: 0.25rem;
+  right: 0.875rem;
+  top: 50%;
+  height: 0.125rem;
+  border-radius: 0.125rem;
+  background: var(--sila-border);
+}
+.ctrd-approver-connector svg { position: relative; margin-left: auto; margin-right: 0.125rem; }
+.ctrd-approver-connector-done { color: var(--sila-success); }
+.ctrd-approver-connector-done::before { background: var(--sila-success); }
+
+.ctrd-approver-card {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 18.75rem;
+  align-self: flex-start;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-top: 0.1875rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  scroll-snap-align: start;
+  transition: box-shadow var(--sila-duration) var(--sila-ease), border-color var(--sila-duration) var(--sila-ease);
+}
+.ctrd-approver-card:hover { box-shadow: var(--sila-shadow-sm); }
+.ctrd-approver-card--warning { border-top-color: var(--sila-warning); }
+.ctrd-approver-card--success { border-top-color: var(--sila-success); }
+.ctrd-approver-card--danger { border-top-color: var(--sila-danger); }
+.ctrd-approver-card--info,
+.ctrd-approver-card--accent,
+.ctrd-approver-card--neutral { border-top-color: var(--sila-border-strong); }
+
+/* The card the signed-in user can act on */
+.ctrd-approver-card.ctrd-approver-card-active {
+  flex-basis: 21.25rem;
+  border-color: var(--sila-primary-border);
+  border-top-color: var(--sila-primary);
+  box-shadow: 0 0 0 0.1875rem var(--sila-primary-soft), var(--sila-shadow-sm);
+}
+
+.ctrd-approver-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: var(--sila-radius-md) var(--sila-radius-md) 0 0;
+}
+
+.ctrd-approver-order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--sila-text-secondary);
+  color: var(--sila-text-inverse);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.ctrd-approver-card--success .ctrd-approver-order-badge { background: var(--sila-success); }
+.ctrd-approver-card--danger .ctrd-approver-order-badge { background: var(--sila-danger); }
+.ctrd-approver-card--warning .ctrd-approver-order-badge { background: var(--sila-warning); }
+
+.ctrd-approver-order-label {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--sila-text-muted);
+}
+
+.ctrd-approver-card-status { margin-left: auto; }
+
+.ctrd-approver-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4);
+}
+
+.ctrd-approver-card-person {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  min-width: 0;
+}
+
+.ctrd-approver-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+}
+.ctrd-approver-card--success .ctrd-approver-avatar { background: var(--sila-success-soft); color: var(--sila-success); }
+.ctrd-approver-card--danger .ctrd-approver-avatar { background: var(--sila-danger-soft); color: var(--sila-danger); }
+
+.ctrd-approver-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.ctrd-approver-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  min-width: 0;
+}
+.ctrd-approver-name-text {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctrd-approver-you {
+  display: inline-flex;
+  align-items: center;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  flex-shrink: 0;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ctrd-approver-email {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+.ctrd-approver-email svg { flex-shrink: 0; color: var(--sila-text-subtle); }
+.ctrd-approver-email span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Decision area inside the active card */
+.ctrd-approver-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  margin-top: auto;
+  padding-top: var(--sila-space-4);
+  border-top: 0.0625rem dashed var(--sila-border);
+}
+
+.ctrd-approver-comment-input { min-height: 4.75rem; }
+.ctrd-approver-comment-input-invalid { border-color: var(--sila-danger); }
+.ctrd-approver-comment-input-invalid:focus { box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring); }
+
+.ctrd-approver-card-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sila-space-2);
+  padding-top: var(--sila-space-2);
+}
+
+.ctrd-approver-btn-reject { color: var(--sila-danger); }
+.ctrd-approver-btn-reject:hover:not(:disabled) {
+  color: var(--sila-danger-strong);
+  border-color: var(--sila-danger-border);
+  background: var(--sila-danger-soft);
+}
+
+.ctrd-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--sila-space-3) var(--sila-space-6);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+@media (max-width: 47.9375rem) {
+  .ctrd-detail-header,
+  .ctrd-detail-body {
+    padding-left: var(--sila-space-4);
+    padding-right: var(--sila-space-4);
+  }
+  .ctrd-approver-card { flex-basis: 17.5rem; }
+}
+
+/* Purchase orders of the contract (Buyer Admin contract page). */
+.ctrd-po-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-3);
+  margin: var(--sila-space-4) 0;
+}
+
+.ctrd-po-hint {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.ctrd-po-table {
+  margin-top: var(--sila-space-2);
+}
+
+.ctrd-po-error {
+  display: block;
+  margin-top: 0.25rem;
+  max-width: 18rem;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  white-space: normal;
+}
+
+/* ERP details dialog of the Create Purchase Order action. */
+.ctr-po-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-4);
+}
+
+@media (max-width: 40rem) {
+  .ctr-po-form {
+    grid-template-columns: 1fr;
+  }
+}

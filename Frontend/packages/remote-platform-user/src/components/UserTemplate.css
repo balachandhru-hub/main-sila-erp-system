@@ -1,0 +1,418 @@
+/* Onboarding registration templates (UserTemplate).
+   Rendered inside the platform-user templates page, BuyerAdminDash and the buyer app shell,
+   so every rule is scoped to .ut-*. Controls, table, pagination and modals use the shared
+   .sila-* classes; the rules below only add layout and a few scoped overrides. */
+
+.ut-container,
+.ut-container *,
+.ut-modal-overlay,
+.ut-modal-overlay * {
+  box-sizing: border-box;
+}
+
+.ut-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+}
+
+/* List view sits on a white card, like the other list screens. */
+.ut-container--list {
+  padding: var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+/* ---- Header ---------------------------------------------------------- */
+
+.ut-header {
+  margin-bottom: 0;
+}
+
+.ut-header-main {
+  flex: 1;
+}
+
+.ut-header-content {
+  flex: 1;
+  min-width: 12rem;
+}
+
+/* Back button sits beside this block, so the title and description stack inside it. */
+.ut-header--create .ut-header-content {
+  display: block;
+}
+
+.ut-header--create .ut-header-content {
+  display: flex;
+  flex-direction: column;
+  gap:0rem;
+  min-width: 0;
+}
+
+.ut-back-btn {
+  flex-shrink: 0;
+  padding-top: 0.125rem;
+}
+
+.ut-btn-create {
+  flex-shrink: 0;
+}
+
+/* ---- Error banners --------------------------------------------------- */
+
+.ut-error-message--page,
+.ut-error-message--form {
+  color: var(--sila-danger-strong);
+}
+
+/* ---- Table card ------------------------------------------------------ */
+
+.ut-table-wrapper {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+}
+
+.ut-table-scroll .sila-table {
+  min-width: 35rem;
+}
+
+.ut-table .ut-col-name {
+  width: 55%;
+}
+
+.ut-table .ut-col-modified {
+  width: 20%;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--sila-text-secondary);
+}
+
+.ut-table .ut-col-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ut-template-name-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.ut-template-name {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.ut-template-description {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.ut-action-buttons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sila-space-1);
+}
+
+.ut-btn-action.ut-btn-view,
+.ut-btn-action.ut-btn-edit {
+  color: var(--sila-primary);
+}
+
+.ut-btn-action.ut-btn-delete {
+  color: var(--sila-danger);
+}
+
+.ut-btn-action.ut-btn-delete:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger-strong);
+}
+
+.ut-action-buttons.ut-default-template .ut-btn-edit,
+.ut-action-buttons.ut-default-template .ut-btn-delete {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---- Create / edit form ---------------------------------------------- */
+
+.ut-form-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-5);
+  padding: var(--sila-space-6);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.ut-steps {
+  max-width: 27.5rem;
+  padding-bottom: var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.ut-form-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+}
+
+.ut-step-indicator {
+  display: block;
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sila-primary);
+}
+
+.ut-form-header h2 {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.ut-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  max-width: 45rem;
+}
+
+.ut-form-group--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.ut-form-group--checkbox input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--sila-primary);
+}
+
+.ut-form-group--checkbox label {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+  cursor: pointer;
+}
+
+.ut-textarea--readonly {
+  resize: none;
+}
+
+.ut-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  padding-top: var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.ut-form-actions .sila-btn {
+  min-width: 6rem;
+}
+
+/* In a modal the footer supplies spacing and the divider */
+.ut-form-actions.ut-form-actions--modal {
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.ut-add-field-section {
+  display: flex;
+}
+
+.ut-btn-add-field {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 var(--sila-space-3);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+  background: var(--sila-surface);
+  border: 0.0625rem dashed var(--sila-primary-border);
+  border-radius: var(--sila-radius);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.ut-btn-add-field:hover {
+  background: var(--sila-primary-soft);
+  border-color: var(--sila-primary);
+}
+
+.ut-btn-add-field:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.ut-inline-field-form {
+  padding: var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.ut-inline-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.ut-inline-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  padding-top: var(--sila-space-3);
+  border-top: 0.0625rem solid var(--sila-border);
+}
+
+.ut-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+}
+
+.ut-fields-list-title {
+  padding: 0 0 var(--sila-space-1);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.ut-empty-state {
+  margin: 0;
+  padding: var(--sila-space-8) var(--sila-space-5);
+  font-size: var(--sila-text-sm);
+  text-align: center;
+  color: var(--sila-text-muted);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem dashed var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+}
+
+.ut-field-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  transition: border-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.ut-field-item:hover {
+  border-color: var(--sila-border-strong);
+}
+
+.ut-field-info {
+  flex: 1;
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.ut-field-name {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.ut-field-type {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.ut-field-mandatory {
+  padding-top: 0.125rem;
+}
+
+.ut-field-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  flex-shrink: 0;
+}
+
+.ut-btn-edit-field {
+  color: var(--sila-primary);
+}
+
+.ut-btn-delete-field {
+  color: var(--sila-danger);
+}
+
+.ut-btn-delete-field:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger-strong);
+}
+
+/* ---- Modals ---------------------------------------------------------- */
+
+.ut-modal--confirm {
+  max-width: 26.25rem;
+}
+
+.ut-confirm-text {
+  line-height: var(--sila-leading);
+}
+
+/* ---- Responsive ------------------------------------------------------ */
+
+@media (max-width: 48rem) {
+  .ut-form-card {
+    padding: var(--sila-space-4);
+  }
+
+  .ut-btn-create {
+    width: 100%;
+  }
+
+  .ut-field-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ut-field-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 30rem) {
+  .ut-form-actions:not(.ut-form-actions--modal),
+  .ut-inline-form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

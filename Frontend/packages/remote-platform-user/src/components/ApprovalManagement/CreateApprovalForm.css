@@ -1,0 +1,368 @@
+/* ---------- Buttons (sila-btn supplies size and colour) ---------- */
+.apf-btn {
+  min-width: 6rem;
+}
+
+/* ---------- Modal ---------- */
+.apf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-4);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.apf-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 42rem;
+  max-height: calc(100vh - 2rem);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+}
+
+.apf-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.apf-modal-title {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.apf-modal-subtitle {
+  padding: var(--sila-space-0-5) 0 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.apf-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--sila-control-height-sm);
+  height: var(--sila-control-height-sm);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--sila-radius);
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.apf-close:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.apf-close:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.apf-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sila-space-5);
+}
+
+.apf-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: 0 0 var(--sila-radius-lg) var(--sila-radius-lg);
+}
+
+/* ---------- Form ---------- */
+.apf-section-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding-bottom: var(--sila-space-3);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.apf-section-gap {
+  margin-top: var(--sila-space-5);
+  padding-top: var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.apf-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-surface-sunken);
+  color: var(--sila-text-secondary);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.apf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.apf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+}
+
+.apf-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+}
+
+.apf-label em {
+  padding-left: 0.125rem;
+  color: var(--sila-danger);
+  font-style: normal;
+}
+
+.apf-input {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+  box-sizing: border-box;
+  transition: var(--sila-transition);
+}
+
+.apf-input:hover:not(:disabled) {
+  border-color: var(--sila-text-subtle);
+}
+
+.apf-input:focus {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.apf-input:disabled {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  cursor: not-allowed;
+}
+
+.apf-input-number {
+  font-variant-numeric: tabular-nums;
+}
+
+.apf-input-error,
+.apf-input-error:hover:not(:disabled) {
+  border-color: var(--sila-danger);
+}
+
+.apf-input-error:focus {
+  border-color: var(--sila-danger);
+  box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.apf-error {
+  display: block;
+  padding-top: var(--sila-space-1);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-danger);
+}
+
+.apf-amount {
+  display: flex;
+  gap: var(--sila-space-2);
+}
+
+.apf-amount .apf-currency {
+  flex: 0 0 6.5rem;
+}
+
+/* ---------- Users ---------- */
+.apf-user-picker {
+  display: flex;
+  gap: var(--sila-space-2);
+}
+
+.apf-add-btn {
+  flex: 0 0 auto;
+}
+
+.apf-users-empty {
+  margin-top: var(--sila-space-3);
+  padding: var(--sila-space-5);
+  border: 0.0625rem dashed var(--sila-border-strong);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface-subtle);
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+/* Approver list reads as a vertical workflow: numbered markers joined by a rail */
+.apf-users {
+  list-style: none;
+  margin: var(--sila-space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+}
+
+.apf-user-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: 0.625rem var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+}
+
+.apf-user-card + .apf-user-card::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--sila-space-3) + 0.6875rem);
+  top: calc(-1 * var(--sila-space-2) - 0.0625rem);
+  width: 0.125rem;
+  height: var(--sila-space-2);
+  background: var(--sila-primary-border);
+}
+
+.apf-order {
+  flex: 0 0 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 0.125rem solid var(--sila-primary);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.apf-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-0-5);
+}
+
+.apf-user-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.apf-user-name {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.apf-role {
+  display: inline-flex;
+  align-items: center;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  border: 0.0625rem solid var(--sila-neutral-border);
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-neutral-soft);
+  color: var(--sila-neutral);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+}
+
+.apf-user-email {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apf-user-actions {
+  display: flex;
+  gap: var(--sila-space-1);
+}
+
+.apf-user-actions button {
+  width: var(--sila-control-height-sm);
+  height: var(--sila-control-height-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.apf-user-actions button:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.apf-user-actions button:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.apf-user-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.apf-user-actions .apf-remove:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  border-color: var(--sila-danger-border);
+  color: var(--sila-danger);
+}
+
+@media (max-width: 40rem) {
+  .apf-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .apf-user-card {
+    flex-wrap: wrap;
+  }
+}

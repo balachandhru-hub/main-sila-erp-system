@@ -1,0 +1,382 @@
+/* Sourcing invitations (inv-*) — list, cards and the verification detail page. */
+
+.inv-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+}
+
+.inv-page > .sila-page-header.inv-page-header {
+  margin-bottom: 0;
+}
+
+/* ---- Toolbar: tabs + search --------------------------------------------- */
+
+.inv-list-card {
+  overflow: hidden;
+}
+
+.inv-tabs-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3) var(--sila-space-4);
+  padding: var(--sila-space-2) var(--sila-space-4) 0;
+  border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.sila-tabs.inv-tabs {
+  border-bottom: 0;
+  min-width: 0;
+}
+
+.inv-tab .sila-count {
+  font-weight: var(--sila-weight-semibold);
+}
+
+.inv-tab[aria-selected="true"] .sila-count {
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+}
+
+.inv-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding-bottom: var(--sila-space-2);
+  flex: 0 1 26.25rem;
+  min-width: 0;
+}
+
+.sila-search.inv-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.inv-search .sila-input {
+  padding-right: 2.125rem;
+}
+
+.inv-search-clear {
+  position: absolute;
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.inv-search-clear svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.inv-search-clear:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.inv-search-clear:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+/* ---- Card grid ---------------------------------------------------------- */
+
+.inv-list-body {
+  padding: var(--sila-space-4);
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--sila-space-4);
+}
+
+.inv-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  transition: var(--sila-transition);
+}
+
+.inv-card:hover {
+  border-color: var(--sila-border-strong);
+  box-shadow: var(--sila-shadow-sm);
+}
+
+.inv-card-closed,
+.inv-card-declined {
+  background: var(--sila-surface-subtle);
+}
+
+.inv-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.inv-status-icon {
+  display: inline-flex;
+}
+
+.inv-status-icon svg {
+  width: 0.6875rem;
+  height: 0.6875rem;
+}
+
+.inv-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  flex: 1;
+  padding: var(--sila-space-4);
+}
+
+.inv-card-title {
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+}
+
+.inv-card-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-1) var(--sila-space-4);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.inv-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  min-width: 0;
+}
+
+.inv-meta-item svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  flex-shrink: 0;
+}
+
+.inv-description {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  line-height: var(--sila-leading);
+  color: var(--sila-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.inv-action-error {
+  padding-top: var(--sila-space-1);
+}
+
+.inv-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+.inv-footer-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  min-height: var(--sila-control-height-sm);
+}
+
+.sila-btn.inv-btn-decline {
+  color: var(--sila-danger);
+}
+
+.sila-btn.inv-btn-decline:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  border-color: var(--sila-danger-border);
+  color: var(--sila-danger-strong);
+}
+
+.sila-btn.inv-btn-view {
+  color: var(--sila-primary);
+  margin-left: auto;
+}
+
+.inv-footer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1-5);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+}
+
+.inv-footer-status svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.inv-footer-status-accepted {
+  color: var(--sila-success);
+}
+
+.inv-footer-status-declined {
+  color: var(--sila-danger);
+}
+
+/* ---- Detail page -------------------------------------------------------- */
+
+.inv-detail-meta {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-1) var(--sila-space-4);
+}
+
+.inv-detail-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+}
+
+.inv-detail-summary,
+.inv-detail-qa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.inv-detail-desc {
+  margin: 0;
+  max-width: 60rem;
+  font-size: var(--sila-text-md);
+  line-height: var(--sila-leading);
+  color: var(--sila-text-secondary);
+  white-space: pre-wrap;
+}
+
+/* Stays in view while the supplier works through a long questionnaire. */
+.inv-detail-actions {
+  position: sticky;
+  bottom: var(--sila-space-3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  box-shadow: var(--sila-shadow-md);
+}
+
+.inv-detail-actions-hint {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.inv-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+}
+
+.inv-alert svg {
+  flex-shrink: 0;
+}
+
+.sila-alert.inv-alert--info {
+  display: block;
+  background: var(--sila-info-soft);
+  border-color: var(--sila-info-border);
+}
+
+.inv-alert--success svg {
+  color: var(--sila-success);
+}
+
+.inv-file-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-1-5);
+  max-width: 40rem;
+}
+
+.inv-file-upload .sila-input.inv-file-input {
+  height: auto;
+  padding: var(--sila-space-1-5) var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+}
+
+.inv-file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+}
+
+/* ---- Responsive --------------------------------------------------------- */
+
+@media (max-width: 48rem) {
+  .inv-tabs-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inv-search-wrapper {
+    flex-basis: auto;
+    padding-bottom: var(--sila-space-3);
+  }
+}
+
+@media (max-width:30rem) {
+  .inv-tabs {
+    width: 100%;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .inv-search-wrapper {
+    width: 100%;
+  }
+
+  .inv-card-top {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width:25rem) {
+  .inv-btn {
+    padding: 0 var(--sila-space-3);
+    ;
+  }
+}

@@ -1,0 +1,1008 @@
+.cp-page--platform {
+  --cp-bg-main: var(--sila-surface-hover);
+  --cp-bg-card: #ffffff;
+  --cp-border-color: var(--sila-border);
+  --cp-text-primary: var(--sila-text);
+  --cp-text-secondary: var(--sila-text-muted);
+  --cp-text-muted: var(--sila-text-subtle);
+  --cp-primary-blue: var(--sila-primary);
+  --cp-primary-bg: var(--sila-primary-soft);
+  --cp-border-radius: 0.5rem;
+  --cp-border-width: 0.0625rem;
+  --cp-font-size-sm: 0.8125rem;
+  --cp-font-size-base: 0.875rem;
+  --cp-font-size-md: 1rem;
+  --cp-font-size-lg: 1.125rem;
+  --cp-box-shadow: 0 0.0625rem 0.1875rem 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Company profile (platform-user remote).
+   Every rule is scoped under `.cp-page--platform` so it wins over the shared-ui copy of the
+   `cp-*` classes (same names, loaded globally) without leaking into that component. */
+
+/* ------------------------------------------------------------------------ */
+/* Page + header                                                            */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform.cp-page {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--sila-font);
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-page-header {
+  background: transparent;
+  border-bottom: 0;
+  padding: 0;
+  margin-bottom: var(--sila-space-5);
+}
+
+.cp-page--platform .cp-page-header-flex {
+  align-items: center;
+}
+
+.cp-page--platform .cp-page-header-left {
+  align-items: flex-start;
+}
+
+.cp-page--platform .cp-page-title {
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-page-subtitle {
+  padding-top: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-back-btn-icon {
+  margin-right: 0;
+}
+
+.cp-page--platform .cp-back-btn-wrapper {
+  margin: calc(-1 * var(--sila-space-1)) 0 0 calc(-1 * var(--sila-space-2));
+}
+
+.cp-page--platform .cp-settings-btn {
+  margin-right: 0;
+}
+
+.cp-page--platform .cp-status-error-banner {
+  align-items: center;
+  padding-bottom: var(--sila-space-4);
+  color: var(--sila-danger-strong);
+}
+
+.cp-page--platform .cp-alert-icon {
+  flex-shrink: 0;
+  color: var(--sila-danger);
+}
+
+.cp-page--platform .cp-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.cp-page--platform .cp-btn-reject-action {
+  color: var(--sila-danger);
+}
+
+.cp-page--platform .cp-btn-reject-action:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  border-color: var(--sila-danger-border);
+  color: var(--sila-danger-strong);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Layout                                                                   */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  padding: 0;
+}
+
+.cp-page--platform .cp-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--sila-space-4);
+  align-items: start;
+}
+
+.cp-page--platform .cp-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+}
+
+.cp-page--platform .cp-side-col {
+  width: auto;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Organisation identity card                                               */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-header-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  transition: none;
+}
+
+.cp-page--platform .cp-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.cp-page--platform .cp-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  min-width: 0;
+}
+
+.cp-page--platform .cp-org-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-lg);
+  cursor: default;
+}
+
+.cp-page--platform .cp-org-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  min-width: 0;
+}
+
+.cp-page--platform .cp-org-name {
+  margin: 0;
+  font-size: var(--sila-text-xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.cp-page--platform .cp-org-contact {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-1) var(--sila-space-4);
+}
+
+.cp-page--platform .cp-contact-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1-5);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cp-page--platform .cp-contact-item svg {
+  flex-shrink: 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-subtle);
+}
+
+.cp-page--platform .cp-org-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.cp-page--platform .cp-org-badges:empty {
+  display: none;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Section cards                                                            */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-card {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+  transition: none;
+}
+
+.cp-page--platform .cp-card-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  padding: 0 var(--sila-space-3) 0 0;
+}
+
+.cp-page--platform .cp-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  width: 100%;
+  min-height: 3rem;
+  margin: 0;
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--sila-text);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.cp-page--platform button.cp-card-title:hover {
+  background: var(--sila-surface-subtle);
+}
+
+.cp-page--platform button.cp-card-title:focus-visible {
+  outline: 0.125rem solid var(--sila-primary);
+  outline-offset: -0.125rem;
+}
+
+.cp-page--platform .cp-card-title-static {
+  cursor: default;
+}
+
+.cp-page--platform .cp-card-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-card-title-text {
+  flex: 1;
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-card-chevron {
+  display: inline-flex;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-manage-btn {
+  flex-shrink: 0;
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-section-box {
+  padding: var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.cp-page--platform .cp-section-box-flush {
+  padding: 0;
+}
+
+/* Nested section box (the model-access panel renders its own) */
+.cp-page--platform .cp-section-box .cp-section-box {
+  padding: 0;
+  border-top: 0;
+}
+
+.cp-page--platform .oma-stack .cp-modal-error {
+  margin-bottom: 0;
+}
+
+.cp-page--platform .cp-section-box-flush > .cp-empty-inline {
+  padding: var(--sila-space-5);
+}
+
+.cp-page--platform .cp-divider {
+  height: 0.0625rem;
+  margin: var(--sila-space-5) 0;
+  padding: 0;
+  background: var(--sila-border-subtle);
+}
+
+.cp-page--platform .cp-empty-inline {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-empty-inline-boxed {
+  margin-top: var(--sila-space-3);
+  padding: var(--sila-space-6);
+  border: 0.0625rem dashed var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Read-only field grids (meta-grid look)                                   */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-grid {
+  display: grid;
+  gap: var(--sila-space-4) var(--sila-space-6);
+}
+
+.cp-page--platform .cp-grid-profile {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cp-page--platform .cp-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cp-page--platform .cp-grid-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+}
+
+.cp-page--platform .cp-address-box {
+  padding-left: var(--sila-space-5);
+  border-left: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.cp-page--platform .cp-sub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-3);
+  padding-top: var(--sila-space-3);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.cp-page--platform .cp-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.cp-page--platform .cp-field-label {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-field-label-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+}
+
+.cp-page--platform .cp-field-value {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-medium);
+  line-height: var(--sila-leading);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.cp-page--platform .cp-field-value-regular {
+  font-weight: var(--sila-weight-regular);
+  color: var(--sila-text-secondary);
+}
+
+.cp-page--platform .cp-field-link {
+  color: var(--sila-primary);
+  text-decoration: none;
+}
+
+.cp-page--platform a.cp-field-link:hover {
+  text-decoration: underline;
+}
+
+.cp-page--platform .cp-field-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-page--platform .cp-field-mono {
+  font-family: var(--sila-font-mono);
+  font-size: 0.92em;
+  letter-spacing: -0.01em;
+}
+
+.cp-page--platform .cp-field-masked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+}
+
+.cp-page--platform .cp-icon-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: none;
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.cp-page--platform .cp-icon-toggle:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-icon-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+/* Yes/No and "Primary account" badges keep their legacy class names */
+.cp-page--platform .cp-status-pill,
+.cp-page--platform .cp-pill {
+  display: inline-flex;
+  width: auto;
+  border-radius: var(--sila-radius-sm);
+}
+
+.cp-page--platform .cp-status-pill {
+  padding: 0 0.375rem;
+  font-size: var(--sila-text-2xs);
+}
+
+.cp-page--platform .cp-pill {
+  gap: var(--sila-space-1);
+  padding: 0 0.375rem;
+  font-size: var(--sila-text-2xs);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Registrations table                                                      */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-table-wrapper {
+  overflow-x: auto;
+}
+
+.cp-page--platform .cp-table {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-table th,
+.cp-page--platform .cp-table td {
+  border: 0;
+  border-radius: 0;
+}
+
+.cp-page--platform .cp-table th {
+  height: 2.375rem;
+  padding: 0 var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-table td {
+  height: 2.75rem;
+  padding: var(--sila-space-2) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.cp-page--platform .cp-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cp-page--platform .cp-cell-nowrap {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Attached document shown as a compact file row inside the table cell */
+.cp-page--platform .cp-doc-link-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  max-width: 20rem;
+  min-width: 11.25rem;
+  padding: var(--sila-space-1) var(--sila-space-1) var(--sila-space-1) var(--sila-space-2);
+}
+
+.cp-page--platform .cp-doc-file-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: var(--sila-text-xs);
+}
+
+.cp-page--platform .cp-pdf-icon {
+  color: inherit;
+}
+
+.cp-page--platform .cp-doc-link {
+  display: block;
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-doc-actions {
+  flex-shrink: 0;
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-doc-actions-clickable:hover:not(:disabled) {
+  color: var(--sila-primary);
+}
+
+.cp-page--platform .cp-doc-actions-default {
+  cursor: default;
+}
+
+.cp-page--platform .cp-eye-icon {
+  color: inherit;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Product categories                                                       */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+.cp-page--platform .cp-category-chain {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sila-space-2);
+  margin: 0;
+  padding: 0;
+}
+
+.cp-page--platform .cp-category-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border-subtle);
+  border-radius: var(--sila-radius);
+}
+
+.cp-page--platform .cp-category-label {
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-category-label-segment,
+.cp-page--platform .cp-category-label-family,
+.cp-page--platform .cp-category-label-class,
+.cp-page--platform .cp-category-label-commodity {
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-category-sub {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cp-page--platform .cp-category-arrow {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: var(--sila-text-2xs);
+  color: var(--sila-text-subtle);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Summary side card                                                        */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-summary-card {
+  position: static;
+  height: auto;
+  max-height: none;
+}
+
+.cp-page--platform .cp-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-5) var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.cp-page--platform .cp-summary-content .cp-divider {
+  margin: var(--sila-space-1) 0;
+}
+
+.cp-page--platform .cp-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+  min-height: 1.5rem;
+  font-size: var(--sila-text-sm);
+  line-height: var(--sila-leading-tight);
+}
+
+.cp-page--platform .cp-summary-row-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-1);
+}
+
+.cp-page--platform .cp-summary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  flex-shrink: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-regular);
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-summary-icon {
+  flex-shrink: 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-subtle);
+}
+
+.cp-page--platform .cp-summary-value {
+  min-width: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  text-align: right;
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.cp-page--platform .cp-summary-value-link {
+  text-align: left;
+  color: var(--sila-primary);
+  word-break: break-all;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Loading / error / empty                                                  */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform.cp-loading-container,
+.cp-page--platform.cp-error-container,
+.cp-page--platform.cp-empty-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20rem;
+  gap: 0;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.cp-page--platform .cp-error-icon,
+.cp-page--platform .cp-empty-icon {
+  font-size: var(--sila-text-lg);
+  color: inherit;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Manage modals (bank accounts / delivery locations)                       */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-modal {
+  overflow: hidden;
+}
+
+.cp-page--platform .cp-modal-title {
+  line-height: var(--sila-leading-tight);
+}
+
+.cp-page--platform .cp-modal-close {
+  margin: -0.25rem -0.5rem -0.25rem 0;
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-modal-error {
+  padding-bottom: var(--sila-space-4);
+  color: var(--sila-danger-strong);
+}
+
+.cp-page--platform .cp-modal-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: var(--sila-space-3);
+}
+
+.cp-page--platform .cp-btn-add-location {
+  margin: 0;
+}
+
+.cp-page--platform .cp-location-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.cp-page--platform .cp-location-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  transition: var(--sila-transition);
+}
+
+.cp-page--platform .cp-location-list-item:last-child {
+  border-bottom: 0;
+}
+
+.cp-page--platform .cp-location-list-item:hover {
+  background: var(--sila-surface-subtle);
+}
+
+.cp-page--platform .cp-location-list-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface-hover);
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+}
+
+.cp-page--platform .cp-location-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-page--platform .cp-location-list-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.cp-page--platform .cp-location-default-tag {
+  gap: var(--sila-space-1);
+}
+
+.cp-page--platform .cp-location-list-address {
+  padding-top: 0.125rem;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-page--platform .cp-location-list-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  flex-shrink: 0;
+}
+
+.cp-page--platform .cp-icon-action-btn {
+  color: var(--sila-text-muted);
+}
+
+.cp-page--platform .cp-icon-action-btn-danger:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Manage forms                                                             */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-dispatch-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.cp-page--platform .cp-dispatch-form .cp-modal-error {
+  margin-bottom: 0;
+}
+
+.cp-page--platform .cp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.cp-page--platform .cp-form-field-checkbox {
+  gap: var(--sila-space-1);
+}
+
+.cp-page--platform .cp-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  cursor: pointer;
+}
+
+.cp-page--platform .cp-checkbox-label input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--sila-primary);
+  cursor: pointer;
+}
+
+.cp-page--platform .cp-checkbox-label input:disabled {
+  cursor: not-allowed;
+}
+
+.cp-page--platform .cp-form-hint {
+  display: block;
+  margin-top: 0;
+  color: var(--sila-warning);
+}
+
+.cp-page--platform .cp-form-actions {
+  padding-top: var(--sila-space-1);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Delete confirmation                                                      */
+/* ------------------------------------------------------------------------ */
+
+.cp-page--platform .cp-confirmation-modal {
+  max-width: 30rem;
+}
+
+.cp-page--platform .cp-confirmation-close {
+  margin: -0.25rem -0.5rem -0.25rem 0;
+  color: var(--sila-text-muted);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Responsive                                                               */
+/* ------------------------------------------------------------------------ */
+
+@media (max-width: 75rem) {
+  .cp-page--platform .cp-grid-profile {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cp-page--platform .cp-grid-profile > .cp-grid-column:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 64rem) {
+  .cp-page--platform .cp-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-page--platform .cp-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 48rem) {
+  .cp-page--platform .cp-page-header-flex {
+    align-items: flex-start;
+  }
+
+  .cp-page--platform .cp-header-card {
+    padding: var(--sila-space-4);
+  }
+
+  .cp-page--platform .cp-header-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cp-page--platform .cp-card-title {
+    padding: var(--sila-space-3) var(--sila-space-4);
+  }
+
+  .cp-page--platform .cp-section-box {
+    padding: var(--sila-space-4);
+  }
+
+  .cp-page--platform .cp-section-box-flush {
+    padding: 0;
+  }
+
+  .cp-page--platform .cp-grid-profile,
+  .cp-page--platform .cp-grid-3,
+  .cp-page--platform .cp-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-page--platform .cp-address-box,
+  .cp-page--platform .cp-grid-profile > .cp-grid-column:nth-child(3) {
+    padding-left: 0;
+    padding-top: var(--sila-space-4);
+    border-left: 0;
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+  }
+
+  .cp-page--platform .cp-category-chain {
+    flex-direction: column;
+  }
+
+  .cp-page--platform .cp-category-arrow {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+
+  .cp-page--platform .cp-form-actions .sila-btn {
+    flex: 1;
+  }
+}
+
+@media (max-width: 30rem) {
+  .cp-page--platform .cp-sub-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-page--platform .cp-location-list-item {
+    flex-wrap: wrap;
+  }
+
+  .cp-page--platform .cp-location-list-actions {
+    margin-left: auto;
+  }
+}

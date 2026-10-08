@@ -1,0 +1,218 @@
+/* Buyer settings (department & master data hub) — standalone page.
+   Controls, modal and alerts use the shared .sila-* classes; the rules below only add
+   layout and a few scoped overrides. */
+
+.dept-page-container {
+  min-height: 100vh;
+  background: var(--sila-bg);
+  font-family: var(--sila-font);
+}
+
+.dept-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--sila-topbar-height);
+  background: var(--sila-surface);
+  border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.dept-top-logo-btn{
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+.dept-top-logo-btn:focus-visible { outline: none; box-shadow: var(--sila-focus-ring); }
+
+.dept-top-logo {
+  height: 7rem;
+  object-fit: contain;
+  transform: translate(-1%,4%);
+}
+
+.dept-content-wrapper {
+  max-width: 55rem;
+  margin: 0 auto;
+  padding: var(--sila-page-padding-y) var(--sila-page-padding-x) var(--sila-space-10);
+  box-sizing: border-box;
+}
+
+.dept-back-wrapper {
+  display: block;
+}
+
+/* ---- Settings list: one card, divided rows --------------------------- */
+
+.dept-settings-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+}
+
+.dept-settings-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.dept-settings-card:last-child {
+  border-bottom: 0;
+}
+
+.dept-settings-card:hover {
+  background: var(--sila-surface-subtle);
+}
+
+.dept-settings-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--sila-radius);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-size: var(--sila-text-lg);
+}
+
+.dept-settings-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dept-settings-card-title {
+  padding: 0 0 0.125rem;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.dept-settings-card-desc {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  line-height: var(--sila-leading);
+  color: var(--sila-text-muted);
+}
+
+.dept-settings-card-btn {
+  flex-shrink: 0;
+  min-width: 4.75rem;
+}
+
+/* ---- Create department dialog ---------------------------------------- */
+
+.dept-popup {
+  max-width: 35rem;
+}
+
+.dept-popup-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.dept-popup-title-icon {
+  color: var(--sila-primary);
+  font-size: var(--sila-text-md);
+}
+
+.dept-popup-close {
+  flex-shrink: 0;
+  margin: -0.25rem -0.5rem 0 0;
+}
+
+.dept-form-group {
+  padding: 0 0 var(--sila-space-5);
+}
+
+.dept-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.dept-fieldset {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dept-fieldset > .dept-form-label {
+  padding: 0;
+  margin-bottom: var(--sila-space-1-5);
+}
+
+.dept-form-input {
+  box-sizing: border-box;
+}
+
+.dept-cost-centers-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-1) 0 var(--sila-space-2);
+}
+
+.dept-cost-center-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.dept-cost-input {
+  flex: 1;
+}
+
+.dept-remove-cc-btn {
+  flex-shrink: 0;
+}
+
+.dept-remove-cc-btn:hover:not(:disabled) {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+}
+
+.dept-add-cc-btn {
+  align-self: flex-start;
+}
+
+.dept-error-msg,
+.dept-success-msg {
+  align-items: center;
+  padding-top: var(--sila-space-4);
+  font-weight: var(--sila-weight-medium);
+}
+
+.dept-error-msg { color: var(--sila-danger-strong); }
+.dept-success-msg { color: var(--sila-success-strong); }
+
+.dept-msg-icon {
+  flex-shrink: 0;
+}
+
+@media (max-width: 40rem) {
+  .dept-settings-card {
+    flex-wrap: wrap;
+  }
+
+  .dept-settings-card-btn {
+    width: 100%;
+  }
+
+  .dept-popup-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

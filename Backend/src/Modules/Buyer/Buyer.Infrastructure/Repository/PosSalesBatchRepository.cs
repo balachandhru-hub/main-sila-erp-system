@@ -1,0 +1,13 @@
+using Buyer.Domain.Entities;
+using Buyer.Infrastructure.Contracts.IRepository;
+using Buyer.Infrastructure.DbContext;
+
+namespace Buyer.Infrastructure.Repository
+{
+    public class PosSalesBatchRepository : RepositoryBase<PosSalesBatch>, IPosSalesBatchRepository
+    {
+        public PosSalesBatchRepository(RepositoryContext repositoryContext) : base(repositoryContext)
+        {
+        }
+    }
+}

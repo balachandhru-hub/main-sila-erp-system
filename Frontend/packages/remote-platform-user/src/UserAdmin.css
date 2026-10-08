@@ -1,0 +1,389 @@
+/* Business user master-data screen (rendered inside the admin AppShell). */
+
+.ua-dashboard {
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+  min-width: 0;
+  padding: var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+/* ── Header ── */
+.ua-dashboard .ua-header {
+  padding-bottom: var(--sila-space-4);
+}
+
+/* ── List card ── */
+.ua-content-wrapper {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+/* ── Toolbar (search + actions), rendered in the Table's header bar ── */
+.ua-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  flex: 1 1 100%;
+  gap: var(--sila-space-2) var(--sila-space-3);
+}
+
+.ua-count {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ua-controls-bar .ua-search-wrapper {
+  flex: 1 1 17.5rem;
+  max-width: 27.5rem;
+  min-width: 0;
+}
+
+/* ── Table (also carries .sila-table) ── */
+.ua-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ua-table-wrapper .sila-table {
+  width: 100%;
+  min-width: 40rem;
+}
+
+.ua-table-wrapper td {
+  color: var(--sila-text-secondary);
+}
+
+.ua-table-wrapper .ua-cell-name {
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.ua-table-wrapper .ua-cell-muted {
+  color: var(--sila-text-muted);
+}
+
+.ua-role-badge {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Create user modal (matches .sila-overlay / .sila-modal) ── */
+.user-admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-6);
+  background: rgba(15, 23, 42, 0.45);
+  animation: ua-fade-in var(--sila-duration) var(--sila-ease);
+}
+
+@keyframes ua-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.user-admin-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 42.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+  animation: ua-modal-in var(--sila-duration-slow) var(--sila-ease);
+}
+
+@keyframes ua-modal-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+.user-admin-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  flex-shrink: 0;
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface);
+}
+
+.user-admin-modal-header h2 {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.user-admin-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-md);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.user-admin-modal-close:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.user-admin-modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.user-admin-form {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--sila-space-5);
+}
+
+.user-admin-error {
+  align-items: center;
+  padding-bottom: var(--sila-space-4);
+  color: var(--sila-danger-strong);
+}
+
+.user-admin-error .user-admin-error-icon {
+  flex-shrink: 0;
+  color: var(--sila-danger);
+}
+
+.user-admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.user-admin-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+  margin: 0;
+}
+
+.user-admin-label {
+  display: block;
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text-secondary);
+}
+
+.user-admin-input {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  box-shadow: var(--sila-shadow-xs);
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+  transition: var(--sila-transition);
+}
+
+.user-admin-input:hover {
+  border-color: var(--sila-text-subtle);
+}
+
+.user-admin-input:focus {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.user-admin-input::placeholder {
+  color: var(--sila-text-subtle);
+}
+
+.user-admin-input[aria-invalid="true"] {
+  border-color: var(--sila-danger);
+}
+
+.user-admin-select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  cursor: pointer;
+}
+
+.user-admin-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-admin-password-wrapper input::-ms-reveal,
+.user-admin-password-wrapper input::-ms-clear {
+  display: none;
+}
+
+.user-admin-password-wrapper input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
+.user-admin-input--with-toggle {
+  padding-right: 2.5rem;
+}
+
+.user-admin-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-md);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: var(--sila-transition);
+}
+
+.user-admin-password-toggle:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.user-admin-password-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.user-admin-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+}
+
+.user-admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+}
+
+.user-admin-form-actions .sila-btn {
+  min-width: 6rem;
+}
+
+.user-admin-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: inherit;
+}
+
+/* ── Responsive ── */
+@media (max-width: 48rem) {
+  .ua-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ua-controls-bar .ua-search-wrapper {
+    max-width: none;
+    flex-basis: auto;
+  }
+
+  .user-admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 30rem) {
+  .user-admin-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .user-admin-modal {
+    max-height: 100vh;
+    border-radius: var(--sila-radius-lg) var(--sila-radius-lg) 0 0;
+  }
+
+  .user-admin-form-actions {
+    width: 100%;
+  }
+
+  .user-admin-form-actions .sila-btn {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-admin-modal-overlay,
+  .user-admin-modal {
+    animation: none;
+  }
+}
+
+/* Outlets assigned to an Outlet Manager in the create-user dialog */
+.ua-outlet-options {
+  border: 0;
+  padding: 0;
+}
+
+.ua-outlet-option {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+}

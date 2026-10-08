@@ -1,0 +1,45 @@
+/* ==========================================================================
+   Platform User Detail View
+   The organisation detail page itself is rendered by CompanyProfile (admin-review
+   mode) inside the AppShell content area, so this file only covers the wrapper and
+   the reject-registration dialog, which layers on the shared .sila-modal styles.
+   ========================================================================== */
+
+.pudv-page {
+  width: 100%;
+  min-width: 0;
+}
+
+.pudv-modal-overlay {
+  z-index: var(--sila-z-modal);
+}
+
+.pudv-reject-dialog {
+  max-width: 30rem;
+}
+
+.pudv-reject-dialog .pudv-reject-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.pudv-reject-dialog .pudv-textarea {
+  min-height: 6.5rem;
+}
+
+.pudv-reject-dialog .pudv-btn-confirm-reject {
+  min-width: 9.5rem;
+}
+
+.pudv-reject-dialog .pudv-spin {
+  animation: pudv-spin 0.9s linear infinite;
+}
+
+@keyframes pudv-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pudv-reject-dialog .pudv-spin { animation-duration: 1.8s; }
+}

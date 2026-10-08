@@ -1,0 +1,371 @@
+/* Quotation comparison table — follows .sila-table */
+
+.qst-root {
+    min-width: 0;
+}
+
+.qst-section-title {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    padding-bottom: var(--sila-space-2);
+}
+
+.qst-section-title.qst-summary-title {
+    padding-bottom: var(--sila-space-3);
+}
+
+.qst-table-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.qst-table-container.qst-table-scroll {
+    max-height: 22.5rem;
+    overflow-y: auto;
+}
+
+.qst-table-container::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.qst-table-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.qst-table-container::-webkit-scrollbar-thumb {
+    background: var(--sila-border-strong);
+    border-radius: var(--sila-radius-full);
+}
+
+.qst-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--sila-text-subtle);
+}
+
+.qst-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text);
+}
+
+/* Supplier comparison layout: fixed columns sized in design units (1 unit = 1/16 rem).
+   The row totals 548 units plus 190 per supplier (Rate + Amount), or 260 with the LL column. */
+.qst-items-table--quoted {
+    --qst-supplier-units: 190;
+    --qst-total-units: calc(548 + var(--qst-suppliers, 1) * var(--qst-supplier-units));
+    table-layout: fixed;
+    min-width: calc(var(--qst-total-units) * 0.0625rem);
+}
+
+.qst-items-table--with-ll { --qst-supplier-units: 260; }
+
+.qst-col--expand   { width: calc(100% * 48 / var(--qst-total-units)); }
+.qst-col--material { width: calc(100% * 220 / var(--qst-total-units)); }
+.qst-col--ln       { width: calc(100% * 70 / var(--qst-total-units)); }
+.qst-col--code     { width: calc(100% * 120 / var(--qst-total-units)); }
+.qst-col--qty      { width: calc(100% * 90 / var(--qst-total-units)); }
+.qst-col--rate     { width: calc(100% * 90 / var(--qst-total-units)); }
+.qst-col--amount   { width: calc(100% * 100 / var(--qst-total-units)); }
+.qst-col--ll       { width: calc(100% * 70 / var(--qst-total-units)); }
+
+.qst-items-table th {
+    height: 2.375rem;
+    background: var(--sila-surface-subtle);
+    padding: var(--sila-space-2) var(--sila-space-3);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-muted);
+    border-bottom: 0.0625rem solid var(--sila-border);
+    font-size: var(--sila-text-xs);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.qst-items-table td {
+    height: 2.75rem;
+    padding: var(--sila-space-2) var(--sila-space-3);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    vertical-align: middle;
+    overflow-wrap: break-word;
+    line-height: 1.45;
+}
+
+.qst-items-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.qst-items-table tbody tr td {
+    transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.qst-items-table tbody tr:hover td {
+    background: var(--sila-surface-subtle);
+}
+
+/* Item cell */
+.qst-item-desc {
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.qst-item-meta {
+    padding-top: var(--sila-space-0-5);
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+}
+
+.qst-item-code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.qst-uom {
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-xs);
+}
+
+.qst-negative {
+    color: var(--sila-danger);
+}
+
+/* Supplier group headers */
+.qst-items-table th.qst-supplier-group-header {
+    text-align: center;
+    vertical-align: middle;
+    background: var(--sila-surface-hover);
+    border-left: 0.0625rem solid var(--sila-border);
+    white-space: normal;
+}
+
+.qst-supplier-group-name {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    white-space: normal;
+    word-break: break-word;
+}
+
+.qst-items-table th.qst-sub-header {
+    text-align: right;
+    background: var(--sila-surface-hover);
+    border-left: 0.0625rem solid var(--sila-border-subtle);
+    color: var(--sila-text-muted);
+}
+
+.qst-items-table td.qst-rate-cell {
+    text-align: right;
+    border-left: 0.0625rem solid var(--sila-border-subtle);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--sila-text-secondary);
+}
+
+.qst-items-table td.qst-amount-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.qst-items-table td.qst-ll-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text-muted);
+}
+
+.qst-items-table th.qst-align-right,
+.qst-items-table td.qst-align-right {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.qst-items-table th.qst-supplier-name-label {
+    text-align: left;
+    color: var(--sila-text-muted);
+}
+
+.qst-items-table th.qst-expand-header {
+    text-align: center;
+}
+
+.qst-items-table td.qst-expand-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.qst-expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius-sm);
+    color: var(--sila-text-secondary);
+    background: var(--sila-surface);
+    transition: var(--sila-transition);
+}
+
+.qst-expand-toggle svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.qst-expand-toggle:hover {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text);
+}
+
+.qst-expand-toggle[aria-expanded="true"] {
+    background: var(--sila-primary-soft);
+    border-color: var(--sila-primary-border);
+    color: var(--sila-primary);
+}
+
+.qst-expand-toggle:focus-visible {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+/* Expanded item details */
+.qst-expanded-row td {
+    background: var(--sila-surface-subtle);
+    vertical-align: top;
+}
+
+.qst-expanded-label-cell {
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    vertical-align: top;
+}
+
+.qst-items-table td.qst-expanded-detail-cell {
+    vertical-align: top;
+    border-left: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.qst-expanded-detail-grid,
+.qst-summary-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sila-space-1) var(--sila-space-3);
+    font-size: var(--sila-text-xs);
+}
+
+.qst-expanded-detail-grid span:nth-child(odd) {
+    color: var(--sila-text-muted);
+}
+
+.qst-expanded-detail-grid span:nth-child(even) {
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.qst-expanded-detail-grid span.qst-negative {
+    color: var(--sila-danger);
+}
+
+/* Totals */
+.qst-total-quote-row td {
+    background: var(--sila-surface);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+    border-top: 0.0625rem solid var(--sila-border-strong);
+    border-bottom: none;
+}
+
+.qst-total-quote-row td.qst-expand-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.qst-total-quote-row td.qst-total-quote-cell {
+    background: var(--sila-surface-subtle);
+    border-left: 0.0625rem solid var(--sila-border);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.qst-total-quote-label {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+    padding-right: var(--sila-space-2);
+}
+
+.qst-total-quote-amount {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.qst-items-table th.qst-supplier-rank-header {
+    text-align: center;
+    background: var(--sila-surface-hover);
+    border-left: 0.0625rem solid var(--sila-border);
+}
+
+.qst-supplier-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.0625rem var(--sila-space-2);
+    border-radius: var(--sila-radius-full);
+    background: var(--sila-primary-soft);
+    border: 0.0625rem solid var(--sila-primary-border);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.qst-summary-row td {
+    background: var(--sila-surface-subtle);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.qst-summary-row td:first-child {
+    background: var(--sila-surface);
+}
+
+.qst-items-table td.qst-summary-cell {
+    vertical-align: top;
+    text-align: left;
+    border-left: 0.0625rem solid var(--sila-border);
+}
+
+.qst-summary-item-label {
+    color: var(--sila-text-muted);
+    white-space: nowrap;
+}
+
+.qst-summary-item-value {
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.qst-summary-item-value.qst-summary-item-negative {
+    color: var(--sila-danger);
+}

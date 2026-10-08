@@ -1,0 +1,439 @@
+.qcc-container {
+    background: var(--sila-surface);
+}
+
+.qcc-section-title {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    padding-bottom: var(--sila-space-3);
+}
+
+.qcc-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-3);
+    min-height: 12.5rem;
+    padding: var(--sila-space-10) var(--sila-space-6);
+    font-size: var(--sila-text-sm);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface);
+}
+
+.qcc-loading-state {
+    flex-direction: column;
+    color: var(--sila-text-muted);
+}
+
+.qcc-error-state {
+    color: var(--sila-danger);
+    text-align: center;
+}
+
+.qcc-empty-state {
+    color: var(--sila-text-muted);
+    text-align: center;
+}
+
+.qcc-spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0.125rem solid var(--sila-border);
+    border-top-color: var(--sila-primary);
+    border-radius: 50%;
+    animation: qcc-spin 0.8s linear infinite;
+}
+
+@keyframes qcc-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.qcc-table-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.qcc-table-container::-webkit-scrollbar {
+    height: 0.5rem;
+}
+
+.qcc-table-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.qcc-table-container::-webkit-scrollbar-thumb {
+    background: var(--sila-border-strong);
+    border-radius: 0.5rem;
+}
+
+.qcc-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--sila-text-subtle);
+}
+
+.qcc-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text);
+}
+
+.qcc-items-table th {
+    background: var(--sila-surface-subtle);
+    padding: 0.625rem var(--sila-space-3);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-muted);
+    border-bottom: 0.0625rem solid var(--sila-border);
+    border-right: 0.0625rem solid var(--sila-border-subtle);
+    font-size: var(--sila-text-xs);
+    white-space: nowrap;
+}
+
+.qcc-items-table th:last-child {
+    border-right: none;
+}
+
+.qcc-items-table td {
+    padding: 0.6875rem var(--sila-space-3);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    border-right: 0.0625rem solid var(--sila-border-subtle);
+    vertical-align: top;
+    overflow-wrap: break-word;
+    line-height: 1.45;
+    color: var(--sila-text-secondary);
+}
+
+.qcc-items-table td:last-child {
+    border-right: none;
+}
+
+.qcc-items-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.qcc-items-table tbody tr td {
+    transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.qcc-items-table tbody tr:hover td {
+    background: var(--sila-surface-subtle);
+}
+
+/* Each supplier's column group is fenced by a stronger left rule so the eye can track it */
+.qcc-supplier-group-header {
+    text-align: center;
+    vertical-align: top;
+    background: var(--sila-surface-sunken);
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    border-left: 0.0625rem solid var(--sila-border-strong);
+}
+
+.qcc-supplier-group-name {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.qcc-items-table .qcc-sub-header {
+    text-align: right;
+    background: var(--sila-surface-subtle);
+    border-left: 0.0625rem solid var(--sila-border-subtle);
+    color: var(--sila-text-muted);
+}
+
+.qcc-items-table td.qcc-rate-cell {
+    text-align: right;
+    border-left: 0.0625rem solid var(--sila-border-subtle);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--sila-weight-regular);
+    color: var(--sila-text-secondary);
+    white-space: nowrap;
+}
+
+.qcc-items-table td.qcc-amount-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    white-space: nowrap;
+}
+
+.qcc-items-table td.qcc-ll-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text-secondary);
+}
+
+.qcc-items-table th.qcc-align-right,
+.qcc-items-table td.qcc-align-right {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.qcc-supplier-name-label {
+    text-align: left;
+    color: var(--sila-text-muted);
+}
+
+.qcc-code {
+    font-family: var(--sila-font-mono);
+    font-size: 0.92em;
+    color: var(--sila-text-secondary);
+    white-space: nowrap;
+}
+
+.qcc-uom {
+    color: var(--sila-text-muted);
+}
+
+.qcc-expand-header {
+    text-align: center;
+}
+
+.qcc-items-table td.qcc-expand-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.qcc-material-name {
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text);
+}
+
+.qcc-material-sub {
+    font-size: var(--sila-text-xs);
+    color: var(--sila-text-muted);
+    padding-top: var(--sila-space-0-5);
+}
+
+.qcc-expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-sm);
+    font-size: var(--sila-text-xs);
+    line-height: 1;
+    color: var(--sila-text-muted);
+    background: var(--sila-surface);
+    transition: var(--sila-transition);
+}
+
+.qcc-expand-toggle svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.qcc-expand-toggle:hover,
+.qcc-expand-toggle[aria-expanded="true"] {
+    background: var(--sila-primary-soft);
+    border-color: var(--sila-primary-border);
+    color: var(--sila-primary);
+}
+
+.qcc-expand-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.qcc-expanded-row td {
+    background: var(--sila-surface-subtle);
+    border-top: none;
+    padding-top: 0.625rem;
+    padding-bottom: var(--sila-space-3);
+}
+
+.qcc-expanded-label-cell {
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    vertical-align: top;
+}
+
+.qcc-expanded-detail-cell {
+    vertical-align: top;
+    border-left: 0.0625rem solid var(--sila-border-strong);
+}
+
+.qcc-expanded-versions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 var(--sila-space-5);
+}
+
+.qcc-expanded-version + .qcc-expanded-version {
+    border-left: 0.0625rem solid var(--sila-border);
+    padding-left: var(--sila-space-5);
+}
+
+.qcc-expanded-version-label {
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-bottom: var(--sila-space-1);
+}
+
+.qcc-expanded-detail-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.1875rem var(--sila-space-3);
+    font-size: var(--sila-text-xs);
+}
+
+.qcc-expanded-detail-grid span:nth-child(odd) {
+    color: var(--sila-text-muted);
+}
+
+.qcc-expanded-detail-grid span:nth-child(even) {
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.qcc-expanded-detail-grid span.qcc-discount {
+    color: var(--sila-danger);
+}
+
+.qcc-items-table td.qcc-no-data {
+    text-align: center;
+    color: var(--sila-text-muted);
+    padding: var(--sila-space-6);
+}
+
+/* Totals footer: subtle band so the grand totals read as the conclusion of each column group */
+.qcc-grand-total-row td {
+    background: var(--sila-surface-subtle);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    border-left: 0.0625rem solid var(--sila-border-strong);
+    border-top: 0.0625rem solid var(--sila-border-strong);
+}
+
+.qcc-grand-total-row td:first-child,
+.qcc-grand-total-row td:nth-child(2) {
+    background: var(--sila-surface-subtle);
+    border-left: none;
+    text-align: left;
+    color: var(--sila-text);
+}
+
+.qcc-grand-total-row td:last-child {
+    border-bottom-right-radius: var(--sila-radius-md);
+}
+
+.qcc-grand-total-row td.qcc-expand-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.qcc-summary-detail-row td {
+    background: var(--sila-surface-subtle);
+    border-top: 0.0625rem solid var(--sila-border);
+}
+
+.qcc-summary-detail-row td:first-child {
+    background: var(--sila-surface);
+    border-left: none;
+}
+
+.qcc-summary-cell {
+    vertical-align: top;
+    text-align: center;
+}
+
+.qcc-total-quote-line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sila-space-3);
+    flex-wrap: wrap;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.qcc-grand-total-grid {
+    display: inline-grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--sila-space-3);
+    row-gap: var(--sila-space-1);
+    text-align: left;
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+}
+
+.qcc-grand-total-grid span:nth-child(odd) {
+    text-align: left;
+}
+
+.qcc-grand-total-grid span:nth-child(even) {
+    text-align: right;
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.qcc-grand-total-grid span.qcc-discount {
+    color: var(--sila-danger);
+}
+
+@media (max-width: 48rem) {
+    .qcc-section-title {
+        font-size: 0.875rem;
+    }
+
+    .qcc-items-table {
+        font-size: 0.75rem;
+    }
+
+    .qcc-items-table th,
+    .qcc-items-table td {
+        padding: 0.5rem 0.625rem;
+    }
+
+    .qcc-expanded-versions {
+        grid-template-columns: 1fr;
+        gap: 0.75rem 0;
+    }
+
+    .qcc-expanded-version + .qcc-expanded-version {
+        border-left: none;
+        padding-left: 0;
+        border-top: 0.0625rem solid var(--sila-border);
+        padding-top: 0.5rem;
+    }
+}
+
+@media (max-width: 30rem) {
+    .qcc-items-table {
+        font-size: 0.6875rem;
+    }
+
+    .qcc-items-table th,
+    .qcc-items-table td {
+        padding: 0.375rem 0.5rem;
+    }
+}

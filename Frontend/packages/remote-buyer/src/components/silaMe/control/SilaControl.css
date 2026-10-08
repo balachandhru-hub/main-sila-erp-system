@@ -1,0 +1,135 @@
+/* SILA ME cost control: count line review and photos, shortage report, physical inventory, audit log */
+
+.sctl-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Decision radios of the line review */
+.sctl-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--sila-space-2);
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.sctl-choices legend {
+  padding: 0 0 var(--sila-space-2);
+}
+
+/* Review state badges in a count line */
+.sctl-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-1);
+  max-width: 16rem;
+}
+
+/* Photo thumbnails of a count line */
+.sctl-photos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-1);
+}
+
+.sctl-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  overflow: hidden;
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  cursor: pointer;
+}
+
+.sctl-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sctl-thumb:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.sctl-thumb--loading,
+.sctl-thumb--missing {
+  cursor: default;
+}
+
+.sctl-photo-full {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+/* Filter bar above a report or list */
+.sctl-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  align-items: end;
+  gap: var(--sila-space-3);
+}
+
+.sctl-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* Two grouped tables side by side on wide screens */
+.sctl-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+/* Active filter chip (audit actor) */
+.sctl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-1) var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-primary-border);
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-primary-soft);
+  font-size: var(--sila-text-sm);
+}
+
+/* Link-styled button inside a table cell */
+.sctl-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sila-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sctl-link:hover {
+  text-decoration: underline;
+}
+
+.sctl-link:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.sctl-comment {
+  max-width: 28rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,59 @@
+/* SILA ME POS integration: tabs panel, toolbars, batch and transaction detail. */
+
+.spos-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+.spos-toolbar {
+  padding: 0;
+  justify-content: space-between;
+}
+
+.spos-inline-badge {
+  display: inline-flex;
+  vertical-align: middle;
+  padding-inline-start: var(--sila-space-2);
+}
+
+.spos-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+}
+
+.spos-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  list-style: none;
+}
+
+.spos-timeline-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding-inline-start: var(--sila-space-3);
+  border-inline-start: 0.125rem solid var(--sila-border);
+}
+
+/* ERP request / response of a POS sale (sanitised, at most 4000 characters). */
+.spos-payload-block {
+  grid-column: 1 / -1;
+}
+
+.spos-payload {
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--sila-text-xs);
+  background: var(--sila-me-blue-soft);
+  border: 0.0625rem solid var(--sila-me-blue-border);
+  border-radius: 0.375rem;
+}

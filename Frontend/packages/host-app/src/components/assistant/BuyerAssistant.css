@@ -1,0 +1,310 @@
+/* Buyer assistant chat widget. Scoped to .va-* (host-only). */
+
+.va-fab {
+  position: fixed;
+  right: var(--sila-space-6);
+  bottom: var(--sila-space-6);
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  box-shadow: var(--sila-shadow-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--sila-z-modal);
+}
+
+.va-fab:hover {
+  background: var(--sila-primary-hover);
+}
+
+.va-panel {
+  position: fixed;
+  right: var(--sila-space-6);
+  bottom: var(--sila-space-6);
+  width: min(400px, calc(100vw - 2rem));
+  height: min(600px, calc(100vh - 2rem));
+  display: flex;
+  flex-direction: column;
+  background: var(--sila-surface);
+  border: 1px solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+  z-index: var(--sila-z-modal);
+  overflow: hidden;
+}
+
+.va-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sila-space-3) var(--sila-space-4);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+}
+
+.va-title {
+  font-weight: var(--sila-weight-semibold);
+}
+
+.va-header-actions {
+  display: flex;
+  gap: var(--sila-space-2);
+}
+
+.va-header-actions button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--sila-radius-sm);
+  color: inherit;
+  padding: 2px var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  cursor: pointer;
+}
+
+.va-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sila-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  background: var(--sila-surface-subtle);
+}
+
+.va-msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  max-width: 92%;
+}
+
+.va-msg-user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.va-msg-assistant {
+  align-self: flex-start;
+}
+
+.va-bubble {
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border-radius: var(--sila-radius-md);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--sila-text-md);
+}
+
+.va-msg-user .va-bubble {
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+}
+
+.va-msg-assistant .va-bubble {
+  background: var(--sila-surface);
+  border: 1px solid var(--sila-border);
+}
+
+.va-typing {
+  color: var(--sila-text-muted);
+  font-style: italic;
+}
+
+.va-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.va-suggestions button {
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  border: 1px solid var(--sila-primary-border);
+  border-radius: var(--sila-radius-full);
+  padding: 2px var(--sila-space-3);
+  font-size: var(--sila-text-sm);
+  cursor: pointer;
+}
+
+.va-suggestions button:hover {
+  background: var(--sila-primary-soft-hover);
+}
+
+.va-table-wrap {
+  overflow-x: auto;
+  background: var(--sila-surface);
+  border: 1px solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.va-table-title {
+  padding: var(--sila-space-2) var(--sila-space-3);
+  font-weight: var(--sila-weight-semibold);
+  font-size: var(--sila-text-sm);
+}
+
+.va-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--sila-text-sm);
+}
+
+.va-table th,
+.va-table td {
+  padding: var(--sila-space-1) var(--sila-space-2);
+  border-top: 1px solid var(--sila-border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.va-table th {
+  background: var(--sila-surface-muted);
+}
+
+.va-input {
+  display: flex;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3);
+  border-top: 1px solid var(--sila-border);
+  background: var(--sila-surface);
+}
+
+.va-input input {
+  flex: 1;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  border: 1px solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  font: inherit;
+}
+
+.va-input input:focus {
+  outline: none;
+  border-color: var(--sila-focus);
+  box-shadow: 0 0 0 3px var(--sila-focus-ring);
+}
+
+.va-input button {
+  padding: 0 var(--sila-space-4);
+  border: none;
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  cursor: pointer;
+}
+
+.va-input button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.va-session {
+  display: flex;
+  gap: var(--sila-space-2);
+  align-items: stretch;
+}
+
+.va-session-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  background: var(--sila-surface);
+  border: 1px solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  cursor: pointer;
+  font: inherit;
+}
+
+.va-session-open small {
+  color: var(--sila-text-muted);
+}
+
+.va-session-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.va-muted {
+  color: var(--sila-text-muted);
+}
+
+.va-error {
+  color: var(--sila-danger);
+  font-size: var(--sila-text-sm);
+}
+
+.va-suggestions .va-more {
+  background: var(--sila-surface);
+  border-style: dashed;
+}
+
+.va-item-table td {
+  white-space: normal;
+}
+
+.va-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 150px;
+  padding: var(--sila-space-1);
+  border: 1px solid var(--sila-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface);
+  font: inherit;
+  font-size: var(--sila-text-sm);
+}
+
+.va-table-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border-top: 1px solid var(--sila-border-subtle);
+}
+
+.va-submit {
+  padding: var(--sila-space-1) var(--sila-space-4);
+  border: none;
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  cursor: pointer;
+}
+
+.va-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.va-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 1;
+  touch-action: none;
+}
+
+.va-resize::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid rgba(255, 255, 255, 0.8);
+  border-left: 2px solid rgba(255, 255, 255, 0.8);
+}

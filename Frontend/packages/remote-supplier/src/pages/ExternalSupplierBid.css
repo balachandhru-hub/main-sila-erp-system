@@ -1,0 +1,218 @@
+.ebid-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f4f6f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1f2937;
+  padding-top: 5.5rem;
+}
+
+.ebid-header {
+  background: #ffffff;
+  border-bottom: 0.0625rem solid #e6e8ec;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+.ebid-header-inner {
+  padding: 1rem clamp(1rem, 4vw, 2.5rem);
+  display: flex;
+  align-items: center;
+}
+
+.ebid-header-logo {
+  height: 3.4375rem;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.ebid-main {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.25rem);
+  padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 4vw, 2.5rem) clamp(2rem, 6vw, 4rem);
+}
+
+.ebid-main-centered {
+  align-items: center;
+  justify-content: center;
+}
+
+.ebid-submit-btn {
+  background: #2f6feb;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.ebid-btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ebid-submit-btn:hover:not(:disabled) {
+  background: #2559c4;
+}
+
+.ebid-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* --- Status / success screens --- */
+
+.ebid-status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+  max-width: 30rem;
+  width: 100%;
+  text-align: center;
+  background: #ffffff;
+  border: 0.0625rem solid #e6e8ec;
+  border-radius: 0.75rem;
+  padding: clamp(1.75rem, 4vw, 2.5rem) clamp(1.25rem, 4vw, 2rem);
+  box-shadow: 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.04);
+}
+
+.ebid-status-icon {
+  font-size: 2.5rem;
+}
+
+.ebid-status-icon-error {
+  color: #dc2626;
+}
+
+.ebid-status-icon-success {
+  color: #16a34a;
+}
+
+.ebid-status-card h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ebid-status-card p {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.ebid-register-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  border-top: 0.0625rem solid #e2e8f0;
+  padding-top: 1.25rem;
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 29.25rem) {
+  .ebid-page {
+    padding-top: 4.125rem;
+  }
+
+  .ebid-header-inner {
+    padding: 0.75rem 1rem;
+  }
+
+  .ebid-header-logo {
+    height: 2.5rem;
+  }
+
+  .ebid-status-icon {
+    font-size: 2rem;
+  }
+}
+
+/* --- Type dropdowns (Delivery / Discount / Tax type) --- */
+
+.ebid-field-dropdown .sila-dropdown__field,
+.ebid-cell-dropdown .sila-dropdown__field {
+  border-color: var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+}
+
+.ebid-field-dropdown .sila-dropdown__field {
+  min-height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+}
+
+.ebid-field-dropdown .sila-dropdown__input {
+  height: calc(var(--sila-control-height) - 0.125rem);
+  font-size: var(--sila-text-md);
+}
+
+.ebid-cell-dropdown {
+  width: 7.75rem;
+}
+
+.ebid-cell-dropdown .sila-dropdown__field {
+  min-height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-2);
+}
+
+.ebid-cell-dropdown .sila-dropdown__input {
+  height: calc(var(--sila-control-height-sm) - 0.125rem);
+  font-size: var(--sila-text-sm);
+}
+
+/* --- Available checkbox (line items table) --- */
+
+.ebid-availability-checkbox {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 0.0938rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: var(--sila-transition);
+  position: relative;
+}
+
+.ebid-availability-checkbox:hover {
+  border-color: var(--sila-primary);
+}
+
+.ebid-availability-checkbox:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.ebid-availability-checkbox:checked {
+  background: var(--sila-primary);
+  border-color: var(--sila-primary);
+}
+
+.ebid-availability-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.3125rem;
+  top: 0.125rem;
+  width: 0.3125rem;
+  height: 0.5625rem;
+  border: solid var(--sila-surface);
+  border-width: 0 0.125rem 0.125rem 0;
+  transform: rotate(45deg);
+}

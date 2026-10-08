@@ -1,0 +1,163 @@
+/* SILA ME visual language, taken from the client-approved SILA ME Cloud prototype
+   (apps/sila-cloud index.css + design-tokens): DM Sans, the SILA blue/ink/muted palette,
+   pill status badges, uppercase table and KPI labels, light card shadow.
+   Applied by the `sila-me` class on each SILA ME screen root (and dialog body). It only
+   re-points the shared-ui tokens inside that subtree, so the procurement screens keep their look.
+   Colour values live here only; the area CSS files use the tokens. */
+
+.sila-me {
+  /* ---- Prototype palette -------------------------------------------- */
+  --sila-me-blue: #177db8;
+  --sila-me-blue-strong: #126896;
+  --sila-me-blue-deep: #0f5f8c;
+  --sila-me-blue-soft: #edf5fb;
+  --sila-me-blue-tint: #eaf3fa;
+  --sila-me-blue-border: #cfe0ee;
+  --sila-me-ink: #263a4d;
+  --sila-me-muted: #647789;
+  --sila-me-label: #8293a0;
+  --sila-me-line: #dce5ec;
+  --sila-me-line-soft: #edf1f4;
+  --sila-me-line-strong: #b8ccd9;
+  --sila-me-surface: #f8fafc;
+  --sila-me-row-hover: #fbfdff;
+  --sila-me-green: #277c5b;
+  --sila-me-green-soft: #f1faf5;
+  --sila-me-green-border: #cfe8dc;
+  --sila-me-amber: #a26b12;
+  --sila-me-amber-soft: #fff9ed;
+  --sila-me-amber-border: #efdfbc;
+  --sila-me-red: #b44943;
+  --sila-me-red-strong: #973a35;
+  --sila-me-red-soft: #fff5f4;
+  --sila-me-red-border: #efd1cf;
+  --sila-me-neutral: #617484;
+  --sila-me-neutral-soft: #f8fafb;
+  --sila-me-neutral-border: #dbe5eb;
+  --sila-me-shadow-card: 0 0.0625rem 0.125rem rgba(32, 65, 92, 0.04), 0 0.5rem 1.25rem rgba(32, 65, 92, 0.03);
+
+  /* ---- Shared-ui tokens re-pointed to the palette -------------------- */
+  --sila-font: "DM Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --sila-text-2xs: 0.625rem;
+  --sila-text-xs: 0.6875rem;
+  --sila-text-sm: 0.75rem;
+  --sila-text-md: 0.8125rem;
+
+  --sila-text: var(--sila-me-ink);
+  --sila-text-secondary: var(--sila-me-ink);
+  --sila-text-muted: var(--sila-me-muted);
+
+  --sila-primary: var(--sila-me-blue);
+  --sila-primary-hover: var(--sila-me-blue-strong);
+  --sila-primary-active: var(--sila-me-blue-deep);
+  --sila-primary-soft: var(--sila-me-blue-soft);
+  --sila-primary-soft-hover: var(--sila-me-blue-tint);
+  --sila-primary-border: var(--sila-me-blue-border);
+  --sila-primary-ring: rgba(23, 125, 184, 0.18);
+  --sila-focus-ring: 0 0 0 0.1875rem var(--sila-primary-ring);
+  --sila-info: var(--sila-me-blue-strong);
+  --sila-info-soft: var(--sila-me-blue-soft);
+  --sila-info-border: var(--sila-me-blue-border);
+
+  --sila-success: var(--sila-me-green);
+  --sila-success-strong: var(--sila-me-green);
+  --sila-success-soft: var(--sila-me-green-soft);
+  --sila-success-border: var(--sila-me-green-border);
+  --sila-warning: var(--sila-me-amber);
+  --sila-warning-strong: var(--sila-me-amber);
+  --sila-warning-soft: var(--sila-me-amber-soft);
+  --sila-warning-border: var(--sila-me-amber-border);
+  --sila-danger: var(--sila-me-red);
+  --sila-danger-hover: var(--sila-me-red-strong);
+  --sila-danger-strong: var(--sila-me-red-strong);
+  --sila-danger-soft: var(--sila-me-red-soft);
+  --sila-danger-border: var(--sila-me-red-border);
+  --sila-neutral: var(--sila-me-neutral);
+  --sila-neutral-soft: var(--sila-me-neutral-soft);
+  --sila-neutral-border: var(--sila-me-neutral-border);
+
+  --sila-border: var(--sila-me-line);
+  --sila-border-subtle: var(--sila-me-line-soft);
+  --sila-border-strong: var(--sila-me-line-strong);
+  --sila-surface-subtle: var(--sila-me-surface);
+  --sila-surface-hover: var(--sila-me-row-hover);
+  --sila-shadow-xs: var(--sila-me-shadow-card);
+
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+}
+
+/* ---- Page header ------------------------------------------------------ */
+.sila-me .sila-page-title {
+  font-size: 1.625rem;
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+.sila-me .sila-page-description { font-size: 0.875rem; line-height: 1.55; color: var(--sila-text-muted); }
+
+/* ---- Cards ------------------------------------------------------------ */
+.sila-me .sila-card { border-radius: 0.4375rem; }
+.sila-me .sila-card-title { font-size: 0.875rem; font-weight: var(--sila-weight-bold); }
+
+/* ---- KPI cards: uppercase label, large bold value ----------------------- */
+.sila-me .sila-kpi { border-radius: 0.4375rem; padding: 1.0625rem 1.125rem; }
+.sila-me .sila-kpi-label {
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sila-me-label);
+}
+.sila-me .sila-kpi-value { font-size: 1.625rem; font-weight: var(--sila-weight-bold); letter-spacing: -0.04em; }
+
+/* ---- Tables: uppercase header, roomy rows, soft row lines ---------------- */
+.sila-me .sila-table th {
+  background: var(--sila-surface);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sila-me-label);
+}
+.sila-me .sila-table td { padding: 0.75rem 1rem; font-size: var(--sila-text-sm); }
+.sila-me .sila-table .sila-cell-strong { color: var(--sila-me-blue-strong); }
+
+/* ---- Status badges: pills (good / warn / bad / blue tones come from the tokens) */
+.sila-me .sila-badge {
+  border-radius: var(--sila-radius-full);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.02em;
+}
+
+/* ---- Labels ----------------------------------------------------------- */
+.sila-me .sila-label { font-size: var(--sila-text-xs); font-weight: var(--sila-weight-semibold); color: var(--sila-me-muted); }
+.sila-me .sila-meta-label {
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--sila-me-label);
+}
+.sila-me .sila-meta-value { font-size: var(--sila-text-md); font-weight: var(--sila-weight-semibold); }
+
+/* ---- Buttons ---------------------------------------------------------- */
+.sila-me .sila-btn { border-radius: 0.3125rem; font-size: var(--sila-text-sm); }
+
+/* ---- Prototype edge texts ("INCOMPLETE", "NO MENU PRICE", "NOT STOCKED AT THIS LOCATION") */
+.sila-me .sila-me-flag {
+  color: var(--sila-me-amber);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.sila-me .sila-me-flag--bad { color: var(--sila-me-red); }
+.sila-me .sila-me-eyebrow {
+  color: var(--sila-me-blue);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}

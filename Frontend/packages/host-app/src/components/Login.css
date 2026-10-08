@@ -1,0 +1,556 @@
+/* Sign-in page. Scoped to .vx-* (host-only). */
+
+.vx-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(ellipse 70% 42% at 50% -8%, rgba(31, 92, 196, 0.07), transparent 70%),
+        var(--sila-bg);
+    font-family: var(--sila-font);
+    color: var(--sila-text);
+}
+
+/* ---- Header styles live in Header.css ---- */
+
+/* ---- Main / Card ---- */
+.vx-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sila-space-10) var(--sila-space-12);
+}
+
+.vx-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 64rem;
+}
+
+.vx-notices {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vx-notices li {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    max-width: 40rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--sila-text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    text-align: center;
+}
+
+.vx-notices li::before {
+    content: "";
+    width: 0.375rem;
+    height: 0.375rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--sila-primary);
+    box-shadow: 0 0 0 0.25rem rgba(31, 92, 196, 0.12);
+}
+
+.vx-card {
+    display: flex;
+    width: 100%;
+    max-width: none;
+    min-height: 32rem;
+    background: var(--sila-surface);
+    border: 0.0625rem solid rgba(226, 232, 240, 0.9);
+    border-radius: 1rem;
+    box-shadow:
+        0 0.0625rem 0.125rem rgba(15, 23, 42, 0.04),
+        0 1.25rem 2.5rem rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+}
+
+/* ---- Brand panel ---- */
+.vx-left {
+    flex: 0 0 44%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2.75rem 2.5rem;
+    background: linear-gradient(180deg, #2767cf 0%, #1f5cc4 58%, #1a4fa8 100%);
+    color: var(--sila-text-inverse);
+}
+
+.vx-left-intro {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sila-space-3);
+}
+
+.vx-left-lockup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+}
+
+.vx-left-brand,
+.vx-left-overline {
+    margin: 0;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.vx-left-lockup::after {
+    content: "";
+    width: 2.25rem;
+    height: 0.7rem;
+    border-bottom: 0.125rem solid rgba(255, 255, 255, 0.55);
+}
+
+.vx-left-brand {
+    font-size: 1.625rem;
+    font-weight: var(--sila-weight-semibold);
+    line-height: 1;
+    color: var(--sila-text-inverse);
+}
+
+.vx-left-overline {
+    font-size: 0.8125rem;
+    font-weight: var(--sila-weight-medium);
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.vx-left-title {
+    margin: 0;
+    max-width: 20rem;
+    font-size: 1.5rem;
+    font-weight: var(--sila-weight-semibold);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--sila-text-inverse);
+}
+
+.vx-left-text {
+    margin: 0;
+    max-width: 22rem;
+    font-size: var(--sila-text-sm);
+    line-height: var(--sila-leading);
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.vx-caps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.vx-caps li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.7rem 0;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.vx-caps li + li {
+    border-top: 0.0625rem solid rgba(255, 255, 255, 0.14);
+}
+
+.vx-caps strong {
+    display: block;
+    padding-bottom: 0.125rem;
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sila-text-inverse);
+}
+
+.vx-caps svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+    transform: translateY(0.125rem);
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.vx-left-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    margin: auto 0 0;
+    padding-top: var(--sila-space-4);
+    border-top: 0.0625rem solid rgba(255, 255, 255, 0.18);
+    font-size: var(--sila-text-xs);
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.vx-left-foot svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+}
+
+/* ---- Form panel ---- */
+.vx-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 3.25rem;
+    min-width: 0;
+}
+
+.vx-right .vosox-button {
+    border-radius: 0.5rem;
+    min-height: 2.75rem;
+}
+
+.vx-right-inner {
+    width: 100%;
+    max-width: 24.5rem;
+}
+
+.vx-title,
+.vx-title-sec {
+    padding: 0 0 var(--sila-space-1);
+    font-size: var(--sila-text-2xl);
+    font-weight: var(--sila-weight-semibold);
+    line-height: var(--sila-leading-tight);
+    letter-spacing: -0.015em;
+    color: var(--sila-text);
+}
+
+.vx-subtitle,
+.vx-subtitle-sec {
+    padding: 0 0 var(--sila-space-6);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+
+.vx-alert {
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding-bottom: var(--sila-space-4);
+    color: var(--sila-danger-strong);
+}
+
+.vx-alert-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    color: var(--sila-danger);
+}
+
+/* ---- Role selection ---- */
+.vx-role-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sila-space-3);
+    padding-bottom: var(--sila-space-6);
+}
+
+.vx-role-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sila-space-3);
+    padding: var(--sila-space-4);
+    font: inherit;
+    text-align: left;
+    color: var(--sila-text-secondary);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius-md);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.vx-role-card:hover {
+    border-color: var(--sila-primary-border);
+    background: var(--sila-surface-subtle);
+}
+
+.vx-role-card:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.vx-role-card--active,
+.vx-role-card--active:hover {
+    border-color: var(--sila-primary);
+    background: var(--sila-primary-soft);
+    color: var(--sila-text);
+    box-shadow: inset 0 0 0 0.0625rem var(--sila-primary);
+}
+
+.vx-role-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-muted);
+}
+
+.vx-role-icon svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.vx-role-card--active .vx-role-icon {
+    background: var(--sila-surface);
+    color: var(--sila-primary);
+}
+
+.vx-role-label {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.vx-role-radio {
+    position: absolute;
+    top: var(--sila-space-3);
+    right: var(--sila-space-3);
+    width: 1rem;
+    height: 1rem;
+    border: 0.0938rem solid var(--sila-border-strong);
+    border-radius: 50%;
+    background: var(--sila-surface);
+}
+
+.vx-role-card--active .vx-role-radio {
+    border: 0.3125rem solid var(--sila-primary);
+}
+
+/* ---- Form fields ---- */
+.vx-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1-5);
+    padding-bottom: var(--sila-space-4);
+}
+
+.vx-label {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-secondary);
+    line-height: var(--sila-leading-tight);
+}
+
+.vx-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.vx-input-icon {
+    position: absolute;
+    left: 0.75rem;
+    width: 0.8125rem;
+    height: 0.8125rem;
+    color: var(--sila-text-subtle);
+    pointer-events: none;
+}
+
+.vx-input.sila-input {
+    height: var(--sila-control-height-lg);
+    padding-left: 2.125rem;
+}
+
+.vx-input--password.sila-input {
+    padding-right: 2.625rem;
+}
+
+.vx-input--password.sila-input::-ms-reveal,
+.vx-input--password.sila-input::-ms-clear {
+    display: none;
+}
+
+.vx-pw-toggle {
+    position: absolute;
+    right: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sila-radius-sm);
+    background: transparent;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.vx-pw-toggle:hover {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text);
+}
+
+.vx-pw-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.vx-pw-toggle svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+}
+
+/* ---- Row utilities ---- */
+.vx-row-between {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sila-space-3);
+    padding: var(--sila-space-1) 0 var(--sila-space-5);
+}
+
+.vx-checkbox {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.vx-checkbox-input {
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.vx-checkbox-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius-xs);
+    background: var(--sila-surface);
+    color: var(--sila-text-inverse);
+    transition: var(--sila-transition);
+}
+
+.vx-checkbox-input:focus-visible+.vx-checkbox-box {
+    box-shadow: var(--sila-focus-ring);
+    border-color: var(--sila-primary);
+}
+
+.vx-checkbox-box--checked {
+    background: var(--sila-primary);
+    border-color: var(--sila-primary);
+}
+
+.vx-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-primary);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.vx-link:hover {
+    color: var(--sila-primary-hover);
+    text-decoration: underline;
+}
+
+.vx-link:focus-visible {
+    outline: 0.125rem solid var(--sila-primary);
+    outline-offset: 0.125rem;
+    border-radius: var(--sila-radius-xs);
+}
+
+.vx-footer-text {
+    margin: var(--sila-space-5) 0 0;
+    padding-top: var(--sila-space-4);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+    text-align: center;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 48rem) {
+    .vx-main {
+        /* align-items: flex-start; */
+        padding: var(--sila-space-6) var(--sila-space-4);
+    }
+
+    .vx-card {
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .vx-left {
+        flex: none;
+        padding: var(--sila-space-6);
+    }
+
+    .vx-caps {
+        display: none;
+    }
+
+    .vx-notices li {
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .vx-notices li::before {
+        transform: translateY(0.4rem);
+    }
+
+    /* 
+    .vx-left-foot {
+        display: none;
+    } */
+
+    .vx-right {
+        padding: var(--sila-space-6);
+    }
+
+    .vx-right-inner {
+        max-width: none;
+    }
+}
+
+@media (max-width: 26.25rem) {
+    .vx-role-grid {
+        grid-template-columns: 1fr;
+    }
+}
