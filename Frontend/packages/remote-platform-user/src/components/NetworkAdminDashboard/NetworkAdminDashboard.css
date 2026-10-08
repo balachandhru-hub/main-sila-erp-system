@@ -1,0 +1,325 @@
+/* Network Admin Dashboard — rendered inside the AppShell content area, so no page padding,
+   backgrounds, sidebars or fixed headers live here. */
+
+.nad-shell {
+  display: flex;
+  width: 100%;
+}
+
+.nad-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.nad-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  width: 100%;
+  min-width: 0;
+}
+
+/* PageHeader already carries its own spacing; the flex gap handles the rest. */
+.nad-content .nad-content-header {
+  margin-bottom: 0;
+}
+
+/* ---- KPI strip ------------------------------------------------------- */
+
+.nad-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.nad-stat-card .sila-kpi-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Toolbar --------------------------------------------------------- */
+
+.nad-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.nad-controls-bar .nad-search-wrapper {
+  flex: 1 1 17.5rem;
+  max-width: 26.25rem;
+  min-width: 0;
+}
+
+.nad-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* ---- Alerts / states ------------------------------------------------- */
+
+.nad-alert-error {
+  align-items: center;
+  color: var(--sila-danger-strong);
+}
+
+.nad-alert-error .nad-alert-icon {
+  flex-shrink: 0;
+  color: var(--sila-danger);
+}
+
+.nad-alert-error .sila-alert-title {
+  color: var(--sila-danger-strong);
+}
+
+.nad-loading-container,
+.nad-not-auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--sila-space-6);
+  background: var(--sila-bg);
+  text-align: center;
+}
+
+.nad-not-auth-container .sila-empty {
+  width: 100%;
+  max-width: 26.25rem;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.nad-loading-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12.5rem;
+}
+
+/* ---- User table (UserListTable rendered inside this page) ----------- */
+
+.nad-lists-section .nad-table-container {
+  margin: 0;
+  padding: 0;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+}
+
+.nad-lists-section .nad-table-title {
+  display: flex;
+  align-items: center;
+  min-height: 3rem;
+  margin: 0;
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0;
+  color: var(--sila-text);
+}
+
+.nad-lists-section .nad-empty {
+  margin: 0;
+  padding: var(--sila-space-12) var(--sila-space-6);
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.nad-lists-section .nad-table-wrapper {
+  border: 0;
+  border-radius: 0;
+  max-height: 32.5rem;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nad-lists-section .nad-table {
+  width: 100%;
+  min-width: 47.5rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+}
+
+.nad-lists-section .nad-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2.375rem;
+  padding: 0 var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  border-right: 0;
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.nad-lists-section .nad-table th:last-child,
+.nad-lists-section .nad-table td:last-child {
+  text-align: right;
+}
+
+.nad-lists-section .nad-table td {
+  height: 2.75rem;
+  padding: var(--sila-space-2) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  border-right: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+  vertical-align: middle;
+}
+
+.nad-lists-section .nad-table tbody tr {
+  background: var(--sila-surface);
+  transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.nad-lists-section .nad-table tbody tr:hover td {
+  background: var(--sila-surface-subtle);
+}
+
+.nad-lists-section .nad-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.nad-lists-section .nad-name-cell {
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.nad-lists-section .nad-email-cell {
+  color: var(--sila-text-secondary);
+}
+
+.nad-lists-section .nad-username-cell {
+  font-family: var(--sila-font-mono);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* Role and status pills: same shape as .sila-badge */
+.nad-lists-section .nad-badge,
+.nad-lists-section .nad-status {
+  display: inline-flex;
+  align-items: center;
+  height: 1.375rem;
+  max-width: 100%;
+  padding: 0 var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-neutral-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-neutral-soft);
+  color: var(--sila-neutral);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Role arrives as "BUYER ADMINISTRATOR"; show it in sentence case. */
+.nad-lists-section .nad-badge {
+  display: inline-block;
+  line-height: 1.25rem;
+  vertical-align: middle;
+  text-transform: lowercase;
+}
+
+.nad-lists-section .nad-badge::first-letter {
+  text-transform: uppercase;
+}
+
+.nad-lists-section .nad-status-active {
+  background: var(--sila-success-soft);
+  border-color: var(--sila-success-border);
+  color: var(--sila-success);
+}
+
+.nad-lists-section .nad-status-inactive {
+  background: var(--sila-neutral-soft);
+  border-color: var(--sila-neutral-border);
+  color: var(--sila-neutral);
+}
+
+/* Row action: small ghost icon button */
+.nad-lists-section .nad-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: var(--sila-space-1);
+}
+
+.nad-lists-section .nad-btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sila-control-height-sm);
+  height: var(--sila-control-height-sm);
+  padding: 0;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius);
+  background: transparent;
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.nad-lists-section .nad-btn-action:hover {
+  background: var(--sila-surface-hover);
+  border-color: transparent;
+  color: var(--sila-text);
+}
+
+.nad-lists-section .nad-btn-action:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.nad-lists-section .nad-btn-delete:hover {
+  background: var(--sila-danger-soft);
+  color: var(--sila-danger);
+}
+
+/* ---- Responsive ------------------------------------------------------ */
+
+@media (max-width: 48rem) {
+  .nad-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nad-controls-bar .nad-search-wrapper {
+    max-width: none;
+    flex-basis: auto;
+  }
+
+  .nad-action-buttons {
+    justify-content: stretch;
+  }
+
+  .nad-action-buttons .nad-create-btn {
+    flex: 1 1 auto;
+  }
+}

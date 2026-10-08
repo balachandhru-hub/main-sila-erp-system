@@ -1,0 +1,232 @@
+/* Material master catalog — list + detail views.
+   Page padding comes from the app shell, so the container adds none. */
+
+.imc-container {
+  padding: 0;
+  font-family: var(--sila-font);
+  color: var(--sila-text);
+}
+
+.imc-page {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  padding: var(--sila-space-5);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.imc-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3) var(--sila-space-4);
+  padding-bottom: var(--sila-space-5);
+}
+
+.imc-title {
+  margin: 0;
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  letter-spacing: -0.015em;
+  color: var(--sila-text);
+}
+
+.imc-subtitle {
+  padding: var(--sila-space-1) 0 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.imc-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* Buttons also carry .sila-btn; these keep the look when used on their own. */
+.imc-btn-primary,
+.imc-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-4);
+  border-radius: var(--sila-radius);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--sila-transition);
+}
+
+.imc-btn-primary {
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  border: 0.0625rem solid var(--sila-primary);
+}
+
+.imc-btn-primary:hover {
+  background: var(--sila-primary-hover);
+  border-color: var(--sila-primary-hover);
+}
+
+.imc-btn-secondary {
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  border: 0.0625rem solid var(--sila-border-strong);
+}
+
+.imc-btn-secondary:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.imc-btn-primary svg,
+.imc-btn-secondary svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.imc-btn-retry {
+  flex-shrink: 0;
+}
+
+.imc-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  margin-bottom: var(--sila-space-4);
+  background: var(--sila-danger-soft);
+  border: 0.0625rem solid var(--sila-danger-border);
+  border-radius: var(--sila-radius);
+  color: var(--sila-danger-strong);
+  font-size: var(--sila-text-sm);
+}
+
+.imc-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12.5rem;
+}
+
+/* ---- List view: item master table ---- */
+
+.imc-table {
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  overflow: hidden;
+}
+
+.imc-table .sila-search { flex: 1 1 17.5rem; max-width: 27.5rem; }
+
+.imc-table .imc-col-index { width: 4rem; }
+
+/* ---- Detail view ---- */
+
+.imc-container .detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sila-space-5);
+}
+
+.imc-container .detail-header-title {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.imc-container .back-button {
+  width: var(--sila-control-height);
+  height: var(--sila-control-height);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  color: var(--sila-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--sila-transition);
+  flex-shrink: 0;
+}
+
+.imc-container .back-button:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.imc-container .back-button:focus-visible {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.imc-container .back-button:active {
+  background-color: var(--sila-surface-sunken);
+}
+
+.imc-container .back-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.imc-container .detail-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: var(--sila-space-8);
+  row-gap: var(--sila-space-5);
+}
+
+@media (max-width: 56.25rem) {
+  .imc-container .detail-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 35rem) {
+  .imc-container .detail-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.imc-container .detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+}
+
+.imc-container .detail-field .label {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.imc-container .detail-field .value {
+  color: var(--sila-text);
+  font-weight: var(--sila-weight-medium);
+  font-size: var(--sila-text-md);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.imc-container .detail-field .value-empty {
+  color: var(--sila-text-subtle);
+  font-weight: var(--sila-weight-regular);
+}
+
+@media (max-width: 48rem) {
+  .imc-page {
+    padding: var(--sila-space-4);
+  }
+}

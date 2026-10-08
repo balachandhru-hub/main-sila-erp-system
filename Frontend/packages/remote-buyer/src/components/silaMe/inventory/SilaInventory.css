@@ -1,0 +1,236 @@
+/* SILA ME inventory screens: locations, materials, live stock, ledger, home. */
+
+/* Screen: header, then cards stacked */
+.sinv-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Filter row above a table */
+.sinv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+.sinv-filters .sila-field {
+  min-width: 12rem;
+}
+
+.sinv-filters .sinv-grow {
+  flex: 1 1 16rem;
+}
+
+/* Second, quieter line inside a table cell */
+.sinv-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* Numbers right-aligned */
+.sila-table .sinv-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Row that opens a detail on click */
+.sila-table tr.sinv-row-button {
+  cursor: pointer;
+}
+
+.sila-table tr.sinv-row-button:hover,
+.sila-table tr.sinv-row-selected {
+  background: var(--sila-primary-soft);
+}
+
+/* Buttons / badges side by side */
+.sinv-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+/* Dialog content stacked */
+.sinv-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Check-box list in the user assignment dialog */
+.sinv-check-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--sila-space-2);
+  max-height: 24rem;
+  overflow-y: auto;
+  padding: var(--sila-space-1);
+}
+
+/* Small numeric input inside a table cell */
+.sinv-qty-input {
+  width: 7rem;
+  text-align: right;
+}
+
+/* Conversion editor: from, factor, to, add */
+.sinv-conversion-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sila-space-2);
+}
+
+.sinv-conversion-row .sila-field {
+  min-width: 7rem;
+  flex: 0 1 9rem;
+}
+
+/* Footer of a paged table */
+.sinv-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+/* Dashboard: recent alerts */
+.sinv-alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.sinv-alert-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-subtle);
+  border-radius: var(--sila-radius);
+}
+
+.sinv-alert-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+}
+
+/* Dashboard: alert row side (badges above buttons) */
+.sinv-alert-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sila-space-2);
+}
+
+/* Dashboard: stock health meter */
+.sinv-health {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.sinv-health-bar {
+  display: flex;
+  height: 0.875rem;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface-sunken);
+  overflow: hidden;
+}
+
+.sinv-health-seg {
+  flex-basis: 0;
+  min-width: 0.25rem;
+}
+
+.sinv-health-seg--healthy { background: var(--sila-success); }
+.sinv-health-seg--low { background: var(--sila-warning); }
+.sinv-health-seg--out { background: var(--sila-danger); }
+.sinv-health-seg--excess { background: var(--sila-info); }
+
+.sinv-health-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--sila-space-2);
+  padding: 0;
+  list-style: none;
+  font-size: var(--sila-text-sm);
+}
+
+.sinv-health-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.sinv-health-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: var(--sila-radius-sm);
+}
+
+/* Live inventory: decision panel */
+.sinv-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+/* Month override grid of the stocking dialog */
+.sinv-month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--sila-space-3);
+}
+
+.sinv-month-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-border-subtle);
+  border-radius: var(--sila-radius);
+}
+
+/* Location import preview */
+.sinv-import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* Location tree view: property group row, then indented stores and outlets of a venue */
+.sila-table tr.sinv-tree-group th {
+  background: var(--sila-surface-muted);
+  font-weight: var(--sila-weight-bold);
+  text-align: left;
+}
+
+.sila-table td.sinv-tree-child {
+  padding-left: var(--sila-space-8);
+}
+
+@media (max-width: 47.9375rem) {
+  .sinv-filters .sila-field {
+    min-width: 100%;
+  }
+}
+
+/* Control center header: search and transfer shortcuts */
+.sinv-dash-search .sila-input {
+  min-width: 16rem;
+}

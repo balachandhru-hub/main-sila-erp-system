@@ -1,0 +1,193 @@
+.external-supplier-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-6);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.external-supplier-modal {
+  width: min(37.5rem, 100%);
+  max-height: calc(100vh - 3rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+}
+
+.external-supplier-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.external-supplier-modal-title {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.external-supplier-modal-subtitle {
+  padding: var(--sila-space-0-5) 0 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.external-supplier-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--sila-control-height-sm);
+  height: var(--sila-control-height-sm);
+  padding: 0;
+  border: none;
+  border-radius: var(--sila-radius);
+  background: transparent;
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.external-supplier-modal-close:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.external-supplier-modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.external-supplier-modal-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Two-column form grid on desktop, single column on small screens */
+.external-supplier-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--sila-space-4) var(--sila-space-5);
+  padding: var(--sila-space-5);
+}
+
+.external-supplier-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+}
+
+.external-supplier-field-full {
+  grid-column: 1 / -1;
+}
+
+.external-supplier-field label {
+  display: block;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+}
+
+.external-supplier-field label span {
+  padding-left: 0.125rem;
+  color: var(--sila-danger);
+}
+
+.external-supplier-field input {
+  width: 100%;
+  height: var(--sila-control-height);
+  box-sizing: border-box;
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  outline: none;
+  background: var(--sila-surface);
+  font-size: var(--sila-text-md);
+  font-family: inherit;
+  color: var(--sila-text);
+  transition: var(--sila-transition);
+}
+
+.external-supplier-field input::placeholder {
+  color: var(--sila-text-subtle);
+}
+
+.external-supplier-field input:focus {
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.external-supplier-field input.external-supplier-input-error {
+  border-color: var(--sila-danger);
+}
+
+.external-supplier-field input.external-supplier-input-error:focus {
+  box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.external-supplier-error {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-danger);
+}
+
+.external-supplier-modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+}
+
+/* Size and colour come from sila-btn */
+.external-supplier-cancel-btn,
+.external-supplier-add-btn {
+  min-width: 6rem;
+}
+
+@media (max-width: 37.5rem) {
+  .external-supplier-modal-overlay {
+    padding: var(--sila-space-4);
+  }
+
+  .external-supplier-modal-body {
+    grid-template-columns: 1fr;
+    padding: var(--sila-space-4);
+  }
+
+  .external-supplier-modal-header,
+  .external-supplier-modal-footer {
+    padding-left: var(--sila-space-4);
+    padding-right: var(--sila-space-4);
+  }
+
+  .external-supplier-modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .external-supplier-cancel-btn,
+  .external-supplier-add-btn {
+    width: 100%;
+  }
+}

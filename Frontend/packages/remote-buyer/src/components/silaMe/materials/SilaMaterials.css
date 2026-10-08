@@ -1,0 +1,82 @@
+/* SILA ME material master: price panel, price approvals, Excel and ERP pull panels. */
+
+.smat-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Panel content stacked */
+.smat-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Read-only facts as a responsive grid of label / value pairs */
+.smat-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--sila-space-3);
+}
+
+.smat-facts dt {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.smat-facts dd {
+  font-weight: 600;
+}
+
+/* Second, quieter line inside a table cell */
+.smat-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-table .smat-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Toolbar of buttons and small fields */
+.smat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+.smat-toolbar .sila-field {
+  min-width: 12rem;
+}
+
+/* Counters of a preview or pull result */
+.smat-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* Messages list (failures, file errors) */
+.smat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  max-height: 16rem;
+  overflow-y: auto;
+  padding-left: var(--sila-space-4);
+  font-size: var(--sila-text-sm);
+}
+
+/* ERP pull panel body */
+.smat-erp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}

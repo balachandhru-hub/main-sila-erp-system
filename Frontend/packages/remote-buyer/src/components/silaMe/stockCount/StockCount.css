@@ -1,0 +1,146 @@
+/* SILA ME stock count, shortage enquiries and alerts */
+
+/* Content stacked inside a card body or a dialog */
+.sc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Second, quieter line inside a table cell (material code, location, timestamps) */
+.sc-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* Buttons side by side in a table cell or a card header */
+.sc-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+/* Filters and the new-count button above a list */
+.sc-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.sc-filter {
+  min-width: 12rem;
+}
+
+/* Progress counters of a count sheet */
+.sc-counters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--sila-space-3);
+}
+
+.sc-counter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface);
+}
+
+.sc-counter-value {
+  font-size: var(--sila-text-lg);
+  font-weight: 600;
+  color: var(--sila-text);
+}
+
+.sc-counter-label {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+/* Scan / search row of a count sheet */
+.sc-finder {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.sc-finder-row {
+  display: flex;
+  gap: var(--sila-space-2);
+}
+
+.sc-finder-row .sila-input {
+  flex: 1;
+}
+
+/* Material search results under the search box */
+.sc-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.sc-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sila-space-2);
+  width: 100%;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface);
+  color: var(--sila-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sc-result:hover,
+.sc-result:focus-visible {
+  border-color: var(--sila-primary);
+}
+
+/* Full + open quantity entry: quantity and unit side by side */
+.sc-qty-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--sila-space-2);
+}
+
+/* Enquiry timeline */
+.sc-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sc-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+/* Book quantity hidden by a blind count */
+.sc-hidden {
+  color: var(--sila-text-muted);
+  font-style: italic;
+}
+
+/* ERP posting error under the SAP status of a count line */
+.sc-error-text {
+  color: var(--sila-danger);
+}

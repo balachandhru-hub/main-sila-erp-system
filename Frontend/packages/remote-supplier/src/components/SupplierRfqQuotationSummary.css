@@ -1,0 +1,768 @@
+/* Supplier RFQ detail + quotation (bidding) screen — sqs-* scope.
+   Legacy modal/button classes (pud-modal*, pud-btn*) live in SupplierDashboard.css. */
+
+.sqs-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sila-page-header.sqs-header {
+  padding-bottom: var(--sila-space-4);
+}
+
+.sqs-form {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sqs-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+}
+
+.sqs-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.sqs-title-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.sqs-title-with-icon svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--sila-text-muted);
+  flex-shrink: 0;
+}
+
+/* ---- Alerts ------------------------------------------------------------ */
+
+.sqs-window-alert,
+.sqs-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+}
+
+.sqs-alert-icon {
+  display: inline-flex;
+  padding-top: 0.0625rem;
+  color: var(--sila-warning);
+  flex-shrink: 0;
+}
+
+.sqs-alert-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sqs-alert-icon--success {
+  color: var(--sila-success);
+}
+
+.sqs-alert-icon--danger {
+  color: var(--sila-danger);
+}
+
+/* ---- RFQ details --------------------------------------------------------- */
+
+.sila-meta-grid.sqs-details-grid {
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+}
+
+.sqs-details-grid dd {
+  margin: 0;
+}
+
+.sqs-details-wide {
+  grid-column: span 2;
+}
+
+.sqs-details-full {
+  grid-column: 1 / -1;
+}
+
+.sqs-description {
+  font-weight: var(--sila-weight-regular);
+  line-height: var(--sila-leading);
+  color: var(--sila-text-secondary);
+  white-space: pre-line;
+}
+
+/* ---- Bulk apply ---------------------------------------------------------- */
+
+.sqs-bulk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  background: var(--sila-surface-subtle);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sqs-bulk-title {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sqs-bulk-subtitle {
+  padding: 0.125rem 0 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sqs-bulk-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.sqs-bulk .sqs-bulk-input {
+  width: 8.75rem;
+  height: var(--sila-control-height-sm);
+  font-size: var(--sila-text-sm);
+}
+
+.sqs-segmented {
+  display: inline-flex;
+  height: var(--sila-control-height-sm);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  overflow: hidden;
+}
+
+.sqs-segmented button {
+  padding: 0 var(--sila-space-3);
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.sqs-segmented button + button {
+  border-left: 0.0625rem solid var(--sila-border-strong);
+}
+
+.sqs-segmented button:hover {
+  color: var(--sila-text);
+  background: var(--sila-surface-hover);
+}
+
+.sqs-segmented button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 0.125rem var(--sila-primary-ring);
+}
+
+.sqs-segmented button.active {
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+}
+
+.sqs-bulk-fields {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.sqs-bulk-apply {
+  margin-left: auto;
+}
+
+/* ---- Excel apply ---------------------------------------------------------- */
+
+.sqs-excel-apply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  background: var(--sila-surface-subtle);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sqs-excel-apply-head {
+  display: flex;
+  flex-direction: column;
+}
+
+.sqs-excel-apply-title {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sqs-excel-apply-subtitle {
+  padding: 0.125rem 0 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sqs-excel-apply-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+/* Toggle chips (class names kept from the original markup) */
+.pud-bulk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-3) 0 var(--sila-space-2);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.pud-bulk-toggle:hover {
+  border-color: var(--sila-border-strong);
+}
+
+.pud-bulk-toggle:has(input:checked) {
+  border-color: var(--sila-primary-border);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+}
+
+.pud-bulk-toggle:has(input:focus-visible) {
+  box-shadow: var(--sila-focus-ring);
+}
+
+.pud-switch {
+  position: relative;
+  display: inline-block;
+  width: 1.75rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.pud-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pud-slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: var(--sila-border-strong);
+  border-radius: var(--sila-radius-full);
+  transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.pud-slider::before {
+  content: "";
+  position: absolute;
+  width: 0.75rem;
+  height: 0.75rem;
+  left: 0.125rem;
+  top: 0.125rem;
+  background: var(--sila-surface);
+  border-radius: 50%;
+  transition: transform var(--sila-duration-fast) var(--sila-ease);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.pud-switch input:checked + .pud-slider {
+  background: var(--sila-primary);
+}
+
+.pud-switch input:checked + .pud-slider::before {
+  transform: translateX(0.75rem);
+}
+
+/* ---- Line items table ---------------------------------------------------- */
+
+.sqs-items-table td {
+  white-space: nowrap;
+}
+
+.sqs-items-table td.sqs-material,
+.sqs-items-table td:first-child {
+  white-space: normal;
+  min-width: 11.25rem;
+}
+
+.sqs-line-table th,
+.sqs-line-table td {
+  padding-left: var(--sila-space-2);
+  padding-right: var(--sila-space-2);
+}
+
+.sqs-line-table th:first-child,
+.sqs-line-table td:first-child {
+  padding-left: var(--sila-space-4);
+}
+
+.sqs-line-table th:last-child,
+.sqs-line-table td:last-child {
+  padding-right: var(--sila-space-4);
+}
+
+.sqs-uom {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sqs-line-table .sqs-cell-input,
+.sqs-line-table .sqs-cell-select {
+  height: var(--sila-control-height-sm);
+  font-size: var(--sila-text-sm);
+  box-shadow: none;
+}
+
+.sqs-line-table .sqs-cell-input {
+  width: 6rem;
+  padding: 0 var(--sila-space-2);
+}
+
+.sqs-line-table .sqs-cell-select {
+  width: 7.75rem;
+  padding-left: var(--sila-space-2);
+}
+
+/* Shared Dropdown used inside a table cell — match the density of .sqs-cell-select. */
+.sqs-line-table .sqs-cell-dropdown {
+  width: 7.75rem;
+}
+
+.sqs-line-table .sqs-cell-dropdown .sila-dropdown__field {
+  min-height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-2);
+}
+
+.sqs-line-table .sqs-cell-dropdown .sila-dropdown__input {
+  height: calc(var(--sila-control-height-sm) - 0.125rem);
+  font-size: var(--sila-text-sm);
+}
+
+/* Shared Dropdown used for the lot-level Delivery/Discount/Tax Type fields. */
+.sqs-field-dropdown .sila-dropdown__field {
+  min-height: var(--sila-control-height);
+}
+
+.sqs-field-dropdown .sila-dropdown__input {
+  height: calc(var(--sila-control-height) - 0.125rem);
+  font-size: var(--sila-text-md);
+}
+
+.sqs-form .sqs-num-input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sqs-line-table .sqs-price-input {
+  width: 6.875rem;
+  font-weight: var(--sila-weight-semibold);
+}
+
+.sqs-line-table .sqs-availability-cell {
+  text-align: center;
+}
+
+.sqs-line-table .sqs-availability-checkbox {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 0.0938rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: var(--sila-transition);
+  position: relative;
+}
+
+.sqs-line-table .sqs-availability-checkbox:hover {
+  border-color: var(--sila-primary);
+}
+
+.sqs-line-table .sqs-availability-checkbox:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.sqs-line-table .sqs-availability-checkbox:checked {
+  background: var(--sila-primary);
+  border-color: var(--sila-primary);
+}
+
+.sqs-line-table .sqs-availability-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.3125rem;
+  top: 0.125rem;
+  width: 0.3125rem;
+  height: 0.5625rem;
+  border: solid var(--sila-surface);
+  border-width: 0 0.125rem 0.125rem 0;
+  transform: rotate(45deg);
+}
+
+/* ---- Pricing (lot) ------------------------------------------------------- */
+
+.sqs-pricing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sqs-pricing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+}
+
+.sqs-subsection-title {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sila-form-grid.sqs-pricing-grid {
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+}
+
+/* ---- Totals -------------------------------------------------------------- */
+
+.sqs-total {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  background: var(--sila-surface-subtle);
+  border-top: 0.0625rem solid var(--sila-border);
+  border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+.sqs-pricing .sqs-total {
+  margin: 0 calc(-1 * var(--sila-space-5)) calc(-1 * var(--sila-space-5));
+}
+
+.sqs-total-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-secondary);
+}
+
+.sqs-total-value {
+  font-size: var(--sila-text-xl);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sqs-total .sqs-total-input {
+  width: 12.5rem;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+}
+
+/* ---- Documents ----------------------------------------------------------- */
+
+.sqs-docs-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-5);
+}
+
+.sqs-doc-group-title {
+  padding: 0 0 var(--sila-space-2);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+}
+
+.sila-file-list.sqs-doc-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr));
+}
+
+.sqs-doc-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sqs-doc-text .sila-file-name {
+  display: block;
+}
+
+.sqs-doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  flex-shrink: 0;
+}
+
+.sila-file-icon.sqs-file-icon--neutral {
+  background: var(--sila-neutral-soft);
+  color: var(--sila-neutral);
+}
+
+.sqs-doc-list .sila-file-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---- Buyer questions ----------------------------------------------------- */
+
+.sqs-questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+.sqs-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-4);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface);
+}
+
+.sqs-question-label {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.sqs-question-index {
+  padding-right: var(--sila-space-1);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sqs-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+}
+
+.sqs-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+  cursor: pointer;
+}
+
+.sqs-option input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--sila-primary);
+}
+
+.sqs-question .sqs-file-input {
+  height: auto;
+  padding: var(--sila-space-1-5) var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+}
+
+.sqs-question-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--sila-space-3);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+/* ---- Sticky action bar --------------------------------------------------- */
+
+.sqs-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--sila-z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  margin-top: var(--sila-space-4);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-md);
+}
+
+.sqs-footer-status {
+  display: flex;
+  align-items: center;
+  min-height: 1.375rem;
+}
+
+.sqs-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  margin-left: auto;
+}
+
+/* ---- Modals (OTP / confirm) ---------------------------------------------- */
+
+.sila-overlay.sqs-overlay {
+  /* Above the e-auction widget and chat launcher, as before. */
+  z-index: 9999;
+}
+
+.sila-modal.sqs-modal {
+  max-width: 27.5rem;
+}
+
+.sqs-modal-heading-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-2);
+}
+
+.sqs-modal-heading-group .sila-badge svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.sqs-modal-heading {
+  padding: 0 0 var(--sila-space-2);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sqs-modal-error {
+  padding: var(--sila-space-3) 0 0;
+}
+
+.sqs-modal .sqs-otp-intro {
+  padding-bottom: var(--sila-space-4);
+}
+
+.sqs-otp-timer {
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sqs-otp-timer--urgent {
+  color: var(--sila-danger);
+}
+
+.sqs-modal .sqs-otp-input {
+  height: var(--sila-control-height-lg);
+  font-family: var(--sila-font-mono);
+  font-size: var(--sila-text-xl);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.sqs-otp-resend {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--sila-space-2);
+}
+
+/* ---- Legacy classes still referenced by SupplierDashboard / platform admin */
+
+.pud-rfq-fullpage-view {
+  min-width: 0;
+}
+
+.pud-rfq-page-body {
+  padding-bottom: var(--sila-space-4);
+}
+
+/* ---- Responsive ---------------------------------------------------------- */
+
+@media (max-width: 48rem) {
+  .sqs-details-wide {
+    grid-column: 1 / -1;
+  }
+
+  .sqs-bulk-controls {
+    align-items: stretch;
+  }
+
+  .sqs-bulk .sqs-bulk-input {
+    width: 100%;
+  }
+
+  .sqs-bulk-apply {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .sqs-total {
+    justify-content: space-between;
+  }
+
+  .sqs-total .sqs-total-input {
+    width: 100%;
+  }
+
+  .sqs-footer {
+    padding: var(--sila-space-3);
+  }
+
+  .sqs-footer-actions {
+    width: 100%;
+  }
+
+  .sqs-footer-actions .sila-btn {
+    flex: 1;
+  }
+}
+
+.sqs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2, 10px);
+  flex-wrap: wrap;
+}
+
+.sqs-excel-file-input {
+  display: none;
+}
+
+.sqs-btn-review-contract {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+

@@ -1,0 +1,45 @@
+/* Modal variant/layout additions. Base overlay/panel/header/body/footer rules
+   (.sila-overlay, .sila-modal, .sila-modal-header, .sila-modal-title,
+   .sila-modal-body, .sila-modal-footer) live in the shared design system at
+   packages/shared-ui/src/styles/components.css and are reused as-is here. */
+
+/* This Modal's own width scale (overrides the 35rem shared-default used by other bespoke modals
+   in the app that reuse .sila-modal directly). Pass the `style` prop to expand beyond these. */
+.sila-modal--sm { max-width: 26rem; }
+.sila-modal--md { max-width: 37.5rem; } /* 600px */
+
+.sila-modal-heading-group {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+  min-width: 0;
+}
+
+/* No subheading: center the icon on the single heading line instead of top-aligning it. */
+.sila-modal-heading-group--center { align-items: center; }
+
+.sila-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface-hover);
+  color: var(--sila-text-muted);
+}
+
+.sila-modal--info .sila-modal-icon { background: var(--sila-info-soft); color: var(--sila-info); }
+.sila-modal--warning .sila-modal-icon { background: var(--sila-warning-soft); color: var(--sila-warning); }
+.sila-modal--danger .sila-modal-icon { background: var(--sila-danger-soft); color: var(--sila-danger); }
+
+.sila-modal-description {
+  margin: var(--sila-space-2) 0 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+}
+
+.sila-modal-description--info { color: var(--sila-info); }
+.sila-modal-description--warning { color: var(--sila-warning); }
+.sila-modal-description--danger { color: var(--sila-danger); font-weight: var(--sila-weight-medium); }

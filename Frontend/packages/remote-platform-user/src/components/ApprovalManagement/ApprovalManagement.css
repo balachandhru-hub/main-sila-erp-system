@@ -1,0 +1,108 @@
+/* ---------- Card & header ---------- */
+.apl-card {
+  padding: var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.apl-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-4);
+  padding-bottom: var(--sila-space-4);
+}
+
+.apl-title {
+  padding: 0 0 var(--sila-space-1);
+  font-family: var(--sila-font);
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  letter-spacing: -0.01em;
+}
+
+.apl-subtitle {
+  margin: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+/* ---------- Create button (sila-btn--primary supplies the look) ---------- */
+.apl-create-btn {
+  flex-shrink: 0;
+}
+
+.apl-create-plus {
+  font-size: var(--sila-text-md);
+  line-height: 1;
+}
+
+/* ---------- Toolbar ---------- */
+.apl-search {
+  flex: 1 1 17.5rem;
+  max-width: 22.5rem;
+}
+
+.apl-count {
+  margin-left: auto;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Table (sila-table supplies the base look) ---------- */
+.apl-table {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  overflow: hidden;
+}
+
+.apl-table td {
+  white-space: nowrap;
+}
+
+.apl-row:hover td {
+  background: var(--sila-surface-subtle);
+}
+
+.apl-col-sno {
+  width: 4rem;
+}
+
+.apl-sno {
+  color: var(--sila-text-muted);
+}
+
+.apl-name {
+  min-width: 12.5rem;
+  color: var(--sila-text);
+  font-weight: var(--sila-weight-medium);
+  white-space: normal !important;
+}
+
+.apl-col-open {
+  width: 2.5rem;
+}
+
+.apl-open {
+  width: 2.5rem;
+  text-align: right;
+  color: var(--sila-text-subtle);
+}
+
+.apl-open svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  vertical-align: middle;
+}
+
+.apl-row:hover .apl-open,
+.apl-row:focus-visible .apl-open {
+  color: var(--sila-primary);
+}

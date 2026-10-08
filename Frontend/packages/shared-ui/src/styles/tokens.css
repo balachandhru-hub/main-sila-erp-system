@@ -1,0 +1,173 @@
+/* SILA design tokens.
+   The single source of truth for colour, type, spacing, radius, elevation and motion.
+   Every remote loads this through @vosox/shared-ui, so host and remotes resolve the same values.
+   Only custom properties live on :root — no element selectors — so nothing here can restyle
+   another remote's markup. */
+
+:root {
+  /* ---- Typography ---------------------------------------------------- */
+  --sila-font: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sila-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+  --sila-text-2xs: 0.6875rem;  /* 0.6875rem — table headers, overlines */
+  --sila-text-xs: 0.75rem;     /* 0.75rem — meta, helper text, badges */
+  --sila-text-sm: 0.8125rem;   /* 0.8125rem — dense UI, table cells, nav */
+  --sila-text-md: 0.875rem;    /* 0.875rem — body, inputs, buttons */
+  --sila-text-lg: 1rem;        /* 1rem — card titles */
+  --sila-text-xl: 1.125rem;    /* 1.125rem — section titles */
+  --sila-text-2xl: 1.375rem;   /* 1.375rem — page titles */
+  --sila-text-3xl: 1.75rem;    /* 1.75rem — KPI values */
+
+  --sila-weight-regular: 400;
+  --sila-weight-medium: 500;
+  --sila-weight-semibold: 600;
+  --sila-weight-bold: 700;
+
+  --sila-leading-tight: 1.25;
+  --sila-leading: 1.5;
+
+  /* ---- Neutrals ------------------------------------------------------ */
+  --sila-bg: #f4f6f9;
+  --sila-surface: #ffffff;
+  --sila-surface-subtle: #f8fafc;
+  --sila-surface-hover: #f1f5f9;
+  --sila-surface-sunken: #eef2f6;
+
+  --sila-border: #e2e8f0;
+  --sila-border-subtle: #edf1f5;
+  --sila-border-strong: #cbd5e1;
+
+  --sila-text: #0f172a;
+  --sila-text-secondary: #334155;
+  --sila-text-muted: #64748b;
+  --sila-text-subtle: #94a3b8;   /* placeholders & decorative only — below AA for body text */
+  --sila-text-inverse: #ffffff;
+
+  /* ---- Brand --------------------------------------------------------- */
+  --sila-primary: #1f5cc4;
+  --sila-primary-hover: #1a4fa8;
+  --sila-primary-active: #164391;
+  --sila-primary-soft: #eef4fd;
+  --sila-primary-soft-hover: #e1ebfb;
+  --sila-primary-border: #c6d8f5;
+  --sila-primary-ring: rgba(31, 92, 196, 0.22);
+
+  /* ---- Status -------------------------------------------------------- */
+  --sila-success: #15803d;
+  --sila-success-strong: #166534;
+  --sila-success-soft: #ecfdf3;
+  --sila-success-border: #bbe5c8;
+
+  --sila-warning: #b45309;
+  --sila-warning-strong: #92400e;
+  --sila-warning-soft: #fffaeb;
+  --sila-warning-border: #fcdca0;
+
+  --sila-danger: #c02626;
+  --sila-danger-hover: #a51f1f;
+  --sila-danger-strong: #991b1b;
+  --sila-danger-soft: #fef3f2;
+  --sila-danger-border: #f5c6c2;
+  --sila-danger-ring: rgba(192, 38, 38, 0.2);
+
+  --sila-info: var(--sila-primary);
+  --sila-info-soft: var(--sila-primary-soft);
+  --sila-info-border: var(--sila-primary-border);
+
+  --sila-neutral: #475569;
+  --sila-neutral-soft: #f1f5f9;
+  --sila-neutral-border: #dde3ea;
+
+  /* One restrained accent for secondary data series and "in progress" states */
+  --sila-accent: #5b4bb7;
+  --sila-accent-soft: #f3f1fc;
+  --sila-accent-border: #d9d3f3;
+
+  /* ---- Spacing (0.25rem grid) -------------------------------------------- */
+  --sila-space-0-5: 0.125rem;
+  --sila-space-1: 0.25rem;
+  --sila-space-1-5: 0.375rem;
+  --sila-space-2: 0.5rem;
+  --sila-space-3: 0.75rem;
+  --sila-space-4: 1rem;
+  --sila-space-5: 1.25rem;
+  --sila-space-6: 1.5rem;
+  --sila-space-8: 2rem;
+  --sila-space-10: 2.5rem;
+  --sila-space-12: 3rem;
+
+  /* ---- Radius -------------------------------------------------------- */
+  --sila-radius-xs: 0.1875rem;
+  --sila-radius-sm: 0.25rem;
+  --sila-radius: 0.375rem;
+  --sila-radius-md: 0.5rem;
+  --sila-radius-lg: 0.625rem;
+  --sila-radius-full: 62.4375rem;
+
+  /* ---- Elevation ----------------------------------------------------- */
+  --sila-shadow-xs: 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.04);
+  --sila-shadow-sm: 0 0.0625rem 0.1875rem rgba(15, 23, 42, 0.06), 0 0.0625rem 0.125rem rgba(15, 23, 42, 0.03);
+  --sila-shadow-md: 0 0.25rem 0.75rem rgba(15, 23, 42, 0.08), 0 0.0625rem 0.1875rem rgba(15, 23, 42, 0.04);
+  --sila-shadow-lg: 0 0.75rem 2rem rgba(15, 23, 42, 0.12), 0 0.125rem 0.375rem rgba(15, 23, 42, 0.05);
+  --sila-focus-ring: 0 0 0 0.1875rem var(--sila-primary-ring);
+
+  /* ---- Motion -------------------------------------------------------- */
+  --sila-duration-fast: 120ms;
+  --sila-duration: 180ms;
+  --sila-duration-slow: 240ms;
+  --sila-ease: cubic-bezier(0.2, 0, 0, 1);
+  --sila-transition: color var(--sila-duration-fast) var(--sila-ease),
+    background-color var(--sila-duration-fast) var(--sila-ease),
+    border-color var(--sila-duration-fast) var(--sila-ease),
+    box-shadow var(--sila-duration-fast) var(--sila-ease);
+
+  /* ---- Layout -------------------------------------------------------- */
+  --sila-topbar-height: 3.75rem;
+  --sila-content-max-width: none;  /* pages use the full screen width */
+  --sila-page-padding-x: 1.5rem;
+  --sila-page-padding-y: 1.25rem;
+  --sila-control-height-sm: 1.875rem;
+  --sila-control-height: 2.25rem;
+  --sila-control-height-lg: 2.5rem;
+
+  /* ---- Layers -------------------------------------------------------- */
+  --sila-z-sticky: 20;
+  --sila-z-sidebar: 900;
+  --sila-z-topbar: 1000;
+  --sila-z-dropdown: 1100;
+  --sila-z-modal: 1200;
+  /* Above every one-off hardcoded z-index in the app (the highest today is EAuctionWidget's
+     OTP modal at 99999) - toasts must stay visible over any modal, in any remote. */
+  --sila-z-toast: 100000;
+
+  /* ---- Back-compat aliases ------------------------------------------- */
+  /* Older page styles read these generic names; point them at the tokens
+     so they pick up the palette instead of their original hard-coded values. */
+  --bg-color: var(--sila-bg);
+  --bg-grid: transparent;
+  --surface-color: var(--sila-surface);
+  --surface-hover: var(--sila-surface-hover);
+  --border-color: var(--sila-border);
+  --border-hover: var(--sila-primary);
+  --primary-color: var(--sila-primary);
+  --primary-glow: var(--sila-primary-ring);
+  --accent-color: var(--sila-primary-hover);
+  --accent-glow: var(--sila-primary-ring);
+  --success-color: var(--sila-success);
+  --warning-color: var(--sila-warning);
+  --danger-color: var(--sila-danger);
+  --text-color: var(--sila-text);
+  --text-muted: var(--sila-text-muted);
+  --text-dark: var(--sila-text-secondary);
+  --font-sans: var(--sila-font);
+  --font-heading: var(--sila-font);
+  --transition-smooth: var(--sila-transition);
+  --glass-blur: none;
+}
+
+@media (max-width: 47.9375rem) {
+  :root {
+    --sila-page-padding-x: 1rem;
+    --sila-page-padding-y: 1rem;
+  }
+}

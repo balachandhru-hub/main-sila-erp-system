@@ -1,0 +1,392 @@
+/* Shared date / date-time picker. Loaded in every remote — keep all selectors under .vosox-dtp-*.
+   Trigger mirrors .sila-input; the popover mirrors .sila-menu. */
+
+.vosox-dtp-container {
+    position: relative;
+    width: 100%;
+}
+
+/* ---- Trigger ---------------------------------------------------------- */
+.vosox-dtp-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sila-space-2);
+    width: 100%;
+    height: var(--sila-control-height);
+    margin: 0;
+    padding: 0 var(--sila-space-2) 0 var(--sila-space-3);
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: var(--sila-text-md);
+    line-height: var(--sila-leading-tight);
+    text-align: left;
+    color: var(--sila-text);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius);
+    box-shadow: var(--sila-shadow-xs);
+    cursor: pointer;
+    user-select: none;
+    transition: var(--sila-transition);
+}
+
+.vosox-dtp-trigger:hover:not(:disabled) {
+    border-color: #b6c2d1;
+}
+
+.vosox-dtp-trigger:focus,
+.vosox-dtp-trigger:focus-visible,
+.vosox-dtp-trigger-open {
+    outline: none;
+    border-color: var(--sila-primary);
+    box-shadow: var(--sila-focus-ring);
+}
+
+.vosox-dtp-trigger-error,
+.vosox-dtp-trigger-error:hover:not(:disabled) {
+    border-color: var(--sila-danger);
+}
+
+.vosox-dtp-trigger-error:focus,
+.vosox-dtp-trigger-error.vosox-dtp-trigger-open {
+    border-color: var(--sila-danger);
+    box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.vosox-dtp-trigger-disabled,
+.vosox-dtp-trigger:disabled {
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.vosox-dtp-trigger-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.vosox-dtp-placeholder {
+    color: var(--sila-text-subtle);
+}
+
+.vosox-dtp-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.375rem;
+    color: var(--sila-text-muted);
+}
+
+.vosox-dtp-icon svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+}
+
+/* ---- Popover ---------------------------------------------------------- */
+.vosox-dtp-panel {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    z-index: var(--sila-z-dropdown);
+    display: inline-flex;
+    flex-direction: column;
+    width: max-content;
+    max-width: calc(100vw - 2rem);
+    padding: var(--sila-space-3);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-lg);
+    font-family: var(--sila-font);
+    animation: vosox-dtp-pop var(--sila-duration) var(--sila-ease);
+}
+
+@keyframes vosox-dtp-pop {
+    from { opacity: 0; transform: translateY(-0.25rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.vosox-dtp-body {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: var(--sila-space-3);
+}
+
+/* ---- Calendar --------------------------------------------------------- */
+.vosox-dtp-calendar {
+    width: 15rem;
+    flex-shrink: 0;
+}
+
+.vosox-dtp-cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--sila-space-2);
+}
+
+.vosox-dtp-cal-title {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.vosox-dtp-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0.0625rem solid transparent;
+    border-radius: var(--sila-radius);
+    background: transparent;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.vosox-dtp-nav-btn:hover {
+    background: var(--sila-surface-hover);
+    color: var(--sila-text);
+}
+
+.vosox-dtp-nav-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.vosox-dtp-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding-bottom: var(--sila-space-1);
+}
+
+.vosox-dtp-weekdays span {
+    padding: var(--sila-space-1) 0;
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-muted);
+    text-align: center;
+}
+
+.vosox-dtp-days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.125rem;
+}
+
+.vosox-dtp-day-cell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sila-radius);
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--sila-text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.vosox-dtp-day-blank {
+    cursor: default;
+}
+
+.vosox-dtp-day-cell:not(:disabled):not(.vosox-dtp-day-blank):hover {
+    background: var(--sila-surface-hover);
+}
+
+.vosox-dtp-day-cell:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+/* Today: primary text with a small underline marker */
+.vosox-dtp-day-today {
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-primary);
+}
+
+.vosox-dtp-day-today::after {
+    content: "";
+    position: absolute;
+    bottom: 0.25rem;
+    left: 50%;
+    width: 0.25rem;
+    height: 0.25rem;
+    margin-left: -0.125rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.vosox-dtp-day-selected,
+.vosox-dtp-day-selected:not(:disabled):hover {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.vosox-dtp-day-cell:disabled {
+    color: var(--sila-text-subtle);
+    text-decoration: line-through;
+    text-decoration-color: var(--sila-border-strong);
+    background: transparent;
+    cursor: not-allowed;
+}
+
+/* ---- Time columns ----------------------------------------------------- */
+.vosox-dtp-time {
+    display: flex;
+    gap: var(--sila-space-1);
+    padding-left: var(--sila-space-3);
+    border-left: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.vosox-dtp-time-col {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 3.25rem;
+}
+
+.vosox-dtp-time-col-label {
+    height: 1.75rem;
+    margin-bottom: var(--sila-space-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--sila-text-muted);
+}
+
+.vosox-dtp-time-col-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    width: 100%;
+    max-height: 14.5rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.vosox-dtp-time-cell {
+    flex-shrink: 0;
+    width: 100%;
+    height: 1.875rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sila-radius);
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--sila-text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--sila-text);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.vosox-dtp-time-cell:not(:disabled):hover {
+    background: var(--sila-surface-hover);
+}
+
+.vosox-dtp-time-cell:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.vosox-dtp-time-selected,
+.vosox-dtp-time-selected:not(:disabled):hover {
+    background: var(--sila-primary);
+    color: var(--sila-text-inverse);
+    font-weight: var(--sila-weight-semibold);
+}
+
+.vosox-dtp-time-cell:disabled {
+    color: var(--sila-text-subtle);
+    background: transparent;
+    cursor: not-allowed;
+}
+
+/* ---- Footer ----------------------------------------------------------- */
+.vosox-dtp-footer {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    margin-top: var(--sila-space-3);
+    padding-top: var(--sila-space-3);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.vosox-dtp-done-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--sila-control-height-sm);
+    padding: 0 var(--sila-space-3);
+    border: 0.0625rem solid transparent;
+    border-radius: var(--sila-radius);
+    background: var(--sila-primary);
+    font-family: inherit;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-inverse);
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.vosox-dtp-done-btn:hover {
+    background: var(--sila-primary-hover);
+}
+
+.vosox-dtp-done-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+/* ---- Responsive ------------------------------------------------------- */
+@media (max-width: 35rem) {
+    .vosox-dtp-body {
+        flex-direction: column;
+    }
+
+    .vosox-dtp-time {
+        padding-left: 0;
+        padding-top: var(--sila-space-3);
+        border-left: 0;
+        border-top: 0.0625rem solid var(--sila-border-subtle);
+    }
+
+    .vosox-dtp-time-col {
+        flex: 1;
+        width: auto;
+    }
+
+    .vosox-dtp-time-col-list {
+        max-height: 8.75rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vosox-dtp-panel {
+        animation: none;
+    }
+}

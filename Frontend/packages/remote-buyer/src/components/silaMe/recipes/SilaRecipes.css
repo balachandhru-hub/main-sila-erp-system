@@ -1,0 +1,147 @@
+/* SILA ME recipe screens: list, editor, detail, approvals. */
+
+.srec-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+/* Filter row above a table */
+.srec-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+}
+
+.srec-filters .sila-field {
+  min-width: 12rem;
+}
+
+.srec-filters .srec-grow {
+  flex: 1 1 16rem;
+}
+
+/* Second, quieter line inside a table cell */
+.srec-sub {
+  display: block;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-table .srec-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inputs inside table cells */
+.sila-table .srec-cell-input {
+  min-width: 6rem;
+  max-width: 9rem;
+}
+
+.srec-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+/* Material search results under the search box */
+.srec-search-results {
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+/* Totals row of the cost grid */
+.srec-total td {
+  font-weight: var(--sila-weight-semibold);
+}
+
+.srec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  justify-content: flex-end;
+}
+
+.srec-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.srec-negative {
+  color: var(--sila-danger);
+}
+
+/* Import result counts */
+.srec-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-4);
+}
+
+.srec-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.srec-message {
+  max-width: 28rem;
+  white-space: normal;
+}
+
+/* Filter row inside a card body (no own padding) */
+.srec-filters.srec-filters--flush {
+  padding: 0;
+}
+
+/* Version switcher in the page header */
+.srec-version-select {
+  width: auto;
+  min-width: 10rem;
+}
+
+/* Readiness issues */
+.srec-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: 0 0 var(--sila-space-2) var(--sila-space-4);
+  color: var(--sila-text);
+}
+
+/* Dashboard "what to do next" */
+.srec-next-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.srec-next-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-2) 0;
+  border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.srec-next-item:last-child {
+  border-bottom: none;
+}
+
+.srec-next-text {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  min-width: 0;
+}

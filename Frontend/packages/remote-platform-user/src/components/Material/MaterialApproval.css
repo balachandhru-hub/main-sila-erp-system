@@ -1,0 +1,854 @@
+/* Material approval styles.
+   The list and detail also carry shared sila-* classes (sila-table, sila-kpi via KpiCard,
+   sila-btn, StatusBadge), so they render correctly in any app that loads @vosox/shared-ui. */
+
+/* MaterialApprovalDetail/MaterialApprovalCard are imported directly by
+   remote-buyer's BuyerDashboard (a cross-package source import, not module
+   federation), so remote-buyer's own build never pulls in BuyerAdminDash.css.
+   These bad-* rules are duplicated here from BuyerAdminDash.css so this
+   feature renders correctly no matter which app bundles it. Keep in sync if
+   the originals change (values below match BuyerAdminDash.css). */
+.bad-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sila-space-2);
+    height: var(--sila-control-height);
+    padding: 0 var(--sila-space-4);
+    border: 0.0625rem solid transparent;
+    border-radius: var(--sila-radius);
+    font-family: inherit;
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--sila-transition);
+}
+
+.bad-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--sila-focus-ring);
+}
+
+.bad-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bad-btn-outline {
+    width: fit-content;
+    background: var(--sila-surface);
+    border-color: var(--sila-border-strong);
+    color: var(--sila-text-secondary);
+}
+
+.bad-btn-outline:hover:not(:disabled) {
+    background: var(--sila-surface-subtle);
+    color: var(--sila-text);
+}
+
+.bad-modal {
+    width: 100%;
+    max-width: 38.75rem;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-lg);
+    box-shadow: var(--sila-shadow-lg);
+}
+
+.bad-modal-body {
+    padding: var(--sila-space-5);
+}
+
+.bad-modal-section-title {
+    padding: 0 0 var(--sila-space-3);
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.bad-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--sila-space-2);
+    padding: var(--sila-space-3) var(--sila-space-5);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+    background: var(--sila-surface-subtle);
+    border-radius: 0 0 var(--sila-radius-lg) var(--sila-radius-lg);
+}
+
+.bad-rfq-fullpage {
+    max-width: 100%;
+    max-height: none;
+    overflow: visible;
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.bad-rfq-fullpage .bad-modal-footer {
+    border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+.bad-spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0.125rem solid var(--sila-border);
+    border-top-color: var(--sila-primary);
+    border-radius: 50%;
+    animation: bad-spin 0.8s linear infinite;
+}
+
+@keyframes bad-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.bad-table {
+    padding: var(--sila-space-5);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.bad-title {
+    padding: 0 0 var(--sila-space-1) 0;
+    font-family: var(--sila-font);
+    font-size: var(--sila-text-2xl);
+    font-weight: var(--sila-weight-semibold);
+    line-height: var(--sila-leading-tight);
+    color: var(--sila-text);
+    letter-spacing: -0.01em;
+}
+
+.bad-subtitle {
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-regular);
+    color: var(--sila-text-muted);
+}
+
+.bad-stat-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1);
+    padding: var(--sila-space-4) var(--sila-space-5);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    overflow: hidden;
+    transition: var(--sila-transition);
+}
+
+.bad-stat-card:hover {
+    border-color: var(--sila-border-strong);
+    box-shadow: var(--sila-shadow-sm);
+}
+
+.bad-stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin-bottom: var(--sila-space-1);
+    border-radius: var(--sila-radius);
+    background: var(--sila-surface-hover);
+    color: var(--sila-text-muted);
+}
+
+.bad-stat-label {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-muted);
+    letter-spacing: 0.01em;
+}
+
+.bad-stat-value {
+    font-size: var(--sila-text-3xl);
+    font-weight: var(--sila-weight-semibold);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--sila-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.bad-code-badge {
+    font-family: var(--sila-font-mono);
+    font-size: 0.92em;
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-secondary);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.bad-rfq-table-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+}
+
+.bad-rfq-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: var(--sila-text-sm);
+}
+
+.bad-rfq-items-table th {
+    padding: 0.625rem var(--sila-space-3);
+    background: var(--sila-surface-subtle);
+    border-bottom: 0.0625rem solid var(--sila-border);
+    color: var(--sila-text-muted);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.bad-rfq-items-table td {
+    padding: 0.6875rem var(--sila-space-3);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    color: var(--sila-text-secondary);
+    vertical-align: middle;
+    overflow-wrap: break-word;
+}
+
+.bad-rfq-items-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.bad-rfq-items-table tbody tr:hover td {
+    background: var(--sila-surface-subtle);
+}
+
+.bad-allrfqs-table th,
+.bad-allrfqs-table td {
+    white-space: nowrap;
+}
+
+.bad-allrfqs-table tbody tr {
+    cursor: pointer;
+}
+
+.bad-allrfqs-table td:nth-child(3) {
+    white-space: normal;
+    min-width: 12.5rem;
+}
+
+/* ---------- Material list ---------- */
+
+.matap-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-5);
+    padding: var(--sila-space-5);
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.matap-title {
+    margin: 0;
+    font-size: var(--sila-text-2xl);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: -0.015em;
+    color: var(--sila-text);
+}
+
+.matap-subtitle {
+    padding: var(--sila-space-1) 0 0;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+
+.matap-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+    gap: var(--sila-space-4);
+}
+
+/* Filter bar + table share one card */
+.matap-table-card {
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    overflow: hidden;
+}
+
+.matap-filter-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-3);
+    padding: var(--sila-space-3) var(--sila-space-4);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    background: var(--sila-surface-subtle);
+}
+
+.matap-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 0 1 23.75rem;
+    min-width: 15rem;
+}
+
+.matap-search-icon {
+    position: absolute;
+    left: 0.6875rem;
+    display: inline-flex;
+    color: var(--sila-text-subtle);
+    pointer-events: none;
+}
+
+.matap-search-wrap .matap-search-input { padding-left: 2.125rem; padding-right: 2rem; background: var(--sila-surface); }
+
+.matap-search-clear {
+    position: absolute;
+    right: 0.375rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: var(--sila-radius-sm);
+    background: none;
+    color: var(--sila-text-muted);
+    cursor: pointer;
+}
+.matap-search-clear:hover { background: var(--sila-surface-hover); color: var(--sila-text); }
+
+.matap-status-select { width: auto; min-width: 10.625rem; background-color: var(--sila-surface); }
+
+.matap-result-count {
+    margin-left: auto;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+
+.matap-panel .matap-tabs {
+    display: flex;
+    gap: var(--sila-space-1);
+    /* Cancels the panel's flex gap so the tabs sit flush on the table card. */
+    margin-bottom: calc(-1 * var(--sila-space-5));
+    border-bottom: 0.0625rem solid var(--sila-border);
+}
+
+.matap-panel .matap-tab {
+    margin-bottom: -0.0625rem;
+    padding: var(--sila-space-3) var(--sila-space-5);
+    border: 0.0625rem solid var(--sila-border);
+    border-bottom: 0;
+    border-radius: var(--sila-radius-md) var(--sila-radius-md) 0 0;
+    background: var(--sila-surface-subtle);
+    font: inherit;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+    cursor: pointer;
+    box-shadow: inset 0 -0.1875rem 0 transparent;
+}
+
+.matap-panel .matap-tab:hover { color: var(--sila-text); background: var(--sila-surface-hover); }
+
+.matap-panel .matap-tab.matap-tab--active {
+    color: var(--sila-primary);
+    background: var(--sila-primary-soft);
+    border-color: var(--sila-border);
+    font-weight: var(--sila-weight-semibold);
+    box-shadow: inset 0 -0.1875rem 0 var(--sila-primary);
+}
+
+.matap-panel .matap-tab:focus-visible {
+    outline: 0.125rem solid var(--sila-primary);
+    outline-offset: -0.125rem;
+}
+
+.matap-panel .matap-tabs + .matap-table-card {
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* Table */
+.matap-table td { height: 3.25rem; }
+.matap-col-sno { width: 4rem; }
+.matap-cell-sno { color: var(--sila-text-subtle); }
+.matap-cell-strong { font-weight: var(--sila-weight-medium); color: var(--sila-text); }
+.matap-cell-muted { color: var(--sila-text-secondary); }
+
+.matap-order-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.375rem;
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-full);
+    background: var(--sila-surface-subtle);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Rows still awaiting the user's decision get a slim amber lead */
+.matap-table tbody tr.matap-row-pending td:first-child { box-shadow: inset 0.1875rem 0 0 var(--sila-warning); }
+
+.matap-cell-chevron {
+    width: 1%;
+    color: var(--sila-text-subtle);
+    text-align: right;
+}
+.matap-table tbody tr:hover .matap-cell-chevron { color: var(--sila-primary); }
+
+/* ---------- Detail ---------- */
+
+.matap-detail {
+    display: flex;
+    flex-direction: column;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+}
+
+.matap-detail-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sila-space-4);
+    padding: var(--sila-space-5) var(--sila-space-6);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.matap-detail-heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1);
+    min-width: 0;
+}
+
+.matap-detail-ref-badge {
+    align-self: flex-start;
+    padding: 0.125rem var(--sila-space-2);
+    border: 0.0625rem solid var(--sila-primary-border);
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-xs);
+}
+
+.matap-detail-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-3);
+}
+
+.matap-detail-title {
+    margin: 0;
+    font-size: var(--sila-text-2xl);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: -0.015em;
+    color: var(--sila-text);
+}
+
+.matap-detail-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sila-space-2);
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+.matap-detail-dot { color: var(--sila-border-strong); }
+
+.matap-detail-body { padding: var(--sila-space-5) var(--sila-space-6) var(--sila-space-6); }
+
+.matap-detail-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-6);
+}
+
+.matap-section-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sila-space-2);
+    padding: 0 0 var(--sila-space-3);
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+}
+
+.matap-section-count {
+    padding: 0.0625rem var(--sila-space-2);
+    border-radius: var(--sila-radius-full);
+    background: var(--sila-surface-sunken);
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Material information: compact field list in one panel (no filled tiles, so a
+   partly filled last row leaves no empty block) */
+.matap-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: var(--sila-space-4) var(--sila-space-6);
+    margin: 0;
+    padding: var(--sila-space-4) var(--sila-space-5);
+    border: 0.0625rem solid var(--sila-border);
+    border-radius: var(--sila-radius-md);
+    background: var(--sila-surface);
+}
+
+.matap-info-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+    padding-left: var(--sila-space-3);
+    border-left: 0.125rem solid var(--sila-border-subtle);
+}
+
+.matap-info-label {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-medium);
+    color: var(--sila-text-muted);
+}
+
+.matap-info-value {
+    margin: 0;
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-medium);
+    line-height: 1.5;
+    color: var(--sila-text);
+    overflow-wrap: anywhere;
+}
+
+/* Approval chain: left-to-right cards joined by arrows */
+.matap-strip {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: var(--sila-space-1) var(--sila-space-1) var(--sila-space-3);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+}
+
+.matap-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 2.5rem;
+    position: relative;
+    color: var(--sila-border-strong);
+}
+.matap-connector::before {
+    content: "";
+    position: absolute;
+    left: 0.25rem;
+    right: 0.875rem;
+    top: 50%;
+    height: 0.125rem;
+    border-radius: 0.125rem;
+    background: var(--sila-border);
+}
+.matap-connector svg { position: relative; margin-left: auto; margin-right: 0.125rem; }
+.matap-connector-done { color: var(--sila-success); }
+.matap-connector-done::before { background: var(--sila-success); }
+
+/* Approver card */
+.matap-card {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 18.75rem;
+    align-self: flex-start;
+    background: var(--sila-surface);
+    border: 0.0625rem solid var(--sila-border);
+    border-top: 0.1875rem solid var(--sila-border-strong);
+    border-radius: var(--sila-radius-md);
+    box-shadow: var(--sila-shadow-xs);
+    scroll-snap-align: start;
+    transition: box-shadow var(--sila-duration) var(--sila-ease), border-color var(--sila-duration) var(--sila-ease);
+}
+.matap-card:hover { box-shadow: var(--sila-shadow-sm); }
+.matap-card.matap-status-pending { border-top-color: var(--sila-warning); }
+.matap-card.matap-status-approved { border-top-color: var(--sila-success); }
+.matap-card.matap-status-rejected { border-top-color: var(--sila-danger); }
+.matap-card.matap-status-neutral { border-top-color: var(--sila-border-strong); }
+
+/* The card the signed-in user can act on */
+.matap-card.matap-card-active {
+    flex-basis: 21.25rem;
+    border-color: var(--sila-primary-border);
+    border-top-color: var(--sila-primary);
+    box-shadow: 0 0 0 0.1875rem var(--sila-primary-soft), var(--sila-shadow-sm);
+}
+
+.matap-card-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    padding: var(--sila-space-3) var(--sila-space-4);
+    border-bottom: 0.0625rem solid var(--sila-border-subtle);
+    background: var(--sila-surface-subtle);
+    border-radius: var(--sila-radius-md) var(--sila-radius-md) 0 0;
+}
+
+.matap-card-order-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--sila-text-secondary);
+    color: var(--sila-text-inverse);
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-bold);
+    font-variant-numeric: tabular-nums;
+}
+.matap-status-approved .matap-card-order-badge { background: var(--sila-success); }
+.matap-status-rejected .matap-card-order-badge { background: var(--sila-danger); }
+.matap-status-pending .matap-card-order-badge { background: var(--sila-warning); }
+.matap-card-active .matap-card-order-badge { background: var(--sila-primary); }
+
+.matap-card-order-label {
+    font-size: var(--sila-text-xs);
+    font-weight: var(--sila-weight-semibold);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--sila-text-muted);
+}
+
+.matap-card-status { margin-left: auto; }
+
+.matap-card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: var(--sila-space-4);
+    padding: var(--sila-space-4);
+}
+
+.matap-card-person {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-3);
+    min-width: 0;
+}
+
+.matap-card-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-sm);
+    font-weight: var(--sila-weight-semibold);
+}
+.matap-status-approved .matap-card-avatar { background: var(--sila-success-soft); color: var(--sila-success); }
+.matap-status-rejected .matap-card-avatar { background: var(--sila-danger-soft); color: var(--sila-danger); }
+
+.matap-card-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.matap-card-name {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-2);
+    min-width: 0;
+}
+.matap-card-name-text {
+    font-size: var(--sila-text-md);
+    font-weight: var(--sila-weight-semibold);
+    color: var(--sila-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.matap-card-you {
+    display: inline-flex;
+    align-items: center;
+    height: 1.125rem;
+    padding: 0 0.375rem;
+    flex-shrink: 0;
+    border-radius: var(--sila-radius-sm);
+    background: var(--sila-primary-soft);
+    color: var(--sila-primary);
+    font-size: var(--sila-text-2xs);
+    font-weight: var(--sila-weight-bold);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.matap-card-email {
+    display: flex;
+    align-items: center;
+    gap: var(--sila-space-1-5);
+    min-width: 0;
+    font-size: var(--sila-text-sm);
+    color: var(--sila-text-muted);
+}
+.matap-card-email svg { flex-shrink: 0; color: var(--sila-text-subtle); }
+.matap-card-email span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Decision area inside the active card */
+.matap-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sila-space-1-5);
+    margin-top: auto;
+    padding-top: var(--sila-space-4);
+    border-top: 0.0625rem dashed var(--sila-border);
+}
+
+.matap-card-comment-input { min-height: 4.75rem; }
+.matap-card-comment-input-invalid { border-color: var(--sila-danger); }
+.matap-card-comment-input-invalid:focus { box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring); }
+
+.matap-card-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sila-space-2);
+    padding-top: var(--sila-space-2);
+}
+
+.matap-btn-reject { color: var(--sila-danger); }
+.matap-btn-reject:hover:not(:disabled) {
+    color: var(--sila-danger-strong);
+    border-color: var(--sila-danger-border);
+    background: var(--sila-danger-soft);
+}
+
+.matap-detail-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--sila-space-3) var(--sila-space-6);
+    border-top: 0.0625rem solid var(--sila-border-subtle);
+    background: var(--sila-surface-subtle);
+    border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+@media (max-width: 47.9375rem) {
+    .matap-detail-header,
+    .matap-detail-body { padding-left: var(--sila-space-4); padding-right: var(--sila-space-4); }
+    .matap-card,
+    .matap-card.matap-card-active { flex-basis: 17.5rem; }
+    .matap-result-count { margin-left: 0; }
+}
+
+.matap-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.matap-preview-frame {
+  width: 100%;
+  height: 65vh;
+  border: none;
+}
+
+/* Excel-style worksheet preview (the modal is portaled, so these are not nested under .matap-panel). */
+.matap-xls {
+  display: flex;
+  flex-direction: column;
+  border: 0.0625rem solid var(--sila-border);
+}
+
+.matap-xls-scroll {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.matap-xls-grid {
+  border-collapse: collapse;
+  font-size: var(--sila-text-sm);
+  white-space: nowrap;
+}
+
+.matap-xls-grid th,
+.matap-xls-grid td {
+  min-width: 5rem;
+  padding: 0.125rem 0.5rem;
+  border: 0.0625rem solid var(--sila-border);
+  text-align: left;
+  font-weight: var(--sila-weight-regular);
+  color: var(--sila-text);
+}
+
+.matap-xls-grid thead th,
+.matap-xls-grid tbody th {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  text-align: center;
+  position: sticky;
+}
+
+.matap-xls-grid thead th { top: 0; z-index: 1; }
+.matap-xls-grid tbody th { left: 0; min-width: 2.5rem; }
+.matap-xls-grid thead th.matap-xls-corner { left: 0; z-index: 2; }
+
+.matap-xls-tabs {
+  display: flex;
+  gap: 0.125rem;
+  padding: 0.25rem 0.5rem 0;
+  border-top: 0.0625rem solid var(--sila-border);
+  background: var(--sila-surface-subtle);
+}
+
+.matap-xls-tab {
+  padding: 0.375rem 1rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+  cursor: pointer;
+}
+
+.matap-xls-tab--active {
+  background: var(--sila-surface);
+  color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+  box-shadow: inset 0 -0.125rem 0 var(--sila-primary);
+}
+
+.matap-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+  margin-bottom: var(--sila-space-3);
+}
+
+.matap-items-header .matap-section-title { margin: 0; }

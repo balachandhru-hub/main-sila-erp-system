@@ -1,0 +1,152 @@
+/* Organisation model access (rendered inside the company profile "Model Access" section). */
+
+.oma-root.cp-section-box {
+  padding: 0;
+  border-top: 0;
+}
+
+.oma-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.oma-state {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  color: var(--sila-primary);
+}
+
+.oma-empty {
+  margin: 0;
+}
+
+.oma-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13.75rem, 1fr));
+  gap: var(--sila-space-3);
+}
+
+.oma-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  min-height: 3.25rem;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.oma-card:hover {
+  border-color: var(--sila-border-strong);
+  background: var(--sila-surface-subtle);
+}
+
+.oma-card:focus-within {
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.oma-card-checked,
+.oma-card-checked:hover {
+  border-color: var(--sila-primary-border);
+  background: var(--sila-primary-soft);
+}
+
+.oma-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface-hover);
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+}
+
+.oma-card-checked .oma-card-icon {
+  background: var(--sila-surface);
+  color: var(--sila-primary);
+}
+
+.oma-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.oma-card-name {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.oma-card-key {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.oma-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--sila-primary);
+  cursor: pointer;
+}
+
+/* Focus is shown on the whole card via :focus-within. */
+.oma-checkbox:focus-visible {
+  outline: none;
+}
+
+/* The checkbox already shows the selected state; the corner tick stays hidden. */
+.oma-check-badge {
+  display: none;
+}
+
+.oma-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sila-space-3);
+  padding-top: var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.oma-count {
+  margin-right: auto;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.oma-success-banner {
+  align-items: center;
+  color: var(--sila-success-strong);
+}
+
+@media (max-width: 48rem) {
+  .oma-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sila-space-2);
+  }
+
+  .oma-actions {
+    flex-wrap: wrap;
+  }
+
+  .oma-actions .sila-btn {
+    flex: 1;
+  }
+}

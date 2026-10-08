@@ -1,0 +1,15 @@
+.git
+.github
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/.idea
+*.user
+*.suo
+python-backend/.venv
+python-backend/tests
+python-backend/*.db
+python-backend/appsettings.Local.json
+**/__pycache__
+**/.pytest_cache

@@ -1,0 +1,1631 @@
+/* ==========================================================================
+   Live e-Auction supplier bidding console (eauction-*)
+   The same class names are used by remote-buyer's EAuctionWidget, so every
+   value here is token-based to keep the two converging.
+   ========================================================================== */
+
+/* ---- Floating launcher --------------------------------------------------- */
+
+.eauction-floating-bar {
+  position: fixed;
+  bottom: var(--sila-space-5);
+  left: var(--sila-space-6);
+  z-index: 9990;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: var(--sila-font);
+}
+
+.eauction-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  height: var(--sila-control-height-lg);
+  padding: 0 var(--sila-space-4);
+  background: var(--sila-surface);
+  color: var(--sila-text);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-md);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-trigger-btn:hover {
+  border-color: var(--sila-primary);
+  color: var(--sila-primary);
+}
+
+.eauction-trigger-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring), var(--sila-shadow-md);
+}
+
+.eauction-trigger-icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  color: var(--sila-primary);
+}
+
+.eauction-pulse-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--sila-success);
+  animation: eauction-pulse 1.8s infinite;
+}
+
+@keyframes eauction-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.45); }
+  70% { box-shadow: 0 0 0 0.375rem rgba(21, 128, 61, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eauction-pulse-dot { animation: none; }
+}
+
+.eauction-badge-count {
+  display: inline-flex;
+  align-items: center;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-success);
+  background: var(--sila-success-soft);
+  border: 0.0625rem solid var(--sila-success-border);
+  border-radius: var(--sila-radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Hover preview ------------------------------------------------------- */
+
+.eauction-preview-popover {
+  position: absolute;
+  bottom: calc(100% + var(--sila-space-2));
+  left: 0;
+  width: 20rem;
+  max-width: calc(100vw - 2rem);
+  padding: var(--sila-space-4);
+  background: var(--sila-surface);
+  color: var(--sila-text);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-lg);
+  animation: eauction-fade-in var(--sila-duration) var(--sila-ease);
+  pointer-events: auto;
+}
+
+.eauction-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  padding-bottom: var(--sila-space-3);
+  margin-bottom: var(--sila-space-3);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.eauction-preview-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-preview-title svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  color: var(--sila-primary);
+}
+
+.eauction-live-status {
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-success);
+  background: var(--sila-success-soft);
+  border: 0.0625rem solid var(--sila-success-border);
+  border-radius: var(--sila-radius-sm);
+  white-space: nowrap;
+}
+
+.eauction-preview-item {
+  margin-bottom: var(--sila-space-3);
+  padding: var(--sila-space-3);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+}
+
+.eauction-preview-item-title {
+  padding-bottom: var(--sila-space-1);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eauction-preview-item-title.eauction-preview-empty {
+  margin-bottom: 0;
+  font-weight: var(--sila-weight-regular);
+  color: var(--sila-text-muted);
+}
+
+.eauction-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.eauction-bid-price {
+  font-family: var(--sila-font-mono);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+}
+
+.eauction-timer {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-enter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-4);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  border: 0.0625rem solid var(--sila-primary);
+  border-radius: var(--sila-radius);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-enter-btn svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.eauction-enter-btn:hover {
+  background: var(--sila-primary-hover);
+}
+
+.eauction-enter-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+/* ---- Console modal ------------------------------------------------------- */
+
+.eauction-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-6);
+  background: rgba(15, 23, 42, 0.45);
+  animation: eauction-fade-in var(--sila-duration) var(--sila-ease);
+}
+
+@keyframes eauction-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.eauction-portal-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100rem;
+  height: 92vh;
+  max-height: 57.5rem;
+  overflow: hidden;
+  background: var(--sila-bg);
+  color: var(--sila-text);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+  font-family: var(--sila-font);
+}
+
+.eauction-portal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  min-height: var(--sila-topbar-height);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  background: var(--sila-surface);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  flex-shrink: 0;
+}
+
+.eauction-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  min-width: 0;
+}
+
+.eauction-logo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--sila-radius);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  flex-shrink: 0;
+}
+
+.eauction-logo-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.eauction-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.eauction-portal-title {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eauction-portal-subtitle {
+  display: block;
+  max-width: 100%;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eauction-portal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sila-radius);
+  background: transparent;
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+  flex-shrink: 0;
+}
+
+.eauction-portal-close:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.eauction-portal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-portal-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Sidebar: live RFQ picker ------------------------------------------- */
+
+.eauction-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 18.75rem;
+  flex-shrink: 0;
+  background: var(--sila-surface);
+  border-right: 0.0625rem solid var(--sila-border);
+  overflow: hidden;
+}
+
+.eauction-sidebar-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  flex-shrink: 0;
+}
+
+.eauction-sidebar-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: var(--sila-space-2);
+  overflow-y: auto;
+}
+
+.eauction-sidebar-item {
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-sidebar-item:hover {
+  background: var(--sila-surface-subtle);
+  border-color: var(--sila-border);
+}
+
+.eauction-sidebar-item:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-sidebar-item.is-selected {
+  background: var(--sila-primary-soft);
+  border-color: var(--sila-primary-border);
+  box-shadow: inset 0.125rem 0 0 var(--sila-primary);
+}
+
+.eauction-sidebar-item-title {
+  padding-bottom: 0.125rem;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.eauction-sidebar-item.is-selected .eauction-sidebar-item-title {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+}
+
+.eauction-sidebar-item-code {
+  font-family: var(--sila-font-mono);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.eauction-sidebar-status {
+  padding: var(--sila-space-6) var(--sila-space-4);
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.eauction-sidebar-footer {
+  flex-shrink: 0;
+  padding: var(--sila-space-3);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.eauction-sidebar-footer .eauction-pagination-bar {
+  flex-direction: row;
+  align-items: center;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* ---- Workspace ----------------------------------------------------------- */
+
+.eauction-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  width: 100%;
+  min-width: 0;
+  padding: var(--sila-space-5);
+  overflow-y: auto;
+  background: var(--sila-bg);
+}
+
+/* Back to RFQ list — only shown on small screens (see 48rem media query) */
+.eauction-back-to-list {
+  display: none;
+  align-items: center;
+  gap: var(--sila-space-2);
+  align-self: flex-start;
+  height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: var(--sila-transition);
+}
+
+.eauction-back-to-list:hover {
+  background: var(--sila-surface-hover);
+}
+
+.eauction-back-to-list:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-panel-light {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+  padding: var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.eauction-panel-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.eauction-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  margin: calc(-1 * var(--sila-space-1)) 0 0;
+  padding-bottom: var(--sila-space-3);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.eauction-panel-title-text {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-sidebar-header .eauction-panel-title-text {
+  font-size: var(--sila-text-sm);
+}
+
+.eauction-live-lot-name {
+  color: var(--sila-primary);
+}
+
+.eauction-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-success);
+  background: var(--sila-success-soft);
+  border: 0.0625rem solid var(--sila-success-border);
+  border-radius: var(--sila-radius-sm);
+  white-space: nowrap;
+}
+
+.eauction-live-pill-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---- Tables -------------------------------------------------------------- */
+
+.eauction-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.eauction-table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--sila-text-sm);
+  text-align: left;
+  color: var(--sila-text);
+}
+
+.eauction-table th {
+  height: 2.375rem;
+  padding: 0 var(--sila-space-3);
+  background: var(--sila-surface-subtle);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.eauction-table td {
+  height: 2.75rem;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  vertical-align: middle;
+  color: var(--sila-text);
+}
+
+.eauction-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.eauction-table tbody tr:hover td {
+  background: var(--sila-surface-subtle);
+}
+
+.eauction-col-index {
+  width: 2.5rem;
+  color: var(--sila-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-col-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-table th.eauction-col-right {
+  text-align: right;
+}
+
+.eauction-cell-title {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-cell-subtitle {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-regular);
+  color: var(--sila-text-muted);
+}
+
+.eauction-cell-strong {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-cell-muted {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.eauction-code-chip {
+  font-family: var(--sila-font-mono);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  white-space: nowrap;
+}
+
+.eauction-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-8) var(--sila-space-4);
+  text-align: center;
+  color: var(--sila-text-muted);
+}
+
+.eauction-empty-title {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-empty-subtitle {
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+/* ---- Pagination ---------------------------------------------------------- */
+
+.eauction-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  padding-top: var(--sila-space-3);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.eauction-pagination-info {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-pagination-info strong {
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+}
+
+.eauction-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  padding: 0 var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-page-btn:hover:not(.is-disabled):not(.is-current) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.eauction-page-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-page-btn.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.eauction-page-btn.is-current {
+  background: var(--sila-primary);
+  border-color: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  cursor: default;
+}
+
+/* ---- Ranks / legacy leaderboard (buyer widget) ---------------------------- */
+
+.eauction-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.375rem;
+  padding: 0 0.375rem;
+  border-radius: var(--sila-radius-sm);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  background: var(--sila-neutral-soft);
+  color: var(--sila-neutral);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-action-btn {
+  display: inline-flex;
+  align-items: center;
+  height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-3);
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  font-family: inherit;
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-action-btn:hover {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text);
+}
+
+.eauction-bids-overlay-card {
+  position: relative;
+  padding: var(--sila-space-4);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.eauction-bids-title {
+  padding-bottom: var(--sila-space-3);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+/* ---- Split layout -------------------------------------------------------- */
+
+.eauction-grid-split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18.75rem, 1fr);
+  gap: var(--sila-space-4);
+  align-items: start;
+}
+
+.eauction-grid-split.is-single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---- RFQ details --------------------------------------------------------- */
+
+.eauction-details-card {
+  padding: var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.eauction-details-title {
+  padding-bottom: var(--sila-space-3);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.25rem, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-6);
+}
+
+.eauction-details-span-2 {
+  grid-column: 1 / -1;
+}
+
+.eauction-detail-label {
+  padding-bottom: 0.125rem;
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.eauction-detail-value {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-medium);
+  line-height: var(--sila-leading);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.eauction-lot-badge,
+.eauction-lot-badge-disabled {
+  display: inline-flex;
+  align-items: center;
+  height: 1.375rem;
+  padding: 0 var(--sila-space-2);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  border: 0.0625rem solid var(--sila-success-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-success-soft);
+  color: var(--sila-success);
+}
+
+.eauction-lot-badge-disabled {
+  border-color: var(--sila-neutral-border);
+  background: var(--sila-neutral-soft);
+  color: var(--sila-neutral);
+}
+
+/* ---- Material details ---------------------------------------------------- */
+
+.eauction-material-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+.eauction-material-details-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.eauction-material-details-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-rank-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 1.375rem;
+  padding: 0 var(--sila-space-2);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+  background: var(--sila-primary-soft);
+  border: 0.0625rem solid var(--sila-primary-border);
+  border-radius: var(--sila-radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-inline-status {
+  padding: var(--sila-space-6) var(--sila-space-4);
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.eauction-material-empty {
+  padding: var(--sila-space-4);
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem dashed var(--sila-border-strong);
+  border-radius: var(--sila-radius-md);
+}
+
+/* ---- Bulk apply ---------------------------------------------------------- */
+
+.eauction-bulk-apply-panel {
+  padding: var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+}
+
+.eauction-bulk-apply-header {
+  padding-bottom: var(--sila-space-3);
+}
+
+.eauction-bulk-apply-title {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-bulk-apply-subtitle {
+  padding: 0.125rem 0 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.eauction-bulk-apply-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+}
+
+.eauction-bulk-value {
+  display: flex;
+}
+
+.eauction-bulk-value-input,
+.eauction-line-input,
+.eauction-line-select,
+.eauction-bid-field-input {
+  height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-2);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  transition: var(--sila-transition);
+}
+
+.eauction-bulk-value-input {
+  width: 8.75rem;
+}
+
+.eauction-bulk-value-input:focus,
+.eauction-line-input:focus,
+.eauction-line-select:focus,
+.eauction-bid-field-input:focus {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-bulk-type-toggle {
+  display: inline-flex;
+  height: var(--sila-control-height-sm);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  overflow: hidden;
+}
+
+.eauction-bulk-type-toggle button {
+  padding: 0 var(--sila-space-3);
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-bulk-type-toggle button + button {
+  border-left: 0.0625rem solid var(--sila-border-strong);
+}
+
+.eauction-bulk-type-toggle button:hover {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.eauction-bulk-type-toggle button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 0.125rem var(--sila-primary-ring);
+}
+
+.eauction-bulk-type-toggle button.active {
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+}
+
+.eauction-bulk-fields {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.eauction-bulk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  height: var(--sila-control-height-sm);
+  padding: 0 var(--sila-space-2) 0 var(--sila-space-3);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-bulk-toggle:hover {
+  border-color: var(--sila-border-strong);
+}
+
+.eauction-bulk-toggle:has(input:checked) {
+  border-color: var(--sila-primary-border);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+}
+
+.eauction-bulk-toggle:has(input:focus-visible) {
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-switch {
+  position: relative;
+  display: inline-block;
+  width: 1.75rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.eauction-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.eauction-slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background: var(--sila-border-strong);
+  border-radius: var(--sila-radius-full);
+  transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+
+.eauction-slider::before {
+  content: "";
+  position: absolute;
+  width: 0.75rem;
+  height: 0.75rem;
+  left: 0.125rem;
+  top: 0.125rem;
+  background: var(--sila-surface);
+  border-radius: 50%;
+  box-shadow: var(--sila-shadow-xs);
+  transition: transform var(--sila-duration-fast) var(--sila-ease);
+}
+
+.eauction-switch input:checked + .eauction-slider {
+  background: var(--sila-primary);
+}
+
+.eauction-switch input:checked + .eauction-slider::before {
+  transform: translateX(0.75rem);
+}
+
+.eauction-bulk-apply-btn {
+  height: var(--sila-control-height-sm);
+  margin-left: auto;
+  padding: 0 var(--sila-space-3);
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  font-family: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-bulk-apply-btn:hover {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text);
+}
+
+.eauction-bulk-apply-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+/* ---- Excel apply ---------------------------------------------------------- */
+
+.eauction-excel-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  margin-left: 0;
+}
+
+.eauction-excel-apply-panel .eauction-bulk-apply-controls {
+  justify-content: flex-end;
+}
+
+.eauction-excel-file-input {
+  display: none;
+}
+
+/* ---- Line-item inputs ---------------------------------------------------- */
+
+.eauction-table--line-items th,
+.eauction-table--line-items td {
+  min-width: 6.5rem;
+}
+
+.eauction-table--line-items td:first-child {
+  min-width: 11.25rem;
+}
+
+.eauction-line-input,
+.eauction-line-select {
+  width: 100%;
+  min-width: 5.5rem;
+}
+
+.eauction-line-input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-line-select {
+  padding-right: var(--sila-space-1);
+}
+
+.eauction-line-input--price {
+  font-weight: var(--sila-weight-semibold);
+}
+
+.eauction-availability-cell {
+  text-align: center;
+}
+
+.eauction-availability-checkbox {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 0.0938rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: var(--sila-transition);
+  position: relative;
+}
+
+.eauction-availability-checkbox:hover {
+  border-color: var(--sila-primary);
+}
+
+.eauction-availability-checkbox:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-availability-checkbox:checked {
+  background: var(--sila-primary);
+  border-color: var(--sila-primary);
+}
+
+.eauction-availability-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.3125rem;
+  top: 0.125rem;
+  width: 0.3125rem;
+  height: 0.5625rem;
+  border: solid var(--sila-surface);
+  border-width: 0 0.125rem 0.125rem 0;
+  transform: rotate(45deg);
+}
+
+/* ---- Legacy chat timeline (buyer widget) --------------------------------- */
+
+.eauction-chat-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  max-height: 13.75rem;
+  overflow-y: auto;
+  padding-right: var(--sila-space-2);
+}
+
+.eauction-chat-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-2) var(--sila-space-3);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  font-size: var(--sila-text-sm);
+}
+
+.eauction-chat-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-semibold);
+  flex-shrink: 0;
+}
+
+.eauction-chat-avatar.avatar-red,
+.eauction-chat-avatar.avatar-gold,
+.eauction-chat-avatar.avatar-teal,
+.eauction-chat-avatar.avatar-blue {
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+}
+
+/* ---- Bid submission panel ------------------------------------------------ */
+
+.eauction-supplier-bid-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.eauction-bid-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sila-space-3);
+}
+
+.eauction-bid-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+}
+
+.eauction-bid-field-label {
+  display: block;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+}
+
+.eauction-bid-field-input {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  box-sizing: border-box;
+}
+
+.eauction-total-quote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  padding-top: var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.eauction-total-quote-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-secondary);
+}
+
+.eauction-total-quote-value-box {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  height: var(--sila-control-height-lg);
+  padding: 0 var(--sila-space-3);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  transition: var(--sila-transition);
+}
+
+.eauction-total-quote-value-box:focus-within {
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-total-quote-currency {
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.eauction-total-quote-input {
+  width: 8.75rem;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-line-item-total-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  width: 100%;
+  padding: var(--sila-space-3) var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-sizing: border-box;
+}
+
+.eauction-line-item-total-bar .eauction-btn-submit-bid--inline {
+  margin-left: auto;
+}
+
+.eauction-bid-feedback-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+.eauction-alert {
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+}
+
+.eauction-alert--error {
+  background: var(--sila-danger-soft);
+  border-color: var(--sila-danger-border);
+  color: var(--sila-danger-strong);
+}
+
+.eauction-alert--success {
+  background: var(--sila-success-soft);
+  border-color: var(--sila-success-border);
+  color: var(--sila-success-strong);
+}
+
+.eauction-btn-submit-bid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  width: 100%;
+  height: var(--sila-control-height-lg);
+  padding: 0 var(--sila-space-5);
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  border: 0.0625rem solid var(--sila-primary);
+  border-radius: var(--sila-radius);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.eauction-btn-submit-bid svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+.eauction-btn-submit-bid:hover:not(.is-loading):not(:disabled) {
+  background: var(--sila-primary-hover);
+  border-color: var(--sila-primary-hover);
+}
+
+.eauction-btn-submit-bid:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.eauction-btn-submit-bid.is-loading,
+.eauction-btn-submit-bid:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.eauction-btn-submit-bid--inline {
+  width: auto;
+  white-space: nowrap;
+}
+
+/* ---- OTP dialogs --------------------------------------------------------- */
+
+.sila-overlay.eauction-otp-overlay {
+  /* Above the console (z-index 10000), as before. */
+  z-index: 99999;
+}
+
+.sila-modal.eauction-otp-modal {
+  max-width: 27.5rem;
+}
+
+.eauction-otp-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+
+.eauction-otp-title svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  color: var(--sila-text-muted);
+}
+
+.eauction-otp-heading {
+  padding: 0 0 var(--sila-space-2);
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.eauction-otp-error {
+  padding: var(--sila-space-3) 0 0;
+}
+
+.eauction-otp-modal .eauction-otp-intro {
+  padding-bottom: var(--sila-space-4);
+}
+
+.eauction-otp-timer {
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.eauction-otp-timer.is-urgent {
+  color: var(--sila-danger);
+}
+
+.eauction-otp-modal .eauction-otp-input {
+  height: var(--sila-control-height-lg);
+  font-family: var(--sila-font-mono);
+  font-size: var(--sila-text-xl);
+  font-weight: var(--sila-weight-semibold);
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.eauction-otp-resend {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--sila-space-2);
+}
+
+/* ==========================================================================
+   Responsive — 64rem / 48rem / 30.375rem
+   ========================================================================== */
+
+@media (max-width: 64rem) {
+  .eauction-grid-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .eauction-portal-container {
+    max-width: 100%;
+  }
+
+  .eauction-portal-body {
+    flex-direction: column;
+  }
+
+  /* Tablet and small screens: RFQ list and workspace are separate full-screen views */
+  .eauction-sidebar {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .eauction-portal-body.eauction-mobile-detail .eauction-sidebar,
+  .eauction-portal-body.eauction-mobile-list .eauction-main-content {
+    display: none;
+  }
+
+  .eauction-back-to-list {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 48rem) {
+  .eauction-floating-bar {
+    left: var(--sila-space-4);
+    bottom: var(--sila-space-4);
+  }
+
+  .eauction-modal-overlay {
+    padding: var(--sila-space-3);
+  }
+
+  .eauction-portal-container {
+    height: 94vh;
+  }
+
+  .eauction-portal-header {
+    padding: var(--sila-space-3) var(--sila-space-4);
+  }
+
+  .eauction-main-content {
+    padding: var(--sila-space-4);
+  }
+
+  .eauction-panel-light {
+    padding: var(--sila-space-4);
+  }
+
+  .eauction-pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eauction-pagination-controls {
+    justify-content: center;
+  }
+
+  .eauction-material-details-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .eauction-bulk-value-input {
+    width: 6.25rem;
+  }
+}
+
+@media (max-width: 30.375rem) {
+  .eauction-portal-subtitle {
+    display: none;
+  }
+
+  .eauction-panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .eauction-bid-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eauction-total-quote-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eauction-total-quote-value-box {
+    justify-content: flex-end;
+  }
+
+  .eauction-total-quote-input {
+    width: 100%;
+  }
+
+  .eauction-line-item-total-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eauction-btn-submit-bid--inline {
+    width: 100%;
+  }
+
+  .eauction-bulk-apply-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .eauction-bulk-value-input,
+  .eauction-bulk-apply-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+}

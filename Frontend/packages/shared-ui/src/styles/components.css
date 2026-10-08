@@ -1,0 +1,1801 @@
+/* SILA shared component styles.
+   Every selector is a `.sila-*` class, so these rules only apply where a component opts in
+   and cannot collide with a remote's own prefixed classes. */
+
+/* ======================================================================== */
+/* Root                                                                     */
+/* ======================================================================== */
+
+.sila-root {
+  font-family: var(--sila-font);
+  font-size: var(--sila-text-md);
+  line-height: var(--sila-leading);
+  color: var(--sila-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Consistent keyboard focus for everything inside the app, at zero specificity so any
+   component-level focus style still wins. */
+:where(.sila-root) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 0.125rem solid var(--sila-primary);
+  outline-offset: 0.125rem;
+}
+
+.sila-visually-hidden {
+  position: absolute !important;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ======================================================================== */
+/* Buttons                                                                  */
+/* ======================================================================== */
+
+.sila-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-4);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--sila-radius);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: var(--sila-transition);
+}
+
+.sila-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.sila-btn:disabled,
+.sila-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.sila-btn svg {
+  flex-shrink: 0;
+}
+
+.sila-btn--primary {
+  background: var(--sila-primary);
+  color: var(--sila-text-inverse);
+  box-shadow: var(--sila-shadow-xs);
+}
+.sila-btn--primary:hover:not(:disabled) { background: var(--sila-primary-hover); }
+.sila-btn--primary:active:not(:disabled) { background: var(--sila-primary-active); }
+
+.sila-btn--secondary {
+  background: var(--sila-surface);
+  color: var(--sila-text-secondary);
+  border-color: var(--sila-border-strong);
+  box-shadow: var(--sila-shadow-xs);
+}
+.sila-btn--secondary:hover:not(:disabled) { background: var(--sila-surface-subtle); color: var(--sila-text); border-color: #b6c2d1; }
+.sila-btn--secondary:active:not(:disabled) { background: var(--sila-surface-hover); }
+
+.sila-btn--outline {
+  background: var(--sila-surface);
+  color: var(--sila-primary);
+  border-color: var(--sila-primary-border);
+}
+.sila-btn--outline:hover:not(:disabled) { background: var(--sila-primary-soft); border-color: var(--sila-primary); }
+
+.sila-btn--ghost {
+  background: transparent;
+  color: var(--sila-text-secondary);
+}
+.sila-btn--ghost:hover:not(:disabled) { background: var(--sila-surface-hover); color: var(--sila-text); }
+
+.sila-btn--danger {
+  background: var(--sila-danger);
+  color: var(--sila-text-inverse);
+  box-shadow: var(--sila-shadow-xs);
+}
+.sila-btn--danger:hover:not(:disabled) { background: var(--sila-danger-hover); }
+.sila-btn--danger:focus-visible { box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring); }
+
+.sila-btn--success {
+  background: var(--sila-success);
+  color: var(--sila-text-inverse);
+  box-shadow: var(--sila-shadow-xs);
+}
+.sila-btn--success:hover:not(:disabled) { background: var(--sila-success-strong); }
+
+.sila-btn--sm { height: var(--sila-control-height-sm); padding: 0 var(--sila-space-3); font-size: var(--sila-text-sm); gap: var(--sila-space-1-5); }
+.sila-btn--lg { height: var(--sila-control-height-lg); padding: 0 var(--sila-space-5); }
+.sila-btn--block { width: 100%; }
+.sila-btn--icon { width: var(--sila-control-height); padding: 0; }
+.sila-btn--icon.sila-btn--sm { width: var(--sila-control-height-sm); }
+
+.sila-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  flex-wrap: wrap;
+}
+
+/* ======================================================================== */
+/* Spinner & loading                                                        */
+/* ======================================================================== */
+
+.sila-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 0.125rem solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sila-spin 0.7s linear infinite;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+.sila-spinner--md { width: 1.5rem; height: 1.5rem; border-width: 0.1562rem; }
+.sila-spinner--lg { width: 2.25rem; height: 2.25rem; border-width: 0.1875rem; }
+
+@keyframes sila-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sila-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-10) var(--sila-space-6);
+  color: var(--sila-loader-color, var(--sila-primary));
+}
+
+.sila-loader .sila-spinner {
+  width: var(--sila-spinner-size, 2rem);
+  height: var(--sila-spinner-size, 2rem);
+  border-width: var(--sila-spinner-stroke, 0.1875rem);
+}
+
+.sila-loader--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  background: var(--sila-bg);
+}
+
+.sila-loader-message {
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+}
+
+.sila-skeleton {
+  display: block;
+  background: linear-gradient(90deg, var(--sila-surface-sunken) 25%, var(--sila-surface-subtle) 50%, var(--sila-surface-sunken) 75%);
+  background-size: 200% 100%;
+  width: var(--sila-skeleton-width, 100%);
+  height: var(--sila-skeleton-height, 0.875rem);
+  border-radius: var(--sila-skeleton-radius, var(--sila-radius-sm));
+  animation: sila-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes sila-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.sila-skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+.sila-table-skeleton { padding: var(--sila-space-4); }
+
+.sila-table-skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(var(--sila-skeleton-columns, 5), 1fr);
+  gap: var(--sila-space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sila-spinner { animation-duration: 1.6s; }
+  .sila-skeleton { animation: none; }
+}
+
+/* ======================================================================== */
+/* Cards & sections                                                         */
+/* ======================================================================== */
+
+.sila-card {
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  min-width: 0;
+}
+
+.sila-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  min-height: 3.25rem;
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sila-card-title {
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  line-height: var(--sila-leading-tight);
+}
+
+.sila-card-subtitle {
+  padding: 0.125rem 0 0;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-card-body { padding: var(--sila-space-5); }
+.sila-card-body--flush { padding: 0; }
+
+.sila-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: 0 0 var(--sila-radius-md) var(--sila-radius-md);
+}
+
+/* Label/value pairs for detail screens (RFQ header, supplier info, etc.) */
+.sila-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.25rem, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-6);
+  margin: 0;
+}
+
+.sila-meta-item { min-width: 0; }
+
+.sila-meta-label {
+  display: block;
+  padding-bottom: 0.125rem;
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.sila-meta-value {
+  display: block;
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+/* ======================================================================== */
+/* KPI                                                                      */
+/* ======================================================================== */
+
+.sila-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.sila-kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  min-width: 0;
+  transition: var(--sila-transition);
+}
+
+button.sila-kpi { cursor: pointer; }
+button.sila-kpi:hover { border-color: var(--sila-primary-border); box-shadow: var(--sila-shadow-sm); }
+button.sila-kpi:focus-visible { outline: none; box-shadow: var(--sila-focus-ring); }
+
+.sila-kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+}
+
+.sila-kpi-label {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+  letter-spacing: 0.01em;
+}
+
+.sila-kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface-hover);
+  color: var(--sila-text-muted);
+  flex-shrink: 0;
+}
+.sila-kpi-icon svg { width: 1rem; height: 1rem; }
+.sila-kpi--primary .sila-kpi-icon { background: var(--sila-primary-soft); color: var(--sila-primary); }
+.sila-kpi--success .sila-kpi-icon { background: var(--sila-success-soft); color: var(--sila-success); }
+.sila-kpi--warning .sila-kpi-icon { background: var(--sila-warning-soft); color: var(--sila-warning); }
+.sila-kpi--danger .sila-kpi-icon { background: var(--sila-danger-soft); color: var(--sila-danger); }
+
+.sila-kpi-value {
+  font-size: var(--sila-text-3xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sila-kpi-meta {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-kpi-link {
+  padding-top: var(--sila-space-1);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+}
+
+/* ======================================================================== */
+/* Badges / status                                                          */
+/* ======================================================================== */
+
+.sila-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  height: 1.375rem;
+  padding: 0 var(--sila-space-2);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  border: 0.0625rem solid var(--sila-neutral-border);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-neutral-soft);
+  color: var(--sila-neutral);
+  vertical-align: middle;
+}
+
+.sila-badge-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.sila-badge--success { background: var(--sila-success-soft); color: var(--sila-success); border-color: var(--sila-success-border); }
+.sila-badge--warning { background: var(--sila-warning-soft); color: var(--sila-warning); border-color: var(--sila-warning-border); }
+.sila-badge--danger  { background: var(--sila-danger-soft);  color: var(--sila-danger);  border-color: var(--sila-danger-border); }
+.sila-badge--info    { background: var(--sila-info-soft);    color: var(--sila-info);    border-color: var(--sila-info-border); }
+.sila-badge--accent  { background: var(--sila-accent-soft);  color: var(--sila-accent);  border-color: var(--sila-accent-border); }
+.sila-badge--neutral { background: var(--sila-neutral-soft); color: var(--sila-neutral); border-color: var(--sila-neutral-border); }
+
+.sila-badge--sm { height: 1.125rem; padding: 0 0.375rem; font-size: var(--sila-text-2xs); }
+
+.sila-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-danger);
+  color: var(--sila-text-inverse);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sila-count--neutral { background: var(--sila-surface-sunken); color: var(--sila-text-secondary); }
+.sila-count--success { background: var(--sila-success-soft); color: var(--sila-success-strong); }
+
+/* Monospace document references: RFQ-2026-001, PO numbers, etc. */
+.sila-ref {
+  font-family: var(--sila-font-mono);
+  font-size: 0.92em;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* ======================================================================== */
+/* Page header                                                              */
+/* ======================================================================== */
+
+.sila-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3) var(--sila-space-4);
+  padding-bottom: var(--sila-space-5);
+}
+
+.sila-page-header-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+  min-width: 0;
+}
+
+.sila-page-back {
+  padding-top: 0.125rem;
+}
+
+.sila-page-title {
+  margin: 0;
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  letter-spacing: -0.015em;
+  color: var(--sila-text);
+}
+
+.sila-page-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2) var(--sila-space-3);
+}
+
+.sila-page-description {
+  padding: var(--sila-space-1) 0 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+  max-width: 72ch;
+}
+
+.sila-page-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.sila-section-title {
+  padding: 0 0 var(--sila-space-3);
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+/* ======================================================================== */
+/* Forms                                                                    */
+/* ======================================================================== */
+
+.sila-form-section {
+  padding: var(--sila-space-5) 0;
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+.sila-form-section:first-child { border-top: 0; padding-top: 0; }
+
+.sila-form-section-title {
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sila-form-section-description {
+  padding: 0.125rem 0 var(--sila-space-4);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--sila-space-4) var(--sila-space-5);
+}
+
+.sila-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+  min-width: 0;
+}
+
+.sila-field--full { grid-column: 1 / -1; }
+
+.sila-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  line-height: var(--sila-leading-tight);
+}
+
+.sila-required {
+  padding-left: 0.125rem;
+  color: var(--sila-danger);
+  font-weight: var(--sila-weight-semibold);
+}
+
+.sila-input,
+.sila-select,
+.sila-textarea {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  box-shadow: var(--sila-shadow-xs);
+  transition: var(--sila-transition);
+  appearance: none;
+}
+
+.sila-textarea {
+  height: auto;
+  min-height: 5.5rem;
+  padding: var(--sila-space-2) var(--sila-space-3);
+  line-height: var(--sila-leading);
+  resize: vertical;
+}
+
+.sila-select {
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  cursor: pointer;
+}
+
+.sila-input::placeholder,
+.sila-textarea::placeholder { color: var(--sila-text-subtle); }
+
+.sila-input:hover:not(:disabled),
+.sila-select:hover:not(:disabled),
+.sila-textarea:hover:not(:disabled) { border-color: #b6c2d1; }
+
+.sila-input:focus,
+.sila-select:focus,
+.sila-textarea:focus {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.sila-input:disabled,
+.sila-select:disabled,
+.sila-textarea:disabled,
+.sila-input[readonly] {
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.sila-input[aria-invalid="true"],
+.sila-select[aria-invalid="true"],
+.sila-textarea[aria-invalid="true"],
+.sila-field--error .sila-input,
+.sila-field--error .sila-select,
+.sila-field--error .sila-textarea { border-color: var(--sila-danger); }
+
+.sila-input[aria-invalid="true"]:focus,
+.sila-field--error .sila-input:focus,
+.sila-field--error .sila-select:focus,
+.sila-field--error .sila-textarea:focus { box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring); }
+
+.sila-help {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+}
+
+.sila-error-text {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-danger);
+}
+
+.sila-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  padding-top: var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+}
+
+/* ======================================================================== */
+/* Toolbar / search / filters                                               */
+/* ======================================================================== */
+
+.sila-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2) var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sila-toolbar-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.sila-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 13.75rem;
+  flex: 0 1 20rem;
+}
+
+.sila-search-icon {
+  position: absolute;
+  left: 0.625rem;
+  display: inline-flex;
+  color: var(--sila-text-subtle);
+  pointer-events: none;
+}
+
+.sila-search .sila-input { padding-left: 2rem; }
+
+/* ======================================================================== */
+/* Tables                                                                   */
+/* ======================================================================== */
+
+.sila-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sila-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+}
+
+.sila-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2.375rem;
+  padding: 0 var(--sila-space-4);
+  background: var(--sila-surface-subtle);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sila-table td {
+  height: 2.75rem;
+  padding: var(--sila-space-2) var(--sila-space-4);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+  vertical-align: middle;
+}
+
+.sila-table tbody tr:last-child td { border-bottom: 0; }
+.sila-table tbody tr { transition: background-color var(--sila-duration-fast) var(--sila-ease); }
+.sila-table tbody tr:hover td { background: var(--sila-surface-subtle); }
+.sila-table tbody tr.sila-row-clickable { cursor: pointer; }
+.sila-table tbody tr.sila-row-clickable:focus-visible { outline: 0.125rem solid var(--sila-primary); outline-offset: -0.125rem; }
+.sila-table tbody tr.sila-row-selected td { background: var(--sila-primary-soft); }
+
+.sila-table .sila-num,
+.sila-table th.sila-num { text-align: right; font-variant-numeric: tabular-nums; }
+.sila-table .sila-cell-strong { font-weight: var(--sila-weight-semibold); color: var(--sila-text); }
+.sila-table .sila-cell-muted { color: var(--sila-text-muted); }
+.sila-table .sila-cell-actions { text-align: right; white-space: nowrap; width: 1%; }
+
+.sila-th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.sila-th-sort:hover,
+.sila-th-sort[aria-sort="ascending"],
+.sila-th-sort[aria-sort="descending"] { color: var(--sila-text); }
+
+/* ======================================================================== */
+/* Pagination                                                               */
+/* ======================================================================== */
+
+.sila-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.sila-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-1);
+}
+
+.sila-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  padding: 0 var(--sila-space-2);
+  font: inherit;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  cursor: pointer;
+  transition: var(--sila-transition);
+  font-variant-numeric: tabular-nums;
+}
+.sila-page-btn:hover:not(:disabled) { background: var(--sila-surface-hover); color: var(--sila-text); }
+.sila-page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sila-page-btn[aria-current="page"] {
+  background: var(--sila-primary);
+  border-color: var(--sila-primary);
+  color: var(--sila-text-inverse);
+}
+
+/* ======================================================================== */
+/* Empty / error / alert                                                    */
+/* ======================================================================== */
+
+.sila-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-12) var(--sila-space-6);
+  text-align: center;
+}
+
+.sila-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: var(--sila-space-1);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface-hover);
+  color: var(--sila-text-muted);
+}
+.sila-empty--error .sila-empty-icon { background: var(--sila-danger-soft); color: var(--sila-danger); }
+
+.sila-empty-title {
+  margin: 0;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sila-empty-text {
+  margin: 0;
+  max-width: 26.25rem;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.sila-empty-action { padding-top: var(--sila-space-3); }
+
+.sila-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3) var(--sila-space-4);
+  border: 0.0625rem solid var(--sila-info-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-info-soft);
+  color: var(--sila-text-secondary);
+  font-size: var(--sila-text-sm);
+}
+.sila-alert--success { background: var(--sila-success-soft); border-color: var(--sila-success-border); }
+.sila-alert--warning { background: var(--sila-warning-soft); border-color: var(--sila-warning-border); }
+.sila-alert--danger  { background: var(--sila-danger-soft);  border-color: var(--sila-danger-border); }
+.sila-alert-title { font-weight: var(--sila-weight-semibold); color: var(--sila-text); }
+
+/* ======================================================================== */
+/* Tabs                                                                     */
+/* ======================================================================== */
+
+.sila-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sila-space-1);
+  border-bottom: 0.0625rem solid var(--sila-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sila-tabs::-webkit-scrollbar { display: none; }
+
+.sila-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  height: 2.5rem;
+  padding: 0 var(--sila-space-3);
+  margin-bottom: -0.0625rem;
+  border: 0;
+  border-bottom: 0.125rem solid transparent;
+  background: none;
+  font: inherit;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+.sila-tab:hover { color: var(--sila-text); }
+.sila-tab[aria-selected="true"] {
+  color: var(--sila-primary);
+  border-bottom-color: var(--sila-primary);
+  font-weight: var(--sila-weight-semibold);
+}
+
+/* ======================================================================== */
+/* Menus / dropdowns                                                        */
+/* ======================================================================== */
+
+.sila-menu {
+  min-width: 12.5rem;
+  padding: var(--sila-space-1);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-lg);
+  z-index: var(--sila-z-dropdown);
+  animation: sila-pop-in var(--sila-duration) var(--sila-ease);
+}
+
+.sila-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  width: 100%;
+  min-height: 2.125rem;
+  padding: 0 var(--sila-space-3);
+  border: 0;
+  border-radius: var(--sila-radius-sm);
+  background: none;
+  font-family: "DM Sans", var(--sila-font);
+  font-size: 0.8125rem;
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.sila-menu-item svg { width: 1rem; height: 1rem; color: var(--sila-text-muted); flex-shrink: 0; }
+.sila-menu-item:hover,
+.sila-menu-item:focus-visible { background: var(--sila-surface-hover); color: var(--sila-text); outline: none; }
+.sila-menu-item--danger,
+.sila-menu-item--danger svg { color: var(--sila-danger); }
+.sila-menu-item--danger:hover,
+.sila-menu-item--danger:focus-visible { background: var(--sila-danger-soft); color: var(--sila-danger-strong); }
+
+.sila-menu-divider {
+  height: 0.0625rem;
+  margin: var(--sila-space-1) 0;
+  background: var(--sila-border-subtle);
+}
+
+@keyframes sila-pop-in {
+  from { opacity: 0; transform: translateY(-0.25rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ======================================================================== */
+/* Modal / drawer                                                           */
+/* ======================================================================== */
+
+.sila-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-6);
+  background: rgba(15, 23, 42, 0.45);
+  animation: sila-fade-in var(--sila-duration) var(--sila-ease);
+}
+
+.sila-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 35rem;
+  max-height: calc(100vh - 3rem);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+  animation: sila-modal-in var(--sila-duration-slow) var(--sila-ease);
+}
+.sila-modal--lg { max-width: 50rem; }
+.sila-modal--xl { max-width: 68.75rem; }
+
+.sila-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.sila-modal-title {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.sila-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sila-space-5);
+}
+
+.sila-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: 0 0 var(--sila-radius-lg) var(--sila-radius-lg);
+}
+
+.sila-modal-text {
+  margin: 0;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text-secondary);
+}
+
+@keyframes sila-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sila-modal-in {
+  from { opacity: 0; transform: translateY(0.5rem) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sila-overlay,
+  .sila-modal,
+  .sila-menu { animation: none; }
+}
+
+/* ======================================================================== */
+/* Workflow stepper (RFQ / approval progress)                               */
+/* ======================================================================== */
+
+.sila-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.sila-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 6rem;
+  gap: var(--sila-space-2);
+  text-align: center;
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.sila-step::before {
+  content: "";
+  position: absolute;
+  top: 0.6875rem;
+  right: 50%;
+  left: -50%;
+  height: 0.125rem;
+  background: var(--sila-border);
+}
+.sila-step:first-child::before { display: none; }
+
+.sila-step-marker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 0.125rem solid var(--sila-border-strong);
+  background: var(--sila-surface);
+  font-size: var(--sila-text-2xs);
+  font-weight: var(--sila-weight-bold);
+  color: var(--sila-text-muted);
+}
+
+.sila-step--done { color: var(--sila-text-secondary); }
+.sila-step--done::before,
+.sila-step--current::before { background: var(--sila-primary); }
+.sila-step--done .sila-step-marker { background: var(--sila-primary); border-color: var(--sila-primary); color: var(--sila-text-inverse); }
+.sila-step--current { color: var(--sila-primary); font-weight: var(--sila-weight-semibold); }
+.sila-step--current .sila-step-marker { border-color: var(--sila-primary); color: var(--sila-primary); box-shadow: 0 0 0 0.1875rem var(--sila-primary-soft); }
+
+/* ======================================================================== */
+/* Attachments                                                              */
+/* ======================================================================== */
+
+.sila-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sila-file {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  transition: var(--sila-transition);
+}
+.sila-file:hover { border-color: var(--sila-border-strong); background: var(--sila-surface-subtle); }
+
+.sila-file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  flex-shrink: 0;
+}
+
+.sila-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+}
+
+.sila-file-meta {
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  white-space: nowrap;
+}
+
+.sila-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sila-space-1);
+  padding: var(--sila-space-6);
+  border: 0.0625rem dashed var(--sila-border-strong);
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-surface-subtle);
+  color: var(--sila-text-muted);
+  font-size: var(--sila-text-sm);
+  text-align: center;
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+.sila-dropzone:hover,
+.sila-dropzone--active { border-color: var(--sila-primary); background: var(--sila-primary-soft); color: var(--sila-primary); }
+
+/* ======================================================================== */
+/* KPI strip — one card of headline metrics separated by hairlines           */
+/* ======================================================================== */
+
+.sila-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.625rem, 1fr));
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  overflow: hidden;
+}
+
+.sila-kpi-strip-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border: 0;
+  background: var(--sila-surface);
+  /* Hairlines on the right and bottom; the card's overflow clips the outer edges. */
+  box-shadow: 0.0625rem 0 0 var(--sila-border-subtle), 0 0.0625rem 0 var(--sila-border-subtle);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.sila-kpi-strip-cell--action {
+  cursor: pointer;
+  transition: background-color var(--sila-duration-fast) var(--sila-ease);
+}
+.sila-kpi-strip-cell--action:hover { background: var(--sila-surface-subtle); }
+.sila-kpi-strip-cell--action:hover .sila-kpi-strip-link { text-decoration: underline; }
+.sila-kpi-strip-cell--action:focus-visible { outline: none; box-shadow: inset 0 0 0 0.125rem var(--sila-primary); }
+
+.sila-kpi-strip-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  min-width: 0;
+}
+
+.sila-kpi-strip-icon {
+  display: inline-flex;
+  color: var(--sila-text-subtle);
+  flex-shrink: 0;
+}
+.sila-kpi-strip-icon svg { width: 1rem; height: 1rem; }
+
+.sila-kpi-strip-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sila-kpi-strip-value {
+  font-size: var(--sila-text-3xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sila-kpi-strip-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  min-height: 1.125rem;
+  font-size: var(--sila-text-xs);
+}
+
+.sila-kpi-strip-caption { color: var(--sila-text-muted); }
+
+.sila-kpi-strip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+}
+
+.sila-kpi-strip-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-warning-soft);
+  color: var(--sila-warning);
+  font-weight: var(--sila-weight-semibold);
+}
+
+/* Card variant (buyer dashboard): each metric is its own card with a tinted icon chip. */
+.sila-kpi-strip--cards {
+  gap: var(--sila-space-4);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.sila-kpi-strip--cards .sila-kpi-strip-cell {
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+  transition: border-color var(--sila-duration-fast) var(--sila-ease), box-shadow var(--sila-duration-fast) var(--sila-ease);
+}
+
+.sila-kpi-strip--cards .sila-kpi-strip-cell--action:hover {
+  background: var(--sila-surface);
+  border-color: var(--sila-primary-border);
+  box-shadow: var(--sila-shadow-sm);
+}
+
+.sila-kpi-strip--cards .sila-kpi-strip-head {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+.sila-kpi-strip--cards .sila-kpi-strip-icon {
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--sila-radius-md);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+}
+.sila-kpi-strip--cards .sila-kpi-strip-icon svg { width: 1.125rem; height: 1.125rem; }
+
+.sila-kpi-strip--cards .sila-kpi-strip-cell--warning .sila-kpi-strip-icon { background: var(--sila-warning-soft); color: var(--sila-warning); }
+.sila-kpi-strip--cards .sila-kpi-strip-cell--success .sila-kpi-strip-icon { background: var(--sila-success-soft); color: var(--sila-success); }
+.sila-kpi-strip--cards .sila-kpi-strip-cell--danger .sila-kpi-strip-icon { background: var(--sila-danger-soft); color: var(--sila-danger); }
+
+.sila-kpi-strip--cards .sila-kpi-strip-label { font-weight: var(--sila-weight-semibold); }
+
+/* ======================================================================== */
+/* Charts                                                                   */
+/* ======================================================================== */
+
+.sila-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22.5rem, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.sila-chart-card { display: flex; flex-direction: column; }
+
+.sila-chart-body {
+  flex: 1;
+  padding: var(--sila-space-4) var(--sila-space-5) var(--sila-space-5);
+}
+
+.sila-chart-empty {
+  margin: 0;
+  padding: var(--sila-space-10) 0;
+  text-align: center;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.sila-chart { width: 100%; height: var(--sila-chart-height, 13.75rem); margin: 0; }
+
+/* Recharts sets presentation attributes; these CSS rules win over them. */
+.sila-chart .sila-chart-bar { fill: var(--sila-primary); }
+.sila-chart .sila-chart-bar--muted { fill: var(--sila-text-subtle); }
+.sila-chart .recharts-bar-rectangle:hover .sila-chart-bar { fill: var(--sila-primary-hover); }
+.sila-chart .sila-chart-grid-line line { stroke: var(--sila-border-subtle); }
+.sila-chart .sila-chart-cursor { fill: var(--sila-surface-hover); }
+.sila-chart .sila-chart-axis text { fill: var(--sila-text-muted); font-size: 0.75rem; }
+.sila-chart .sila-chart-value { fill: var(--sila-text-secondary); font-size: 0.75rem; font-weight: 600; }
+
+.sila-chart-tooltip {
+  padding: var(--sila-space-2) var(--sila-space-3);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  box-shadow: var(--sila-shadow-md);
+  font-size: var(--sila-text-xs);
+}
+.sila-chart-tooltip-label { color: var(--sila-text-muted); }
+.sila-chart-tooltip-value { font-size: var(--sila-text-md); font-weight: var(--sila-weight-semibold); color: var(--sila-text); font-variant-numeric: tabular-nums; }
+.sila-chart-tooltip-value span { font-size: var(--sila-text-xs); font-weight: var(--sila-weight-regular); color: var(--sila-text-muted); }
+
+.sila-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  margin: 0;
+  padding: var(--sila-space-1) 0 0;
+  list-style: none;
+}
+
+.sila-bar-list-row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 1.1fr) 2fr auto;
+  align-items: center;
+  gap: var(--sila-space-4);
+}
+
+.sila-bar-list-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.sila-bar-list-label {
+  max-width: 100%;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sila-bar-list-track {
+  height: 0.625rem;
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-surface-sunken);
+  overflow: hidden;
+}
+
+.sila-bar-list-fill {
+  display: block;
+  width: var(--sila-bar-value, 0%);
+  height: 100%;
+  border-radius: 0 var(--sila-radius-sm) var(--sila-radius-sm) 0;
+  background: var(--sila-primary);
+}
+
+.sila-bar-list-value {
+  min-width: 5rem;
+  text-align: right;
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 47.9375rem) {
+  .sila-chart-grid { grid-template-columns: 1fr; }
+  .sila-bar-list-row { grid-template-columns: 1fr auto; }
+  .sila-bar-list-track { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* ======================================================================== */
+/* Dashboard analytics layout                                               */
+/* ======================================================================== */
+
+.sila-analytics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.sila-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--sila-space-4);
+}
+
+.sila-span-4 { grid-column: span 4; }
+.sila-span-6 { grid-column: span 6; }
+.sila-span-8 { grid-column: span 8; }
+.sila-span-12 { grid-column: 1 / -1; }
+
+@media (max-width: 79.9375rem) {
+  .sila-span-4 { grid-column: span 6; }
+  .sila-span-8 { grid-column: 1 / -1; }
+}
+
+@media (max-width: 47.9375rem) {
+  .sila-span-4,
+  .sila-span-6 { grid-column: 1 / -1; }
+}
+
+.sila-analytics-placeholder { height: 20rem; padding: var(--sila-space-5); }
+
+/* Categorical series — validated order (blue, orange, aqua); aqua needs the legend/tooltip relief. */
+.sila-chart .sila-series-1 path { fill: var(--sila-primary); }
+.sila-chart .sila-series-2 path { fill: #eb6834; }
+.sila-chart .sila-series-3 path { fill: #1baf7a; }
+.sila-chart-swatch { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 0.125rem; flex-shrink: 0; }
+.sila-chart-swatch.sila-series-1 { background: var(--sila-primary); }
+.sila-chart-swatch.sila-series-2 { background: #eb6834; }
+.sila-chart-swatch.sila-series-3 { background: #1baf7a; }
+
+.sila-chart-stack { display: flex; flex-direction: column; gap: var(--sila-space-3); }
+
+.sila-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2) var(--sila-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+.sila-chart-legend li { display: inline-flex; align-items: center; gap: var(--sila-space-2); }
+.sila-chart-legend strong { color: var(--sila-text); font-weight: var(--sila-weight-semibold); font-variant-numeric: tabular-nums; }
+
+.sila-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding-top: 0.125rem;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-secondary);
+}
+.sila-chart-tooltip-row strong { margin-left: auto; padding-left: var(--sila-space-4); color: var(--sila-text); font-variant-numeric: tabular-nums; }
+.sila-chart-tooltip-note { margin-top: var(--sila-space-1); padding-top: var(--sila-space-1); border-top: 0.0625rem solid var(--sila-border-subtle); color: var(--sila-text-muted); }
+
+.sila-bar-list-detail { font-size: var(--sila-text-xs); color: var(--sila-text-muted); }
+
+/* Funnel */
+.sila-funnel { display: flex; flex-direction: column; gap: var(--sila-space-5); margin: 0; padding: var(--sila-space-1) 0 0; list-style: none; }
+.sila-funnel-step { display: flex; flex-direction: column; gap: 0.375rem; }
+.sila-funnel-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sila-space-2); }
+.sila-funnel-label { font-size: var(--sila-text-sm); font-weight: var(--sila-weight-semibold); color: var(--sila-text); }
+.sila-funnel-rate { font-size: var(--sila-text-xs); color: var(--sila-text-muted); }
+.sila-funnel-bar-row { display: flex; align-items: center; gap: var(--sila-space-3); }
+.sila-funnel-track { flex: 1; height: 0.875rem; border-radius: var(--sila-radius-sm); background: var(--sila-surface-sunken); overflow: hidden; }
+.sila-funnel-fill { display: block; width: var(--sila-bar-value, 0%); height: 100%; background: var(--sila-primary); border-radius: 0 var(--sila-radius-sm) var(--sila-radius-sm) 0; }
+.sila-funnel-count { min-width: 2.5rem; text-align: right; font-size: var(--sila-text-lg); font-weight: var(--sila-weight-semibold); color: var(--sila-text); font-variant-numeric: tabular-nums; }
+.sila-funnel-detail { font-size: var(--sila-text-xs); color: var(--sila-text-muted); }
+
+/* Chart motion: bars grow in on load (staggered per row via --sila-i), marks respond on hover. */
+@keyframes sila-bar-grow {
+  from { width: 0; }
+}
+
+@keyframes sila-value-in {
+  from { opacity: 0; transform: translateX(-0.375rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sila-bar-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes sila-tooltip-in {
+  from { opacity: 0; transform: translateY(0.25rem); }
+  to { opacity: 1; transform: none; }
+}
+
+.sila-chart-body { animation: sila-fade-in 300ms ease-out; }
+
+.sila-chart .recharts-bar-rectangle path { transition: fill 150ms ease, filter 150ms ease; }
+.sila-chart .recharts-bar-rectangle:hover path { filter: brightness(0.9) saturate(1.1); }
+.sila-chart .sila-chart-cursor { transition: opacity 150ms ease; }
+.sila-chart-tooltip { animation: sila-tooltip-in 150ms ease-out; }
+
+/* Load: each bar grows out from the left, one row after another, then its value slides in. */
+.sila-bar-list-fill,
+.sila-funnel-fill {
+  position: relative;
+  overflow: hidden;
+  animation: sila-bar-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--sila-i, 0) * 90ms);
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms ease, box-shadow 200ms ease;
+}
+
+.sila-bar-list-value,
+.sila-funnel-count {
+  animation: sila-value-in 400ms ease-out both;
+  animation-delay: calc(var(--sila-i, 0) * 90ms + 450ms);
+  transition: color 200ms ease, transform 200ms ease;
+  transform-origin: right center;
+}
+
+.sila-bar-list-track,
+.sila-funnel-track { transition: transform 200ms ease; transform-origin: left center; }
+
+.sila-bar-list-row,
+.sila-funnel-step {
+  padding: var(--sila-space-1) var(--sila-space-2);
+  border-radius: var(--sila-radius-sm);
+  cursor: default;
+  transition: background-color 200ms ease, opacity 200ms ease;
+}
+
+/* Hover: spotlight the row — others fade back, its bar thickens, brightens and gets a light sweep. */
+.sila-bar-list:hover .sila-bar-list-row:not(:hover),
+.sila-funnel:hover .sila-funnel-step:not(:hover) { opacity: 0.45; }
+.sila-bar-list-row:hover,
+.sila-funnel-step:hover { background: var(--sila-surface-hover); }
+.sila-bar-list-row:hover .sila-bar-list-track,
+.sila-funnel-step:hover .sila-funnel-track { transform: scaleY(1.5); }
+.sila-bar-list-row:hover .sila-bar-list-fill,
+.sila-funnel-step:hover .sila-funnel-fill {
+  background: var(--sila-primary-hover);
+  box-shadow: 0 0 0.5rem color-mix(in srgb, var(--sila-primary) 45%, transparent);
+}
+.sila-bar-list-fill::after,
+.sila-funnel-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.sila-bar-list-row:hover .sila-bar-list-fill::after,
+.sila-funnel-step:hover .sila-funnel-fill::after { animation: sila-bar-sheen 700ms ease-out; }
+.sila-bar-list-row:hover .sila-bar-list-value,
+.sila-funnel-step:hover .sila-funnel-count { color: var(--sila-primary); transform: scale(1.08); }
+.sila-bar-list-row:hover .sila-bar-list-label,
+.sila-funnel-step:hover .sila-funnel-label { color: var(--sila-primary); }
+.sila-bar-list-label,
+.sila-funnel-label { transition: color 200ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sila-chart-body,
+  .sila-chart-tooltip,
+  .sila-bar-list-fill,
+  .sila-funnel-fill,
+  .sila-bar-list-value,
+  .sila-funnel-count,
+  .sila-bar-list-fill::after,
+  .sila-funnel-fill::after { animation: none !important; transition: none; }
+  .sila-bar-list-row:hover .sila-bar-list-track,
+  .sila-funnel-step:hover .sila-funnel-track,
+  .sila-bar-list-row:hover .sila-bar-list-value,
+  .sila-funnel-step:hover .sila-funnel-count { transform: none; }
+}
+
+/* Relative due dates */
+.sila-due { font-size: var(--sila-text-sm); color: var(--sila-text-secondary); white-space: nowrap; }
+.sila-due--urgent { color: var(--sila-warning); font-weight: var(--sila-weight-semibold); }
+
+.sila-analytics-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sila-space-1-5);
+  margin-bottom: calc(var(--sila-space-2) * -1);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+.sila-analytics-status svg { color: var(--sila-text-subtle); flex-shrink: 0; }
+
+.sila-analytics-retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-primary);
+  cursor: pointer;
+}
+.sila-analytics-retry:hover { text-decoration: underline; }
+.sila-analytics-retry:focus-visible { outline: 0.125rem solid var(--sila-primary); outline-offset: 0.125rem; border-radius: 0.125rem; }
+
+
+/* ======================================================================== */
+/* Questionnaires (QuestionList.tsx)                                        */
+/* ======================================================================== */
+
+.sila-qa-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sila-qa-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-4);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  transition: border-color var(--sila-duration) var(--sila-ease), box-shadow var(--sila-duration) var(--sila-ease);
+}
+.sila-qa-item:hover { border-color: var(--sila-border-strong); }
+.sila-qa-item:focus-within { border-color: var(--sila-primary-border); box-shadow: var(--sila-shadow-xs); }
+
+.sila-qa-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+}
+
+.sila-qa-index {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 1.5rem;
+  padding: 0 var(--sila-space-1-5);
+  border-radius: var(--sila-radius-sm);
+  background: var(--sila-primary-soft);
+  color: var(--sila-primary);
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.sila-qa-question {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.125rem;
+  font-size: var(--sila-text-md);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  overflow-wrap: anywhere;
+}
+
+.sila-qa-tags {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sila-space-1-5);
+}
+
+/* Answer area lines up with the question text, not the Q-index. */
+.sila-qa-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+  padding-left: calc(2rem + var(--sila-space-3));
+}
+
+.sila-qa-body > .sila-input,
+.sila-qa-body > .sila-textarea { max-width: 40rem; }
+
+.sila-qa-answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-2) var(--sila-space-3);
+  background: var(--sila-surface-subtle);
+  border: 0.0625rem solid var(--sila-border-subtle);
+  border-radius: var(--sila-radius);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sila-qa-answer--empty { color: var(--sila-text-muted); font-style: italic; }
+.sila-qa-answer-text { flex: 1; min-width: 0; }
+
+.sila-qa-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-2);
+}
+.sila-qa-options-label {
+  font-size: var(--sila-text-xs);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-muted);
+}
+
+.sila-qa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sila-qa-chip {
+  padding: 0.125rem var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-full);
+  background: var(--sila-surface);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-secondary);
+}
+
+.sila-choice-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--sila-space-2);
+  max-width: 40rem;
+}
+
+.sila-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-2) var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text);
+  cursor: pointer;
+  transition: border-color var(--sila-duration) var(--sila-ease), background-color var(--sila-duration) var(--sila-ease);
+}
+.sila-choice:hover { border-color: var(--sila-border-strong); background: var(--sila-surface-subtle); }
+.sila-choice:has(input:checked) { border-color: var(--sila-primary); background: var(--sila-primary-soft); }
+.sila-choice:has(input:disabled) { cursor: not-allowed; opacity: 0.7; }
+.sila-choice input { flex-shrink: 0; accent-color: var(--sila-primary); }
+
+@media (max-width: 47.9375rem) {
+  .sila-qa-head { flex-wrap: wrap; }
+  .sila-qa-tags { justify-content: flex-start; padding-left: calc(2rem + var(--sila-space-3)); width: 100%; }
+  .sila-qa-body { padding-left: 0; }
+}

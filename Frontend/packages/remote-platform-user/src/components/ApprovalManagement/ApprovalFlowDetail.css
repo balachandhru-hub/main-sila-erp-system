@@ -1,0 +1,67 @@
+.afd-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
+
+.afd-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-md);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.afd-title-edit {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sila-space-1);
+  min-width: 0;
+}
+
+.afd-edit-btn {
+  flex: 0 0 auto;
+  color: var(--sila-text-muted);
+}
+
+.afd-edit-btn:hover:not(:disabled) {
+  color: var(--sila-primary);
+}
+
+.afd-back {
+  flex: 0 0 auto;
+  padding-top: 0.125rem;
+}
+
+.afd-heading {
+  min-width: 0;
+}
+
+.afd-title {
+  margin: 0;
+  font-family: var(--sila-font);
+  font-size: var(--sila-text-2xl);
+  font-weight: var(--sila-weight-semibold);
+  line-height: var(--sila-leading-tight);
+  color: var(--sila-text);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.afd-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  padding-top: var(--sila-space-1-5);
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.afd-code {
+  color: var(--sila-text-secondary);
+}

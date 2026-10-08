@@ -1,0 +1,41 @@
+/* Free-text input with a suggestion list below it */
+.sila-suggest {
+  position: relative;
+}
+
+.sila-suggest-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: var(--sila-space-1) 0 0;
+  padding: var(--sila-space-1) 0;
+  list-style: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  box-shadow: var(--sila-shadow-xs);
+}
+
+.sila-suggest-option,
+.sila-suggest-status {
+  padding: var(--sila-space-2) var(--sila-space-3);
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+}
+
+.sila-suggest-option {
+  cursor: pointer;
+}
+
+.sila-suggest-option:hover,
+.sila-suggest-option.is-active {
+  background: var(--sila-primary-soft);
+}
+
+.sila-suggest-status {
+  color: var(--sila-text-muted);
+}

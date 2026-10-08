@@ -1,0 +1,147 @@
+/* ---------- Modal ---------- */
+.aem-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--sila-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sila-space-4);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.aem-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 28rem;
+  max-height: calc(100vh - 2rem);
+  background: var(--sila-surface);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius-lg);
+  box-shadow: var(--sila-shadow-lg);
+}
+
+.aem-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sila-space-4);
+  padding: var(--sila-space-4) var(--sila-space-5);
+  border-bottom: 0.0625rem solid var(--sila-border-subtle);
+}
+
+.aem-title {
+  margin: 0;
+  font-size: var(--sila-text-lg);
+  font-weight: var(--sila-weight-semibold);
+  color: var(--sila-text);
+}
+
+.aem-subtitle {
+  padding: var(--sila-space-0-5) 0 0;
+  font-size: var(--sila-text-sm);
+  color: var(--sila-text-muted);
+}
+
+.aem-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--sila-control-height-sm);
+  height: var(--sila-control-height-sm);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--sila-radius);
+  color: var(--sila-text-muted);
+  cursor: pointer;
+  transition: var(--sila-transition);
+}
+
+.aem-close:hover:not(:disabled) {
+  background: var(--sila-surface-hover);
+  color: var(--sila-text);
+}
+
+.aem-close:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}
+
+.aem-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sila-space-5);
+}
+
+.aem-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sila-space-2);
+  padding: var(--sila-space-3) var(--sila-space-5);
+  border-top: 0.0625rem solid var(--sila-border-subtle);
+  background: var(--sila-surface-subtle);
+  border-radius: 0 0 var(--sila-radius-lg) var(--sila-radius-lg);
+}
+
+/* ---------- Form ---------- */
+.aem-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1-5);
+}
+
+.aem-label {
+  font-size: var(--sila-text-sm);
+  font-weight: var(--sila-weight-medium);
+  color: var(--sila-text-secondary);
+}
+
+.aem-label em {
+  padding-left: 0.125rem;
+  color: var(--sila-danger);
+  font-style: normal;
+}
+
+.aem-input {
+  width: 100%;
+  height: var(--sila-control-height);
+  padding: 0 var(--sila-space-3);
+  border: 0.0625rem solid var(--sila-border-strong);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  font-family: inherit;
+  font-size: var(--sila-text-md);
+  color: var(--sila-text);
+  box-sizing: border-box;
+  transition: var(--sila-transition);
+}
+
+.aem-input:focus {
+  outline: none;
+  border-color: var(--sila-primary);
+  box-shadow: var(--sila-focus-ring);
+}
+
+.aem-input-error {
+  border-color: var(--sila-danger);
+}
+
+.aem-input-error:focus {
+  border-color: var(--sila-danger);
+  box-shadow: 0 0 0 0.1875rem var(--sila-danger-ring);
+}
+
+.aem-error {
+  display: block;
+  padding-top: var(--sila-space-1);
+  font-size: var(--sila-text-xs);
+  color: var(--sila-danger);
+}
+
+/* ---------- Buttons (sila-btn supplies size and colour) ---------- */
+.aem-btn {
+  min-width: 6rem;
+}

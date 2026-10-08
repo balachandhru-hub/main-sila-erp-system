@@ -1,0 +1,46 @@
+/* Purchasing dashboard and purchase order list. */
+
+.pdash-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-5);
+  font-family: var(--sila-font);
+}
+
+.pdash-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: var(--sila-space-4);
+}
+
+.pdash-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: var(--sila-space-5);
+}
+
+.pdash-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
+.sila-btn.pdash-po-reprocess {
+  background: #fff;
+  border-color: #1f5cc4;
+  color: #1f5cc4;
+}
+
+.sila-btn.pdash-po-reprocess:disabled {
+  opacity: 0.5;
+}
+
+/* ERP sync error shown under the badge on the contract purchase order page. */
+.pdash-po-error {
+  display: block;
+  margin-top: 0.25rem;
+  max-width: 18rem;
+  font-size: var(--sila-text-xs);
+  color: var(--sila-text-muted);
+  white-space: normal;
+}

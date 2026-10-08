@@ -1,0 +1,16 @@
+/* Quotations & bids (qtn-*) — legacy screen, not currently routed. */
+
+.qtn-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+}
+
+.qtn-page > .sila-page-header {
+  margin-bottom: 0;
+}
+
+.qtn-page .sila-empty {
+  padding: var(--sila-space-8) var(--sila-space-4);
+}

@@ -1,0 +1,1344 @@
+using Buyer.Infrastructure.DbContext;
+using Microsoft.Extensions.Configuration;
+using SharedKernel.LoggerServices;
+using Buyer.Infrastructure.Contracts.IServices;
+using Buyer.Infrastructure.Contracts.IRepository;
+
+
+namespace Buyer.Infrastructure.Repository
+{
+    public class RepositoryWrapper : IRepositoryWrapper
+    {
+        private readonly RepositoryContext _context;
+        private readonly IUserIdentityService _userIdentityService;
+        private readonly ILoggerManager _logger;
+        private readonly IConfiguration _configuration;
+        private readonly string _dbConnectionString;
+        private IRecipeFamilyRepository? _recipeFamily;
+        private IRecipeCategoryRepository? _recipeCategory;
+        private ISilaApprovalStepRepository? _silaApprovalStep;
+        private IPosSourceRepository? _posSource;
+        private IPosOutletMappingRepository? _posOutletMapping;
+        private IPosItemMappingRepository? _posItemMapping;
+        private IMaterialPriceChangeRepository? _materialPriceChange;
+        private IInternalPurchaseRequestRepository? _internalPurchaseRequest;
+        private IQuickTransferPolicyRepository? _quickTransferPolicy;
+        private IPhysicalInventoryRequestRepository? _physicalInventoryRequest;
+        private ILocationMaterialThresholdRepository? _locationMaterialThreshold;
+        private ISilaSupplierRepository? _silaSupplier;
+        private ICompanyCodeMasterRepository? _companyCodeMaster;
+        private IInvoiceExtractionRepository? _invoiceExtraction;
+        private ISilaOcrConfigurationRepository? _silaOcrConfiguration;
+        private IRecipeSubstitutionProposalRepository? _recipeSubstitutionProposal;
+        private IStockCountPhotoRepository? _stockCountPhoto;
+        private ISilaDocumentSequenceRepository? _silaDocumentSequence;
+        private IMaterialUomConversionRepository? _materialUomConversion;
+        private IInventoryLocationRepository? _inventoryLocation;
+        private IInventoryLocationUserMappingRepository? _inventoryLocationUserMapping;
+        private IInventoryLocationMaterialRepository? _inventoryLocationMaterial;
+        private IInventoryBalanceRepository? _inventoryBalance;
+        private IInventoryTransactionRepository? _inventoryTransaction;
+        private IInventoryErpPostingRepository? _inventoryErpPosting;
+        private IInternalTransferOrderRepository? _internalTransferOrder;
+        private IInternalTransferOrderItemRepository? _internalTransferOrderItem;
+        private IInventoryWorkflowEventRepository? _inventoryWorkflowEvent;
+        private IGoodsIssueRepository? _goodsIssue;
+        private IGoodsIssueItemRepository? _goodsIssueItem;
+        private IStockAdjustmentRepository? _stockAdjustment;
+        private IStockAdjustmentItemRepository? _stockAdjustmentItem;
+        private IStockCountRepository? _stockCount;
+        private IStockCountItemRepository? _stockCountItem;
+        private IStockShortageEnquiryRepository? _stockShortageEnquiry;
+        private IInventoryAlertRepository? _inventoryAlert;
+        private IRecipeRepository? _recipe;
+        private IRecipeIngredientRepository? _recipeIngredient;
+        private IRecipeOutletPriceRepository? _recipeOutletPrice;
+        private IMaterialOutletPriceRepository? _materialOutletPrice;
+        private IPosSalesBatchRepository? _posSalesBatch;
+        private IPosSalesTransactionRepository? _posSalesTransaction;
+        private IGoodsReceiptRepository? _goodsReceipt;
+        private IGoodsReceiptItemRepository? _goodsReceiptItem;
+        private IInvoiceRepository? _invoice;
+        private IInvoiceItemRepository? _invoiceItem;
+        private IBuyerBusinessProfileRepository _buyerBusinessProfileRepository;
+        private IBuyerCategoryRepository _buyerCategoryRepository;
+        private IAssetRepository _assetRepository;
+        private IBuyerBankAccountRepository _buyerBankAccountRepository;
+        private IBuyerDeliveryLocationRepository _buyerDeliveryLocationRepository;
+        private IBuyerRegistrationRepository _buyerRegistrationRepository;
+        private IItemBuyerMasterRepository _itemBuyerMasterRepository;
+        private IBulkInsertHelper? _bulkInsertHelper;
+        private IBuyerDepartmentRepository _buyerDepartmentRepository;
+        private IBuyerCostCenterRepository _buyerCostCenterRepository;
+        private IRFQRepository _rfqRepository;
+        private IRFQAttachmentMappingRepository _rfqAttachmentMappingRepository;
+        private IRFQQuestionRepository _rfqQuestionRepository;
+        private IRFQQuestionOptionRepository _rfqQuestionOptionRepository;
+        private IRFQItemRepository _rfqItemRepository;
+        private IBuyerSupplierMappingRepository _buyerSupplierMappingRepository;
+
+        private IRFQItemAttachmentMappingRepository _rfqItemAttachmentMappingRepository;
+        private IRFQSupplierMappingRepository _rfqSupplierMapping;
+        private IRFQOrganizationUserMappingRepository _rfqOrganizationUserMapping;
+
+        private ISupplierVerificationRequestRepository _supplierVerificationRequest;
+        private IVerificationTemplateRepository _verificationTemplateRepository;
+        private IVerificationTemplateQuestionRepository _verificationTemplateQuestionRepository;
+        private IVerificationTemplateQuestionOptionRepository _verificationTemplateQuestionOptionRepository;
+        private IDefaultVerificationTemplateQuestionRepository _defaultVerificationTemplateQuestionRepository;
+        private IDefaultVerificationTemplateRepository _defaultVerificationTemplateRepository;
+
+        private IRFQQuestionAttachmentMappingRepository _rfqQuestionAttachmentMappingRepository;
+        private IRFQBlockchainRecordRepository _rfqBlockchainRecordRepository;
+        private IExternalSupplierRepository _externalSupplierRepository;
+        private IRFQExternalSupplierRepository _rfqExternalSupplierRepository;
+        private IMessageThreadRepository _messageThreadRepository;
+        private IMessageRepository _messageRepository;
+        private IMessageAttachmentRepository _messageAttachmentRepository;
+        private IPredefinedMaterialRepository _predefinedMaterialRepository;
+        private IApprovalFlowUserMappingRepository _approvalFlowUserMappingRepository;
+        private IApprovalFlowPredefinedMaterialMappingRepository _approvalFlowPredefinedMaterialMappingRepository;
+        private IPredefinedMaterialApprovalFlowUserMappingRepository _predefinedMaterialApprovalFlowUserMappingRepository;
+        private IMasterApprovalFlowRepository _masterApprovalFlowRepository;
+        private IExcelMaterialMasterRepository _excelMaterialMasterRepository;
+        private IRFQAwardRepository _rfqAwardRepository;
+        private IRFQAwardItemRepository _rfqAwardItemRepository;
+        private IPredefinedContractRepository _predefinedContractRepository;
+        private IPredefinedContractAttachmentRepository _predefinedContractAttachmentRepository;
+        private IPredefinedContractApprovalFlowRepository _predefinedContractApprovalFlowRepository;
+        private IPredefinedContractApprovalUserMappingRepository _predefinedContractApprovalUserMappingRepository;
+        private IContractTemplateRepository _contractTemplateRepository;
+        private IContractDetailsRepository _contractDetailsRepository;
+        private IContractAttachmentRepository _contractAttachmentRepository;
+        private IWeeklyBucketRepository _weeklyBucketRepository;
+        private IWeeklyBucketItemRepository _weeklyBucketItemRepository;
+        private IWeeklyBucketRecommendationRepository _weeklyBucketRecommendationRepository;
+        private IWeeklyBucketApprovalFlowRepository _weeklyBucketApprovalFlowRepository;
+        private IWeeklyBucketApprovalUserMappingRepository _weeklyBucketApprovalUserMappingRepository;
+        private IWeeklyBucketAuditRepository _weeklyBucketAuditRepository;
+        private IBuyerPropertyRepository _buyerPropertyRepository;
+        private ICatalogMaterialMappingRepository _catalogMaterialMappingRepository;
+        private IPersonalWishlistRepository _personalWishlistRepository;
+        private IPersonalWishlistItemRepository _personalWishlistItemRepository;
+        private IBuyerOutletRepository _buyerOutletRepository;
+        private IBuyerOutletUserMappingRepository _buyerOutletUserMappingRepository;
+        private IErpIntegrationRepository _erpIntegrationRepository;
+        private IPurchaseDocumentIntegrationRepository _purchaseDocumentIntegrationRepository;
+        private IPurchaseOrderRepository _purchaseOrderRepository;
+        private IPurchaseOrderItemRepository _purchaseOrderItemRepository;
+
+        private IApiIntegrationConfigurationRepository? _apiIntegrationConfiguration;
+        private IApiFieldMappingRepository? _apiFieldMapping;
+        private IApiIntegrationExecutionRepository? _apiIntegrationExecution;
+        private IIntegrationSchemaSnapshotRepository? _integrationSchemaSnapshot;
+
+        public RepositoryWrapper(RepositoryContext repositoryContext, IUserIdentityService userIdentityService, IConfiguration configuration, ILoggerManager logger)
+        {
+            _context = repositoryContext;
+            _userIdentityService = userIdentityService;
+            _logger = logger;
+            _configuration = configuration;
+            _dbConnectionString = configuration.GetConnectionString("DefaultConnection")!;
+        }
+        public IBuyerBusinessProfileRepository BuyerBusinessProfile
+        {
+            get
+            {
+                if (_buyerBusinessProfileRepository == null)
+                {
+                    _buyerBusinessProfileRepository = new BuyerBusinessProfileRepository(_context);
+                }
+                return _buyerBusinessProfileRepository;
+            }
+        }
+        public IBuyerBankAccountRepository BuyerBankAccount
+        {
+            get
+            {
+                if (_buyerBankAccountRepository == null)
+                {
+                    _buyerBankAccountRepository = new BuyerBankAccountRepository(_context);
+                }
+                return _buyerBankAccountRepository;
+            }
+        }
+        public IAssetRepository Asset
+        {
+            get
+            {
+                if (_assetRepository == null)
+                {
+                    _assetRepository = new AssetRepository(_context);
+                }
+                return _assetRepository;
+            }
+        }
+        public IBuyerCategoryRepository BuyerCategory
+        {
+            get
+            {
+                if (_buyerCategoryRepository == null)
+                {
+                    _buyerCategoryRepository = new BuyerCategoryRepository(_context);
+                }
+                return _buyerCategoryRepository;
+            }
+        }
+        public IBuyerDeliveryLocationRepository BuyerDeliveryLocation
+        {
+            get
+            {
+                if (_buyerDeliveryLocationRepository == null)
+                {
+                    _buyerDeliveryLocationRepository = new BuyerDeliveryLocationRepository(_context);
+                }
+                return _buyerDeliveryLocationRepository;
+            }
+        }
+        public IBuyerRegistrationRepository BuyerRegistration
+        {
+            get
+            {
+                if (_buyerRegistrationRepository == null)
+                {
+                    _buyerRegistrationRepository = new BuyerRegistrationRepository(_context);
+                }
+                return _buyerRegistrationRepository;
+            }
+        }
+        public IBuyerDepartmentRepository BuyerDepartment
+        {
+            get
+            {
+                if (_buyerDepartmentRepository == null)
+                {
+                    _buyerDepartmentRepository = new BuyerDepartmentRepository(_context);
+                }
+                return _buyerDepartmentRepository;
+            }
+        }
+        public IBuyerCostCenterRepository BuyerCostCenter
+        {
+            get
+            {
+                if (_buyerCostCenterRepository == null)
+                {
+                    _buyerCostCenterRepository = new BuyerCostCenterRepository(_context);
+                }
+                return _buyerCostCenterRepository;
+            }
+        }
+        public IRFQRepository RFQ
+        {
+            get
+            {
+                if (_rfqRepository == null)
+                {
+                    _rfqRepository = new RFQRepository(_context);
+                }
+
+                return _rfqRepository;
+            }
+        }
+        public IRFQAttachmentMappingRepository RFQAttachmentMapping
+        {
+            get
+            {
+                if (_rfqAttachmentMappingRepository == null)
+                {
+                    _rfqAttachmentMappingRepository =
+                        new RFQAttachmentMappingRepository(_context);
+                }
+
+                return _rfqAttachmentMappingRepository;
+            }
+        }
+        public IRFQQuestionRepository RFQQuestion
+        {
+            get
+            {
+                if (_rfqQuestionRepository == null)
+                {
+                    _rfqQuestionRepository = new RFQQuestionRepository(_context);
+                }
+
+                return _rfqQuestionRepository;
+            }
+        }
+
+        public IRFQQuestionOptionRepository RFQQuestionOption
+        {
+            get
+            {
+                if (_rfqQuestionOptionRepository == null)
+                {
+                    _rfqQuestionOptionRepository = new RFQQuestionOptionRepository(_context);
+                }
+
+                return _rfqQuestionOptionRepository;
+            }
+        }
+        public IRFQItemRepository RFQItem
+        {
+            get
+            {
+                if (_rfqItemRepository == null)
+                {
+                    _rfqItemRepository = new RFQItemRepository(_context);
+                }
+
+                return _rfqItemRepository;
+            }
+        }
+
+        public IRFQItemAttachmentMappingRepository RFQItemAttachmentMapping
+        {
+            get
+            {
+                if (_rfqItemAttachmentMappingRepository == null)
+                {
+                    _rfqItemAttachmentMappingRepository =
+                        new RFQItemAttachmentMappingRepository(_context);
+                }
+
+                return _rfqItemAttachmentMappingRepository;
+            }
+        }
+        public IBuyerSupplierMappingRepository BuyerSupplierMapping
+        {
+            get
+            {
+                if(_buyerSupplierMappingRepository==null)
+                {
+                    _buyerSupplierMappingRepository=
+                    new BuyerSupplierMappingRepository(_context);
+                }
+                return _buyerSupplierMappingRepository;
+            }
+        }
+         public IRFQSupplierMappingRepository RFQSupplierMapping
+        {
+            get
+            {
+                if( _rfqSupplierMapping==null)
+                {
+                     _rfqSupplierMapping=
+                    new RFQSupplierMappingRepository(_context);
+                }
+                return  _rfqSupplierMapping;
+            }
+        }
+        public IRFQOrganizationUserMappingRepository RFQOrganizationUserMapping
+        {
+            get
+            {
+                if (_rfqOrganizationUserMapping == null)
+                {
+                    _rfqOrganizationUserMapping =
+                    new RFQOrganizationUserMappingRepository(_context);
+                }
+                return _rfqOrganizationUserMapping;
+            }
+        }
+         public ISupplierVerificationRequestRepository SupplierVerificationRequest
+        {
+            get
+            {
+                if( _supplierVerificationRequest==null)
+                {
+                     _supplierVerificationRequest=
+                    new SupplierVerificationRequestRepository(_context);
+                }
+                return  _supplierVerificationRequest;
+            }
+        }
+
+
+        public IItemBuyerMasterRepository ItemBuyerMaster
+        {
+            get
+            {
+                if (_itemBuyerMasterRepository == null)
+                {
+                    _itemBuyerMasterRepository =
+                        new ItemBuyerMasterRepository(_context);
+                }
+
+                return _itemBuyerMasterRepository;
+            }
+        }
+        public IBulkInsertHelper BulkInsertHelper
+        {
+            get
+            {
+                if (_bulkInsertHelper == null)
+                {
+                    _bulkInsertHelper = new BulkInsertHelper(
+                        _context,
+                        _userIdentityService);
+                }
+
+                return _bulkInsertHelper;
+            }
+        }
+         public IVerificationTemplateRepository VerificationTemplate
+        {
+            get
+            {
+                if (_verificationTemplateRepository == null)
+                {
+                   _verificationTemplateRepository = new VerificationTemplateRepository(_context);
+                }
+
+                return _verificationTemplateRepository;
+            }
+        }
+
+         public IVerificationTemplateQuestionRepository VerificationTemplateQuestion
+        {
+            get
+            {
+                if (_verificationTemplateQuestionRepository == null)
+                {
+                   _verificationTemplateQuestionRepository = new VerificationTemplateQuestionRepository(_context);
+                }
+
+                return _verificationTemplateQuestionRepository;
+            }
+        }
+        public IVerificationTemplateQuestionOptionRepository VerificationTemplateQuestionOptionRepository
+        {
+            get
+            {
+                if (_verificationTemplateQuestionOptionRepository == null)
+                {
+                   _verificationTemplateQuestionOptionRepository = new VerificationTemplateQuestionOptionRepository(_context);
+                }
+
+                return _verificationTemplateQuestionOptionRepository;
+            }
+        }
+            public IDefaultVerificationTemplateQuestionRepository DefaultVerificationTemplateQuestionRepository
+        {
+            get
+            {
+                if (_defaultVerificationTemplateQuestionRepository == null)
+                {
+                   _defaultVerificationTemplateQuestionRepository = new DefaultVerificationTemplateQuestionRepository(_context);
+                }
+
+                return _defaultVerificationTemplateQuestionRepository;
+            }
+        }
+
+         public IDefaultVerificationTemplateRepository DefaultVerificationTemplateRepository
+        {
+            get
+            {
+                if (_defaultVerificationTemplateRepository == null)
+                {
+                   _defaultVerificationTemplateRepository = new DefaultVerificationTemplateRepository(_context);
+                }
+
+                return _defaultVerificationTemplateRepository;
+            }
+        }
+
+        public IRFQQuestionAttachmentMappingRepository RFQQuestionAttachmentMapping
+        {
+            get
+            {
+                if (_rfqQuestionAttachmentMappingRepository == null)
+                {
+                    _rfqQuestionAttachmentMappingRepository = new RFQQuestionAttachmentMappingRepository(_context);
+                }
+
+                return _rfqQuestionAttachmentMappingRepository;
+            }
+        }
+        public IRFQBlockchainRecordRepository RFQBlockchainRecord
+        {
+            get
+            {
+                if (_rfqBlockchainRecordRepository == null)
+                {
+                    _rfqBlockchainRecordRepository = new RFQBlockchainRecordRepository(_context);
+                }
+
+                return _rfqBlockchainRecordRepository;
+            }
+        }
+        public IExternalSupplierRepository ExternalSupplier
+        {
+            get
+            {
+                if (_externalSupplierRepository == null)
+                {
+                    _externalSupplierRepository = new ExternalSupplierRepository(_context);
+                }
+
+                return _externalSupplierRepository;
+            }
+        }
+        public IRFQExternalSupplierRepository RFQExternalSupplier
+        {
+            get
+            {
+                if (_rfqExternalSupplierRepository == null)
+                {
+                    _rfqExternalSupplierRepository = new RFQExternalSupplierRepository(_context);
+                }
+
+                return _rfqExternalSupplierRepository;
+            }
+        }
+        public IMessageThreadRepository MessageThread
+        {
+            get
+            {
+                if (_messageThreadRepository == null)
+                {
+                    _messageThreadRepository = new MessageThreadRepository(_context);
+                }
+
+                return _messageThreadRepository;
+            }
+        }
+        public IMessageRepository Message
+        {
+            get
+            {
+                if (_messageRepository == null)
+                {
+                    _messageRepository = new MessageRepository(_context);
+                }
+
+                return _messageRepository;
+            }
+        }
+        public IMessageAttachmentRepository MessageAttachment
+        {
+            get
+            {
+                if (_messageAttachmentRepository == null)
+                {
+                    _messageAttachmentRepository = new MessageAttachmentRepository(_context);
+                }
+
+                return _messageAttachmentRepository;
+            }
+        }
+        public IPredefinedMaterialRepository PredefinedMaterial
+        {
+            get
+            {
+                if (_predefinedMaterialRepository == null)
+                {
+                    _predefinedMaterialRepository = new PredefinedMaterialRepository(_context);
+                }
+
+                return _predefinedMaterialRepository;
+            }
+        }
+        public IApprovalFlowUserMappingRepository ApprovalFlowUserMapping
+        {
+            get
+            {
+                if (_approvalFlowUserMappingRepository == null)
+                {
+                    _approvalFlowUserMappingRepository = new ApprovalFlowUserMappingRepository(_context);
+                }
+
+                return _approvalFlowUserMappingRepository;
+            }
+        }
+        public IApprovalFlowPredefinedMaterialMappingRepository ApprovalFlowPredefinedMaterialMapping
+        {
+            get
+            {
+                if (_approvalFlowPredefinedMaterialMappingRepository == null)
+                {
+                    _approvalFlowPredefinedMaterialMappingRepository = new ApprovalFlowPredefinedMaterialMappingRepository(_context);
+                }
+
+                return _approvalFlowPredefinedMaterialMappingRepository;
+            }
+        }
+        public IPredefinedMaterialApprovalFlowUserMappingRepository PredefinedMaterialApprovalFlowUserMapping
+        {
+            get
+            {
+                if (_predefinedMaterialApprovalFlowUserMappingRepository == null)
+                {
+                    _predefinedMaterialApprovalFlowUserMappingRepository = new PredefinedMaterialApprovalFlowUserMappingRepository(_context);
+                }
+
+                return _predefinedMaterialApprovalFlowUserMappingRepository;
+            }
+        }
+        public IMasterApprovalFlowRepository MasterApprovalFlow
+        {
+            get
+            {
+                if (_masterApprovalFlowRepository == null)
+                {
+                    _masterApprovalFlowRepository = new MasterApprovalFlowRepositoty(_context);
+                }
+
+                return _masterApprovalFlowRepository;
+            }
+        }
+        public IExcelMaterialMasterRepository ExcelMaterialMaster
+        {
+            get
+            {
+                if (_excelMaterialMasterRepository == null)
+                {
+                    _excelMaterialMasterRepository = new ExcelMaterialMasterRepository(_context);
+                }
+
+                return _excelMaterialMasterRepository;
+            }
+        }
+        public IRFQAwardRepository RFQAward
+        {
+            get
+            {
+                if (_rfqAwardRepository == null)
+                {
+                    _rfqAwardRepository = new RFQAwardRepository(_context);
+                }
+                return _rfqAwardRepository;
+            }
+        }
+        public IRFQAwardItemRepository RFQAwardItem
+        {
+            get
+            {
+                if (_rfqAwardItemRepository == null)
+                {
+                    _rfqAwardItemRepository = new RFQAwardItemRepository(_context);
+                }
+                return _rfqAwardItemRepository;
+            }
+        }
+        public IPredefinedContractRepository PredefinedContract
+        {
+            get
+            {
+                if (_predefinedContractRepository == null)
+                {
+                    _predefinedContractRepository = new PredefinedContractRepository(_context);
+                }
+                return _predefinedContractRepository;
+            }
+        }
+        public IPredefinedContractAttachmentRepository PredefinedContractAttachment
+        {
+            get
+            {
+                if (_predefinedContractAttachmentRepository == null)
+                {
+                    _predefinedContractAttachmentRepository = new PredefinedContractAttachmentRepository(_context);
+                }
+                return _predefinedContractAttachmentRepository;
+            }
+        }
+        public IPredefinedContractApprovalFlowRepository PredefinedContractApprovalFlow
+        {
+            get
+            {
+                if (_predefinedContractApprovalFlowRepository == null)
+                {
+                    _predefinedContractApprovalFlowRepository = new PredefinedContractApprovalFlowRepository(_context);
+                }
+                return _predefinedContractApprovalFlowRepository;
+            }
+        }
+        public IPredefinedContractApprovalUserMappingRepository PredefinedContractApprovalUserMapping
+        {
+            get
+            {
+                if (_predefinedContractApprovalUserMappingRepository == null)
+                {
+                    _predefinedContractApprovalUserMappingRepository = new PredefinedContractApprovalUserMappingRepository(_context);
+                }
+                return _predefinedContractApprovalUserMappingRepository;
+            }
+        }
+        public IContractTemplateRepository ContractTemplate
+        {
+            get
+            {
+                if (_contractTemplateRepository == null)
+                {
+                    _contractTemplateRepository = new ContractTemplateRepository(_context);
+                }
+                return _contractTemplateRepository;
+            }
+        }
+        public IContractDetailsRepository ContractDetails
+        {
+            get
+            {
+                if (_contractDetailsRepository == null)
+                {
+                    _contractDetailsRepository = new ContractDetailsRepository(_context);
+                }
+                return _contractDetailsRepository;
+            }
+        }
+        public IContractAttachmentRepository ContractAttachment
+        {
+            get
+            {
+                if (_contractAttachmentRepository == null)
+                {
+                    _contractAttachmentRepository = new ContractAttachmentRepository(_context);
+                }
+                return _contractAttachmentRepository;
+            }
+        }
+        public IWeeklyBucketRepository WeeklyBucket
+        {
+            get
+            {
+                if (_weeklyBucketRepository == null)
+                {
+                    _weeklyBucketRepository = new WeeklyBucketRepository(_context);
+                }
+                return _weeklyBucketRepository;
+            }
+        }
+        public IWeeklyBucketItemRepository WeeklyBucketItem
+        {
+            get
+            {
+                if (_weeklyBucketItemRepository == null)
+                {
+                    _weeklyBucketItemRepository = new WeeklyBucketItemRepository(_context);
+                }
+                return _weeklyBucketItemRepository;
+            }
+        }
+        public IWeeklyBucketRecommendationRepository WeeklyBucketRecommendation
+        {
+            get
+            {
+                if (_weeklyBucketRecommendationRepository == null)
+                {
+                    _weeklyBucketRecommendationRepository = new WeeklyBucketRecommendationRepository(_context);
+                }
+                return _weeklyBucketRecommendationRepository;
+            }
+        }
+        public IWeeklyBucketApprovalFlowRepository WeeklyBucketApprovalFlow
+        {
+            get
+            {
+                if (_weeklyBucketApprovalFlowRepository == null)
+                {
+                    _weeklyBucketApprovalFlowRepository = new WeeklyBucketApprovalFlowRepository(_context);
+                }
+                return _weeklyBucketApprovalFlowRepository;
+            }
+        }
+        public IWeeklyBucketApprovalUserMappingRepository WeeklyBucketApprovalUserMapping
+        {
+            get
+            {
+                if (_weeklyBucketApprovalUserMappingRepository == null)
+                {
+                    _weeklyBucketApprovalUserMappingRepository = new WeeklyBucketApprovalUserMappingRepository(_context);
+                }
+                return _weeklyBucketApprovalUserMappingRepository;
+            }
+        }
+        public IWeeklyBucketAuditRepository WeeklyBucketAudit
+        {
+            get
+            {
+                if (_weeklyBucketAuditRepository == null)
+                {
+                    _weeklyBucketAuditRepository = new WeeklyBucketAuditRepository(_context);
+                }
+                return _weeklyBucketAuditRepository;
+            }
+        }
+        public IBuyerPropertyRepository BuyerProperty
+        {
+            get
+            {
+                if (_buyerPropertyRepository == null)
+                {
+                    _buyerPropertyRepository = new BuyerPropertyRepository(_context);
+                }
+                return _buyerPropertyRepository;
+            }
+        }
+        public ICatalogMaterialMappingRepository CatalogMaterialMapping
+        {
+            get
+            {
+                if (_catalogMaterialMappingRepository == null)
+                {
+                    _catalogMaterialMappingRepository = new CatalogMaterialMappingRepository(_context);
+                }
+                return _catalogMaterialMappingRepository;
+            }
+        }
+        public IPersonalWishlistRepository PersonalWishlist
+        {
+            get
+            {
+                if (_personalWishlistRepository == null)
+                {
+                    _personalWishlistRepository = new PersonalWishlistRepository(_context);
+                }
+                return _personalWishlistRepository;
+            }
+        }
+        public IPersonalWishlistItemRepository PersonalWishlistItem
+        {
+            get
+            {
+                if (_personalWishlistItemRepository == null)
+                {
+                    _personalWishlistItemRepository = new PersonalWishlistItemRepository(_context);
+                }
+                return _personalWishlistItemRepository;
+            }
+        }
+        public IBuyerOutletRepository BuyerOutlet
+        {
+            get
+            {
+                if (_buyerOutletRepository == null)
+                {
+                    _buyerOutletRepository = new BuyerOutletRepository(_context);
+                }
+                return _buyerOutletRepository;
+            }
+        }
+        public IBuyerOutletUserMappingRepository BuyerOutletUserMapping
+        {
+            get
+            {
+                if (_buyerOutletUserMappingRepository == null)
+                {
+                    _buyerOutletUserMappingRepository = new BuyerOutletUserMappingRepository(_context);
+                }
+                return _buyerOutletUserMappingRepository;
+            }
+        }
+        public IErpIntegrationRepository ErpIntegration
+        {
+            get
+            {
+                if (_erpIntegrationRepository == null)
+                {
+                    _erpIntegrationRepository = new ErpIntegrationRepository(_context);
+                }
+                return _erpIntegrationRepository;
+            }
+        }
+        public IPurchaseDocumentIntegrationRepository PurchaseDocumentIntegration
+        {
+            get
+            {
+                if (_purchaseDocumentIntegrationRepository == null)
+                {
+                    _purchaseDocumentIntegrationRepository = new PurchaseDocumentIntegrationRepository(_context);
+                }
+                return _purchaseDocumentIntegrationRepository;
+            }
+        }
+        public IPurchaseOrderRepository PurchaseOrder
+        {
+            get
+            {
+                if (_purchaseOrderRepository == null)
+                {
+                    _purchaseOrderRepository = new PurchaseOrderRepository(_context);
+                }
+                return _purchaseOrderRepository;
+            }
+        }
+        public IPurchaseOrderItemRepository PurchaseOrderItem
+        {
+            get
+            {
+                if (_purchaseOrderItemRepository == null)
+                {
+                    _purchaseOrderItemRepository = new PurchaseOrderItemRepository(_context);
+                }
+                return _purchaseOrderItemRepository;
+            }
+        }
+
+        public IApiIntegrationConfigurationRepository ApiIntegrationConfiguration
+        {
+            get
+            {
+                _apiIntegrationConfiguration ??= new ApiIntegrationConfigurationRepository(_context);
+                return _apiIntegrationConfiguration;
+            }
+        }
+
+        public IApiFieldMappingRepository ApiFieldMapping
+        {
+            get
+            {
+                _apiFieldMapping ??= new ApiFieldMappingRepository(_context);
+                return _apiFieldMapping;
+            }
+        }
+
+        public IApiIntegrationExecutionRepository ApiIntegrationExecution
+        {
+            get
+            {
+                _apiIntegrationExecution ??= new ApiIntegrationExecutionRepository(_context);
+                return _apiIntegrationExecution;
+            }
+        }
+
+        public IIntegrationSchemaSnapshotRepository IntegrationSchemaSnapshot
+        {
+            get
+            {
+                _integrationSchemaSnapshot ??= new IntegrationSchemaSnapshotRepository(_context);
+                return _integrationSchemaSnapshot;
+            }
+        }
+
+        public IMaterialUomConversionRepository MaterialUomConversion
+        {
+            get
+            {
+                _materialUomConversion ??= new MaterialUomConversionRepository(_context);
+                return _materialUomConversion;
+            }
+        }
+
+        public IInventoryLocationRepository InventoryLocation
+        {
+            get
+            {
+                _inventoryLocation ??= new InventoryLocationRepository(_context);
+                return _inventoryLocation;
+            }
+        }
+
+        public IInventoryLocationUserMappingRepository InventoryLocationUserMapping
+        {
+            get
+            {
+                _inventoryLocationUserMapping ??= new InventoryLocationUserMappingRepository(_context);
+                return _inventoryLocationUserMapping;
+            }
+        }
+
+        public IInventoryLocationMaterialRepository InventoryLocationMaterial
+        {
+            get
+            {
+                _inventoryLocationMaterial ??= new InventoryLocationMaterialRepository(_context);
+                return _inventoryLocationMaterial;
+            }
+        }
+
+        public IInventoryBalanceRepository InventoryBalance
+        {
+            get
+            {
+                _inventoryBalance ??= new InventoryBalanceRepository(_context);
+                return _inventoryBalance;
+            }
+        }
+
+        public IInventoryTransactionRepository InventoryTransaction
+        {
+            get
+            {
+                _inventoryTransaction ??= new InventoryTransactionRepository(_context);
+                return _inventoryTransaction;
+            }
+        }
+
+        public IInventoryErpPostingRepository InventoryErpPosting
+        {
+            get
+            {
+                _inventoryErpPosting ??= new InventoryErpPostingRepository(_context);
+                return _inventoryErpPosting;
+            }
+        }
+
+        public IInternalTransferOrderRepository InternalTransferOrder
+        {
+            get
+            {
+                _internalTransferOrder ??= new InternalTransferOrderRepository(_context);
+                return _internalTransferOrder;
+            }
+        }
+
+        public IInternalTransferOrderItemRepository InternalTransferOrderItem
+        {
+            get
+            {
+                _internalTransferOrderItem ??= new InternalTransferOrderItemRepository(_context);
+                return _internalTransferOrderItem;
+            }
+        }
+
+        public IInventoryWorkflowEventRepository InventoryWorkflowEvent
+        {
+            get
+            {
+                _inventoryWorkflowEvent ??= new InventoryWorkflowEventRepository(_context);
+                return _inventoryWorkflowEvent;
+            }
+        }
+
+        public IGoodsIssueRepository GoodsIssue
+        {
+            get
+            {
+                _goodsIssue ??= new GoodsIssueRepository(_context);
+                return _goodsIssue;
+            }
+        }
+
+        public IGoodsIssueItemRepository GoodsIssueItem
+        {
+            get
+            {
+                _goodsIssueItem ??= new GoodsIssueItemRepository(_context);
+                return _goodsIssueItem;
+            }
+        }
+
+        public IStockAdjustmentRepository StockAdjustment
+        {
+            get
+            {
+                _stockAdjustment ??= new StockAdjustmentRepository(_context);
+                return _stockAdjustment;
+            }
+        }
+
+        public IStockAdjustmentItemRepository StockAdjustmentItem
+        {
+            get
+            {
+                _stockAdjustmentItem ??= new StockAdjustmentItemRepository(_context);
+                return _stockAdjustmentItem;
+            }
+        }
+
+        public IStockCountRepository StockCount
+        {
+            get
+            {
+                _stockCount ??= new StockCountRepository(_context);
+                return _stockCount;
+            }
+        }
+
+        public IStockCountItemRepository StockCountItem
+        {
+            get
+            {
+                _stockCountItem ??= new StockCountItemRepository(_context);
+                return _stockCountItem;
+            }
+        }
+
+        public IStockShortageEnquiryRepository StockShortageEnquiry
+        {
+            get
+            {
+                _stockShortageEnquiry ??= new StockShortageEnquiryRepository(_context);
+                return _stockShortageEnquiry;
+            }
+        }
+
+        public IInventoryAlertRepository InventoryAlert
+        {
+            get
+            {
+                _inventoryAlert ??= new InventoryAlertRepository(_context);
+                return _inventoryAlert;
+            }
+        }
+
+        public IRecipeRepository Recipe
+        {
+            get
+            {
+                _recipe ??= new RecipeRepository(_context);
+                return _recipe;
+            }
+        }
+
+        public IRecipeIngredientRepository RecipeIngredient
+        {
+            get
+            {
+                _recipeIngredient ??= new RecipeIngredientRepository(_context);
+                return _recipeIngredient;
+            }
+        }
+
+        public IRecipeOutletPriceRepository RecipeOutletPrice
+        {
+            get
+            {
+                _recipeOutletPrice ??= new RecipeOutletPriceRepository(_context);
+                return _recipeOutletPrice;
+            }
+        }
+
+
+        public IMaterialOutletPriceRepository MaterialOutletPrice
+        {
+            get
+            {
+                _materialOutletPrice ??= new MaterialOutletPriceRepository(_context);
+                return _materialOutletPrice;
+            }
+        }
+
+        public IPosSalesBatchRepository PosSalesBatch
+        {
+            get
+            {
+                _posSalesBatch ??= new PosSalesBatchRepository(_context);
+                return _posSalesBatch;
+            }
+        }
+
+        public IPosSalesTransactionRepository PosSalesTransaction
+        {
+            get
+            {
+                _posSalesTransaction ??= new PosSalesTransactionRepository(_context);
+                return _posSalesTransaction;
+            }
+        }
+
+        public IGoodsReceiptRepository GoodsReceipt
+        {
+            get
+            {
+                _goodsReceipt ??= new GoodsReceiptRepository(_context);
+                return _goodsReceipt;
+            }
+        }
+
+        public IGoodsReceiptItemRepository GoodsReceiptItem
+        {
+            get
+            {
+                _goodsReceiptItem ??= new GoodsReceiptItemRepository(_context);
+                return _goodsReceiptItem;
+            }
+        }
+
+        public IInvoiceRepository Invoice
+        {
+            get
+            {
+                _invoice ??= new InvoiceRepository(_context);
+                return _invoice;
+            }
+        }
+
+        public IInvoiceItemRepository InvoiceItem
+        {
+            get
+            {
+                _invoiceItem ??= new InvoiceItemRepository(_context);
+                return _invoiceItem;
+            }
+        }
+
+        public IRecipeFamilyRepository RecipeFamily
+        {
+            get
+            {
+                _recipeFamily ??= new RecipeFamilyRepository(_context);
+                return _recipeFamily;
+            }
+        }
+
+        public IRecipeCategoryRepository RecipeCategory
+        {
+            get
+            {
+                _recipeCategory ??= new RecipeCategoryRepository(_context);
+                return _recipeCategory;
+            }
+        }
+
+        public ISilaApprovalStepRepository SilaApprovalStep
+        {
+            get
+            {
+                _silaApprovalStep ??= new SilaApprovalStepRepository(_context);
+                return _silaApprovalStep;
+            }
+        }
+
+        public IPosSourceRepository PosSource
+        {
+            get
+            {
+                _posSource ??= new PosSourceRepository(_context);
+                return _posSource;
+            }
+        }
+
+        public IPosOutletMappingRepository PosOutletMapping
+        {
+            get
+            {
+                _posOutletMapping ??= new PosOutletMappingRepository(_context);
+                return _posOutletMapping;
+            }
+        }
+
+        public IPosItemMappingRepository PosItemMapping
+        {
+            get
+            {
+                _posItemMapping ??= new PosItemMappingRepository(_context);
+                return _posItemMapping;
+            }
+        }
+
+        public IMaterialPriceChangeRepository MaterialPriceChange
+        {
+            get
+            {
+                _materialPriceChange ??= new MaterialPriceChangeRepository(_context);
+                return _materialPriceChange;
+            }
+        }
+
+        public IInternalPurchaseRequestRepository InternalPurchaseRequest
+        {
+            get
+            {
+                _internalPurchaseRequest ??= new InternalPurchaseRequestRepository(_context);
+                return _internalPurchaseRequest;
+            }
+        }
+
+        public IQuickTransferPolicyRepository QuickTransferPolicy
+        {
+            get
+            {
+                _quickTransferPolicy ??= new QuickTransferPolicyRepository(_context);
+                return _quickTransferPolicy;
+            }
+        }
+
+        public IPhysicalInventoryRequestRepository PhysicalInventoryRequest
+        {
+            get
+            {
+                _physicalInventoryRequest ??= new PhysicalInventoryRequestRepository(_context);
+                return _physicalInventoryRequest;
+            }
+        }
+
+        public ILocationMaterialThresholdRepository LocationMaterialThreshold
+        {
+            get
+            {
+                _locationMaterialThreshold ??= new LocationMaterialThresholdRepository(_context);
+                return _locationMaterialThreshold;
+            }
+        }
+
+        public ISilaSupplierRepository SilaSupplier
+        {
+            get
+            {
+                _silaSupplier ??= new SilaSupplierRepository(_context);
+                return _silaSupplier;
+            }
+        }
+
+        public ICompanyCodeMasterRepository CompanyCodeMaster
+        {
+            get
+            {
+                _companyCodeMaster ??= new CompanyCodeMasterRepository(_context);
+                return _companyCodeMaster;
+            }
+        }
+
+        public IInvoiceExtractionRepository InvoiceExtraction
+        {
+            get
+            {
+                _invoiceExtraction ??= new InvoiceExtractionRepository(_context);
+                return _invoiceExtraction;
+            }
+        }
+
+        public ISilaOcrConfigurationRepository SilaOcrConfiguration
+        {
+            get
+            {
+                _silaOcrConfiguration ??= new SilaOcrConfigurationRepository(_context);
+                return _silaOcrConfiguration;
+            }
+        }
+
+        public IRecipeSubstitutionProposalRepository RecipeSubstitutionProposal
+        {
+            get
+            {
+                _recipeSubstitutionProposal ??= new RecipeSubstitutionProposalRepository(_context);
+                return _recipeSubstitutionProposal;
+            }
+        }
+
+        public IStockCountPhotoRepository StockCountPhoto
+        {
+            get
+            {
+                _stockCountPhoto ??= new StockCountPhotoRepository(_context);
+                return _stockCountPhoto;
+            }
+        }
+
+        public ISilaDocumentSequenceRepository SilaDocumentSequence
+        {
+            get
+            {
+                _silaDocumentSequence ??= new SilaDocumentSequenceRepository(_context);
+                return _silaDocumentSequence;
+            }
+        }
+
+        public bool Save()
+        {
+            _context.OnBeforeSaving(_userIdentityService.GetCurrentUser());
+            _context.SaveChanges();
+            return true;
+        }
+
+        public async Task<bool> SaveAsync()
+        {
+            _context.OnBeforeSaving(_userIdentityService.GetCurrentUser());
+            await _context.SaveChangesAsync();
+            return true;
+        }
+    }
+}

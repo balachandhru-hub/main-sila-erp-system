@@ -1,0 +1,6 @@
+/* Stacks the page header, the optional create form and the table with even spacing. */
+.pud-wishlist-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+}
