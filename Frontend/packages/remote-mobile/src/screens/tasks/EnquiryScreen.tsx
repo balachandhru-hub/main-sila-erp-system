@@ -65,7 +65,16 @@ const EnquiryScreen: React.FC = () => {
                 {data.countNumber ? ` · count ${data.countNumber}` : ''}
               </span>
             </section>
+            {data.managerConfigured === false && (
+              <p className="sm-notice sm-notice--warning">MANAGER NOT CONFIGURED. The enquiry stays open.</p>
+            )}
             <Card aside={<StatusBadge status={data.status} />}>
+              {data.systemQty !== null && data.systemQty !== undefined && (
+                <span className="sm-meta">System stock {formatQty(data.systemQty)} {data.uom}</span>
+              )}
+              {data.physicalQty !== null && data.physicalQty !== undefined && (
+                <span className="sm-meta">Physical count {formatQty(data.physicalQty)} {data.uom}</span>
+              )}
               <strong className="sm-title">
                 Shortage {formatQty(data.shortageQty)} {data.uom}
               </strong>

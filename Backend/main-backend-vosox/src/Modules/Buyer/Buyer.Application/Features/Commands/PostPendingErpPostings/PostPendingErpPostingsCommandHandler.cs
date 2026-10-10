@@ -11,6 +11,7 @@ using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.ExceptionHandler;
+using SharedKernel.Integration;
 using SharedKernel.Integration.Entities;
 using SharedKernel.Integration.Enums;
 using SharedKernel.LoggerServices;
@@ -145,16 +146,20 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 }
             }
 
-            IntegrationApiDto api = await _mediator.Send(new ResolveIntegrationQuery
-            {
-                OrganizationId = buyer.OrganizationId,
-                ProcessType = processType,
-                EntityCode = posting.CompanyCode
-            }, cancellationToken);
+            bool stockCount = SilaStockCountSap.IsStockCount(posting.MovementType) && !isGrn && !isInvoice;
+            IntegrationApiDto api = stockCount
+                ? await ResolveStockCountApiAsync(buyer.OrganizationId, posting.CompanyCode, cancellationToken)
+                : await _mediator.Send(new ResolveIntegrationQuery
+                {
+                    OrganizationId = buyer.OrganizationId,
+                    ProcessType = processType,
+                    EntityCode = posting.CompanyCode
+                }, cancellationToken);
             if (!api.Configured || api.ConfigurationId == null)
             {
                 string scope = posting.CompanyCode == null ? string.Empty : $" for company code {posting.CompanyCode} (or ALL)";
-                return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, $"No active {processType} API is configured{scope}.", cancellationToken);
+                string expected = stockCount ? $"{IntegrationProcessType.UPDATE_STOCK} ({SilaStockCountSap.API_CONFIG_NAME}) or {processType}" : processType.ToString();
+                return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, $"No active {expected} API is configured{scope}.", cancellationToken);
             }
 
             ErpDocument? document = isGrn
@@ -171,9 +176,15 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .FindByCondition(x => x.ConfigurationId == api.ConfigurationId.Value && x.IsActive)
                 .ToListAsync(cancellationToken);
             string area = isGrn ? AREA_GRN : isInvoice ? AREA_INVOICE : AREA_GOODS_MOVEMENT;
-            string body = string.IsNullOrWhiteSpace(api.RequestBody)
-                ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
-                : ApplyTemplate(api.RequestBody, area, document, mappings);
+            bool sapShape = stockCount
+                && string.IsNullOrWhiteSpace(api.RequestBody)
+                && (string.Equals(api.Name, SilaStockCountSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
+                    || api.ProcessType == IntegrationProcessType.UPDATE_STOCK);
+            string body = sapShape
+                ? StockCountSapBody(document)
+                : string.IsNullOrWhiteSpace(api.RequestBody)
+                    ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
+                    : ApplyTemplate(api.RequestBody, area, document, mappings);
 
             IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.ConfigurationId.Value, posting, body, cancellationToken);
             // The last call, sanitised, for the transaction tracker.
@@ -339,23 +350,43 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 : await _repository.BuyerProperty.FindByCondition(x => x.Id == headerLocation.PropertyId).FirstOrDefaultAsync(cancellationToken));
 
             ErpDocument document = new ErpDocument();
+            string postingDate = transactions.Max(x => x.BusinessDate).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            bool stockCount = SilaStockCountSap.IsStockCount(posting.MovementType);
             document.Header.Add(("ReferenceNumber", posting.ReferenceNumber));
             document.Header.Add(("MovementType", posting.MovementType));
-            document.Header.Add(("PostingDate", transactions.Max(x => x.BusinessDate).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
+            document.Header.Add(("PostingDate", postingDate));
             document.Header.Add(("Plant", headerProperty?.PlantCode));
             document.Header.Add(("StorageLocation", headerLocation?.StorageLocationCode));
             document.Header.Add(("CompanyCode", headerProperty?.CompanyCode));
+            if (stockCount)
+            {
+                document.Header.Add(("DocumentDate", postingDate));
+                document.Header.Add(("GoodsMovementCode", SilaStockCountSap.GOODS_MOVEMENT_CODE));
+            }
+
             foreach (InventoryTransaction transaction in transactions)
             {
-                document.Items.Add(new List<(string, object?)>
+                string? storageLocation = locations.GetValueOrDefault(transaction.LocationId)?.StorageLocationCode;
+                string? materialCode = materialCodes.GetValueOrDefault(transaction.MaterialId);
+                List<(string, object?)> line = new List<(string, object?)>
                 {
-                    ("MaterialCode", materialCodes.GetValueOrDefault(transaction.MaterialId)),
-                    ("Quantity", transaction.Quantity),
+                    ("MaterialCode", materialCode),
+                    ("Quantity", SilaStockCountSap.AbsoluteQuantity(transaction.Quantity)),
                     ("Uom", transaction.BaseUom),
                     ("Direction", transaction.Direction),
-                    ("StorageLocation", locations.GetValueOrDefault(transaction.LocationId)?.StorageLocationCode),
+                    ("StorageLocation", storageLocation),
                     ("CostCenter", null)
-                });
+                };
+                if (stockCount)
+                {
+                    line.Add(("Material", materialCode));
+                    line.Add(("Plant", headerProperty?.PlantCode));
+                    line.Add(("GoodsMovementType", SilaStockCountSap.GoodsMovementType(transaction.Direction)));
+                    line.Add(("QuantityInEntryUnit", SilaStockCountSap.AbsoluteQuantity(transaction.Quantity)));
+                    line.Add(("EntryUnit", transaction.BaseUom));
+                }
+
+                document.Items.Add(line);
             }
 
             return document;
@@ -618,6 +649,100 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         private static string Camel(string name)
         {
             return char.ToLowerInvariant(name[0]) + name[1..];
+        }
+
+        // Stock count prefers the tested UPDATE_STOCK config named FIVE_POS_UPDATE, then any UPDATE_STOCK API, then a goods movement API.
+        private async Task<IntegrationApiDto> ResolveStockCountApiAsync(Guid organizationId, string? companyCode, CancellationToken cancellationToken)
+        {
+            List<ApiIntegrationConfiguration> named = await _repository.ApiIntegrationConfiguration
+                .FindByCondition(x => IntegrationLookup.BuyerIdsOf(_repository, organizationId).Contains(x.BuyerId)
+                    && x.IsActive
+                    && x.Status == IntegrationConfigurationStatus.ACTIVE
+                    && x.Name == SilaStockCountSap.API_CONFIG_NAME)
+                .ToListAsync(cancellationToken);
+            ApiIntegrationConfiguration? match = MatchEntity(named, companyCode);
+            if (match != null)
+            {
+                return ToApi(match);
+            }
+
+            IntegrationApiDto updateStock = await _mediator.Send(new ResolveIntegrationQuery
+            {
+                OrganizationId = organizationId,
+                ProcessType = IntegrationProcessType.UPDATE_STOCK,
+                EntityCode = companyCode
+            }, cancellationToken);
+            if (updateStock.Configured)
+            {
+                return updateStock;
+            }
+
+            return await _mediator.Send(new ResolveIntegrationQuery
+            {
+                OrganizationId = organizationId,
+                ProcessType = IntegrationProcessType.POST_GOODS_MOVEMENT,
+                EntityCode = companyCode
+            }, cancellationToken);
+        }
+
+        private static ApiIntegrationConfiguration? MatchEntity(List<ApiIntegrationConfiguration> configurations, string? companyCode)
+        {
+            return configurations.FirstOrDefault(x => companyCode != null && x.EntityCode.Equals(companyCode, StringComparison.OrdinalIgnoreCase))
+                ?? configurations.FirstOrDefault(x => x.EntityCode.Equals(IntegrationConstants.ENTITY_CODE_ALL, StringComparison.OrdinalIgnoreCase))
+                ?? (companyCode == null ? configurations.OrderBy(x => x.DateCreated).FirstOrDefault() : null);
+        }
+
+        private static IntegrationApiDto ToApi(ApiIntegrationConfiguration configuration)
+        {
+            return new IntegrationApiDto
+            {
+                Configured = true,
+                ProcessType = configuration.ProcessType,
+                ConfigurationId = configuration.Id,
+                Name = configuration.Name,
+                SystemName = configuration.SystemName,
+                EntityCode = configuration.EntityCode,
+                BaseUrl = configuration.BaseUrl,
+                ResourcePath = configuration.ResourcePath,
+                HttpMethod = configuration.HttpMethod,
+                PayloadFormat = configuration.PayloadFormat,
+                RequestBody = configuration.RequestBody
+            };
+        }
+
+        // SAP material document for a stock count. Quantity is absolute. Credentials stay on the API configuration.
+        private static string StockCountSapBody(ErpDocument document)
+        {
+            string? Header(string name)
+            {
+                return document.Header.FirstOrDefault(x => x.Name == name).Value?.ToString();
+            }
+
+            var items = document.Items.Select(item =>
+            {
+                object? Value(string name)
+                {
+                    return item.FirstOrDefault(x => x.Name == name).Value;
+                }
+
+                return new
+                {
+                    Plant = Value("Plant"),
+                    StorageLocation = Value("StorageLocation"),
+                    Material = Value("Material"),
+                    GoodsMovementType = Value("GoodsMovementType"),
+                    QuantityInEntryUnit = Value("QuantityInEntryUnit"),
+                    EntryUnit = Value("EntryUnit")
+                };
+            }).ToList();
+
+            return JsonSerializer.Serialize(new
+            {
+                PostingDate = Header("PostingDate"),
+                DocumentDate = Header("DocumentDate"),
+                GoodsMovementCode = SilaStockCountSap.GOODS_MOVEMENT_CODE,
+                to_MaterialDocumentItem = items
+            });
         }
 
         // The header fields and lines of one document, in payload order.

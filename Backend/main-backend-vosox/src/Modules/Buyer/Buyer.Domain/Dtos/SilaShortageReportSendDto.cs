@@ -7,5 +7,7 @@ namespace Buyer.Domain.Dtos
         public List<string>? CcEmails { get; set; }
         public string? Subject { get; set; }
         public string? Message { get; set; }
+        /// <summary>PDF, EXCEL or BOTH. The current email service does not attach files; the choice is audited.</summary>
+        public string? Attachment { get; set; }
     }
 }

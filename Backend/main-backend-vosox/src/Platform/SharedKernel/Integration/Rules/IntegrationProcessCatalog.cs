@@ -46,6 +46,8 @@ namespace SharedKernel.Integration.Rules
             [IntegrationProcessType.POST_SALES_ORDER] = new IntegrationProcessInfo { Side = SIDE_SUPPLIER, IsPush = true },
             // SILA ME inventory documents. The push types may map their payload field names (optional).
             [IntegrationProcessType.POST_GOODS_MOVEMENT] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
+            // Stock-count variances. Reuses goods-movement field mapping. The tested config name is FIVE_POS_UPDATE.
+            [IntegrationProcessType.UPDATE_STOCK] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
             [IntegrationProcessType.POST_GRN] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
             [IntegrationProcessType.GET_POS_SALE] = new IntegrationProcessInfo
             {
@@ -69,6 +71,8 @@ namespace SharedKernel.Integration.Rules
             },
             // The invoice file is sent ({fileName, contentType, contentBase64}); the answer is read through the mapping.
             [IntegrationProcessType.EXTRACT_INVOICE] = new IntegrationProcessInfo { IsPush = true, MappingArea = "InvoiceExtraction" },
+            // The executed contract (approved and signed by both parties) is sent to the ERP; the answer's id is kept as the contract's ErpContractId.
+            [IntegrationProcessType.POST_CONTRACT] = new IntegrationProcessInfo { IsPush = true },
         };
 
         /// <summary>The API type's description, or null for a type that is not offered.</summary>

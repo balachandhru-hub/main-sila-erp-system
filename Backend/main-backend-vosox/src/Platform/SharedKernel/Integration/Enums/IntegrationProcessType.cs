@@ -17,11 +17,14 @@ namespace SharedKernel.Integration.Enums
         GET_CATALOG_STOCK,
         POST_SALES_ORDER,
         POST_GOODS_MOVEMENT,
+        /// <summary>Stock-count adjustment (API config FIVE_POS_UPDATE). Same routing as a goods movement; not a second endpoint.</summary>
+        UPDATE_STOCK,
         POST_GRN,
         GET_POS_SALE,
         POST_INVOICE,
         GET_SUPPLIER,
         GET_PO,
-        EXTRACT_INVOICE
+        EXTRACT_INVOICE,
+        POST_CONTRACT
     }
 }

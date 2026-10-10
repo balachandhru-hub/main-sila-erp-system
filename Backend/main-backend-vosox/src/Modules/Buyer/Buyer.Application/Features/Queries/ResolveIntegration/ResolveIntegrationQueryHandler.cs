@@ -1,4 +1,5 @@
 using Buyer.Domain.Dtos;
+using Buyer.Application.Features.Shared;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.Integration.Dtos;
@@ -25,7 +26,7 @@ namespace Buyer.Application.Features.Queries.ResolveIntegration
         {
             _logger.LogInfo($"Resolving integration. OrganizationId: {request.OrganizationId}, ProcessType: {request.ProcessType}, EntityCode: {request.EntityCode}");
             List<ApiIntegrationConfiguration> active = await _repository.ApiIntegrationConfiguration
-                .FindByCondition(x => x.OrganizationId == request.OrganizationId
+                .FindByCondition(x => IntegrationLookup.BuyerIdsOf(_repository, request.OrganizationId).Contains(x.BuyerId)
                     && x.ProcessType == request.ProcessType
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
@@ -44,10 +45,11 @@ namespace Buyer.Application.Features.Queries.ResolveIntegration
                 return new IntegrationApiDto { Configured = false };
             }
 
-            _logger.LogInfo($"Integration resolved. ConfigurationId: {configuration.Id}, OrganizationId: {configuration.OrganizationId}");
+            _logger.LogInfo($"Integration resolved. ConfigurationId: {configuration.Id}, BuyerId: {configuration.BuyerId}");
             return new IntegrationApiDto
             {
                 Configured = true,
+                ProcessType = configuration.ProcessType,
                 ConfigurationId = configuration.Id,
                 Name = configuration.Name,
                 SystemName = configuration.SystemName,

@@ -49,6 +49,7 @@ namespace Buyer.Application.Features.Queries.ResolveIntegration
             return new IntegrationApiDto
             {
                 Configured = true,
+                ProcessType = configuration.ProcessType,
                 ConfigurationId = configuration.Id,
                 Name = configuration.Name,
                 SystemName = configuration.SystemName,

@@ -59,6 +59,11 @@ namespace Buyer.Application.Features.Commands.ReviewSilaStockCountItem
 
             if (decision == SilaStockCountRules.REVIEW_RECOUNT)
             {
+                // The line is cleared so it can be counted again. The original physical quantity stays on this event.
+                string original = item.CountedQty == null
+                    ? "Original count was empty."
+                    : $"Original physical {item.CountedQty:0.####} {item.BaseUom}, variance {item.VarianceQty:0.####}, counted {item.CountedOn:yyyy-MM-dd}.";
+                ledger.AddEvent(Common.SILA_REF_STOCK_COUNT, count.Id, "ORIGINAL_COUNT", $"{item.MaterialCode}: {original}");
                 SilaStockCountRules.ResetForRecount(item, comment!);
                 if (enquiry != null)
                 {

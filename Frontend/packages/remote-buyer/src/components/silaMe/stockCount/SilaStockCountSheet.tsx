@@ -135,7 +135,7 @@ const SilaStockCountSheet: React.FC<SilaStockCountSheetProps> = ({ stockCountId,
         });
       setScanText("");
     } catch (err: unknown) {
-      toastService.error(err instanceof Error ? err.message : "Barcode not recognised.");
+      toastService.error(err instanceof Error ? err.message : "BARCODE NOT MAPPED");
     } finally {
       setScanning(false);
     }

@@ -30,6 +30,7 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
   { value: "GET_CATALOG_STOCK", label: "Product stock", side: "supplier", hasMapping: true, pull: "full" },
   { value: "POST_SALES_ORDER", label: "Sales order (receive in ERP)", side: "supplier", hasMapping: false, pull: "none", calledWhen: "Not called by the application yet." },
   { value: "POST_GOODS_MOVEMENT", label: "Inventory goods movement (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME transfers, goods issues, adjustments, stock counts and POS consumption waiting for ERP posting. Mapping is optional: it renames the payload fields." },
+  { value: "UPDATE_STOCK", label: "Stock count adjustment (UPDATE_STOCK)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called for an approved stock count when this API is active. Name the configuration FIVE_POS_UPDATE to use the tested SAP stock update. Shortage posts Z02 and surplus posts Z01, goods movement code 03, quantity always positive. An empty body sends the SAP material-document shape. A request body template is filled instead when one is saved." },
   { value: "POST_GRN", label: "Goods receipt (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME goods receipts waiting for ERP posting. Mapping is optional: it renames the payload fields." },
   { value: "GET_POS_SALE", label: "POS sales (read from ERP)", side: "buyer", hasMapping: true, pull: "check" },
   { value: "POST_INVOICE", label: "Supplier invoice (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME invoices once their goods receipt reached the ERP. Mapping is optional: it renames the payload fields (Invoice.*). Configure one per company code to route SAP or Ariba." },
@@ -40,7 +41,7 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
 
 /** Push types send data to the external system (EXTRACT_INVOICE sends the file and reads the answer); every other type reads from it. */
 export const isPushProcess = (processType: string): boolean =>
-  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE";
+  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE" || processType.toUpperCase() === "UPDATE_STOCK";
 
 /** The API types one side can configure. */
 export const integrationProcessTypesFor = (side: IntegrationSide): IntegrationProcessType[] =>

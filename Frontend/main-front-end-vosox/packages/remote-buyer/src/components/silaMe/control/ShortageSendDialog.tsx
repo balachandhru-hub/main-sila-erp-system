@@ -23,6 +23,7 @@ const ShortageSendDialog: React.FC<ShortageSendDialogProps> = ({ filter, onClose
   const [cc, setCc] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [attachment, setAttachment] = useState("BOTH");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,8 +51,13 @@ const ShortageSendDialog: React.FC<ShortageSendDialogProps> = ({ filter, onClose
         ccEmails,
         subject: subject.trim() || undefined,
         message: message.trim() || undefined,
+        attachment,
       });
-      toastService.success(`Report sent to ${result.sent} of ${result.recipients} recipient(s).`);
+      if (result.deliveryStatus === "EMAIL_NOT_CONFIGURED" || result.sent === 0) {
+        setError("EMAIL NOT CONFIGURED. Download the Excel or PDF report.");
+        return;
+      }
+      toastService.success(result.note || `Report sent to ${result.sent} of ${result.recipients} recipient(s).`);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not send the report. Download the Excel or PDF report instead.");
@@ -71,10 +77,20 @@ const ShortageSendDialog: React.FC<ShortageSendDialogProps> = ({ filter, onClose
       }}
     >
       <div className="sila-root sila-me sctl-stack">
-        <p className="sila-help">The email carries the totals of the current filter. Recipients open SILA ME for the lines.</p>
+        <p className="sila-help">
+          The email carries the totals of the current filter. Excel and PDF stay as downloads until an email provider that accepts files is configured.
+        </p>
         <div className="sila-field">
           <label className="sila-label" htmlFor="ssr-send-to">To<span className="sila-required">*</span></label>
           <input id="ssr-send-to" className="sila-input" value={to} disabled={sending} placeholder="name@company.com; other@company.com" onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <div className="sila-field">
+          <label className="sila-label" htmlFor="ssr-send-files">Attachment</label>
+          <select id="ssr-send-files" className="sila-input" value={attachment} disabled={sending} onChange={(e) => setAttachment(e.target.value)}>
+            <option value="PDF">PDF</option>
+            <option value="EXCEL">Excel</option>
+            <option value="BOTH">PDF and Excel</option>
+          </select>
         </div>
         <div className="sila-field">
           <label className="sila-label" htmlFor="ssr-send-cc">CC</label>
