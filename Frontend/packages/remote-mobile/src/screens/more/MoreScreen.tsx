@@ -12,9 +12,11 @@ interface MoreEntry {
 }
 
 const ENTRIES: MoreEntry[] = [
-  { label: 'Search', detail: 'Suppliers, purchase orders and GRNs', to: 'search' },
+  { label: 'Scan invoice', detail: 'Photograph the supplier invoice and read it', to: 'receive/scan' },
+  { label: 'Receive goods', detail: 'Select the supplier purchase order and post the receipt', to: 'receive/pos?mode=receive' },
+  { label: 'Purchase orders', detail: 'Search open POs and receive against them', to: 'receive/pos' },
   { label: 'Suppliers', detail: 'Supplier Master: ID, TRN, status', to: 'more/suppliers' },
-  { label: 'Purchase Orders', detail: 'Search open POs and receive against them', to: 'receive/pos' },
+  { label: 'Search', detail: 'Suppliers, purchase orders and GRNs', to: 'search' },
   { label: 'GRN History', detail: 'Goods receipts and their ERP status', to: 'receive/history' },
   { label: 'Internal Transfer History', detail: 'Completed transfers', to: 'inventory/transfers?tab=completed' },
   { label: 'Purchase Requests', detail: 'Requests raised from live inventory', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },

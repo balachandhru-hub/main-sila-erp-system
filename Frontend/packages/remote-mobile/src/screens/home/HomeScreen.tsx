@@ -25,6 +25,13 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Quick Transfer', icon: '➜', to: 'inventory/transfers/new?mode=quick' },
 ];
 
+const RECEIVING: QuickAction[] = [
+  { label: 'Scan invoice', icon: '⎙', to: 'receive/scan' },
+  { label: 'Receive goods', icon: '⇩', to: 'receive/pos?mode=receive' },
+  { label: 'Purchase orders', icon: '☰', to: 'receive/pos' },
+  { label: 'Suppliers', icon: '⌂', to: 'more/suppliers' },
+];
+
 /** Same wording as the prototype (Good Morning / Afternoon / Evening). */
 const greeting = (): string => {
   const hour = new Date().getHours();
@@ -78,6 +85,22 @@ const HomeScreen: React.FC = () => {
         {location && locations.length > 1 && (
           <LocationPicker label="My location" locations={locations} value={location.id} onChange={setLocationId} />
         )}
+
+        <section className="sm-section" aria-labelledby="sm-receiving">
+          <h2 id="sm-receiving">Receiving</h2>
+          <ul className="sm-list">
+            {RECEIVING.map((action) => (
+              <li key={action.label}>
+                <button type="button" className="sm-list-btn" onClick={() => go(action.to)}>
+                  <span className="sm-row">
+                    <strong>{action.label}</strong>
+                    <span aria-hidden="true">›</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <section className="sm-section" aria-labelledby="sm-quick">
           <h2 id="sm-quick">Quick actions</h2>
