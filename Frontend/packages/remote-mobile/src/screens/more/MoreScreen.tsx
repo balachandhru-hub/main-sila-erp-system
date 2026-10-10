@@ -18,6 +18,8 @@ const ENTRIES: MoreEntry[] = [
   { label: 'GRN History', detail: 'Goods receipts and their ERP status', to: 'receive/history' },
   { label: 'Internal Transfer History', detail: 'Completed transfers', to: 'inventory/transfers?tab=completed' },
   { label: 'Purchase Requests', detail: 'Requests raised from live inventory', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },
+  { label: 'Goods Issue', detail: 'Issue store stock to an outlet', to: 'inventory/goods-issues', visible: (can) => can.postGoodsIssue },
+  { label: 'Waste and Adjustments', detail: 'Waste, damage, spoilage, opening stock', to: 'inventory/adjustments', visible: (can) => can.postAdjustment },
   { label: 'Profile', detail: 'Your account and log out', to: 'more/profile' },
   { label: 'Settings', detail: 'Connectivity and working location', to: 'more/settings' },
   { label: 'Help', detail: 'How SILA Store works', to: 'more/help' },

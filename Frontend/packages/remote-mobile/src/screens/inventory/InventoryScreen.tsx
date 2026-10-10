@@ -20,6 +20,8 @@ const ENTRIES: MenuEntry[] = [
   { label: 'Quick Transfer', detail: 'Send stock now; the receiver confirms', to: 'inventory/transfers/new?mode=quick' },
   { label: 'Record Quick Transfer', detail: 'Stock you already collected; the source confirms the handover', to: 'inventory/transfers/new?mode=quick&collected=1' },
   { label: 'Transfers', detail: 'My requests, approvals, in transit, completed', to: 'inventory/transfers' },
+  { label: 'Goods Issue', detail: 'Issue store stock to an outlet', to: 'inventory/goods-issues', visible: (can) => can.postGoodsIssue },
+  { label: 'Waste and Adjustments', detail: 'Waste, damage, spoilage, opening stock', to: 'inventory/adjustments', visible: (can) => can.postAdjustment },
   { label: 'Receiving', detail: 'Receive against an open purchase order', to: 'receive/pos?mode=receive' },
   { label: 'Stock Count', detail: 'Open counts and recounts at my locations', to: 'inventory/counts' },
   { label: 'Purchase Requests', detail: 'My requests and their weekly bucket', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },
