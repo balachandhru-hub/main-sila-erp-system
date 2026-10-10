@@ -45,6 +45,7 @@ namespace Buyer.Application.Features.Commands.SendSilaShortageReport
             List<string> recipients = Recipients(input);
             SilaInputRules.MaxLength(_logger, input.Subject, SilaInputRules.NAME_LENGTH, "subject");
             SilaInputRules.MaxLength(_logger, input.Message, SilaInputRules.DESCRIPTION_LENGTH, "message");
+            string attachment = NormalizeAttachment(input.Attachment);
 
             (DateTime from, DateTime to) = SilaShortageReportRules.Period(_logger, input);
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
@@ -92,16 +93,51 @@ namespace Buyer.Application.Features.Commands.SendSilaShortageReport
                 }
             }
 
+            string status = sent == 0 ? "EMAIL_NOT_CONFIGURED" : sent < recipients.Count ? "PARTIAL" : "SENT";
+            string? note = sent == 0
+                ? "EMAIL NOT CONFIGURED"
+                : "The email service sent the report summary. Download Excel or PDF for the file.";
+            InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
+            ledger.AddEvent(
+                Common.SILA_REF_STOCK_COUNT,
+                buyer.Id,
+                status,
+                $"Shortage report. Recipients={recipients.Count}. Sent={sent}. Attachment={attachment}.");
+            await _repository.SaveAsync();
+
             if (sent == 0)
             {
-                _logger.LogError($"Shortage report email not sent to any recipient. Recipients: {recipients.Count}");
-                throw new FailedDependencyCustomException(
-                    "The report email could not be sent.",
-                    "Email is not available right now. Download the Excel or PDF report and share it instead.");
+                _logger.LogError($"Shortage report email not sent. Recipients: {recipients.Count}. EMAIL NOT CONFIGURED.");
+            }
+            else
+            {
+                _logger.LogInfo($"Shortage report sent. Lines: {totals.Lines}, Sent: {sent}, Recipients: {recipients.Count}, Attachment: {attachment}");
             }
 
-            _logger.LogInfo($"Shortage report sent. Lines: {totals.Lines}, Sent: {sent}, Recipients: {recipients.Count}");
-            return new SilaShortageReportSendResultDto { Recipients = recipients.Count, Sent = sent };
+            return new SilaShortageReportSendResultDto
+            {
+                Recipients = recipients.Count,
+                Sent = sent,
+                DeliveryStatus = status,
+                Note = note
+            };
+        }
+
+        private string NormalizeAttachment(string? attachment)
+        {
+            string value = (attachment ?? string.Empty).Trim().ToUpperInvariant();
+            if (value.Length == 0)
+            {
+                return "NONE";
+            }
+
+            if (value is "PDF" or "EXCEL" or "BOTH" or "NONE")
+            {
+                return value;
+            }
+
+            _logger.LogError($"Invalid shortage report attachment. Attachment: {attachment}");
+            throw new BadRequestCustomException("Attachment is not valid.", "Choose PDF, Excel or both.");
         }
 
         /// <summary>To and Cc addresses: at least one To, at most 10 in all, each a valid address, duplicates removed.</summary>

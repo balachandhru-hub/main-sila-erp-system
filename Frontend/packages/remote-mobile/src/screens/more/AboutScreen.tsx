@@ -12,8 +12,8 @@ const CAPABILITIES: { label: string; status: 'CONNECTED' | 'CLOUD_ONLY' }[] = [
   { label: 'Stock count, recount and photos', status: 'CONNECTED' },
   { label: 'Shortage enquiries', status: 'CONNECTED' },
   { label: 'Purchase requests', status: 'CONNECTED' },
-  { label: 'Price and recipe approvals', status: 'CLOUD_ONLY' },
-  { label: 'Goods issue, waste and adjustments', status: 'CLOUD_ONLY' },
+  { label: 'Price and recipe approvals', status: 'CONNECTED' },
+  { label: 'Goods issue, waste and adjustments', status: 'CONNECTED' },
 ];
 
 const AboutScreen: React.FC = () => (

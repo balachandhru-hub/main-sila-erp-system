@@ -46,6 +46,8 @@ namespace SharedKernel.Integration.Rules
             [IntegrationProcessType.POST_SALES_ORDER] = new IntegrationProcessInfo { Side = SIDE_SUPPLIER, IsPush = true },
             // SILA ME inventory documents. The push types may map their payload field names (optional).
             [IntegrationProcessType.POST_GOODS_MOVEMENT] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
+            // Stock-count variances. Reuses goods-movement field mapping. The tested config name is FIVE_POS_UPDATE.
+            [IntegrationProcessType.UPDATE_STOCK] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
             [IntegrationProcessType.POST_GRN] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
             [IntegrationProcessType.GET_POS_SALE] = new IntegrationProcessInfo
             {

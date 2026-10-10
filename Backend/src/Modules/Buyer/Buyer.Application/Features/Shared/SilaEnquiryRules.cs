@@ -50,16 +50,24 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, string> countNumbers = await repository.StockCount
                 .FindByCondition(x => x.BuyerId == buyerId && countIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, x => x.CountNumber, cancellationToken);
-            Dictionary<Guid, decimal?> unitCosts = await repository.StockCountItem
+            Dictionary<Guid, StockCountItem> lines = await repository.StockCountItem
                 .FindByCondition(x => itemIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, x => x.UnitCost, cancellationToken);
+                .ToDictionaryAsync(x => x.Id, cancellationToken);
             Dictionary<Guid, string> locationNames = await repository.InventoryLocation
                 .FindByCondition(x => x.BuyerId == buyerId && locationIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, x => x.LocationName, cancellationToken);
+            Dictionary<Guid, Guid> managers = (await repository.InventoryLocationUserMapping
+                    .FindByCondition(x => locationIds.Contains(x.LocationId) && x.IsActive)
+                    .Select(x => new { x.LocationId, x.UserId })
+                    .ToListAsync(cancellationToken))
+                .GroupBy(x => x.LocationId)
+                .ToDictionary(x => x.Key, x => x.First().UserId);
 
             return enquiries.Select(enquiry =>
             {
-                decimal? unitCost = unitCosts.TryGetValue(enquiry.StockCountItemId, out decimal? cost) ? cost : null;
+                lines.TryGetValue(enquiry.StockCountItemId, out StockCountItem? line);
+                decimal? unitCost = line?.UnitCost;
+                bool managerConfigured = managers.TryGetValue(enquiry.LocationId, out Guid managerId);
                 return new SilaEnquiryDto
                 {
                     Id = enquiry.Id,
@@ -72,8 +80,12 @@ namespace Buyer.Application.Features.Shared
                     MaterialName = enquiry.MaterialName,
                     LocationId = enquiry.LocationId,
                     LocationName = locationNames.TryGetValue(enquiry.LocationId, out string? name) ? name : null,
+                    SystemQty = line?.SystemQty,
+                    PhysicalQty = line?.CountedQty,
                     ShortageQty = enquiry.ShortageQty,
                     Uom = enquiry.Uom,
+                    AssignedManagerUserId = managerConfigured ? managerId : null,
+                    ManagerConfigured = managerConfigured,
                     ShortageValue = unitCost == null ? null : Math.Round(unitCost.Value * enquiry.ShortageQty, 4, MidpointRounding.AwayFromZero),
                     Status = enquiry.Status,
                     JustificationCategory = enquiry.JustificationCategory,

@@ -9,6 +9,7 @@ import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../componen
 import { useGo } from '../../navigation';
 import { useLoad } from '../../useLoad';
 import BarcodeEntry from './BarcodeEntry';
+import CountPhotoIdentify from './CountPhotoIdentify';
 import CountCounters from './CountCounters';
 import CountLineForm, { type CountTarget } from './CountLineForm';
 import CountSheet from './CountSheet';
@@ -110,6 +111,26 @@ const CountSessionScreen: React.FC = () => {
                           })
                   }
                 />
+                {!reopened && (
+                  <CountPhotoIdentify
+                    stockCountId={data.id}
+                    onConfirm={(candidate) => {
+                      const onSheet = data.items.find((item) => item.materialId === candidate.materialId);
+                      openTarget(
+                        onSheet
+                          ? toTarget(onSheet, 'PHOTO')
+                          : {
+                              itemId: null,
+                              materialId: candidate.materialId,
+                              materialCode: candidate.materialCode,
+                              materialName: candidate.materialName,
+                              uoms: [candidate.baseUom],
+                              method: 'PHOTO',
+                            },
+                      );
+                    }}
+                  />
+                )}
                 {!reopened && (
                   <MaterialPicker
                     label="Search material"

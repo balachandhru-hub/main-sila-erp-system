@@ -88,7 +88,8 @@ namespace Buyer.Application.Features.Commands.ApproveSilaStockCount
                     ReferenceType = Common.SILA_REF_STOCK_COUNT,
                     ReferenceId = count.Id,
                     ReferenceNumber = count.CountNumber,
-                    Reason = "Stock count variance"
+                    Reason = "Stock count variance",
+                    BusinessDate = count.BusinessDate
                 }, cancellationToken);
             }
 

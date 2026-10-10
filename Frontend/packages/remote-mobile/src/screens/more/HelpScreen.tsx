@@ -21,7 +21,11 @@ const TOPICS: { title: string; text: string }[] = [
   },
   {
     title: 'Tasks and alerts',
-    text: 'Tasks lists the counts and recounts waiting for you, the shortage enquiries you must answer (also when the reviewer asks for more information), physical inventories scheduled at your locations, transfers to approve and goods receipts the ERP refused. Price and recipe approvals are shown with their count and are decided in the SILA ME cloud app. Alerts show low stock, variances and transfer discrepancies at your locations.',
+    text: 'Tasks lists the counts and recounts waiting for you, the shortage enquiries you must answer (also when the reviewer asks for more information), physical inventories scheduled at your locations, transfers to approve and goods receipts the ERP refused. Price and recipe approvals waiting for you can be approved or rejected here. Alerts show low stock, variances and transfer discrepancies at your locations.',
+  },
+  {
+    title: 'Goods issue and adjustments',
+    text: 'A goods issue moves stock from a store to an outlet, including lines still open on the outlet weekly bucket. Waste, damage, spoilage, expiry, opening stock and manual corrections are posted from Inventory.',
   },
 ];
 

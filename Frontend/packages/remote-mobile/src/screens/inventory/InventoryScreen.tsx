@@ -16,11 +16,16 @@ interface MenuEntry {
 }
 
 const ENTRIES: MenuEntry[] = [
+  { label: 'Scan invoice', detail: 'Photograph the supplier invoice and read it', to: 'receive/scan' },
+  { label: 'Receive goods', detail: 'Select the supplier purchase order and post the receipt', to: 'receive/pos?mode=receive' },
+  { label: 'Purchase orders', detail: 'Open POs you can receive against', to: 'receive/pos' },
+  { label: 'Suppliers', detail: 'Supplier master: code, name, tax number', to: 'more/suppliers' },
   { label: 'Live Inventory', detail: 'Search stock, see it per location and decide what to do', to: 'inventory/stock' },
   { label: 'Quick Transfer', detail: 'Send stock now; the receiver confirms', to: 'inventory/transfers/new?mode=quick' },
   { label: 'Record Quick Transfer', detail: 'Stock you already collected; the source confirms the handover', to: 'inventory/transfers/new?mode=quick&collected=1' },
   { label: 'Transfers', detail: 'My requests, approvals, in transit, completed', to: 'inventory/transfers' },
-  { label: 'Receiving', detail: 'Receive against an open purchase order', to: 'receive/pos?mode=receive' },
+  { label: 'Goods Issue', detail: 'Issue store stock to an outlet', to: 'inventory/goods-issues', visible: (can) => can.postGoodsIssue },
+  { label: 'Waste and Adjustments', detail: 'Waste, damage, spoilage, opening stock', to: 'inventory/adjustments', visible: (can) => can.postAdjustment },
   { label: 'Stock Count', detail: 'Open counts and recounts at my locations', to: 'inventory/counts' },
   { label: 'Purchase Requests', detail: 'My requests and their weekly bucket', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },
   { label: 'Alerts / Actions', detail: 'Stockout, discrepancy and manager-review tasks', to: 'tasks/alerts' },
