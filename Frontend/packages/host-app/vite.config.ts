@@ -59,7 +59,7 @@ export default defineConfig(({ command, mode }) => {
       },
       // Local gateway: set VITE_DEV_API_PROXY (and leave VITE_AUTH_API_BASE empty) in .env.local so the browser stays same-origin.
       proxy: env.VITE_DEV_API_PROXY
-        ? { '/api': { target: env.VITE_DEV_API_PROXY, changeOrigin: true } }
+        ? { '/api': { target: env.VITE_DEV_API_PROXY, changeOrigin: true, secure: false } }
         : undefined,
     },
     build: {
