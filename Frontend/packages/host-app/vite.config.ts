@@ -43,6 +43,8 @@ export default defineConfig(({ command, mode }) => {
               'remoteSupplier/ExternalSupplierBid': path.resolve(__dirname, '../remote-supplier/src/pages/ExternalSupplierBid.tsx'),
               'remotePlatformUser/PlatformUserApp': path.resolve(__dirname, '../remote-platform-user/src/PlatformUserApp.tsx'),
               'remoteMobile/MobileApp': path.resolve(__dirname, '../remote-mobile/src/MobileApp.tsx'),
+              // node_modules/@vosox/shared-ui follows the vosox checkout, which is behind this tree.
+              '@vosox/shared-ui': path.resolve(__dirname, '../shared-ui/src/index.ts'),
             }).map(([find, replacement]) => ({ find, replacement }))
           : []),
       ],
