@@ -267,6 +267,8 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
 
       {recipe && recipe.versions.length > 0 && <span className="sila-help">Versions: {versionsSummary(recipe.versions)}</span>}
 
+      <div className="srec-editor">
+      <div className="srec-editor-stack">
       <SilaRecipeReadinessPanel readiness={{ ready: issues.length === 0, costComplete, issues }} />
       <SilaRecipeHeaderForm
         values={header}
@@ -286,6 +288,7 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
         priceStatuses={costs.filter((_, index) => lines[index].material).map((cost) => cost.priceStatus)}
         costBasis={activeOutletName ?? "Default prices"}
       />
+      </div>
 
       <section className="sila-card">
         <div className="sila-card-header">
@@ -341,6 +344,7 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
           )}
         </div>
       </section>
+      </div>
 
       <SilaRecipeOutletPrices
         outlets={outlets}

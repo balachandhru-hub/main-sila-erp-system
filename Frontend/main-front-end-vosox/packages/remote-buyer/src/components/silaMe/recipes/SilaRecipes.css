@@ -6,6 +6,27 @@
   gap: var(--sila-space-4);
 }
 
+/* Recipe editor: menu item on the left, ingredients to pick on the right. Same split as SILA ME. */
+.srec-editor {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.88fr) minmax(0, 1.42fr);
+  gap: var(--sila-space-4);
+  align-items: start;
+}
+
+.srec-editor-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-4);
+  min-width: 0;
+}
+
+@media (max-width: 60rem) {
+  .srec-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Filter row above a table */
 .srec-filters {
   display: flex;
