@@ -80,6 +80,48 @@
   font-weight: var(--sila-weight-semibold);
 }
 
+.srec-conversion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-2);
+  margin-top: var(--sila-space-2);
+}
+
+.srec-assign-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-1);
+}
+
+.srec-assign {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sila-space-2);
+  width: 100%;
+  padding: var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: var(--sila-radius);
+  background: var(--sila-surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.srec-assign strong,
+.srec-assign em {
+  font-style: normal;
+}
+
+.srec-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+}
+
 .srec-actions {
   display: flex;
   flex-wrap: wrap;

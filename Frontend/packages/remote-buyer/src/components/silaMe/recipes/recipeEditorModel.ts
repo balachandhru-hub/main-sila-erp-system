@@ -1,7 +1,7 @@
 import type { SilaUomConversion } from "../../../api/silaMe/silaInventoryApi";
 import type { SilaMaterialOutletPrice, SilaRecipeDetail, SilaRecipeListItem, SilaRecipeMode } from "../../../api/silaMe/silaRecipeApi";
 import type { SilaIngredientOption } from "../../../api/silaMe/silaRecipeToolsApi";
-import { toBaseQuantity } from "./recipeFormat";
+import { canonicalUom, toBaseQuantity } from "./recipeFormat";
 
 /** A material as the editor needs it: code, units, conversions and today's price. */
 export interface IngredientMaterial {
@@ -147,7 +147,7 @@ export const lineCost = (line: IngredientLine, outletId = ""): LineCost => {
     else if (baseQuantity == null) issue = `UOM conversion missing (${line.uom} to ${line.material.baseUom})`;
     return {
       baseQuantity,
-      baseUom: line.material.baseUom,
+      baseUom: canonicalUom(line.material.baseUom),
       unitCost,
       currency: price?.currency ?? line.material.currency,
       priceStatus,

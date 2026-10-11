@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, PageHeader, toastService } from "@vosox/shared-ui";
-import { getLocations, type SilaLocation, type SilaMaterial } from "../../../api/silaMe/silaInventoryApi";
+import { getLocations, saveMaterialConversion, type SilaLocation, type SilaMaterial } from "../../../api/silaMe/silaInventoryApi";
 import {
   createRecipe,
   getRecipeUoms,
@@ -121,6 +121,20 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
   const costComplete = lines.length > 0 && costs.every((cost) => cost.cost != null);
   const totalCost = totalCostAt(lines, activeOutlet);
   const currency = header.currency.trim() || lines.find((line) => line.material?.currency)?.material?.currency || "";
+
+  const saveLineConversion = async (material: IngredientMaterial, fromUom: string, toUom: string, factor: number) => {
+    try {
+      await saveMaterialConversion(material.id, { fromUom, toUom, factor });
+      setLines((current) => current.map((line) => (
+        line.material?.id === material.id
+          ? { ...line, material: { ...line.material, conversions: [...line.material.conversions, { fromUom, toUom, factor }] } }
+          : line
+      )));
+      toastService.success(`1 ${fromUom} = ${factor} ${toUom}. Sales will deduct that fraction of ${fromUom} at the outlet.`);
+    } catch (err: unknown) {
+      toastService.error(err instanceof Error ? err.message : "Could not save the conversion.");
+    }
+  };
 
   const addMaterial = (option: SilaIngredientOption) => {
     const material = materialFromOption(option);
@@ -288,6 +302,18 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
         priceStatuses={costs.filter((_, index) => lines[index].material).map((cost) => cost.priceStatus)}
         costBasis={activeOutletName ?? "Default prices"}
       />
+      <SilaRecipeOutletPrices
+        outlets={outlets}
+        prices={prices}
+        costAt={(outletId) => totalCostAt(lines, outletId)}
+        servingQty={toNumber(header.servingQty)}
+        onChange={(id, value) => setPrices((current) => ({ ...current, [id]: value }))}
+        onRemove={(id) => setPrices((current) => {
+          const next = { ...current };
+          delete next[id];
+          return next;
+        })}
+      />
       </div>
 
       <section className="sila-card">
@@ -295,6 +321,7 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
           <h2 className="sila-card-title">{header.itemMode === "DIRECT" ? "Direct consumption" : "Ingredients / consumption"}</h2>
         </div>
         <div className="sila-card-body srec-stack">
+          <span className="sila-help">30 ML of a 750 ML bottle is 0.04 of the bottle. Approved sales multiply that and deduct it at the assigned outlet.</span>
           <div className="sila-field">
             <label className="sila-label" htmlFor="srec-costing-outlet">Show material prices of</label>
             <select
@@ -340,19 +367,12 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
               onChange={(key, change) => setLines((current) => current.map((line) => (line.key === key ? { ...line, ...change } : line)))}
               onRemove={(key) => setLines((current) => current.filter((line) => line.key !== key))}
               onUpdatePrice={canRequestPrice ? setPriceMaterial : undefined}
+              onSaveConversion={saveLineConversion}
             />
           )}
         </div>
       </section>
       </div>
-
-      <SilaRecipeOutletPrices
-        outlets={outlets}
-        prices={prices}
-        costAt={(outletId) => totalCostAt(lines, outletId)}
-        servingQty={toNumber(header.servingQty)}
-        onChange={(id, value) => setPrices((current) => ({ ...current, [id]: value }))}
-      />
 
       {priceMaterial && (
         <SilaMaterialPricePanel

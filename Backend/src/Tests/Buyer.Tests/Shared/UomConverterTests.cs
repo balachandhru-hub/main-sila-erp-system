@@ -78,12 +78,27 @@ namespace Buyer.Tests.Shared
         }
 
         [Fact]
-        public void ToBase_NoConversionsForMaterial_IsBadRequest()
+        public void ToBase_MassAndVolume_ConvertWithoutAMaterialRow()
+        {
+            Assert.Equal(0.001m, UomConverter.ToBase(new FakeLogger(), Material("KG"), 1m, "G", new Dictionary<Guid, List<MaterialUomConversion>>()));
+            Assert.Equal(1000m, UomConverter.ToBase(new FakeLogger(), Material("ML"), 1m, "L", new Dictionary<Guid, List<MaterialUomConversion>>()));
+        }
+
+        [Fact]
+        public void ToBase_BottleOf750Ml_ConvertsRecipeMillilitres()
+        {
+            ItemBuyerMaster material = Material("BOTTLE");
+            decimal result = UomConverter.ToBase(new FakeLogger(), material, 30m, "ML", Conversions(material, ("BTL", "ML", 750m)));
+            Assert.Equal(0.04m, result);
+        }
+
+        [Fact]
+        public void ToBase_UnknownUnit_IsBadRequest()
         {
             ItemBuyerMaster material = Material("KG");
             FakeLogger logger = new FakeLogger();
             Assert.Throws<BadRequestCustomException>(() =>
-                UomConverter.ToBase(logger, material, 1m, "G", new Dictionary<Guid, List<MaterialUomConversion>>()));
+                UomConverter.ToBase(logger, material, 1m, "CASE", new Dictionary<Guid, List<MaterialUomConversion>>()));
             Assert.Single(logger.Errors);
         }
 
