@@ -76,8 +76,6 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState<Saving>("");
-  // Outlet whose material prices cost the ingredients; null = the first outlet with a menu price, else the default prices.
-  const [costingOutlet, setCostingOutlet] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -116,7 +114,7 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
 
   const pricedOutletIds = useMemo(() => Object.keys(prices).filter((id) => prices[id].trim() !== ""), [prices]);
   const pricedOutlets = pricedOutletIds.length;
-  const activeOutlet = costingOutlet ?? pricedOutletIds[0] ?? "";
+  const activeOutlet = pricedOutletIds[0] ?? "";
   const activeOutletName = outlets.find((outlet) => outlet.id === activeOutlet)?.locationName;
   const assignedIds = Object.keys(prices);
   const menuOutletId = (activeOutlet && assignedIds.includes(activeOutlet) ? activeOutlet : assignedIds[0]) ?? "";
@@ -343,22 +341,7 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
           <h2 className="sila-card-title">{header.itemMode === "DIRECT" ? "Direct consumption" : "Ingredients / consumption"}</h2>
         </div>
         <div className="sila-card-body srec-stack">
-          <span className="sila-help">30 ML of a 750 ML bottle is 0.04 of the bottle. Approved sales multiply that and deduct it at the assigned outlet.</span>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="srec-costing-outlet">Show material prices of</label>
-            <select
-              id="srec-costing-outlet"
-              className="sila-select"
-              value={activeOutlet}
-              onChange={(e) => setCostingOutlet(e.target.value)}
-            >
-              <option value="">Default prices</option>
-              {outlets.map((outlet) => (
-                <option key={outlet.id} value={outlet.id}>{outlet.locationName}</option>
-              ))}
-            </select>
-            <span className="sila-help">Material prices come from Material Master and can differ per outlet. The cost below uses the prices of this outlet.</span>
-          </div>
+          <span className="sila-help">30 ML of a 750 ML bottle is 0.04 of the bottle. Approved sales multiply that and deduct it at the assigned outlet. Cost uses the material price of the first outlet that has a menu price, or the default price until then.</span>
           <SilaRecipeIngredientSearch addedIds={lines.filter((x) => x.material).map((x) => x.material!.id)} onAdd={addMaterial} />
           {header.itemMode === "BATCH" && (
             <div className="srec-filters srec-filters--flush">

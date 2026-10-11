@@ -17,7 +17,13 @@ import SilaLiveDecisionPanel from "./SilaLiveDecisionPanel";
 import "../silaMeTheme.css";
 import "./SilaInventory.css";
 
-const MIN_SEARCH = 2;
+/** The signed-in user's home location: an outlet, otherwise a store, otherwise a venue. */
+const homeLocation = (locations: SilaLocation[]): SilaLocation | undefined => {
+  const ofType = (type: string) => locations
+    .filter((location) => location.locationType === type)
+    .sort((a, b) => a.locationCode.localeCompare(b.locationCode))[0];
+  return ofType("OUTLET") ?? ofType("STORE") ?? ofType("VENUE");
+};
 
 const STATUS_TEXT: Record<string, string> = {
   NEGATIVE: "Negative",
@@ -47,13 +53,14 @@ interface SilaLiveInventoryProps {
 }
 
 /**
- * Searches stock across the caller's locations; a material shows its stock per location within the property and the
- * next actions for the quantity required at the caller's location.
+ * Stock at the signed-in user's outlet, store or venue. Search switches the location. A material shows stock by
+ * location and the next actions for the quantity required there.
  */
 const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = true, canRequestPurchase = false, initialSearch = "" }) => {
   const [locations, setLocations] = useState<SilaLocation[]>([]);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [search, setSearch] = useState(initialSearch);
+  const [locationQuery, setLocationQuery] = useState("");
   const [locationId, setLocationId] = useState("");
   const [rows, setRows] = useState<SilaLiveInventoryRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -73,7 +80,13 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
     let active = true;
     getMyLocations()
       .then((data) => {
-        if (active) setLocations(data);
+        if (!active) return;
+        setLocations(data);
+        const home = homeLocation(data);
+        if (home) {
+          setLocationId(home.id);
+          setCurrentLocationId(home.id);
+        }
       })
       .catch((err: unknown) => {
         if (active) setLocationsError(err instanceof Error ? err.message : "Could not load your locations.");
@@ -83,7 +96,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
     };
   }, []);
 
-  const canSearch = search.trim().length >= MIN_SEARCH || Boolean(locationId);
+  const canSearch = Boolean(locationId);
 
   // Searches shortly after the user stops typing.
   useEffect(() => {
@@ -107,7 +120,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
       } finally {
         if (active) setLoading(false);
       }
-    }, 300);
+    }, 100);
     return () => {
       active = false;
       window.clearTimeout(timer);
@@ -159,6 +172,20 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
   }, [selectedId, currentLocationId, requiredQty, detailKey]);
 
   const stockLocations = locations.filter((location) => location.locationType !== "VENUE");
+  const currentLocation = locations.find((location) => location.id === locationId);
+  const locationTerm = locationQuery.trim().toUpperCase();
+  const locationMatches = locationTerm.length === 0
+    ? []
+    : locations
+      .filter((location) => location.id !== locationId
+        && `${location.locationCode} ${location.locationName} ${location.propertyName ?? ""}`.toUpperCase().includes(locationTerm))
+      .slice(0, 8);
+
+  const chooseLocation = (id: string) => {
+    setLocationId(id);
+    setCurrentLocationId(id);
+    setLocationQuery("");
+  };
 
   // The right panel is for picking a source. Empty locations stay off it.
   const sourceRows = (detail?.locations ?? []).filter(
@@ -219,16 +246,38 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
       <PageHeader
         className="pud-page-header"
         title="Live Inventory"
-        description="Pick a material on the left. Click a location on the right to raise a transfer into the transfer location."
+        description="Stock opens at your outlet, store or venue. Search a location to switch. Pick a material, then click a source on the right to transfer into that location."
       />
 
       <div className="sinv-live-editor">
         <div className="sinv-live-stack">
           <section className="sila-card">
             <div className="sila-card-header">
-              <h2 className="sila-card-title">Material search</h2>
+              <h2 className="sila-card-title">Your location</h2>
             </div>
             <div className="sinv-filters">
+              <div className="sila-field sinv-grow">
+                <span className="sila-label">Showing stock at</span>
+                {currentLocation ? (
+                  <span className="sila-cell-strong">
+                    {currentLocation.locationCode} · {currentLocation.locationName}
+                    <span className="sinv-sub">{silaLabel(currentLocation.locationType)} · {currentLocation.propertyName}</span>
+                  </span>
+                ) : (
+                  <span className="sila-help">{locationsError ?? "Loading your location..."}</span>
+                )}
+              </div>
+              <div className="sila-field sinv-grow">
+                <label className="sila-label" htmlFor="sinv-live-location">Search location</label>
+                <input
+                  id="sinv-live-location"
+                  className="sila-input"
+                  type="search"
+                  placeholder="Code, name or property"
+                  value={locationQuery}
+                  onChange={(event) => setLocationQuery(event.target.value)}
+                />
+              </div>
               <div className="sila-field sinv-grow">
                 <label className="sila-label" htmlFor="sinv-live-search">Search material</label>
                 <input
@@ -240,30 +289,24 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
-              <div className="sila-field">
-                <label className="sila-label" htmlFor="sinv-live-location">Location</label>
-                <select
-                  id="sinv-live-location"
-                  className="sila-select"
-                  value={locationId}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setLocationId(value);
-                    if (value) setCurrentLocationId(value);
-                  }}
-                >
-                  <option value="">All my locations</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.locationName} ({location.locationCode})
-                    </option>
-                  ))}
-                </select>
-                {locationsError && <span className="sila-error-text">{locationsError}</span>}
-              </div>
             </div>
+            {locationMatches.length > 0 && (
+              <ul className="sinv-pick-list">
+                {locationMatches.map((location) => (
+                  <li key={location.id}>
+                    <button type="button" className="sinv-pick" onClick={() => chooseLocation(location.id)}>
+                      <span>
+                        <strong>{location.locationCode}</strong>
+                        <span className="sinv-sub">{location.locationName} · {silaLabel(location.locationType)} · {location.propertyName}</span>
+                      </span>
+                      <em>Use</em>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             {!canSearch ? (
-              <EmptyState title="Search inventory" description={`Type at least ${MIN_SEARCH} characters or pick a location.`} />
+              <EmptyState title="No location yet" description="Your outlet, store or venue shows here once locations load." />
             ) : loading ? (
               <Loader size={24} message="Searching..." />
             ) : error ? (
@@ -320,7 +363,6 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                 locations={stockLocations}
                 currentLocationId={currentLocationId}
                 requiredQty={requiredQty}
-                onCurrentLocationChange={setCurrentLocationId}
                 onRequiredQtyChange={setRequiredQty}
                 canTransfer={canTransfer}
                 canRequestPurchase={canRequestPurchase}
