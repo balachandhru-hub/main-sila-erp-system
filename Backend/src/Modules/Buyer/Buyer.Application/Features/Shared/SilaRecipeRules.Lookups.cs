@@ -26,6 +26,11 @@ namespace Buyer.Application.Features.Shared
             return recipes.Select(recipe =>
             {
                 SilaRecipeReadinessDto check = readiness.Evaluate(recipe, recipe.Version);
+                List<RecipeOutletPrice> outletPrices = readiness.PricesOf(recipe.Id, recipe.Version);
+                // ponytail: several outlet prices show the lowest here; each price stays on the outlet row.
+                decimal? menuPrice = outletPrices.Count == 0 ? null : outletPrices.Min(x => x.MenuPrice);
+                decimal perServing = CostPerServing(recipe.TotalCost, recipe.ServingQty);
+                bool marginReady = check.CostComplete && menuPrice is > 0m;
                 return new SilaRecipeListItemDto
                 {
                     Id = recipe.Id,
@@ -55,12 +60,15 @@ namespace Buyer.Application.Features.Shared
                     ReadinessStatus = check.Status,
                     TotalCost = recipe.TotalCost,
                     DraftTotalCost = recipe.DraftTotalCost,
-                    CostPerServing = CostPerServing(recipe.TotalCost, recipe.ServingQty),
+                    CostPerServing = perServing,
+                    MenuPrice = menuPrice,
+                    CostPercent = marginReady ? CostPercent(perServing, menuPrice!.Value) : null,
+                    MarginAmount = marginReady ? MarginAmount(perServing, menuPrice!.Value) : null,
                     PosItem = recipe.PosItem,
                     LastSaleDate = recipe.LastSaleDate,
                     Currency = recipe.Currency,
                     IngredientCount = readiness.IngredientsOf(recipe.Id, recipe.Version).Count,
-                    OutletCount = readiness.PricesOf(recipe.Id, recipe.Version).Count,
+                    OutletCount = outletPrices.Count,
                     SubmittedOn = recipe.SubmittedOn,
                     ApprovedOn = recipe.ApprovedOn,
                     DateUpdated = recipe.DateUpdated

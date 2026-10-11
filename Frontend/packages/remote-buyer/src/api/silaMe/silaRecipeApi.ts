@@ -41,6 +41,12 @@ export interface SilaRecipeListItem {
   draftTotalCost?: number | null;
   /** totalCost / servingQty. */
   costPerServing?: number;
+  /** Lowest outlet menu price of this version; null when no outlet is priced. */
+  menuPrice?: number | null;
+  /** Cost of one serving / menu price x 100. Null until cost is complete and a menu price exists. */
+  costPercent?: number | null;
+  /** Menu price minus the cost of one serving. */
+  marginAmount?: number | null;
   /** ACTIVE | INACTIVE | PENDING APPROVAL | READY FOR APPROVAL | NOT READY (n). */
   readinessStatus?: string;
   /** POS item description. */

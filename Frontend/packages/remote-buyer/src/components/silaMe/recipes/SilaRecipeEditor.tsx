@@ -64,6 +64,8 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
   const [prices, setPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries((recipe?.outletPrices ?? []).map((price) => [price.outletLocationId, String(price.menuPrice)])),
   );
+  // Menu price typed before an outlet is assigned. Copied onto the first outlet the user assigns.
+  const [draftMenuPrice, setDraftMenuPrice] = useState("");
   const [outlets, setOutlets] = useState<SilaLocation[]>([]);
   const [subRecipes, setSubRecipes] = useState<SilaRecipeListItem[]>([]);
   const [families, setFamilies] = useState<SilaRecipeMaster[]>([]);
@@ -116,6 +118,10 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
   const pricedOutlets = pricedOutletIds.length;
   const activeOutlet = costingOutlet ?? pricedOutletIds[0] ?? "";
   const activeOutletName = outlets.find((outlet) => outlet.id === activeOutlet)?.locationName;
+  const assignedIds = Object.keys(prices);
+  const menuOutletId = (activeOutlet && assignedIds.includes(activeOutlet) ? activeOutlet : assignedIds[0]) ?? "";
+  const menuOutletName = outlets.find((outlet) => outlet.id === menuOutletId)?.locationName;
+  const menuPriceText = menuOutletId ? (prices[menuOutletId] ?? "") : draftMenuPrice;
   const costs = useMemo(() => lines.map((line) => lineCost(line, activeOutlet)), [lines, activeOutlet]);
   const issues = editorIssues(lines, header.itemMode, pricedOutletIds, header.familyId, header.categoryId);
   const costComplete = lines.length > 0 && costs.every((cost) => cost.cost != null);
@@ -299,15 +305,31 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
         servingUom={header.servingUom}
         currency={currency}
         pricedOutlets={pricedOutlets}
+        menuPrice={menuPriceText}
+        menuOutlet={menuOutletName}
+        onMenuPrice={(value) => {
+          if (menuOutletId) setPrices((current) => ({ ...current, [menuOutletId]: value }));
+          else setDraftMenuPrice(value);
+        }}
         priceStatuses={costs.filter((_, index) => lines[index].material).map((cost) => cost.priceStatus)}
         costBasis={activeOutletName ?? "Default prices"}
+        breakup={lines.map((line, index) => ({
+          name: line.material
+            ? `${line.material.materialCode} ${line.material.description}`.trim()
+            : `${line.subRecipe?.recipeCode ?? ""} ${line.subRecipe?.name ?? "Ingredient"}`.trim(),
+          cost: costs[index]?.cost ?? null,
+        }))}
       />
       <SilaRecipeOutletPrices
         outlets={outlets}
         prices={prices}
         costAt={(outletId) => totalCostAt(lines, outletId)}
         servingQty={toNumber(header.servingQty)}
-        onChange={(id, value) => setPrices((current) => ({ ...current, [id]: value }))}
+        onChange={(id, value) => setPrices((current) => {
+          const isNew = !Object.prototype.hasOwnProperty.call(current, id);
+          const next = value === "" && isNew && draftMenuPrice.trim() !== "" ? draftMenuPrice : value;
+          return { ...current, [id]: next };
+        })}
         onRemove={(id) => setPrices((current) => {
           const next = { ...current };
           delete next[id];
