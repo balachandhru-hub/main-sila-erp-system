@@ -110,6 +110,11 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return posting.Status;
             }
 
+            if (posting.ReferenceType == Common.SILA_REF_POS_SALE && posting.MovementType == Common.SILA_MOVEMENT_CONSUMPTION)
+            {
+                return await PostConsumptionGroupAsync(posting, cancellationToken);
+            }
+
             BuyerBusinessProfile? buyer = await _repository.BuyerBusinessProfile
                 .FindByCondition(x => x.Id == posting.BuyerId)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -214,6 +219,158 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             string status = posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
             _logger.LogError($"ERP posting was not accepted. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}, Attempts: {posting.Attempts}, StatusCode: {sent.StatusCode}, Code: {sent.ErrorCode}");
             return await FinishAsync(posting, status, null, error, cancellationToken);
+        }
+
+        private const string HELD = "HELD";
+
+        /// <summary>
+        /// One UPDATE_STOCK call per business date, plant and storage location. A group that already has a POSTED
+        /// document is not sent again. A POSTING_UNKNOWN sibling blocks the group. HTTP errors fail once.
+        /// </summary>
+        private async Task<string> PostConsumptionGroupAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
+        {
+            List<InventoryErpPosting> related = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == posting.BuyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_POS_SALE
+                    && x.MovementType == Common.SILA_MOVEMENT_CONSUMPTION
+                    && (x.Status == Common.SILA_POSTING_PENDING || x.Status == Common.SILA_POSTING_UNKNOWN || x.Status == Common.SILA_POSTING_POSTED))
+                .ToListAsync(cancellationToken);
+            List<Guid> saleIds = related.Select(x => x.ReferenceId).Distinct().ToList();
+            Dictionary<Guid, PosSalesTransaction> sales = saleIds.Count == 0
+                ? new Dictionary<Guid, PosSalesTransaction>()
+                : await _repository.PosSalesTransaction
+                    .FindByCondition(x => x.BuyerId == posting.BuyerId && saleIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> locationIds = related.Where(x => x.LocationId != null).Select(x => x.LocationId!.Value).Distinct().ToList();
+            Dictionary<Guid, InventoryLocation> locations = locationIds.Count == 0
+                ? new Dictionary<Guid, InventoryLocation>()
+                : await _repository.InventoryLocation.FindByCondition(x => locationIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> propertyIds = locations.Values.Select(x => x.PropertyId).Distinct().ToList();
+            Dictionary<Guid, BuyerProperty> properties = propertyIds.Count == 0
+                ? new Dictionary<Guid, BuyerProperty>()
+                : await _repository.BuyerProperty.FindByCondition(x => propertyIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+
+            string KeyOf(InventoryErpPosting row)
+            {
+                sales.TryGetValue(row.ReferenceId, out PosSalesTransaction? sale);
+                DateTime date = (sale?.BusinessDate ?? row.DateCreated).Date;
+                InventoryLocation? location = row.LocationId != null ? locations.GetValueOrDefault(row.LocationId.Value) : null;
+                BuyerProperty? property = location != null ? properties.GetValueOrDefault(location.PropertyId) : null;
+                string plant = property?.PlantCode?.Trim().ToUpperInvariant() ?? string.Empty;
+                string storage = location?.StorageLocationCode?.Trim().ToUpperInvariant() ?? string.Empty;
+                return $"{date:yyyy-MM-dd}|{plant}|{storage}";
+            }
+
+            string key = KeyOf(posting);
+            List<InventoryErpPosting> group = related.Where(x => KeyOf(x) == key).ToList();
+            if (group.Any(x => x.Status == Common.SILA_POSTING_UNKNOWN))
+            {
+                _logger.LogInfo($"POS UPDATE_STOCK held because a posting in the group is unknown. Key: {key}, PostingId: {posting.Id}");
+                return HELD;
+            }
+
+            List<InventoryErpPosting> pending = group.Where(x => x.Status == Common.SILA_POSTING_PENDING).ToList();
+            if (pending.All(x => x.Id != posting.Id))
+            {
+                return posting.Status;
+            }
+
+            InventoryErpPosting? posted = group.FirstOrDefault(x => x.Status == Common.SILA_POSTING_POSTED && !string.IsNullOrWhiteSpace(x.ErpReference));
+            if (posted != null)
+            {
+                foreach (InventoryErpPosting row in pending)
+                {
+                    row.IntegrationSystem = posted.IntegrationSystem;
+                    row.ErpHttpStatus = posted.ErpHttpStatus;
+                    row.ErpRequestPayload = posted.ErpRequestPayload;
+                    row.ErpResponsePayload = posted.ErpResponsePayload;
+                    await FinishAsync(row, Common.SILA_POSTING_POSTED, posted.ErpReference, null, cancellationToken);
+                }
+
+                return Common.SILA_POSTING_POSTED;
+            }
+
+            BuyerBusinessProfile? buyer = await _repository.BuyerBusinessProfile.FindByCondition(x => x.Id == posting.BuyerId).FirstOrDefaultAsync(cancellationToken);
+            InventoryLocation? headerLocation = posting.LocationId == null ? null : locations.GetValueOrDefault(posting.LocationId.Value);
+            BuyerProperty? headerProperty = headerLocation == null ? null : properties.GetValueOrDefault(headerLocation.PropertyId);
+            posting.CompanyCode ??= string.IsNullOrWhiteSpace(headerProperty?.CompanyCode) ? null : headerProperty.CompanyCode.Trim();
+            if (buyer == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, "The buyer of this document no longer exists.", cancellationToken);
+            }
+
+            IntegrationApiDto api = await ResolveStockCountApiAsync(buyer.OrganizationId, posting.CompanyCode, cancellationToken);
+            if (!api.Configured || api.ConfigurationId == null)
+            {
+                string message = $"No active {IntegrationProcessType.UPDATE_STOCK} ({SilaStockCountSap.API_CONFIG_NAME}) API is configured.";
+                foreach (InventoryErpPosting row in pending)
+                {
+                    await FinishAsync(row, Common.SILA_POSTING_FAILED, null, message, cancellationToken);
+                }
+
+                return Common.SILA_POSTING_FAILED;
+            }
+
+            ErpDocument? document = null;
+            foreach (InventoryErpPosting row in pending)
+            {
+                InventoryLocation? location = row.LocationId == null ? null : locations.GetValueOrDefault(row.LocationId.Value);
+                BuyerProperty? property = location == null ? null : properties.GetValueOrDefault(location.PropertyId);
+                ErpDocument? one = await BuildMovementAsync(row, location, property, cancellationToken);
+                if (one == null)
+                {
+                    continue;
+                }
+
+                if (document == null)
+                {
+                    document = one;
+                }
+                else
+                {
+                    document.Items.AddRange(one.Items);
+                }
+            }
+
+            if (document == null)
+            {
+                foreach (InventoryErpPosting row in pending)
+                {
+                    await FinishAsync(row, Common.SILA_POSTING_FAILED, null, "The document has no lines to post.", cancellationToken);
+                }
+
+                return Common.SILA_POSTING_FAILED;
+            }
+
+            string body = StockCountSapBody(document);
+            InventoryErpPosting leader = pending[0];
+            IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.ConfigurationId.Value, leader, body, cancellationToken);
+            bool succeeded = sent.Answered && sent.StatusCode >= 200 && sent.StatusCode < 300;
+            string status = succeeded
+                ? Common.SILA_POSTING_POSTED
+                : sent.OutcomeUnknown ? Common.SILA_POSTING_UNKNOWN : Common.SILA_POSTING_FAILED;
+            string? reference = succeeded ? ReadReference(sent.ResponseBody) : null;
+            string? error = succeeded
+                ? null
+                : sent.Answered
+                    ? $"The ERP returned HTTP {sent.StatusCode}.{Snippet(sent.ResponseBody)}"
+                    : sent.ErrorMessage ?? "The ERP could not be reached.";
+            if (sent.OutcomeUnknown)
+            {
+                error = $"{error} The ERP gave no clear answer. This group is not sent again until it is reconciled.";
+            }
+
+            foreach (InventoryErpPosting row in pending)
+            {
+                row.IntegrationSystem = api.SystemName ?? api.Name;
+                row.ErpHttpStatus = sent.Answered ? sent.StatusCode : null;
+                row.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+                row.ErpResponsePayload = SilaErpPayload.Sanitise(sent.ResponseBody);
+                row.CompanyCode ??= posting.CompanyCode;
+                await FinishAsync(row, status, reference, error, cancellationToken);
+            }
+
+            return status;
         }
 
         private async Task<IntegrationSendResultDto> SendAsync(Guid organizationId, Guid configurationId, InventoryErpPosting posting, string body, CancellationToken cancellationToken)
@@ -351,7 +508,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
 
             ErpDocument document = new ErpDocument();
             string postingDate = transactions.Max(x => x.BusinessDate).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            bool stockCount = SilaStockCountSap.IsStockCount(posting.MovementType);
+            bool stockCount = SilaStockCountSap.UsesUpdateStock(posting.MovementType);
             document.Header.Add(("ReferenceNumber", posting.ReferenceNumber));
             document.Header.Add(("MovementType", posting.MovementType));
             document.Header.Add(("PostingDate", postingDate));

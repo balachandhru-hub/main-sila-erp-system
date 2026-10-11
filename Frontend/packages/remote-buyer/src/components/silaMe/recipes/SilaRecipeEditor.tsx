@@ -117,7 +117,7 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
   const activeOutlet = costingOutlet ?? pricedOutletIds[0] ?? "";
   const activeOutletName = outlets.find((outlet) => outlet.id === activeOutlet)?.locationName;
   const costs = useMemo(() => lines.map((line) => lineCost(line, activeOutlet)), [lines, activeOutlet]);
-  const issues = editorIssues(lines, header.itemMode, pricedOutletIds);
+  const issues = editorIssues(lines, header.itemMode, pricedOutletIds, header.familyId, header.categoryId);
   const costComplete = lines.length > 0 && costs.every((cost) => cost.cost != null);
   const totalCost = totalCostAt(lines, activeOutlet);
   const currency = header.currency.trim() || lines.find((line) => line.material?.currency)?.material?.currency || "";

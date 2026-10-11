@@ -36,6 +36,13 @@ namespace Buyer.Application.Features.Shared
 
         private const int MAX_RECIPE_DEPTH = 10;
 
+        /// <summary>How many recipe batches one sale consumes: absolute quantity sold divided by the recipe serving size.</summary>
+        public static decimal SaleFactor(decimal servingQty, decimal quantitySold)
+        {
+            decimal serving = servingQty > 0 ? servingQty : 1;
+            return Math.Abs(quantitySold) / serving;
+        }
+
         /// <summary>
         /// Step 0: creates the batch and one RECEIVED line per new row. A row already received (same transaction id and line,
         /// in this file or before) is a duplicate and skipped — except a line still waiting in an unprocessed PREVIEW batch,
@@ -281,12 +288,18 @@ namespace Buyer.Application.Features.Shared
             return null;
         }
 
-        /// <summary>Posts RECIPE_CONSUMPTION per material; validates everything first so a failing sale posts nothing. Returns the problem or null.</summary>
+        /// <summary>Posts RECIPE_CONSUMPTION per stock material. A sale that already has POS_SALE ledger lines is left as it is. Returns the problem or null.</summary>
         private static async Task<string?> DeductAsync(SilaPosMatching context, InventoryLedger ledger, PosSalesTransaction transaction, CancellationToken cancellationToken)
         {
             if (transaction.RecipeId == null || transaction.OutletLocationId == null)
             {
                 return "The sale is not matched to a recipe and an outlet.";
+            }
+
+            if (await ledger.HasReferenceAsync(Common.SILA_REF_POS_SALE, transaction.Id, cancellationToken))
+            {
+                ledger.AddEvent(Common.SILA_REF_POS_SALE, transaction.Id, EVENT_DEDUCTED, "Inventory was already updated for this sale. It is not deducted again.");
+                return null;
             }
 
             Dictionary<Guid, decimal> quantities = new Dictionary<Guid, decimal>();
@@ -296,14 +309,25 @@ namespace Buyer.Application.Features.Shared
                 return problem;
             }
 
-            foreach (Guid materialId in quantities.Keys)
+            foreach (Guid materialId in quantities.Keys.ToList())
             {
                 if (!context.Materials.TryGetValue(materialId, out ItemBuyerMaster? material) || !material.IsActive)
                 {
                     return "An ingredient material is no longer active in the Item Master. Correct the recipe.";
                 }
+
+                if (!SilaMaterialRules.HoldsStock(material))
+                {
+                    quantities.Remove(materialId);
+                }
             }
 
+            if (quantities.Count == 0 || quantities.Values.All(x => x <= 0))
+            {
+                return "NO_CONSUMPTION_LINES";
+            }
+
+            string direction = transaction.QuantitySold < 0 ? Common.SILA_DIRECTION_IN : Common.SILA_DIRECTION_OUT;
             int lines = 0;
             foreach (KeyValuePair<Guid, decimal> entry in quantities.Where(x => x.Value > 0))
             {
@@ -311,7 +335,7 @@ namespace Buyer.Application.Features.Shared
                 {
                     LocationId = transaction.OutletLocationId.Value,
                     Material = context.Materials[entry.Key],
-                    Direction = Common.SILA_DIRECTION_OUT,
+                    Direction = direction,
                     TransactionType = Common.SILA_TXN_RECIPE_CONSUMPTION,
                     BaseQuantity = entry.Value,
                     EnteredQuantity = entry.Value,
@@ -345,14 +369,15 @@ namespace Buyer.Application.Features.Shared
             List<RecipeIngredient> ingredients = context.Ingredients.TryGetValue(recipeId, out List<RecipeIngredient>? found) ? found : new List<RecipeIngredient>();
             if (ingredients.Count == 0)
             {
-                return $"Recipe {recipe.RecipeCode} version {recipe.ActiveVersion} has no ingredients.";
+                return "NO_CONSUMPTION_LINES";
             }
 
+            decimal scale = SaleFactor(recipe.ServingQty, factor);
             foreach (RecipeIngredient ingredient in ingredients)
             {
                 if (ingredient.MaterialId != null)
                 {
-                    quantities[ingredient.MaterialId.Value] = quantities.GetValueOrDefault(ingredient.MaterialId.Value) + ingredient.BaseQuantity * factor;
+                    quantities[ingredient.MaterialId.Value] = quantities.GetValueOrDefault(ingredient.MaterialId.Value) + ingredient.BaseQuantity * scale;
                     continue;
                 }
 
@@ -362,7 +387,7 @@ namespace Buyer.Application.Features.Shared
                     return $"Sub-recipe {ingredient.ItemCode} of {recipe.RecipeCode} has no approved version. Approve it, then reprocess.";
                 }
 
-                string? problem = Expand(context, sub.Id, factor * ingredient.BaseQuantity / sub.ServingQty, quantities, depth + 1);
+                string? problem = Expand(context, sub.Id, scale * ingredient.BaseQuantity, quantities, depth + 1);
                 if (problem != null)
                 {
                     return problem;

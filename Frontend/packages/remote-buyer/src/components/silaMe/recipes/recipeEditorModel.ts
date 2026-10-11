@@ -181,8 +181,10 @@ const lineIssue = (line: IngredientLine, outletIds: string[]): string | null => 
 };
 
 /** Readiness issues of the editor content, the same rules as the server. `outletIds` are the outlets with a menu price. */
-export const editorIssues = (lines: IngredientLine[], mode: SilaRecipeMode, outletIds: string[]): string[] => {
+export const editorIssues = (lines: IngredientLine[], mode: SilaRecipeMode, outletIds: string[], familyId = "", categoryId = ""): string[] => {
   const issues: string[] = [];
+  if (!familyId) issues.push("Family is required");
+  if (!categoryId) issues.push("Category is required");
   if (lines.length === 0) issues.push("No ingredients");
   lines.forEach((line) => {
     const issue = lineIssue(line, outletIds);

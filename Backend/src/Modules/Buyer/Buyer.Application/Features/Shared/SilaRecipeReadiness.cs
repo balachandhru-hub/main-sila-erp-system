@@ -256,6 +256,16 @@ namespace Buyer.Application.Features.Shared
                 issues.Add("A DIRECT item needs exactly one ingredient");
             }
 
+            if (recipe.FamilyId == null)
+            {
+                issues.Add("Family is required");
+            }
+
+            if (recipe.CategoryId == null && string.IsNullOrWhiteSpace(recipe.Category))
+            {
+                issues.Add("Category is required");
+            }
+
             if (PricesOf(recipe.Id, version).Count == 0)
             {
                 issues.Add("No outlet menu price");

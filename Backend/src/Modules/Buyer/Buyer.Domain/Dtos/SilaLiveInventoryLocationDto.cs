@@ -12,6 +12,9 @@ namespace Buyer.Domain.Dtos
         public decimal OnHandQty { get; set; }
         public decimal InTransitQty { get; set; }
         public decimal? MinimumStock { get; set; }
+
+        /// <summary>Stock kept back from transfers. Transferable quantity is available minus this.</summary>
+        public decimal? SafetyStock { get; set; }
         public bool TransferEnabled { get; set; }
         /// <summary>Stock this location can give to the current location: on hand when transfers are enabled and it is in the same property.</summary>
         public decimal TransferableQty { get; set; }

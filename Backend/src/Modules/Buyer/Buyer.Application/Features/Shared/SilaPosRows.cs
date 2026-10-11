@@ -69,9 +69,9 @@ namespace Buyer.Application.Features.Shared
             }
 
             decimal? sold = ParseDecimal(raw.Quantity);
-            if (sold == null || sold <= 0)
+            if (sold == null || sold == 0)
             {
-                problems.Add("Qty must be a number greater than zero");
+                problems.Add("Qty must be a number other than zero");
             }
 
             if (string.IsNullOrWhiteSpace(raw.OutletCode))

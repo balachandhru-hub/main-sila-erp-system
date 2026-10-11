@@ -58,7 +58,7 @@ namespace Buyer.Application.Features.Shared
                     && row.PropertyId == current.PropertyId
                     && row.LocationType != Common.SILA_LOCATION_VENUE
                     && byId.ContainsKey(row.LocationId);
-                row.TransferableQty = candidate ? SilaStockLevels.Transferable(byId[row.LocationId], row.AvailableQty) : 0;
+                row.TransferableQty = candidate ? SilaStockLevels.Transferable(byId[row.LocationId], row.AvailableQty, row.SafetyStock ?? 0) : 0;
             }
 
             SilaLiveInventoryLocationDto? best = result.Locations

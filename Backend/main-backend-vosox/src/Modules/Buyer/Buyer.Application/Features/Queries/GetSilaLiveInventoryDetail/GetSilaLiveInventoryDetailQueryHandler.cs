@@ -81,6 +81,7 @@ namespace Buyer.Application.Features.Queries.GetSilaLiveInventoryDetail
                         OnHandQty = balance?.OnHandQty ?? 0,
                         InTransitQty = balance?.InTransitQty ?? 0,
                         MinimumStock = level?.MinimumStock,
+                        SafetyStock = level?.SafetyStock,
                         TransferEnabled = x.TransferEnabled,
                         IsMine = myLocationIds.Contains(x.Id),
                         LastMovementOn = balance?.LastMovementOn,

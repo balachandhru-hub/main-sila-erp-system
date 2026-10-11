@@ -29,6 +29,9 @@ namespace Buyer.Application.Features.Shared
         public const string ROW_DUPLICATE = "DUPLICATE";
         public const string ROW_UNMAPPED_POS_CODE = "UNMAPPED_POS_CODE";
         public const string ROW_INVALID_OUTLET = "INVALID_OUTLET";
+        public const string ROW_OUTLET_MAPPING_MISSING = "OUTLET_MAPPING_MISSING";
+        public const string ROW_OUTLET_INACTIVE = "OUTLET_INACTIVE";
+        public const string ROW_CONSUMPTION_DISABLED = "CONSUMPTION_DISABLED";
         public const string ROW_INVALID_UOM = "INVALID_UOM";
         public const string ROW_RECIPE_NOT_READY = "RECIPE_NOT_READY";
 
@@ -38,6 +41,7 @@ namespace Buyer.Application.Features.Shared
         private Dictionary<Guid, Dictionary<string, Guid>> _itemMappings = new();
         private Dictionary<Guid, Recipe> _recipes = new();
         private Dictionary<string, Recipe> _recipesByPosCode = new(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, Recipe> _recipesByPosItem = new(StringComparer.OrdinalIgnoreCase);
         private HashSet<(Guid RecipeId, Guid OutletLocationId)> _pricedOutlets = new();
 
         /// <summary>Ingredients of the approved version of each sellable recipe, by recipe id.</summary>
@@ -52,7 +56,10 @@ namespace Buyer.Application.Features.Shared
             SilaPosMatching context = new SilaPosMatching
             {
                 _outlets = await repository.InventoryLocation
-                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && x.LocationType == Common.SILA_LOCATION_OUTLET)
+                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive
+                        && (x.LocationType == Common.SILA_LOCATION_OUTLET
+                            || x.LocationType == Common.SILA_LOCATION_STORE
+                            || x.LocationType == Common.SILA_LOCATION_VENUE))
                     .ToListAsync(cancellationToken),
                 _outletCodes = await repository.BuyerOutlet
                     .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && x.OutletCode != null)
@@ -67,14 +74,14 @@ namespace Buyer.Application.Features.Shared
                     .ToListAsync(cancellationToken);
                 context._outletMappings = outletMappings.GroupBy(x => x.PosSourceId).ToDictionary(
                     x => x.Key,
-                    x => x.GroupBy(y => y.PosOutletCode.Trim(), StringComparer.OrdinalIgnoreCase)
+                    x => x.GroupBy(y => Normalize(y.PosOutletCode), StringComparer.OrdinalIgnoreCase)
                         .ToDictionary(y => y.Key, y => y.First().OutletLocationId, StringComparer.OrdinalIgnoreCase));
                 List<PosItemMapping> itemMappings = await repository.PosItemMapping
                     .FindByCondition(x => sources.Contains(x.PosSourceId) && x.IsActive)
                     .ToListAsync(cancellationToken);
                 context._itemMappings = itemMappings.GroupBy(x => x.PosSourceId).ToDictionary(
                     x => x.Key,
-                    x => x.GroupBy(y => y.PosItemCode.Trim(), StringComparer.OrdinalIgnoreCase)
+                    x => x.GroupBy(y => Normalize(y.PosItemCode), StringComparer.OrdinalIgnoreCase)
                         .ToDictionary(y => y.Key, y => y.First().RecipeId, StringComparer.OrdinalIgnoreCase));
             }
 
@@ -84,7 +91,12 @@ namespace Buyer.Application.Features.Shared
             context._recipes = recipes.ToDictionary(x => x.Id);
             foreach (Recipe recipe in recipes.Where(x => !string.IsNullOrWhiteSpace(x.PosCode)).OrderByDescending(x => x.ActiveVersion))
             {
-                context._recipesByPosCode.TryAdd(recipe.PosCode!.Trim(), recipe);
+                context._recipesByPosCode.TryAdd(Normalize(recipe.PosCode), recipe);
+            }
+
+            foreach (Recipe recipe in recipes.Where(x => !string.IsNullOrWhiteSpace(x.PosItem)).OrderByDescending(x => x.ActiveVersion))
+            {
+                context._recipesByPosItem.TryAdd(Normalize(recipe.PosItem), recipe);
             }
 
             Dictionary<Guid, int> activeVersions = recipes.Where(IsSellable).ToDictionary(x => x.Id, x => x.ActiveVersion);
@@ -127,51 +139,82 @@ namespace Buyer.Application.Features.Shared
             return _recipes.TryGetValue(recipeId, out Recipe? recipe) && IsSellable(recipe) ? recipe : null;
         }
 
+        /// <summary>Letters and digits only, upper case, so "eh-01" and "EH01" are the same outlet code.</summary>
+        public static string Normalize(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return new string(value.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        }
+
         /// <summary>Matches a sold line; the first problem found decides the status.</summary>
         public SilaPosMatch Match(Guid? sourceId, string outletCode, string posCode, string? uom)
         {
             SilaPosMatch match = new SilaPosMatch();
-            string outletKey = outletCode.Trim();
-            if (sourceId != null
+            string outletKey = Normalize(outletCode);
+            Guid mappedLocationId = Guid.Empty;
+            bool mapped = sourceId != null
                 && _outletMappings.TryGetValue(sourceId.Value, out Dictionary<string, Guid>? outletMap)
-                && outletMap.TryGetValue(outletKey, out Guid mappedLocationId))
+                && outletMap.TryGetValue(outletKey, out mappedLocationId);
+            if (mapped)
             {
                 match.Outlet = _outlets.FirstOrDefault(x => x.Id == mappedLocationId);
                 if (match.Outlet == null)
                 {
-                    return Problem(match, ROW_INVALID_OUTLET, $"POS outlet {outletKey} is mapped to a location that is no longer an active outlet. Correct the outlet mapping.");
+                    return Problem(match, ROW_OUTLET_INACTIVE, $"POS outlet {outletCode.Trim()} is mapped to a location that is not an active outlet, store, or venue.");
                 }
+            }
+            else if (sourceId != null)
+            {
+                return Problem(match, ROW_OUTLET_MAPPING_MISSING, $"POS outlet {outletCode.Trim()} has no outlet mapping. Map it to an outlet, store, or venue.");
             }
             else
             {
-                match.Outlet = _outlets.FirstOrDefault(x => string.Equals(x.LocationCode, outletKey, StringComparison.OrdinalIgnoreCase))
+                match.Outlet = _outlets.FirstOrDefault(x => Normalize(x.LocationCode) == outletKey)
                     ?? _outlets.FirstOrDefault(x => x.OutletId != null
                         && _outletCodes.TryGetValue(x.OutletId.Value, out string? code)
-                        && string.Equals(code, outletKey, StringComparison.OrdinalIgnoreCase));
+                        && Normalize(code) == outletKey);
                 if (match.Outlet == null)
                 {
-                    return Problem(match, ROW_INVALID_OUTLET, $"POS outlet {outletKey} is not mapped and no outlet location has that code. Add an outlet mapping.");
+                    return Problem(match, ROW_OUTLET_MAPPING_MISSING, $"POS outlet {outletCode.Trim()} is not an active outlet, store, or venue.");
                 }
             }
 
-            string itemKey = posCode.Trim();
-            if (sourceId != null
+            if (match.Outlet.ConsumptionEnabled == false)
+            {
+                return Problem(match, ROW_CONSUMPTION_DISABLED, $"Consumption is disabled at {match.Outlet.LocationCode}.");
+            }
+
+            string itemKey = Normalize(posCode);
+            match.Recipe = MenuRecipe(match.Outlet.Id, itemKey);
+            if (match.Recipe == null
+                && sourceId != null
                 && _itemMappings.TryGetValue(sourceId.Value, out Dictionary<string, Guid>? itemMap)
                 && itemMap.TryGetValue(itemKey, out Guid mappedRecipeId))
             {
-                match.Recipe = _recipes.TryGetValue(mappedRecipeId, out Recipe? mapped) ? mapped : null;
+                match.Recipe = _recipes.TryGetValue(mappedRecipeId, out Recipe? mappedRecipe) ? mappedRecipe : null;
                 if (match.Recipe == null)
                 {
-                    return Problem(match, ROW_RECIPE_NOT_READY, $"POS item {itemKey} is mapped to a recipe that is no longer active. Correct the item mapping.");
+                    return Problem(match, ROW_RECIPE_NOT_READY, $"POS item {posCode.Trim()} is mapped to a recipe that is no longer active. Correct the item mapping.");
                 }
             }
-            else
+
+            if (match.Recipe == null)
             {
-                match.Recipe = _recipesByPosCode.TryGetValue(itemKey, out Recipe? byCode) ? byCode : null;
-                if (match.Recipe == null)
+                if (!_recipesByPosCode.TryGetValue(itemKey, out Recipe? byCode))
                 {
-                    return Problem(match, ROW_UNMAPPED_POS_CODE, $"POS item {itemKey} is not mapped to a recipe. Add an item mapping or set the POS code on the recipe.");
+                    _recipesByPosItem.TryGetValue(itemKey, out byCode);
                 }
+
+                match.Recipe = byCode;
+            }
+
+            if (match.Recipe == null)
+            {
+                return Problem(match, ROW_UNMAPPED_POS_CODE, $"POS item {posCode.Trim()} is not mapped to a recipe. Add an outlet menu item, an item mapping, or the POS code on the recipe.");
             }
 
             Recipe recipe = match.Recipe;
@@ -191,6 +234,20 @@ namespace Buyer.Application.Features.Shared
             }
 
             return match;
+        }
+
+        private Recipe? MenuRecipe(Guid outletId, string itemKey)
+        {
+            if (itemKey.Length == 0)
+            {
+                return null;
+            }
+
+            return _recipes.Values
+                .Where(recipe => _pricedOutlets.Contains((recipe.Id, outletId))
+                    && (Normalize(recipe.PosCode) == itemKey || Normalize(recipe.PosItem) == itemKey))
+                .OrderByDescending(recipe => recipe.ActiveVersion)
+                .FirstOrDefault();
         }
 
         private static SilaPosMatch Problem(SilaPosMatch match, string status, string message)
