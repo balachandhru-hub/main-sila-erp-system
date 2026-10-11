@@ -16,6 +16,8 @@ const ENTRIES: MoreEntry[] = [
   { label: 'Receive goods', detail: 'Select the supplier purchase order and post the receipt', to: 'receive/pos?mode=receive' },
   { label: 'Purchase orders', detail: 'Search open POs and receive against them', to: 'receive/pos' },
   { label: 'Suppliers', detail: 'Supplier Master: ID, TRN, status', to: 'more/suppliers' },
+  { label: 'Recipes', detail: 'Menu recipes and stock at your location', to: 'recipes', visible: (can) => can.manageRecipe || can.approveRecipe },
+  { label: 'Stock Count', detail: 'Start a count, or review and approve a submitted one', to: 'inventory/counts', visible: (can) => can.manageCount || can.approveCount },
   { label: 'Search', detail: 'Suppliers, purchase orders and GRNs', to: 'search' },
   { label: 'GRN History', detail: 'Goods receipts and their ERP status', to: 'receive/history' },
   { label: 'Internal Transfer History', detail: 'Completed transfers', to: 'inventory/transfers?tab=completed' },

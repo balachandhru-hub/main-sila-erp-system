@@ -12,6 +12,8 @@ interface MoreEntry {
 }
 
 const ENTRIES: MoreEntry[] = [
+  { label: 'Recipes', detail: 'Menu recipes and stock at your location', to: 'recipes', visible: (can) => can.manageRecipe || can.approveRecipe },
+  { label: 'Stock Count', detail: 'Start a count, or review and approve a submitted one', to: 'inventory/counts', visible: (can) => can.manageCount || can.approveCount },
   { label: 'Search', detail: 'Suppliers, purchase orders and GRNs', to: 'search' },
   { label: 'Suppliers', detail: 'Supplier Master: ID, TRN, status', to: 'more/suppliers' },
   { label: 'Purchase Orders', detail: 'Search open POs and receive against them', to: 'receive/pos' },

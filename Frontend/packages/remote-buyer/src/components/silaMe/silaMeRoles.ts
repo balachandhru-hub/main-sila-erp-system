@@ -14,6 +14,9 @@ export const SILA_ME_ROLE_NAMES = {
 export const silaMeRoleOf = (roleName: string, isAdmin: boolean): SilaMeRole => {
   if (isAdmin) return "admin";
   switch ((roleName || "").toUpperCase()) {
+    case "BUYER_ADMINISTRATOR":
+    case "PLATFORM_ADMINISTRATOR":
+      return "admin";
     case SILA_ME_ROLE_NAMES.STORE_MANAGER:
       return "store-manager";
     case SILA_ME_ROLE_NAMES.OUTLET_MANAGER:

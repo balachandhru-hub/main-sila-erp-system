@@ -34,6 +34,8 @@ import TransfersScreen from './screens/inventory/TransfersScreen';
 import TransferFormScreen from './screens/inventory/TransferFormScreen';
 import TransferDetailScreen from './screens/inventory/TransferDetailScreen';
 import CountListScreen from './screens/count/CountListScreen';
+import RecipesScreen from './screens/recipes/RecipesScreen';
+import RecipeDetailScreen from './screens/recipes/RecipeDetailScreen';
 import CountSessionScreen from './screens/count/CountSessionScreen';
 import TasksScreen from './screens/tasks/TasksScreen';
 import EnquiryScreen from './screens/tasks/EnquiryScreen';
@@ -99,6 +101,8 @@ const MobileApp: React.FC = () => {
                 <Route path="inventory/transfers" element={<TransfersScreen />} />
                 <Route path="inventory/transfers/new" element={<TransferFormScreen />} />
                 <Route path="inventory/transfers/:transferId" element={<TransferDetailScreen />} />
+                <Route path="recipes" element={<RecipesScreen />} />
+                <Route path="recipes/:recipeId" element={<RecipeDetailScreen />} />
                 <Route path="inventory/counts" element={<CountListScreen />} />
                 <Route path="inventory/counts/:stockCountId" element={<CountSessionScreen />} />
                 <Route path="inventory/purchase-requests" element={<PurchaseRequestsScreen />} />
