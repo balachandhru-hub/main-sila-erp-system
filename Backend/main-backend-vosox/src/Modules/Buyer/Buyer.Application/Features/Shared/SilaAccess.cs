@@ -9,8 +9,8 @@ namespace Buyer.Application.Features.Shared
 {
     /// <summary>
     /// The lookups every SILA ME use case starts with: the signed-in buyer, and the inventory locations the user may work with.
-    /// The buyer administrator, the store manager and the cost controller see every location of the buyer; other users see the locations they
-    /// are assigned to and the outlet locations of their outlets.
+    /// The buyer administrator, store manager, cost controller, F&B director and finance manager see every location of the buyer.
+    /// Other users see the locations they are assigned to and the outlet locations of their outlets.
     /// </summary>
     public static class SilaAccess
     {
@@ -29,7 +29,11 @@ namespace Buyer.Application.Features.Shared
 
         public static bool HasFullAccess(Guid roleId)
         {
-            return roleId == Common.BUYER_ADMIN_ROLE_ID || roleId == Common.STORE_MANAGER_ROLE_ID || roleId == Common.COST_CONTROLLER_ROLE_ID;
+            return roleId == Common.BUYER_ADMIN_ROLE_ID
+                || roleId == Common.STORE_MANAGER_ROLE_ID
+                || roleId == Common.COST_CONTROLLER_ROLE_ID
+                || roleId == Common.FNB_DIRECTOR_ROLE_ID
+                || roleId == Common.FINANCE_MANAGER_ROLE_ID;
         }
 
         /// <summary>The ids of the active locations the user may work with.</summary>

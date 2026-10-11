@@ -52,6 +52,23 @@ namespace Buyer.Application.Features.Commands.ApproveSilaStockCount
                     "Accept or reject every shortage enquiry of this count before approving it.");
             }
 
+            bool chained = await _repository.SilaApprovalStep
+                .FindByCondition(x => x.ReferenceType == Common.SILA_REF_STOCK_COUNT && x.ReferenceId == count.Id && x.Version == 1 && x.IsActive)
+                .AnyAsync(cancellationToken);
+            if (chained)
+            {
+                ApprovalDecision decision = await SilaApprovals.DecideAsync(
+                    _repository, _logger, Common.SILA_REF_STOCK_COUNT, count.Id, 1, request.UserId, true, null, cancellationToken);
+                if (decision.Outcome == SilaApprovals.OUTCOME_PENDING)
+                {
+                    InventoryLedger waiting = new InventoryLedger(_repository, buyer.Id, request.UserId);
+                    waiting.AddEvent(Common.SILA_REF_STOCK_COUNT, count.Id, "APPROVAL_LEVEL", $"Level {decision.Level} approved.");
+                    await _repository.SaveAsync();
+                    _logger.LogInfo($"Stock count approval advanced. StockCountId: {count.Id}, Level: {decision.Level}");
+                    return Unit.Value;
+                }
+            }
+
             // Lines the cost controller rejected are not posted; every other variance is accepted with the count.
             List<StockCountItem> variances = await _repository.StockCountItem
                 .FindByCondition(x => x.StockCountId == count.Id

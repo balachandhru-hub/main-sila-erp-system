@@ -118,6 +118,17 @@ namespace Buyer.Application.Features.Commands.SubmitSilaStockCount
                 count.Id,
                 SilaStockCountRules.EVENT_SUBMITTED,
                 $"Lines={items.Count} CountedAsZero={uncounted.Count} Shortages={shortages.Count}");
+            bool approvalStarted = await _repository.SilaApprovalStep
+                .FindByCondition(x => x.ReferenceType == Common.SILA_REF_STOCK_COUNT && x.ReferenceId == count.Id && x.Version == 1 && x.IsActive)
+                .AnyAsync(cancellationToken);
+            if (!approvalStarted)
+            {
+                InventoryLocation location = await SilaAccess.GetLocationAsync(_repository, _logger, buyer.Id, count.LocationId);
+                await SilaApprovals.StartAsync(
+                    _repository, _logger, buyer.Id, Common.SILA_APPROVAL_TYPE_INVENTORY, Common.SILA_REF_STOCK_COUNT, count.Id, 1,
+                    new ApprovalScope { LocationId = location.Id, PropertyId = location.PropertyId }, cancellationToken);
+            }
+
             await _repository.SaveAsync();
 
             _logger.LogInfo($"Stock count submitted. StockCountId: {count.Id}, Status: {count.Status}, Enquiries: {shortages.Count}");
