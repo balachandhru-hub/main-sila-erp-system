@@ -32,6 +32,7 @@ import SilaSuppliers from "./receiving/SilaSuppliers";
 import SilaCompanyCodes from "./receiving/SilaCompanyCodes";
 import SilaPoImport from "./receiving/SilaPoImport";
 import SilaOcrSettings from "./receiving/SilaOcrSettings";
+import SilaApprovalFlows from "./setup/SilaApprovalFlows";
 import SilaPriceApprovals from "./materials/SilaPriceApprovals";
 
 interface SilaMeWorkspaceProps {
@@ -155,6 +156,8 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       return <SilaQuickTransferPolicy canManage={can.manageMasterData} />;
     case "silaOcrSettings":
       return <SilaOcrSettings canManage={can.manageMasterData} />;
+    case "silaApprovalFlows":
+      return <SilaApprovalFlows />;
     default:
       return null;
   }

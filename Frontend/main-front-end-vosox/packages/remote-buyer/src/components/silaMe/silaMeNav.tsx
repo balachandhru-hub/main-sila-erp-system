@@ -41,6 +41,7 @@ export const SILA_ME_NAV_PATHS = {
   silaPoImport: "sila-po-import",
   silaQuickTransferPolicy: "sila-quick-transfer-policy",
   silaOcrSettings: "sila-ocr-settings",
+  silaApprovalFlows: "sila-approval-flows",
 } as const;
 
 export type SilaMeNavKey = keyof typeof SILA_ME_NAV_PATHS;
@@ -120,6 +121,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
             ...leaf(can.manageMasterData, "silaPoImport", "Purchase Order Import"),
             ...leaf(can.manageMasterData, "silaQuickTransferPolicy", "Quick Transfer Policy"),
             ...leaf(can.manageMasterData, "silaOcrSettings", "Invoice OCR Settings"),
+            { key: "silaApprovalFlows", label: "Approval flow" },
           ]
         : [],
     },
