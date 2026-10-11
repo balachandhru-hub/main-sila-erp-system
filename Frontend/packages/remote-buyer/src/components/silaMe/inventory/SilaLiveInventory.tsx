@@ -12,10 +12,14 @@ import {
   type SilaLiveInventoryRow,
   type SilaLocation,
 } from "../../../api/silaMe/silaInventoryApi";
-import { createTransfer } from "../../../api/silaMe/silaMovementsApi";
+import { createQuickTransfer, createTransfer } from "../../../api/silaMe/silaMovementsApi";
 import SilaLiveDecisionPanel from "./SilaLiveDecisionPanel";
 import "../silaMeTheme.css";
 import "./SilaInventory.css";
+
+const byCode = (locations: SilaLocation[], type: string): SilaLocation | undefined => locations
+  .filter((location) => location.locationType === type)
+  .sort((a, b) => a.locationCode.localeCompare(b.locationCode))[0];
 
 /** Opens on the user's assigned store or outlet. One assignment wins; otherwise a store, then an outlet. */
 const homeLocation = (locations: SilaLocation[]): SilaLocation | undefined => {
@@ -23,10 +27,14 @@ const homeLocation = (locations: SilaLocation[]): SilaLocation | undefined => {
   const pool = assigned.length > 0 ? assigned : locations;
   const stocked = pool.filter((location) => location.locationType !== "VENUE");
   if (stocked.length === 1) return stocked[0];
-  const ofType = (type: string) => stocked
-    .filter((location) => location.locationType === type)
-    .sort((a, b) => a.locationCode.localeCompare(b.locationCode))[0];
-  return ofType("STORE") ?? ofType("OUTLET") ?? pool[0];
+  return byCode(stocked, "STORE") ?? byCode(stocked, "OUTLET") ?? pool[0];
+};
+
+/** Transfer destination: the user's outlet, or the home location when they have no outlet. */
+const destinationLocation = (locations: SilaLocation[]): SilaLocation | undefined => {
+  const assigned = locations.filter((location) => location.assigned);
+  const pool = assigned.length > 0 ? assigned : locations;
+  return byCode(pool, "OUTLET") ?? homeLocation(locations);
 };
 
 const STATUS_TEXT: Record<string, string> = {
@@ -57,8 +65,8 @@ interface SilaLiveInventoryProps {
 }
 
 /**
- * Stock at the signed-in user's assigned store or outlet. The right side lists that location's materials.
- * A user who can open other locations searches them and then sees their stock too.
+ * Stock at the signed-in user's assigned store or outlet. Removing the location searches a material
+ * across every location they can open. Quick ITO and ITO send that stock to their outlet.
  */
 const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = true, canRequestPurchase = false, initialSearch = "" }) => {
   const [locations, setLocations] = useState<SilaLocation[]>([]);
@@ -87,10 +95,9 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
         if (!active) return;
         setLocations(data);
         const home = homeLocation(data);
-        if (home) {
-          setLocationId(home.id);
-          setCurrentLocationId(home.id);
-        }
+        const destination = destinationLocation(data);
+        if (home) setLocationId(home.id);
+        if (destination) setCurrentLocationId(destination.id);
       })
       .catch((err: unknown) => {
         if (active) setLocationsError(err instanceof Error ? err.message : "Could not load your locations.");
@@ -100,9 +107,10 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
     };
   }, []);
 
-  const canSearch = Boolean(locationId);
+  const materialTerm = search.trim();
+  const canSearch = Boolean(locationId) || materialTerm.length >= 2;
 
-  // Searches shortly after the user stops typing.
+  // A location lists its stock immediately. Without one, a material search of two characters lists stock everywhere.
   useEffect(() => {
     if (!canSearch) {
       setRows([]);
@@ -119,12 +127,16 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
         if (!active) return;
         setRows(data);
         setHasMore(data.length === SILA_LIVE_PAGE_SIZE);
+        if (!locationId) {
+          setSelectedId(data.length === 1 ? data[0].materialId : null);
+          if (data.length !== 1) setDetail(null);
+        }
       } catch (err: unknown) {
         if (active) setError(err instanceof Error ? err.message : "Could not search the inventory.");
       } finally {
         if (active) setLoading(false);
       }
-    }, 100);
+    }, locationId ? 100 : 300);
     return () => {
       active = false;
       window.clearTimeout(timer);
@@ -177,6 +189,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
 
   const stockLocations = locations.filter((location) => location.locationType !== "VENUE");
   const currentLocation = locations.find((location) => location.id === locationId);
+  const destination = locations.find((location) => location.id === currentLocationId);
   const locationTerm = locationQuery.trim().toUpperCase();
   const locationMatches = locationTerm.length === 0
     ? []
@@ -187,8 +200,15 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
 
   const chooseLocation = (id: string) => {
     setLocationId(id);
-    setCurrentLocationId(id);
     setLocationQuery("");
+  };
+
+  const clearLocation = () => {
+    setLocationId("");
+    setLocationQuery("");
+    setRows([]);
+    setSelectedId(null);
+    setDetail(null);
   };
 
   // The right panel is for picking a source. Empty locations stay off it.
@@ -196,16 +216,14 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
     (row) => row.onHandQty !== 0 || row.inTransitQty !== 0 || (row.reservedQty ?? 0) !== 0 || row.locationId === currentLocationId,
   );
 
-  const pickSource = async (row: SilaLiveInventoryLocation) => {
+  const sendTransfer = async (row: SilaLiveInventoryLocation, quick: boolean) => {
     if (!canTransfer || !detail) return;
-    if (!currentLocationId) {
-      toastService.error("Select a transfer location first.");
+    const destination = locations.find((location) => location.id === currentLocationId);
+    if (!destination) {
+      toastService.error("Choose the outlet that should receive the stock.");
       return;
     }
-    if (row.locationId === currentLocationId) {
-      toastService.error("Pick a different location as the source.");
-      return;
-    }
+    if (row.locationId === destination.id) return;
     const transferable = row.transferableQty ?? 0;
     if (!row.transferEnabled || transferable <= 0) {
       toastService.error(`${row.locationName} has no transferable stock.`);
@@ -214,16 +232,18 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
     const required = Number(requiredQty) || 0;
     const wanted = (detail.shortage ?? 0) > 0 ? (detail.shortage as number) : required > 0 ? required : 1;
     const quantity = Math.min(wanted, transferable);
-    setPickingId(row.locationId);
+    setPickingId(`${row.locationId}:${quick ? "quick" : "ito"}`);
     try {
-      await createTransfer({
+      const payload = {
         fromLocationId: row.locationId,
-        toLocationId: currentLocationId,
-        reason: `Transfer from ${row.locationName}`,
+        toLocationId: destination.id,
+        reason: quick ? "Guest service" : `Transfer from ${row.locationName}`,
         requiredBy: null,
         items: [{ materialId: detail.materialId, quantity, uom: null }],
-      });
-      toastService.success(`Transfer of ${formatQty(quantity)} ${detail.baseUom} from ${row.locationName} raised.`);
+      };
+      if (quick) await createQuickTransfer(payload);
+      else await createTransfer(payload);
+      toastService.success(`${quick ? "Quick ITO" : "ITO"} of ${formatQty(quantity)} ${detail.baseUom} from ${row.locationName} to ${destination.locationCode} raised.`);
       setDetailKey((key) => key + 1);
     } catch (err: unknown) {
       toastService.error(err instanceof Error ? err.message : "Could not request the transfer.");
@@ -250,7 +270,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
       <PageHeader
         className="pud-page-header"
         title="Live Inventory"
-        description="Stock opens at your assigned store or outlet. Materials and quantities are on the right. Search a location to open another outlet or property."
+        description="Stock opens at your assigned store or outlet. Remove the location to search a material everywhere you can open it. Quick ITO and ITO send that stock to your outlet."
       />
 
       <div className="sinv-live-editor">
@@ -266,10 +286,31 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                   <span className="sila-cell-strong">
                     {currentLocation.locationCode} · {currentLocation.locationName}
                     <span className="sinv-sub">{silaLabel(currentLocation.locationType)} · {currentLocation.propertyName}</span>
+                    <button type="button" className="sila-btn sila-btn--ghost sila-btn--sm" onClick={clearLocation}>
+                      Remove location
+                    </button>
                   </span>
-                ) : (
+                ) : locations.length === 0 ? (
                   <span className="sila-help">{locationsError ?? "Loading your location..."}</span>
+                ) : (
+                  <span className="sila-help">All locations. Search a material to see its stock everywhere you can open.</span>
                 )}
+              </div>
+              <div className="sila-field sinv-grow">
+                <label className="sila-label" htmlFor="sinv-live-destination">Transfer to</label>
+                <select
+                  id="sinv-live-destination"
+                  className="sila-select"
+                  value={currentLocationId}
+                  onChange={(event) => setCurrentLocationId(event.target.value)}
+                >
+                  {stockLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.locationCode} · {location.locationName}
+                    </option>
+                  ))}
+                </select>
+                {destination && <span className="sinv-sub">Receives the transfer. Starts as your outlet.</span>}
               </div>
               {locations.length > 1 && (
                 <div className="sila-field sinv-grow">
@@ -341,12 +382,19 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
         <section className="sila-card" aria-live="polite">
           <div className="sila-card-header">
             <h2 className="sila-card-title">Availability by location</h2>
-            {currentLocation && (
-              <span className="sila-help">{currentLocation.locationCode} · {currentLocation.propertyName}</span>
-            )}
+            <span className="sila-help">
+              {currentLocation ? `${currentLocation.locationCode} · ${currentLocation.propertyName}` : "All locations"}
+            </span>
           </div>
           {!canSearch ? (
-            <EmptyState title="No location yet" description={locationsError ?? "Your assigned store or outlet shows here once locations load."} />
+            locations.length === 0 && !locationsError ? (
+              <Loader size={24} message="Loading your location..." />
+            ) : (
+              <EmptyState
+                title={locationsError ? "Couldn't load your locations" : "Search a material"}
+                description={locationsError ?? "Remove the location, then enter a material to see its stock at every location you can open."}
+              />
+            )
           ) : loading ? (
             <Loader size={24} message="Loading stock..." />
           ) : error ? (
@@ -363,6 +411,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                       <th scope="col">Description</th>
                       <th scope="col" className="sinv-num">On hand</th>
                       <th scope="col" className="sinv-num">In transit</th>
+                      {!locationId && <th scope="col" className="sinv-num">Locations</th>}
                       <th scope="col">UOM</th>
                     </tr>
                   </thead>
@@ -377,6 +426,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                         <td>{row.description}</td>
                         <td className="sinv-num">{formatQty(row.onHandQty)}</td>
                         <td className="sinv-num">{formatQty(row.inTransitQty)}</td>
+                        {!locationId && <td className="sinv-num">{row.locationCount}</td>}
                         <td>{row.baseUom}</td>
                       </tr>
                     ))}
@@ -405,7 +455,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
           ) : detail && sourceRows.length > 0 && (
             <>
               <p className="sila-help sinv-pick-hint">
-                {detail.materialCode} at {locations.length > 1 ? "your locations. Click a location with transferable stock to raise a transfer." : "your assigned location."}
+                {detail.materialCode} wherever it is in stock. Quick ITO or ITO sends it to {destination?.locationCode ?? "the transfer location"}.
               </p>
               <div className="sila-table-wrap">
                 <table className="sila-table">
@@ -418,24 +468,18 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                       <th scope="col" className="sinv-num">Available</th>
                       <th scope="col" className="sinv-num">Transferable</th>
                       <th scope="col">Status</th>
+                      {canTransfer && <th scope="col">Transfer</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {sourceRows.map((row) => {
                       const status = stockStatus(row);
-                      const canPick = canTransfer && row.transferEnabled && (row.transferableQty ?? 0) > 0 && row.locationId !== currentLocationId;
+                      const canPick = row.transferEnabled && (row.transferableQty ?? 0) > 0 && row.locationId !== currentLocationId;
                       return (
-                        <tr
-                          key={row.locationId}
-                          className={canPick ? "sinv-row-button" : undefined}
-                          onClick={canPick ? () => pickSource(row) : undefined}
-                        >
+                        <tr key={row.locationId}>
                           <td>
                             <span className="sila-cell-strong">{row.locationName}</span>
-                            <span className="sinv-sub">
-                              {row.locationCode}
-                              {pickingId === row.locationId ? " · Raising transfer..." : ""}
-                            </span>
+                            <span className="sinv-sub">{row.locationCode}</span>
                           </td>
                           <td>{silaLabel(row.locationType)}</td>
                           <td>
@@ -446,6 +490,30 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                           <td className="sinv-num">{formatQty(row.availableQty ?? row.onHandQty)}</td>
                           <td className="sinv-num">{row.transferableQty ? formatQty(row.transferableQty) : "—"}</td>
                           <td><span className={`sila-badge ${status.badge}`}>{status.label}</span></td>
+                          {canTransfer && (
+                            <td>
+                              {canPick && (
+                                <span className="sinv-inline">
+                                  <button
+                                    type="button"
+                                    className="sila-btn sila-btn--primary sila-btn--sm"
+                                    disabled={pickingId !== null}
+                                    onClick={() => sendTransfer(row, true)}
+                                  >
+                                    {pickingId === `${row.locationId}:quick` ? "Working..." : "Quick ITO"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="sila-btn sila-btn--secondary sila-btn--sm"
+                                    disabled={pickingId !== null}
+                                    onClick={() => sendTransfer(row, false)}
+                                  >
+                                    {pickingId === `${row.locationId}:ito` ? "Working..." : "ITO"}
+                                  </button>
+                                </span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
