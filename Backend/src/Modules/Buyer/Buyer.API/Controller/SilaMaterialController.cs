@@ -80,6 +80,7 @@ namespace Buyer.API.Controllers
             {
                 OrganizationId = GetOrganizationId(),
                 UserId = GetUserId(),
+                RoleId = GetRoleId(),
                 Index = index,
                 Limit = limit
             });

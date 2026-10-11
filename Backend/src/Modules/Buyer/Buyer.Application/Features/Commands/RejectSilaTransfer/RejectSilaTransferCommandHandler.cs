@@ -48,7 +48,8 @@ namespace Buyer.Application.Features.Commands.RejectSilaTransfer
                 }
 
                 await SilaApprovals.DecideAsync(
-                    _repository, _logger, Common.SILA_REF_ITO, transfer.Id, 1, request.UserId, false, request.Request.Comment, cancellationToken);
+                    _repository, _logger, Common.SILA_REF_ITO, transfer.Id, 1, request.UserId, false, request.Request.Comment, cancellationToken,
+                    SilaAccess.IsAdministrator(request.RoleId));
             }
             else
             {

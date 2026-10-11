@@ -76,7 +76,8 @@ namespace Buyer.Application.Features.Queries.GetSilaRecipe
                 .Where(x => x.Version == recipe.Version && x.Status == Common.SILA_APPROVAL_PENDING)
                 .OrderBy(x => x.Order)
                 .FirstOrDefault();
-            bool canDecide = recipe.Status == Common.SILA_RECIPE_PENDING_APPROVAL && waiting != null && waiting.UserId == request.UserId;
+            bool canDecide = recipe.Status == Common.SILA_RECIPE_PENDING_APPROVAL && waiting != null
+                && (waiting.UserId == request.UserId || SilaAccess.IsAdministrator(request.RoleId));
             decimal totalCost = Math.Round(ingredients.Sum(x => x.Cost), 4);
             // The pending version of an approved recipe shows its own header; every other version shows the active header.
             bool showDraft = SilaRecipeRules.ShowsDraftHeader(recipe, version);

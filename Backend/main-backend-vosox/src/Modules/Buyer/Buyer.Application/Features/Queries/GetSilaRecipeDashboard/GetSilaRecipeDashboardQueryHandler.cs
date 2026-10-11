@@ -46,7 +46,8 @@ namespace Buyer.Application.Features.Queries.GetSilaRecipeDashboard
                 MaterialCount = await _repository.ItemBuyerMaster.FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive).CountAsync(cancellationToken)
             };
 
-            List<Guid> mineIds = await SilaApprovals.PendingForUserAsync(_repository, buyer.Id, Common.SILA_REF_RECIPE, request.UserId, cancellationToken);
+            List<Guid> mineIds = await SilaApprovals.PendingForUserAsync(
+                _repository, buyer.Id, Common.SILA_REF_RECIPE, request.UserId, cancellationToken, SilaAccess.IsAdministrator(request.RoleId));
             List<Recipe> mine = mineIds.Count == 0
                 ? new List<Recipe>()
                 : await recipes.Where(x => mineIds.Contains(x.Id) && x.Status == Common.SILA_RECIPE_PENDING_APPROVAL)

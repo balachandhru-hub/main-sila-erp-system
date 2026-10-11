@@ -58,7 +58,8 @@ namespace Buyer.Application.Features.Commands.ApproveSilaStockCount
             if (chained)
             {
                 ApprovalDecision decision = await SilaApprovals.DecideAsync(
-                    _repository, _logger, Common.SILA_REF_STOCK_COUNT, count.Id, 1, request.UserId, true, null, cancellationToken);
+                    _repository, _logger, Common.SILA_REF_STOCK_COUNT, count.Id, 1, request.UserId, true, null, cancellationToken,
+                    SilaAccess.IsAdministrator(request.RoleId));
                 if (decision.Outcome == SilaApprovals.OUTCOME_PENDING)
                 {
                     InventoryLedger waiting = new InventoryLedger(_repository, buyer.Id, request.UserId);

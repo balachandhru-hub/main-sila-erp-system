@@ -27,6 +27,11 @@ namespace Buyer.Application.Features.Shared
             return buyer;
         }
 
+        public static bool IsAdministrator(Guid roleId)
+        {
+            return roleId == Common.BUYER_ADMIN_ROLE_ID;
+        }
+
         public static bool HasFullAccess(Guid roleId)
         {
             return roleId == Common.BUYER_ADMIN_ROLE_ID

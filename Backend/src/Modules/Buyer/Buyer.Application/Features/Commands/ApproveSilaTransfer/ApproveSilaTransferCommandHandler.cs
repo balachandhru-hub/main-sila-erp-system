@@ -38,7 +38,8 @@ namespace Buyer.Application.Features.Commands.ApproveSilaTransfer
             {
                 await EnsureEitherLocationAsync(buyer.Id, request.UserId, request.RoleId, transfer, cancellationToken);
                 ApprovalDecision decision = await SilaApprovals.DecideAsync(
-                    _repository, _logger, Common.SILA_REF_ITO, transfer.Id, 1, request.UserId, true, request.Request.Comment, cancellationToken);
+                    _repository, _logger, Common.SILA_REF_ITO, transfer.Id, 1, request.UserId, true, request.Request.Comment, cancellationToken,
+                    SilaAccess.IsAdministrator(request.RoleId));
                 if (decision.Outcome == SilaApprovals.OUTCOME_PENDING)
                 {
                     InventoryLedger waiting = new InventoryLedger(_repository, buyer.Id, request.UserId);
