@@ -17,12 +17,16 @@ import SilaLiveDecisionPanel from "./SilaLiveDecisionPanel";
 import "../silaMeTheme.css";
 import "./SilaInventory.css";
 
-/** The signed-in user's home location: an outlet, otherwise a store, otherwise a venue. */
+/** Opens on the user's assigned store or outlet. One assignment wins; otherwise a store, then an outlet. */
 const homeLocation = (locations: SilaLocation[]): SilaLocation | undefined => {
-  const ofType = (type: string) => locations
+  const assigned = locations.filter((location) => location.assigned);
+  const pool = assigned.length > 0 ? assigned : locations;
+  const stocked = pool.filter((location) => location.locationType !== "VENUE");
+  if (stocked.length === 1) return stocked[0];
+  const ofType = (type: string) => stocked
     .filter((location) => location.locationType === type)
     .sort((a, b) => a.locationCode.localeCompare(b.locationCode))[0];
-  return ofType("OUTLET") ?? ofType("STORE") ?? ofType("VENUE");
+  return ofType("STORE") ?? ofType("OUTLET") ?? pool[0];
 };
 
 const STATUS_TEXT: Record<string, string> = {
@@ -53,8 +57,8 @@ interface SilaLiveInventoryProps {
 }
 
 /**
- * Stock at the signed-in user's outlet, store or venue. Search switches the location. A material shows stock by
- * location and the next actions for the quantity required there.
+ * Stock at the signed-in user's assigned store or outlet. The right side lists that location's materials.
+ * A user who can open other locations searches them and then sees their stock too.
  */
 const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = true, canRequestPurchase = false, initialSearch = "" }) => {
   const [locations, setLocations] = useState<SilaLocation[]>([]);
@@ -246,7 +250,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
       <PageHeader
         className="pud-page-header"
         title="Live Inventory"
-        description="Stock opens at your outlet, store or venue. Search a location to switch. Pick a material, then click a source on the right to transfer into that location."
+        description="Stock opens at your assigned store or outlet. Materials and quantities are on the right. Search a location to open another outlet or property."
       />
 
       <div className="sinv-live-editor">
@@ -267,17 +271,19 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                   <span className="sila-help">{locationsError ?? "Loading your location..."}</span>
                 )}
               </div>
-              <div className="sila-field sinv-grow">
-                <label className="sila-label" htmlFor="sinv-live-location">Search location</label>
-                <input
-                  id="sinv-live-location"
-                  className="sila-input"
-                  type="search"
-                  placeholder="Code, name or property"
-                  value={locationQuery}
-                  onChange={(event) => setLocationQuery(event.target.value)}
-                />
-              </div>
+              {locations.length > 1 && (
+                <div className="sila-field sinv-grow">
+                  <label className="sila-label" htmlFor="sinv-live-location">Search location</label>
+                  <input
+                    id="sinv-live-location"
+                    className="sila-input"
+                    type="search"
+                    placeholder="Code, name or property"
+                    value={locationQuery}
+                    onChange={(event) => setLocationQuery(event.target.value)}
+                  />
+                </div>
+              )}
               <div className="sila-field sinv-grow">
                 <label className="sila-label" htmlFor="sinv-live-search">Search material</label>
                 <input
@@ -305,48 +311,8 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                 ))}
               </ul>
             )}
-            {!canSearch ? (
-              <EmptyState title="No location yet" description="Your outlet, store or venue shows here once locations load." />
-            ) : loading ? (
-              <Loader size={24} message="Searching..." />
-            ) : error ? (
-              <EmptyState variant="error" title="Couldn't search the inventory" description={error} />
-            ) : rows.length === 0 ? (
-              <EmptyState title="No materials found" />
-            ) : (
-              <>
-                <ul className="sinv-pick-list">
-                  {rows.map((row) => (
-                    <li key={row.materialId}>
-                      <button
-                        type="button"
-                        className={`sinv-pick${row.materialId === selectedId ? " sinv-pick--active" : ""}`}
-                        aria-label={`Show stock per location of ${row.materialCode}`}
-                        onClick={() => openDetail(row.materialId)}
-                      >
-                        <span>
-                          <strong>{row.materialCode}</strong>
-                          <span className="sinv-sub">{row.description}</span>
-                        </span>
-                        <em>{formatQty(row.onHandQty)} {row.baseUom}</em>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {hasMore && (
-                  <div className="sinv-pager">
-                    <span>{rows.length} materials</span>
-                    <button
-                      type="button"
-                      className="sila-btn sila-btn--secondary sila-btn--sm"
-                      disabled={loadingMore}
-                      onClick={loadMore}
-                    >
-                      {loadingMore ? "Loading..." : "Load more"}
-                    </button>
-                  </div>
-                )}
-              </>
+            {locations.length > 1 && (
+              <p className="sila-help sinv-pick-hint">Search a location to see stock at another outlet or property.</p>
             )}
           </section>
 
@@ -375,18 +341,72 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
         <section className="sila-card" aria-live="polite">
           <div className="sila-card-header">
             <h2 className="sila-card-title">Availability by location</h2>
+            {currentLocation && (
+              <span className="sila-help">{currentLocation.locationCode} · {currentLocation.propertyName}</span>
+            )}
           </div>
-          {!selectedId ? (
-            <EmptyState title="Select a material" description="Location availability and transfer sources show here." />
-          ) : detailLoading && !detail ? (
+          {!canSearch ? (
+            <EmptyState title="No location yet" description={locationsError ?? "Your assigned store or outlet shows here once locations load."} />
+          ) : loading ? (
             <Loader size={24} message="Loading stock..." />
-          ) : detailError ? (
-            <EmptyState variant="error" title="Couldn't load the stock" description={detailError} />
-          ) : !detail || sourceRows.length === 0 ? (
-            <EmptyState title="No stock in your property" description="No location of your property holds this material." />
+          ) : error ? (
+            <EmptyState variant="error" title="Couldn't load the stock" description={error} />
+          ) : rows.length === 0 ? (
+            <EmptyState title="No materials found" description="This location has no stock matching the search." />
           ) : (
             <>
-              <p className="sila-help sinv-pick-hint">Click a location with transferable stock to raise a transfer into the transfer location.</p>
+              <div className="sila-table-wrap">
+                <table className="sila-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Material</th>
+                      <th scope="col">Description</th>
+                      <th scope="col" className="sinv-num">On hand</th>
+                      <th scope="col" className="sinv-num">In transit</th>
+                      <th scope="col">UOM</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr
+                        key={row.materialId}
+                        className={`sinv-row-button${row.materialId === selectedId ? " sinv-row-selected" : ""}`}
+                        onClick={() => openDetail(row.materialId)}
+                      >
+                        <td><span className="sila-cell-strong">{row.materialCode}</span></td>
+                        <td>{row.description}</td>
+                        <td className="sinv-num">{formatQty(row.onHandQty)}</td>
+                        <td className="sinv-num">{formatQty(row.inTransitQty)}</td>
+                        <td>{row.baseUom}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {hasMore && (
+                <div className="sinv-pager">
+                  <span>{rows.length} materials</span>
+                  <button
+                    type="button"
+                    className="sila-btn sila-btn--secondary sila-btn--sm"
+                    disabled={loadingMore}
+                    onClick={loadMore}
+                  >
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {selectedId && (detailLoading && !detail ? (
+            <Loader size={24} message="Loading other locations..." />
+          ) : detailError ? (
+            <EmptyState variant="error" title="Couldn't load the stock" description={detailError} />
+          ) : detail && sourceRows.length > 0 && (
+            <>
+              <p className="sila-help sinv-pick-hint">
+                {detail.materialCode} at {locations.length > 1 ? "your locations. Click a location with transferable stock to raise a transfer." : "your assigned location."}
+              </p>
               <div className="sila-table-wrap">
                 <table className="sila-table">
                   <thead>
@@ -433,7 +453,7 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                 </table>
               </div>
             </>
-          )}
+          ))}
         </section>
       </div>
     </div>

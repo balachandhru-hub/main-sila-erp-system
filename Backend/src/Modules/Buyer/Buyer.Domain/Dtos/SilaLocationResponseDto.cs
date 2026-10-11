@@ -36,5 +36,8 @@ namespace Buyer.Domain.Dtos
 
         /// <summary>Company code of the property.</summary>
         public string? CompanyCode { get; set; }
+
+        /// <summary>The caller's own location. Live inventory opens on this assignment.</summary>
+        public bool Assigned { get; set; }
     }
 }

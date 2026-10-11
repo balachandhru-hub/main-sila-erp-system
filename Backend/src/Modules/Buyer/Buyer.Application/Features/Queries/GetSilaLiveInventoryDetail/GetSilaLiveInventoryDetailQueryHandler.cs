@@ -11,8 +11,8 @@ using SharedKernel.LoggerServices;
 namespace Buyer.Application.Features.Queries.GetSilaLiveInventoryDetail
 {
     /// <summary>
-    /// A material's stock at every location of the properties the caller works in. Other properties are never shown:
-    /// stock is neither visible nor transferable across properties.
+    /// A material's stock at the caller's locations. An administrator, store manager, cost controller, F&amp;B director
+    /// or finance manager also sees the other outlets and properties they can open.
     /// </summary>
     public class GetSilaLiveInventoryDetailQueryHandler : IRequestHandler<GetSilaLiveInventoryDetailQuery, SilaLiveInventoryDetailDto>
     {
@@ -43,6 +43,11 @@ namespace Buyer.Application.Features.Queries.GetSilaLiveInventoryDetail
             List<InventoryLocation> locations = await _repository.InventoryLocation
                 .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive && propertyIds.Contains(x.PropertyId))
                 .ToListAsync(cancellationToken);
+            if (!SilaAccess.HasFullAccess(request.RoleId))
+            {
+                locations = locations.Where(x => myLocationIds.Contains(x.Id)).ToList();
+            }
+
             List<Guid> locationIds = locations.Select(x => x.Id).ToList();
 
             Dictionary<Guid, BuyerProperty> properties = await _repository.BuyerProperty
