@@ -804,7 +804,7 @@ const BuyerAdminDash: React.FC = () => {
         <ToastContainer />
         <div className="bad-main">
           <div className="bad-content">
-            {hasSilaMe && isSilaMeNav(activeNav) ? (
+            {isSilaMeNav(activeNav) ? (
               <SilaMeWorkspace navKey={activeNav} role="admin" onNavigate={handleNavClick} />
             ) : activeNav === "purchasing" ? (
               <PurchasingDashboard
@@ -834,10 +834,10 @@ const BuyerAdminDash: React.FC = () => {
               <ApprovalManagement />
             ) : activeNav === "models" ? (
               <Models
-                silaMeRole={hasSilaMe ? "admin" : null}
+                silaMeRole="admin"
                 onNavigate={handleNavClick}
                 onOpenModel={(model) => {
-                  if (!hasSilaMe || model.key !== SILA_ME_MODEL_KEY) return false;
+                  if (model.key !== SILA_ME_MODEL_KEY) return false;
                   handleNavClick("silaDashboard");
                   return true;
                 }}

@@ -124,7 +124,7 @@ const BuyersDashboard: React.FC = () => {
   const isStoreManager = buyerProfile?.roleName === STORE_MANAGER_ROLE;
   // The SILA ME (hospitality) add-on menu, for organizations that have the add-on.
   const hasSilaMe = useSilaMeAddon();
-  const silaMeRole: SilaMeRole | null = hasSilaMe ? silaMeRoleOf(buyerProfile?.roleName ?? "", false) : null;
+  const silaMeRole: SilaMeRole = silaMeRoleOf(buyerProfile?.roleName ?? "", false);
   // How this user works with the weekly bucket, for the dashboards' suggested actions.
   const bucketRole: BucketRole = isStoreManager ? "freezer" : isOutletManager ? "requester" : null;
 
@@ -221,7 +221,7 @@ const BuyersDashboard: React.FC = () => {
     <Header navItems={headerNavItems} activeNav={activeNav} onNavClick={handleNavClick} onLogout={handleLogout}>
         <div className="pud-main">
           <div className="pud-content">
-            {silaMeRole && isSilaMeNav(activeNav) ? (
+            {isSilaMeNav(activeNav) ? (
               <SilaMeWorkspace navKey={activeNav} role={silaMeRole} onNavigate={handleNavClick} />
             ) : activeNav === "purchasing" ? (
               <PurchasingDashboard
@@ -244,7 +244,7 @@ const BuyersDashboard: React.FC = () => {
                 silaMeRole={silaMeRole}
                 onNavigate={handleNavClick}
                 onOpenModel={(model) => {
-                  if (!silaMeRole || model.key !== SILA_ME_MODEL_KEY) return false;
+                  if (model.key !== SILA_ME_MODEL_KEY) return false;
                   handleNavClick("silaDashboard");
                   return true;
                 }}

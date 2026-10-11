@@ -60,6 +60,10 @@ const Models: React.FC<ModelsProps> = ({ silaMeRole, onNavigate, onOpenModel }) 
   };
 
   const handleOpen = (model: ModelDto) => {
+    if (model.key === SILA_ME_MODEL_KEY && onNavigate) {
+      onNavigate("silaDashboard");
+      return;
+    }
     if (onOpenModel?.(model)) return;
     window.alert(`"${model.modelName}" is not available to launch yet. Please check back soon.`);
   };
