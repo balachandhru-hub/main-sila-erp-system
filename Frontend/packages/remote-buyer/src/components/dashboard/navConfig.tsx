@@ -78,8 +78,6 @@ export interface BuyerNavOptions {
   isStoreManager?: boolean;
   /** Key of the RFQ list in this dashboard ("allRfqs" for buyer users, "activeRFQs" for the administrator). */
   rfqListKey: string;
-  /** The "SILA ME" entry, when the organization has the add-on. */
-  silaMeItem?: BuyerNavItem | null;
 }
 
 const leaf = (key: string, label: string): NavLeaf => ({ key, label });
@@ -95,7 +93,6 @@ export const buildBuyerNavItems = ({
   isOutletManager = false,
   isStoreManager = false,
   rfqListKey,
-  silaMeItem = null,
 }: BuyerNavOptions): BuyerNavItem[] => {
   const requestsProducts = isAdmin || isOutletManager;
   const usesWeeklyBucket = requestsProducts || isStoreManager;
@@ -141,7 +138,6 @@ export const buildBuyerNavItems = ({
       label: "Approvals",
       subItems: [leaf("material", "Material"), leaf("contract", "Contract"), leaf("weeklyBucketApprovals", "Weekly Bucket")],
     },
-    ...(silaMeItem ? [silaMeItem] : []),
     { key: "models", icon: <LayoutGridIcon />, label: "Add-ons" },
     { key: "settings", icon: <LayoutTemplateIcon />, label: "Settings", subItems: settings },
   ];

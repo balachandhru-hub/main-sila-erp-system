@@ -1,4 +1,4 @@
-import { LayoutGridIcon } from "@vosox/shared-ui";
+import { FileCheckIcon, HomeIcon, LayoutGridIcon } from "@vosox/shared-ui";
 import { silaMePermissions } from "./silaMePermissions";
 
 /** Who is using the SILA ME add-on; decides the menu and which actions the screens offer. */
@@ -126,4 +126,20 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
   ];
 
   return { key: "silaMe", icon: <LayoutGridIcon />, label: "SILA ME - Hospitality", subItems: groups.filter((group) => group.items.length > 0) };
+};
+
+/**
+ * The SILA ME site menu. Home and Purchasing Dashboard leave this module and return to purchasing.
+ */
+export const buildSilaMeModuleNav = (role: SilaMeRole) => {
+  const sections = (buildSilaMeNavItem(role).subItems ?? []).flatMap((entry) =>
+    "items" in entry
+      ? [{ key: `sila-section-${entry.label}`, icon: <LayoutGridIcon />, label: entry.label, subItems: entry.items }]
+      : [],
+  );
+  return [
+    { key: "dashboard", icon: <HomeIcon />, label: "Home" },
+    { key: "purchasing", icon: <FileCheckIcon />, label: "Purchasing Dashboard" },
+    ...sections,
+  ];
 };

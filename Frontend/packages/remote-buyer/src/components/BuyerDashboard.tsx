@@ -37,7 +37,7 @@ import WishlistSection from "./wishlist/WishlistSection";
 import WeeklyBucketSection from "./weeklyBucket/WeeklyBucketSection";
 import CartSection from "./cart/CartSection";
 import SilaMeWorkspace from "./silaMe/SilaMeWorkspace";
-import { SILA_ME_MODEL_KEY, isSilaMeNav, type SilaMeRole } from "./silaMe/silaMeNav";
+import { SILA_ME_MODEL_KEY, buildSilaMeModuleNav, isSilaMeNav, type SilaMeRole } from "./silaMe/silaMeNav";
 import { useSilaMeAddon } from "./silaMe/useSilaMeAddon";
 import { silaMeRoleOf } from "./silaMe/silaMeRoles";
 import { ChatPanel, CompanyProfile, CreateRFQ, useAsyncData, useRouteNav } from '@vosox/shared-ui';
@@ -213,8 +213,10 @@ const BuyersDashboard: React.FC = () => {
   };
 
   const headerNavItems = useMemo(
-    () => buildHeaderNavItems(rfqPageView, fullPageRfq?.rfqNumber, isOutletManager, isStoreManager, silaMeRole),
-    [rfqPageView, fullPageRfq, isOutletManager, isStoreManager, silaMeRole],
+    () => isSilaMeNav(activeNav)
+      ? buildSilaMeModuleNav(silaMeRole)
+      : buildHeaderNavItems(rfqPageView, fullPageRfq?.rfqNumber, isOutletManager, isStoreManager, silaMeRole),
+    [activeNav, rfqPageView, fullPageRfq, isOutletManager, isStoreManager, silaMeRole],
   );
 
   return (

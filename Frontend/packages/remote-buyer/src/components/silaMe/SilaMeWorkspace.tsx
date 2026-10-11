@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { FaArrowLeft } from "react-icons/fa";
 import type { SilaMeNavKey, SilaMeRole } from "./silaMeNav";
 import { silaMePermissions } from "./silaMePermissions";
 import SilaInventoryDashboard from "./inventory/SilaInventoryDashboard";
@@ -168,16 +167,6 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
 
   return (
     <div className="sila-workspace-container">
-      <div className="sila-workspace-topbar">
-        <button
-          type="button"
-          className="sila-workspace-back-btn"
-          onClick={() => onNavigate("models")}
-        >
-          <FaArrowLeft aria-hidden="true" />
-          <span>Back to Add-ons</span>
-        </button>
-      </div>
       <div className="sila-workspace-body">{content}</div>
     </div>
   );
