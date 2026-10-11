@@ -95,6 +95,7 @@ export const buildBuyerNavItems = ({
   isOutletManager = false,
   isStoreManager = false,
   rfqListKey,
+  silaMeItem = null,
 }: BuyerNavOptions): BuyerNavItem[] => {
   const requestsProducts = isAdmin || isOutletManager;
   const usesWeeklyBucket = requestsProducts || isStoreManager;
@@ -140,6 +141,7 @@ export const buildBuyerNavItems = ({
       label: "Approvals",
       subItems: [leaf("material", "Material"), leaf("contract", "Contract"), leaf("weeklyBucketApprovals", "Weekly Bucket")],
     },
+    ...(silaMeItem ? [silaMeItem] : []),
     { key: "models", icon: <LayoutGridIcon />, label: "Add-ons" },
     { key: "settings", icon: <LayoutTemplateIcon />, label: "Settings", subItems: settings },
   ];
