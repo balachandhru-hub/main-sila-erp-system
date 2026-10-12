@@ -6,6 +6,7 @@ import {
   type SilaDashboardFilter,
   type SilaInventoryDashboard as Dashboard,
 } from "../../../api/silaMe/silaInventoryControlApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import SilaDashboardActions from "./SilaDashboardActions";
 import SilaDashboardReplenishment from "./SilaDashboardReplenishment";
 import SilaDashboardSearch, { type SilaDashboardTarget } from "./SilaDashboardSearch";
@@ -88,22 +89,13 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
 
       <Card title="Filters" flush>
         <div className="sinv-filters">
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="sinv-dash-location">Location</label>
-            <select
-              id="sinv-dash-location"
-              className="sila-select"
-              value={filter.locationId ?? ""}
-              onChange={(event) => setFilter((current) => ({ ...current, locationId: event.target.value || undefined }))}
-            >
-              <option value="">All my locations</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.locationName} ({location.locationCode}){location.locationType === "VENUE" ? " · venue" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            placeholder="All my locations"
+            value={filter.locationId ?? ""}
+            options={silaLocationOptions(locations)}
+            onChange={(locationId) => setFilter((current) => ({ ...current, locationId: locationId || undefined }))}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="sinv-dash-date">Business date</label>
             <input

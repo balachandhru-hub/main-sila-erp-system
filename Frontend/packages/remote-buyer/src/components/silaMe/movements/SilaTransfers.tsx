@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, PageHeader, Pagination } from "@vosox/shared-ui";
 import { getLocations, getMyLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import {
   getTransfers,
   type SilaTransferFilters,
@@ -166,33 +167,27 @@ const SilaTransfers: React.FC<SilaTransfersProps> = ({ canApprove }) => {
               <option value="QUICK">Quick</option>
             </select>
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-ito-property">Property</label>
-            <select id="smov-ito-property" className="sila-select" value={filters.propertyId} onChange={(event) => setFilter("propertyId", event.target.value)}>
-              <option value="">All properties</option>
-              {properties.map((property) => (
-                <option key={property.id} value={property.id}>{property.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-ito-from">From</label>
-            <select id="smov-ito-from" className="sila-select" value={filters.fromLocationId} onChange={(event) => setFilter("fromLocationId", event.target.value)}>
-              <option value="">Any source</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>{location.locationName}</option>
-              ))}
-            </select>
-          </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-ito-to">To</label>
-            <select id="smov-ito-to" className="sila-select" value={filters.toLocationId} onChange={(event) => setFilter("toLocationId", event.target.value)}>
-              <option value="">Any destination</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>{location.locationName}</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Property"
+            placeholder="All properties"
+            value={filters.propertyId}
+            options={properties.map((property) => ({ value: property.id, label: property.name }))}
+            onChange={(propertyId) => setFilter("propertyId", propertyId)}
+          />
+          <SilaSearchableSelect
+            label="From"
+            placeholder="Any source"
+            value={filters.fromLocationId}
+            options={locations.map((location) => ({ value: location.id, label: location.locationName }))}
+            onChange={(fromLocationId) => setFilter("fromLocationId", fromLocationId)}
+          />
+          <SilaSearchableSelect
+            label="To"
+            placeholder="Any destination"
+            value={filters.toLocationId}
+            options={locations.map((location) => ({ value: location.id, label: location.locationName }))}
+            onChange={(toLocationId) => setFilter("toLocationId", toLocationId)}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="smov-ito-date-from">Requested from</label>
             <input id="smov-ito-date-from" type="date" className="sila-input" value={filters.fromDate} onChange={(event) => setFilter("fromDate", event.target.value)} />

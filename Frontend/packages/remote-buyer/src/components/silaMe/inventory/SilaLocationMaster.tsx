@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, Modal, PageHeader, toastService } from "@vosox/shared-ui";
 import { getOutlets, type Outlet } from "../../../api/outletApi";
 import { getProperties, type Property } from "../../../api/propertyApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import {
   SILA_LOCATION_TYPES,
   deactivateLocation,
@@ -292,20 +293,13 @@ const SilaLocationMaster: React.FC<SilaLocationMasterProps> = ({ canManage }) =>
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="sinv-loc-property">Property</label>
-            <select
-              id="sinv-loc-property"
-              className="sila-select"
-              value={propertyFilter}
-              onChange={(event) => setPropertyFilter(event.target.value)}
-            >
-              <option value="">All properties</option>
-              {propertyOptions.map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Property"
+            placeholder="All properties"
+            value={propertyFilter}
+            options={propertyOptions.map(([id, name]) => ({ value: id, label: name }))}
+            onChange={setPropertyFilter}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="sinv-loc-type">Type</label>
             <select

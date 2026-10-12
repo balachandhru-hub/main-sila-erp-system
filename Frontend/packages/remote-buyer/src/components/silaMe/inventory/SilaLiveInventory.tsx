@@ -13,6 +13,7 @@ import {
   type SilaLocation,
 } from "../../../api/silaMe/silaInventoryApi";
 import { createQuickTransfer, createTransfer } from "../../../api/silaMe/silaMovementsApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import SilaLiveDecisionPanel from "./SilaLiveDecisionPanel";
 import "../silaMeTheme.css";
 import "./SilaInventory.css";
@@ -297,20 +298,18 @@ const SilaLiveInventory: React.FC<SilaLiveInventoryProps> = ({ canTransfer = tru
                 )}
               </div>
               <div className="sila-field sinv-grow">
-                <label className="sila-label" htmlFor="sinv-live-destination">Transfer to</label>
-                <select
-                  id="sinv-live-destination"
-                  className="sila-select"
+                <SilaSearchableSelect
+                  label="Transfer to"
+                  placeholder="Select destination"
                   value={currentLocationId}
-                  onChange={(event) => setCurrentLocationId(event.target.value)}
-                >
-                  {stockLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.locationCode} · {location.locationName}
-                    </option>
-                  ))}
-                </select>
-                {destination && <span className="sinv-sub">Receives the transfer. Starts as your outlet.</span>}
+                  clearable={false}
+                  options={stockLocations.map((location) => ({
+                    value: location.id,
+                    label: `${location.locationCode} · ${location.locationName}`,
+                  }))}
+                  onChange={setCurrentLocationId}
+                  infoText={destination ? "Receives the transfer. Starts as your outlet." : undefined}
+                />
               </div>
               {locations.length > 1 && (
                 <div className="sila-field sinv-grow">

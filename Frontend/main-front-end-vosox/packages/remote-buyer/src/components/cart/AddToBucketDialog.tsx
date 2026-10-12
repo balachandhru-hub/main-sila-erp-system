@@ -3,6 +3,7 @@ import { Loader, Modal, toastService } from "@vosox/shared-ui";
 import type { CatalogQuantity } from "../../api/personalWishlistApi";
 import { addWeeklyBucketItems, type WeeklyBucketAddResult } from "../../api/weeklyBucketApi";
 import { useCurrentWeeklyBucket } from "../../hooks/useCurrentWeeklyBucket";
+import SilaSearchableSelect from "../silaMe/SilaSearchableSelect";
 import { statusBadgeClass, statusLabel } from "../weeklyBucket/weeklyBucketStatus";
 
 interface AddToBucketDialogProps {
@@ -66,23 +67,19 @@ const AddToBucketDialog: React.FC<AddToBucketDialogProps> = ({ items, onClose, o
         ) : (
           <>
             {current.showOutletPicker && (
-              <div className="sila-field">
-                <label className="sila-label" htmlFor="cart-bucket-outlet">Outlet<span className="sila-required">*</span></label>
-                <select
-                  id="cart-bucket-outlet"
-                  className="sila-select"
-                  value={current.outletId}
-                  disabled={saving}
-                  onChange={(event) => current.setOutletId(event.target.value)}
-                >
-                  {current.mustChooseOutlet && <option value="">Select an outlet</option>}
-                  {current.outlets.map((outlet) => (
-                    <option key={outlet.id} value={outlet.id}>
-                      {outlet.outletName}{outlet.propertyName ? ` — ${outlet.propertyName}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SilaSearchableSelect
+                label="Outlet"
+                required={current.mustChooseOutlet}
+                placeholder="Select an outlet"
+                value={current.outletId}
+                disabled={saving}
+                clearable={current.mustChooseOutlet}
+                options={current.outlets.map((outlet) => ({
+                  value: outlet.id,
+                  label: `${outlet.outletName}${outlet.propertyName ? ` — ${outlet.propertyName}` : ""}`,
+                }))}
+                onChange={current.setOutletId}
+              />
             )}
             {current.loading ? (
               <Loader size={24} message="Loading weekly bucket..." />

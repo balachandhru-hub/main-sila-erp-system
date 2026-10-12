@@ -11,6 +11,7 @@ import {
   type SilaLocation,
   type SilaLocationWrite,
 } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 
 interface SilaLocationFormProps {
   /** null creates a new location. */
@@ -166,42 +167,29 @@ const SilaLocationForm: React.FC<SilaLocationFormProps> = ({ location, propertie
               ))}
             </select>
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="sinv-form-property">Property<span className="sila-required">*</span></label>
-            <select
-              id="sinv-form-property"
-              className="sila-select"
-              value={form.propertyId}
-              onChange={(event) => changeProperty(event.target.value)}
-            >
-              <option value="">Select a property</option>
-              {properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.propertyName} ({property.plantCode})
-                </option>
-              ))}
-            </select>
-            {properties.length === 0 && <span className="sila-help">Create a property first.</span>}
-          </div>
+          <SilaSearchableSelect
+            label="Property"
+            required
+            placeholder="Select a property"
+            value={form.propertyId}
+            options={properties.map((property) => ({
+              value: property.id,
+              label: `${property.propertyName} (${property.plantCode})`,
+            }))}
+            onChange={changeProperty}
+            infoText={properties.length === 0 ? "Create a property first." : undefined}
+          />
           {isOutlet ? (
-            <div className="sila-field">
-              <label className="sila-label" htmlFor="sinv-form-outlet">Outlet<span className="sila-required">*</span></label>
-              <select
-                id="sinv-form-outlet"
-                className="sila-select"
-                value={form.outletId ?? ""}
-                disabled={!form.propertyId}
-                onChange={(event) => changeOutlet(event.target.value)}
-              >
-                <option value="">Select an outlet</option>
-                {propertyOutlets.map((outlet) => (
-                  <option key={outlet.id} value={outlet.id}>{outlet.outletName}</option>
-                ))}
-              </select>
-              {form.propertyId && propertyOutlets.length === 0 && (
-                <span className="sila-help">The property has no outlets.</span>
-              )}
-            </div>
+            <SilaSearchableSelect
+              label="Outlet"
+              required
+              placeholder="Select an outlet"
+              value={form.outletId ?? ""}
+              disabled={!form.propertyId}
+              options={propertyOutlets.map((outlet) => ({ value: outlet.id, label: outlet.outletName }))}
+              onChange={changeOutlet}
+              infoText={form.propertyId && propertyOutlets.length === 0 ? "The property has no outlets." : undefined}
+            />
           ) : isVenue ? null : (
             <div className="sila-field">
               <label className="sila-label" htmlFor="sinv-form-category">Store category<span className="sila-required">*</span></label>
@@ -218,21 +206,14 @@ const SilaLocationForm: React.FC<SilaLocationFormProps> = ({ location, propertie
             </div>
           )}
           {!isVenue && (
-            <div className="sila-field">
-              <label className="sila-label" htmlFor="sinv-form-parent">Venue</label>
-              <select
-                id="sinv-form-parent"
-                className="sila-select"
-                value={form.parentLocationId ?? ""}
-                disabled={!form.propertyId}
-                onChange={(event) => setField("parentLocationId", event.target.value || null)}
-              >
-                <option value="">No venue</option>
-                {venues.map((venue) => (
-                  <option key={venue.id} value={venue.id}>{venue.locationName} ({venue.locationCode})</option>
-                ))}
-              </select>
-            </div>
+            <SilaSearchableSelect
+              label="Venue"
+              placeholder="No venue"
+              value={form.parentLocationId ?? ""}
+              disabled={!form.propertyId}
+              options={silaLocationOptions(venues)}
+              onChange={(parentLocationId) => setField("parentLocationId", parentLocationId || null)}
+            />
           )}
           <div className="sila-field">
             <label className="sila-label" htmlFor="sinv-form-code">Location code<span className="sila-required">*</span></label>

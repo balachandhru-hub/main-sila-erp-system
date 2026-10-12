@@ -3,6 +3,7 @@ import { Modal, toastService } from "@vosox/shared-ui";
 import type { SilaLocation, SilaMaterial } from "../../../api/silaMe/silaInventoryApi";
 import type { SilaMaterialOutletPrice } from "../../../api/silaMe/silaRecipeApi";
 import { submitPriceChange } from "../../../api/silaMe/silaMaterialsApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import SilaPriceHistory from "./SilaPriceHistory";
 import SilaPriceStatusBadge from "./SilaPriceStatusBadge";
 import { formatPrice } from "./materialFormat";
@@ -147,13 +148,13 @@ const SilaMaterialPricePanel: React.FC<SilaMaterialPricePanelProps> = ({
           <section className="sila-form-section">
             <h3 className="sila-section-title">New price</h3>
             {outlets.length > 0 && (
-              <div className="sila-field">
-                <label className="sila-label" htmlFor="smat-outlet">Price for</label>
-                <select id="smat-outlet" className="sila-input" value={outletId} onChange={(event) => setOutletId(event.target.value)}>
-                  <option value="">Default price (all outlets without their own)</option>
-                  {outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.locationName}</option>)}
-                </select>
-              </div>
+              <SilaSearchableSelect
+                label="Price for"
+                placeholder="Default price (all outlets without their own)"
+                value={outletId}
+                options={outlets.map((outlet) => ({ value: outlet.id, label: outlet.locationName }))}
+                onChange={setOutletId}
+              />
             )}
             <div className="sila-form-grid">
               <div className="sila-field">

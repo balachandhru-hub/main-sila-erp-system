@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Modal, toastService } from "@vosox/shared-ui";
 import type { SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import { createQuickTransfer, createTransfer } from "../../../api/silaMe/silaMovementsApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import MovementLinesEditor, { toLineWrites, validateLines, type MovementLine } from "./MovementLinesEditor";
 import { todayInput } from "./movementFormat";
 
@@ -15,9 +16,6 @@ interface SilaTransferFormProps {
   onClose: () => void;
   onCreated: (transferId: string) => void;
 }
-
-const locationText = (location: SilaLocation): string =>
-  `${location.locationName} (${location.locationCode})${location.propertyName ? ` — ${location.propertyName}` : ""}`;
 
 /** New standard transfer request, or a quick transfer sent at once. Both locations belong to one property. */
 const SilaTransferForm: React.FC<SilaTransferFormProps> = ({ quick, locations, myLocationIds, onClose, onCreated }) => {
@@ -130,36 +128,24 @@ const SilaTransferForm: React.FC<SilaTransferFormProps> = ({ quick, locations, m
           </label>
         )}
         <div className="sila-form-grid">
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-transfer-from">From<span className="sila-required">*</span></label>
-            <select
-              id="smov-transfer-from"
-              className="sila-select"
-              value={fromId}
-              disabled={saving}
-              onChange={(event) => handleFrom(event.target.value)}
-            >
-              <option value="">Select the source</option>
-              {sources.map((location) => (
-                <option key={location.id} value={location.id}>{locationText(location)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-transfer-to">To<span className="sila-required">*</span></label>
-            <select
-              id="smov-transfer-to"
-              className="sila-select"
-              value={toId}
-              disabled={saving || !from}
-              onChange={(event) => setToId(event.target.value)}
-            >
-              <option value="">{from ? "Select the destination" : "Select the source first"}</option>
-              {destinations.map((location) => (
-                <option key={location.id} value={location.id}>{locationText(location)}</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="From"
+            required
+            placeholder="Select the source"
+            value={fromId}
+            disabled={saving}
+            options={silaLocationOptions(sources)}
+            onChange={handleFrom}
+          />
+          <SilaSearchableSelect
+            label="To"
+            required
+            placeholder={from ? "Select the destination" : "Select the source first"}
+            value={toId}
+            disabled={saving || !from}
+            options={silaLocationOptions(destinations)}
+            onChange={setToId}
+          />
           {!quick && (
             <div className="sila-field">
               <label className="sila-label" htmlFor="smov-transfer-required">Required by</label>
