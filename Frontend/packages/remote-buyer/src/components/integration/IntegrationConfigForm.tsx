@@ -141,7 +141,7 @@ const parseHeaders = (rows: HeaderRow[]): Record<string, string> | null => {
   filled.forEach((row) => {
     const name = row.name.trim();
     if (!name) throw new Error("Enter a name for every extra header.");
-    if (isReservedIntegrationHeader(name)) {
+    if (isReservedIntegrationHeader(name, row.value.trim())) {
       throw new Error(`"${name}" cannot be an extra header. Enter credentials in the sign-in fields.`);
     }
     if (Object.keys(result).some((existing) => existing.toLowerCase() === name.toLowerCase())) {

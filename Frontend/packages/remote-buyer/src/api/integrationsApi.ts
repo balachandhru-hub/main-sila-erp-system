@@ -104,8 +104,14 @@ export const INTEGRATION_CONTRACT_BODY_TOKENS: string[] = [
   "{{startDate}}", "{{endDate}}", "{{amount}}", "{{currency}}",
 ];
 
-/** Extra request headers cannot carry credentials: the server refuses a name containing one of these words. */
-export const isReservedIntegrationHeader = (name: string): boolean => /authorization|secret|token|key/i.test(name);
+/** Value Fetch marks a CSRF handshake header (SAP: x-csrf-token=Fetch); same rule as the server. */
+export const isCsrfSwitchHeader = (value: string): boolean => value.trim().toLowerCase() === "fetch";
+
+/** Extra request headers cannot carry credentials. CSRF Fetch is allowed (matches the server). */
+export const isReservedIntegrationHeader = (name: string, value = ""): boolean => {
+  if (isCsrfSwitchHeader(value)) return /authorization/i.test(name);
+  return /authorization|secret|token|key/i.test(name);
+};
 
 export const INTEGRATION_NULL_POLICIES: { value: string; label: string }[] = [
   { value: "IGNORE_NULL", label: "Ignore empty values" },
