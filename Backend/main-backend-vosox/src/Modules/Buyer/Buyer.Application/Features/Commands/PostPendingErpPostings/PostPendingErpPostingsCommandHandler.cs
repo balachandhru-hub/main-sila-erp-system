@@ -181,15 +181,20 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .FindByCondition(x => x.ConfigurationId == api.ConfigurationId.Value && x.IsActive)
                 .ToListAsync(cancellationToken);
             string area = isGrn ? AREA_GRN : isInvoice ? AREA_INVOICE : AREA_GOODS_MOVEMENT;
+            bool sapGrn = isGrn
+                && string.IsNullOrWhiteSpace(api.RequestBody)
+                && string.Equals(api.Name, SilaGrnSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase);
             bool sapShape = stockCount
                 && string.IsNullOrWhiteSpace(api.RequestBody)
                 && (string.Equals(api.Name, SilaStockCountSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
                     || api.ProcessType == IntegrationProcessType.UPDATE_STOCK);
-            string body = sapShape
-                ? StockCountSapBody(document)
-                : string.IsNullOrWhiteSpace(api.RequestBody)
-                    ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
-                    : ApplyTemplate(api.RequestBody, area, document, mappings);
+            string body = sapGrn
+                ? SapGrnBody(document)
+                : sapShape
+                    ? StockCountSapBody(document)
+                    : string.IsNullOrWhiteSpace(api.RequestBody)
+                        ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
+                        : ApplyTemplate(api.RequestBody, area, document, mappings);
 
             IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.ConfigurationId.Value, posting, body, cancellationToken);
             // The last call, sanitised, for the transaction tracker.
@@ -577,21 +582,39 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .Select(x => x.PlantCode)
                 .FirstOrDefaultAsync(cancellationToken);
 
+            string plant = string.IsNullOrWhiteSpace(poPlant) ? property?.PlantCode : poPlant;
+            DateTime receiptDate = DateTime.SpecifyKind(receipt.DateCreated.Date, DateTimeKind.Utc);
+            string odataDate = $"/Date({new DateTimeOffset(receiptDate).ToUnixTimeMilliseconds()})/";
             ErpDocument document = new ErpDocument();
             document.Header.Add(("PoNumber", receipt.PoNumber));
             document.Header.Add(("GrnNumber", receipt.GrnNumber));
             document.Header.Add(("PostingDate", receipt.DateCreated.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
-            document.Header.Add(("Plant", string.IsNullOrWhiteSpace(poPlant) ? property?.PlantCode : poPlant));
+            document.Header.Add(("DocumentDate", odataDate));
+            document.Header.Add(("ODataPostingDate", odataDate));
+            document.Header.Add(("Plant", plant));
             document.Header.Add(("StorageLocation", location?.StorageLocationCode));
             document.Header.Add(("DeliveryNote", receipt.DeliveryNote));
+            document.Header.Add(("GoodsMovementCode", SilaGrnSap.GOODS_MOVEMENT_CODE));
             foreach (GoodsReceiptItem item in items)
             {
+                int? lineNumber = lineNumbers.TryGetValue(item.PurchaseOrderItemId, out int number) ? number : null;
+                string purchaseOrderItem = lineNumber == null
+                    ? string.Empty
+                    : lineNumber.Value.ToString("00000", CultureInfo.InvariantCulture);
                 document.Items.Add(new List<(string, object?)>
                 {
-                    ("PoLineNumber", lineNumbers.TryGetValue(item.PurchaseOrderItemId, out int lineNumber) ? lineNumber : null),
+                    ("PoLineNumber", lineNumber),
                     ("MaterialCode", item.MaterialCode),
                     ("Quantity", item.AcceptedQty),
-                    ("Uom", item.Uom)
+                    ("Uom", item.Uom),
+                    ("Material", item.MaterialCode),
+                    ("Plant", plant),
+                    ("GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE),
+                    ("PurchaseOrder", receipt.PoNumber),
+                    ("PurchaseOrderItem", purchaseOrderItem),
+                    ("GoodsMovementRefDocType", SilaGrnSap.GOODS_MOVEMENT_REF_DOC_TYPE),
+                    ("EntryUnit", item.Uom),
+                    ("QuantityInEntryUnit", item.AcceptedQty.ToString(CultureInfo.InvariantCulture))
                 });
             }
 
@@ -898,6 +921,44 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 PostingDate = Header("PostingDate"),
                 DocumentDate = Header("DocumentDate"),
                 GoodsMovementCode = SilaStockCountSap.GOODS_MOVEMENT_CODE,
+                to_MaterialDocumentItem = items
+            });
+        }
+
+        // SAP material document for a goods receipt (previous SILAME S4HanaPostGrnAdapter shape).
+        private static string SapGrnBody(ErpDocument document)
+        {
+            string? Header(string name)
+            {
+                return document.Header.FirstOrDefault(x => x.Name == name).Value?.ToString();
+            }
+
+            var items = document.Items.Select(item =>
+            {
+                object? Value(string name)
+                {
+                    return item.FirstOrDefault(x => x.Name == name).Value;
+                }
+
+                return new
+                {
+                    Material = Value("Material"),
+                    Plant = Value("Plant"),
+                    GoodsMovementType = Value("GoodsMovementType"),
+                    PurchaseOrder = Value("PurchaseOrder"),
+                    PurchaseOrderItem = Value("PurchaseOrderItem"),
+                    GoodsMovementRefDocType = Value("GoodsMovementRefDocType"),
+                    EntryUnit = Value("EntryUnit"),
+                    QuantityInEntryUnit = Value("QuantityInEntryUnit")
+                };
+            }).ToList();
+
+            return JsonSerializer.Serialize(new
+            {
+                DocumentDate = Header("DocumentDate"),
+                PostingDate = Header("ODataPostingDate") ?? Header("DocumentDate"),
+                GoodsMovementCode = Header("GoodsMovementCode") ?? SilaGrnSap.GOODS_MOVEMENT_CODE,
+                MaterialDocumentHeaderText = Header("GrnNumber"),
                 to_MaterialDocumentItem = items
             });
         }
