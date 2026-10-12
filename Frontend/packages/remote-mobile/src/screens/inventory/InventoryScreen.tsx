@@ -26,7 +26,7 @@ const ENTRIES: MenuEntry[] = [
   { label: 'Transfers', detail: 'My requests, approvals, in transit, completed', to: 'inventory/transfers' },
   { label: 'Goods Issue', detail: 'Issue store stock to an outlet', to: 'inventory/goods-issues', visible: (can) => can.postGoodsIssue },
   { label: 'Waste and Adjustments', detail: 'Waste, damage, spoilage, opening stock', to: 'inventory/adjustments', visible: (can) => can.postAdjustment },
-  { label: 'Stock Count', detail: 'Start a count, or review and approve a submitted one', to: 'inventory/counts', visible: (can) => can.manageCount || can.approveCount },
+  { label: 'Stock Count', detail: 'Start a count for a location, or count and review an open one', to: 'inventory/counts', visible: (can) => can.manageCount || can.approveCount || can.initiateCount },
   { label: 'Recipes', detail: 'Menu recipes and whether the ingredients are in stock', to: 'recipes', visible: (can) => can.manageRecipe || can.approveRecipe },
   { label: 'Purchase Requests', detail: 'My requests and their weekly bucket', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },
   { label: 'Alerts / Actions', detail: 'Stockout, discrepancy and manager-review tasks', to: 'tasks/alerts' },

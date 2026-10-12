@@ -21,7 +21,7 @@ const ENTRIES: MenuEntry[] = [
   { label: 'Record Quick Transfer', detail: 'Stock you already collected; the source confirms the handover', to: 'inventory/transfers/new?mode=quick&collected=1' },
   { label: 'Transfers', detail: 'My requests, approvals, in transit, completed', to: 'inventory/transfers' },
   { label: 'Receiving', detail: 'Receive against an open purchase order', to: 'receive/pos?mode=receive' },
-  { label: 'Stock Count', detail: 'Start a count, or review and approve a submitted one', to: 'inventory/counts', visible: (can) => can.manageCount || can.approveCount },
+  { label: 'Stock Count', detail: 'Start a count for a location, or count and review an open one', to: 'inventory/counts', visible: (can) => can.manageCount || can.approveCount || can.initiateCount },
   { label: 'Recipes', detail: 'Menu recipes and whether the ingredients are in stock', to: 'recipes', visible: (can) => can.manageRecipe || can.approveRecipe },
   { label: 'Purchase Requests', detail: 'My requests and their weekly bucket', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },
   { label: 'Alerts / Actions', detail: 'Stockout, discrepancy and manager-review tasks', to: 'tasks/alerts' },

@@ -2,7 +2,7 @@ import { FileCheckIcon, HomeIcon, LayoutGridIcon } from "@vosox/shared-ui";
 import { silaMePermissions } from "./silaMePermissions";
 
 /** Who is using the SILA ME add-on; decides the menu and which actions the screens offer. */
-export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller";
+export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller" | "fnb-director";
 
 /** Model key of the SILA ME (hospitality) add-on in the organization's models. */
 export const SILA_ME_MODEL_KEY = "SILA_ME";

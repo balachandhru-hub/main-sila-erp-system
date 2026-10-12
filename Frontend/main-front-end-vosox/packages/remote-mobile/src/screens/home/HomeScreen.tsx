@@ -52,7 +52,7 @@ const HomeScreen: React.FC = () => {
     { label: 'Suppliers', icon: '⌂', to: 'more/suppliers', show: true },
     { label: 'Live Stock', icon: '▦', to: 'inventory/stock', show: true },
     { label: 'Raise ITO', icon: '⇄', to: 'inventory/transfers/new', show: can.manageTransfer },
-    { label: 'Stock Count', icon: '☑', to: 'inventory/counts', show: can.manageCount || can.approveCount },
+    { label: 'Stock Count', icon: '☑', to: 'inventory/counts', show: can.manageCount || can.approveCount || can.initiateCount },
     { label: 'Quick Transfer', icon: '➜', to: 'inventory/transfers/new?mode=quick', show: can.manageTransfer },
     { label: 'Recipes', icon: '☰', to: 'recipes', show: canRecipes },
     { label: 'Approvals', icon: '✓', to: 'tasks', show: can.approveCount || can.approveTransfer || can.approveRecipe || can.approvePrice },

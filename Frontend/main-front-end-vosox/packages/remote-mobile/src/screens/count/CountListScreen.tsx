@@ -7,6 +7,7 @@ import {
   type SilaStockCountListItem,
 } from '../../../../remote-buyer/src/api/silaMe/silaStockCountApi';
 import { silaLabel } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
+import LocationPicker from '../../components/LocationPicker';
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
 import { Empty, ErrorNotice, Loading } from '../../components/StateViews';
@@ -38,25 +39,30 @@ const loadOpenCounts = async (): Promise<SilaStockCountListItem[]> => {
   });
 };
 
-/** Open counts to continue, and submitted counts to review. A count can be started at the working location. */
+/** Open counts to count or review. Admin, cost controller and F&B director start a count for a location. */
 const CountListScreen: React.FC = () => {
   const go = useGo();
   const { can } = useAccess();
   const { locations, location } = useMyLocation();
   const { data, loading, error, reload } = useLoad(loadOpenCounts, 'open-counts');
   const [countType, setCountType] = useState<SilaCountType>('ADHOC');
+  const [chosenLocationId, setChosenLocationId] = useState<string>('');
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  const myIds = new Set(locations.map((item) => item.id.toLowerCase()));
-  const counts = (data ?? []).filter((count) => myIds.size === 0 || myIds.has(count.locationId.toLowerCase()));
+  const startLocationId = chosenLocationId || location?.id || '';
+  // Managers count the locations marked as theirs. When none are marked, they count every location they can open.
+  const assigned = locations.filter((item) => item.assigned);
+  const scope = can.initiateCount ? locations : assigned.length > 0 ? assigned : locations;
+  const scopeIds = new Set(scope.map((item) => item.id.toLowerCase()));
+  const counts = (data ?? []).filter((count) => scopeIds.size === 0 || scopeIds.has(count.locationId.toLowerCase()));
 
   const start = async () => {
-    if (!location) return;
+    if (!startLocationId) return;
     setStarting(true);
     setStartError(null);
     try {
       const id = await createStockCount({
-        locationId: location.id,
+        locationId: startLocationId,
         countType,
         blindCount: false,
         businessDate: today(),
@@ -73,12 +79,11 @@ const CountListScreen: React.FC = () => {
     <>
       <ScreenHeader title="Stock Count" eyebrow="Inventory" back />
       <div className="sm-screen">
-        {can.manageCount && (
+        {can.initiateCount && (
           <section className="sm-section" aria-labelledby="sm-count-start">
             <h2 id="sm-count-start">Start a count</h2>
-            <p className="sm-meta">
-              {location ? `${location.locationName} · ${location.locationCode}` : 'Choose a location on Home first.'} · today
-            </p>
+            <p className="sm-meta">Pick the outlet or store. The manager there enters the physical count. Today.</p>
+            <LocationPicker label="Location" locations={locations} value={startLocationId} onChange={setChosenLocationId} placeholder="Choose a location" />
             <label className="sm-label" htmlFor="sm-count-type">Count type</label>
             <select
               id="sm-count-type"
@@ -91,7 +96,7 @@ const CountListScreen: React.FC = () => {
               ))}
             </select>
             {startError && <ErrorNotice message={startError} />}
-            <button type="button" className="sm-btn sm-btn--primary sm-btn--block" disabled={starting || !location} onClick={start}>
+            <button type="button" className="sm-btn sm-btn--primary sm-btn--block" disabled={starting || !startLocationId} onClick={start}>
               {starting ? 'Starting…' : 'Start stock count'}
             </button>
           </section>
@@ -102,7 +107,7 @@ const CountListScreen: React.FC = () => {
         {!loading && !error && counts.length === 0 && (
           <Empty
             text="No counts to work"
-            description={can.manageCount ? 'Start a count at your location, or wait for one to be submitted for review.' : 'No submitted count is waiting for review.'}
+            description={can.initiateCount ? 'Start a count for a location, or wait for one to be submitted for review.' : 'No count is open for your outlets or stores.'}
           />
         )}
         {counts.length > 0 && (

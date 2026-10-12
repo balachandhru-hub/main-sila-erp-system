@@ -6,13 +6,12 @@ import {
   type SilaLiveInventoryLocation,
   type SilaLocation,
 } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
-import { createQuickTransfer } from '../../../../remote-buyer/src/api/silaMe/silaMovementsApi';
+import { createQuickTransfer, createTransfer } from '../../../../remote-buyer/src/api/silaMe/silaMovementsApi';
 import { Empty, Notice, type NoticeMessage } from '../../components/StateViews';
 import { useAccess } from '../../access';
 import { formatDate } from '../../format';
 import { useGo } from '../../navigation';
 import { errorText } from '../../useLoad';
-import type { TransferPrefill } from './transferPrefill';
 
 interface NearbyStockProps {
   detail: SilaLiveInventoryDetail;
@@ -21,7 +20,7 @@ interface NearbyStockProps {
   myLocations: SilaLocation[];
 }
 
-/** "Available nearby": other locations holding the material, with GET 1 (quick transfer of one unit) and REQUEST. */
+/** Other locations holding the material. Quick ITO and ITO send it to the location chosen above. */
 const NearbyStock: React.FC<NearbyStockProps> = ({ detail, currentLocationId, myLocations }) => {
   const go = useGo();
   const { can } = useAccess();
@@ -32,18 +31,25 @@ const NearbyStock: React.FC<NearbyStockProps> = ({ detail, currentLocationId, my
   const canMove = (row: SilaLiveInventoryLocation): boolean =>
     can.manageTransfer && Boolean(current?.transferEnabled) && row.transferEnabled && (row.transferableQty ?? row.onHandQty) > 0;
 
-  const getOne = async (row: SilaLiveInventoryLocation) => {
+  const quantityFor = (row: SilaLiveInventoryLocation): number => {
+    const transferable = row.transferableQty ?? row.onHandQty;
+    const wanted = detail.shortage && detail.shortage > 0 ? detail.shortage : 1;
+    return Math.min(wanted, transferable);
+  };
+
+  const send = async (row: SilaLiveInventoryLocation, quick: boolean) => {
     if (!current) return;
-    setBusyId(row.locationId);
+    setBusyId(`${row.locationId}:${quick ? 'quick' : 'ito'}`);
     setNotice(null);
     try {
-      const id = await createQuickTransfer({
+      const payload = {
         fromLocationId: row.locationId,
         toLocationId: current.id,
-        reason: 'Guest service',
+        reason: quick ? 'Guest service' : `Transfer from ${row.locationName}`,
         requiredBy: null,
-        items: [{ materialId: detail.materialId, quantity: 1, uom: null }],
-      });
+        items: [{ materialId: detail.materialId, quantity: quantityFor(row), uom: null }],
+      };
+      const id = quick ? await createQuickTransfer(payload) : await createTransfer(payload);
       go(id ? `inventory/transfers/${id}` : 'inventory/transfers');
     } catch (caught: unknown) {
       setNotice({ tone: 'error', text: errorText(caught) });
@@ -51,19 +57,10 @@ const NearbyStock: React.FC<NearbyStockProps> = ({ detail, currentLocationId, my
     }
   };
 
-  const request = (row: SilaLiveInventoryLocation) => {
-    const prefill: TransferPrefill = {
-      fromLocationId: row.locationId,
-      toLocationId: current?.id ?? '',
-      material: { id: detail.materialId, materialCode: detail.materialCode, description: detail.description, baseUom: detail.baseUom },
-      quantity: detail.shortage && detail.shortage > 0 ? Math.min(detail.shortage, row.transferableQty ?? detail.shortage) : undefined,
-    };
-    go('inventory/transfers/new', { state: prefill });
-  };
-
   return (
     <section className="sm-section" aria-labelledby="sm-nearby">
       <h2 id="sm-nearby">Available nearby</h2>
+      {current && <p className="sm-muted">Quick ITO and ITO send stock to {current.locationName} ({current.locationCode}).</p>}
       <Notice notice={notice} />
       {nearby.length === 0 && <Empty text="No nearby stock" description="No transferable internal quantity is currently recorded." />}
       <ul className="sm-list">
@@ -81,13 +78,13 @@ const NearbyStock: React.FC<NearbyStockProps> = ({ detail, currentLocationId, my
               {row.inTransitQty > 0 ? ` · in transit ${formatQty(row.inTransitQty)}` : ''}
             </span>
             {row.lastMovementOn && <span className="sm-meta">Last movement {formatDate(row.lastMovementOn)}</span>}
-            {canMove(row) && (
+            {canMove(row) && current && (
               <div className="sm-grid-2">
-                <button type="button" className="sm-btn sm-btn--small sm-btn--primary" disabled={busyId !== null} onClick={() => getOne(row)}>
-                  {busyId === row.locationId ? 'Sending…' : 'GET 1'}
+                <button type="button" className="sm-btn sm-btn--small sm-btn--primary" disabled={busyId !== null} onClick={() => send(row, true)}>
+                  {busyId === `${row.locationId}:quick` ? 'Sending…' : `Quick ITO ${formatQty(quantityFor(row))}`}
                 </button>
-                <button type="button" className="sm-btn sm-btn--small" disabled={busyId !== null} onClick={() => request(row)}>
-                  REQUEST
+                <button type="button" className="sm-btn sm-btn--small" disabled={busyId !== null} onClick={() => send(row, false)}>
+                  {busyId === `${row.locationId}:ito` ? 'Sending…' : `ITO ${formatQty(quantityFor(row))}`}
                 </button>
               </div>
             )}

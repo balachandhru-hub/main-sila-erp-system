@@ -6,9 +6,7 @@ import { Empty, ErrorNotice, Loading } from '../../components/StateViews';
 import { useGo } from '../../navigation';
 import { useLoad } from '../../useLoad';
 
-const MIN_SEARCH = 2;
-
-/** Supplier Master, searched by name, supplier ID or TRN. */
+/** Supplier Master, searched by name, supplier ID or TRN. An empty search lists the first page. */
 const SuppliersScreen: React.FC = () => {
   const go = useGo();
   const [search, setSearch] = useState<string>('');
@@ -21,7 +19,7 @@ const SuppliersScreen: React.FC = () => {
 
   const { data, loading, error, reload } = useLoad(
     () => getSuppliers(query, '', { index: 0, limit: 50 }),
-    query.length >= MIN_SEARCH ? `suppliers-${query}` : null,
+    `suppliers-${query}`,
   );
 
   return (
@@ -36,11 +34,10 @@ const SuppliersScreen: React.FC = () => {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        {query.length < MIN_SEARCH && <p className="sm-muted">Type at least 2 characters to search the Supplier Master.</p>}
         {loading && <Loading />}
         {error && <ErrorNotice message={error} onRetry={reload} />}
-        {!loading && !error && query.length >= MIN_SEARCH && (data ?? []).length === 0 && <Empty text="No suppliers matched." />}
-        {!loading && query.length >= MIN_SEARCH && (
+        {!loading && !error && (data ?? []).length === 0 && <Empty text="No suppliers matched." />}
+        {!loading && (
           <ul className="sm-list">
             {(data ?? []).map((supplier) => (
               <li key={supplier.id}>

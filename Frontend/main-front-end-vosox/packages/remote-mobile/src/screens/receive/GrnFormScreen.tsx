@@ -31,7 +31,7 @@ const GrnFormScreen: React.FC = () => {
   const invoiceId = params.get('invoiceId');
   const { data: po, loading, error, reload } = useLoad(() => getPurchaseOrder(poId), poId || null);
   const invoice = useLoad(() => getInvoice(invoiceId ?? ''), invoiceId || null);
-  const { locations, location: myLocation } = useMyLocation();
+  const { locations, location: myLocation, loading: locationsLoading } = useMyLocation();
   const stores = locations.filter((location) => location.locationType === STORE);
   const [chosenStoreId, setStoreId] = useState<string>('');
   const storeId = chosenStoreId || (myLocation?.locationType === STORE ? myLocation.id : stores[0]?.id ?? '');
@@ -136,7 +136,7 @@ const GrnFormScreen: React.FC = () => {
               <span className="sm-meta">Company Code {po.companyCode ?? '—'}</span>
               <span className="sm-meta">Received Date {formatDate(todayIso())}</span>
             </section>
-            {stores.length === 0 ? (
+            {locationsLoading ? null : stores.length === 0 ? (
               <p className="sm-notice sm-notice--warning">You are not assigned to a store; goods can only be received at a store.</p>
             ) : (
               <LocationPicker label="Receiving store" locations={stores} value={storeId} onChange={(id) => { setCheck(null); setStoreId(id); }} />
@@ -185,7 +185,7 @@ const GrnFormScreen: React.FC = () => {
               <button
                 type="button"
                 className="sm-btn sm-btn--success sm-btn--block"
-                disabled={busy !== null || openLines.length === 0 || stores.length === 0}
+                disabled={busy !== null || openLines.length === 0 || stores.length === 0 || locationsLoading}
                 onClick={checkAndPost}
               >
                 {busy === 'check' ? 'Checking…' : busy === 'post' ? 'POSTING GRN…' : 'POST GRN'}

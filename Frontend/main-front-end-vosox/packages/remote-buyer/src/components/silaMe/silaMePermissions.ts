@@ -12,6 +12,8 @@ export interface SilaMePermissions {
   postGoodsIssue: boolean;
   postAdjustment: boolean;
   manageCount: boolean;
+  /** Start a stock count for a chosen location. Outlet and store managers count, they do not start one. */
+  initiateCount: boolean;
   approveCount: boolean;
   requestPurchase: boolean;
   manageRecipe: boolean;
@@ -25,7 +27,7 @@ export interface SilaMePermissions {
 
 const NONE: SilaMePermissions = {
   manageLocation: false, manageMasterData: false, manageTransfer: false, approveTransfer: false, postGoodsIssue: false,
-  postAdjustment: false, manageCount: false, approveCount: false, requestPurchase: false, manageRecipe: false,
+  postAdjustment: false, manageCount: false, initiateCount: false, approveCount: false, requestPurchase: false, manageRecipe: false,
   approveRecipe: false, approvePrice: false, managePos: false, postGrn: false, manageErpPosting: false, viewAudit: false,
 };
 
@@ -42,9 +44,10 @@ const BY_ROLE: Record<SilaMeRole, SilaMePermissions> = {
   },
   "buyer-user": { ...NONE, manageTransfer: true, manageCount: true, approveRecipe: true, approvePrice: true, postGrn: true },
   "cost-controller": {
-    ...NONE, manageTransfer: true, manageCount: true, approveCount: true, approveRecipe: true, approvePrice: true, postGrn: true,
+    ...NONE, manageTransfer: true, initiateCount: true, manageCount: true, approveCount: true, approveRecipe: true, approvePrice: true, postGrn: true,
     viewAudit: true,
   },
+  "fnb-director": { ...NONE, manageTransfer: true, manageCount: true, initiateCount: true, approveRecipe: true, approvePrice: true, postGrn: true },
 };
 
 export const silaMePermissions = (role: SilaMeRole): SilaMePermissions => BY_ROLE[role];
