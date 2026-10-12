@@ -158,9 +158,20 @@ namespace Buyer.Application.Features.Shared
                 return null;
             }
 
-            return DateTime.TryParseExact(value.Trim(), DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out DateTime date)
-                ? date.Date
-                : null;
+            string text = value.Trim();
+            // SAP OData V2 JSON dates: /Date(1728000000000)/
+            if (text.Length > 8 && text.StartsWith("/Date(", StringComparison.Ordinal) && text.EndsWith(")/", StringComparison.Ordinal)
+                && long.TryParse(text.AsSpan(6, text.Length - 8), NumberStyles.Integer, CultureInfo.InvariantCulture, out long milliseconds))
+            {
+                return DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).UtcDateTime.Date;
+            }
+
+            if (DateTime.TryParseExact(text, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out DateTime date))
+            {
+                return date.Date;
+            }
+
+            return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out date) ? date.Date : null;
         }
 
         private static string Truncate(string value, int length)

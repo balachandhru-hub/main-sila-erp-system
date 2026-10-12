@@ -33,18 +33,76 @@ namespace Buyer.Application.Features.Shared
         }
 
         /// <summary>The records of one API; a failed call is a 424 that names the API.</summary>
-        public static async Task<List<JsonElement>> ReadAsync(
+        public static Task<List<JsonElement>> ReadAsync(
             IIntegrationHttpExecutor executor, ILoggerManager logger, ApiIntegrationConfiguration configuration, string what, CancellationToken cancellationToken)
+        {
+            return ReadAsync(executor, logger, configuration, what, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// The records of one API, optionally narrowed with an OData <c>$filter</c>. A failed call is a 424 that names the API.
+        /// </summary>
+        public static async Task<List<JsonElement>> ReadAsync(
+            IIntegrationHttpExecutor executor,
+            ILoggerManager logger,
+            ApiIntegrationConfiguration configuration,
+            string what,
+            string? odataFilter,
+            CancellationToken cancellationToken)
         {
             try
             {
-                return await executor.PullRecordsAsync(configuration, true, cancellationToken);
+                if (string.IsNullOrWhiteSpace(odataFilter))
+                {
+                    return await executor.PullRecordsAsync(configuration, true, cancellationToken);
+                }
+
+                // Full sync for a filtered pull: ignore the watermark so the date/company filter alone scopes the read.
+                DateTime? watermark = configuration.LastWatermark;
+                configuration.LastWatermark = null;
+                string url = AppendODataFilter(executor.BuildUrl(configuration, false), odataFilter.Trim());
+                configuration.LastWatermark = watermark;
+                string payload;
+                using (HttpResponseMessage response = await executor.SendAsync(configuration, url, HttpMethod.Get, null, cancellationToken))
+                {
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new IntegrationException("REMOTE_HTTP_ERROR", $"The API returned HTTP {(int)response.StatusCode}.", 424);
+                    }
+
+                    payload = await response.Content.ReadAsStringAsync(cancellationToken);
+                }
+
+                return executor.ReadRecords(payload);
             }
             catch (IntegrationException exception)
             {
                 logger.LogError($"ERP {what} API call failed. ConfigurationId: {configuration.Id}, Code: {exception.Code}, Error: {SilaLogText.Short(exception.Message)}");
                 throw new FailedDependencyCustomException($"The {what} API {configuration.Name} could not be read.", $"{exception.Message} Nothing was changed.");
             }
+        }
+
+        /// <summary>Adds or merges an OData <c>$filter</c> on a URL that may already have a query string.</summary>
+        public static string AppendODataFilter(string url, string filter)
+        {
+            string encoded = Uri.EscapeDataString(filter);
+            int filterAt = url.IndexOf("$filter=", StringComparison.OrdinalIgnoreCase);
+            if (filterAt < 0)
+            {
+                return url + (url.Contains('?') ? "&" : "?") + "$filter=" + encoded;
+            }
+
+            // Merge with an existing filter (e.g. watermark): (...existing...) and (extra).
+            int valueStart = filterAt + "$filter=".Length;
+            int valueEnd = url.IndexOf('&', valueStart);
+            if (valueEnd < 0)
+            {
+                valueEnd = url.Length;
+            }
+
+            string existing = Uri.UnescapeDataString(url[valueStart..valueEnd]);
+            string merged = $"({existing}) and ({filter})";
+            return url[..valueStart] + Uri.EscapeDataString(merged) + url[valueEnd..];
         }
 
         /// <summary>Adds the row outcomes to the pull result, with the first errors.</summary>

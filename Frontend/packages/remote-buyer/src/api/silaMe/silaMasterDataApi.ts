@@ -84,7 +84,18 @@ export interface SilaPullResult {
   updated: number;
   unchanged: number;
   invalid: number;
+  /** True when the checked rows were written. */
+  committed?: boolean;
+  /** GET_PO API name when a scoped pull used one configuration. */
+  configurationName?: string | null;
   errors: string[];
+}
+
+export interface SilaPurchaseOrderPullRequest {
+  companyCode: string;
+  fromDate: string;
+  toDate: string;
+  commit: boolean;
 }
 
 export interface SilaOcrConfiguration {
@@ -196,9 +207,26 @@ export const deleteCompanyCode = async (companyCodeId: string): Promise<void> =>
   await call(() => axiosInstance.delete(`${BASE}/company-codes/${companyCodeId}`), "Could not delete the company code.");
 };
 
-/** Reads the purchase orders of every active GET_PO API (source ERP). */
+/** Reads the purchase orders of every active GET_PO API (source ERP) and writes them. */
 export const pullPurchaseOrders = async (): Promise<SilaPullResult> => {
   const data = await call(() => axiosInstance.post<SilaPullResult>(`${BASE}/purchase-orders/pull`), "Could not read the purchase orders from the ERP.");
+  return { ...data, errors: list(data.errors) };
+};
+
+/**
+ * Pulls purchase orders from FIVE S4 - GET PO for one company code and order-date range.
+ * commit false = preview only; commit true = update the database after confirmation.
+ */
+export const pullPurchaseOrdersScoped = async (request: SilaPurchaseOrderPullRequest): Promise<SilaPullResult> => {
+  const data = await call(
+    () => axiosInstance.post<SilaPullResult>(`${BASE}/purchase-orders/pull`, {
+      companyCode: request.companyCode.trim().toUpperCase(),
+      fromDate: request.fromDate,
+      toDate: request.toDate,
+      commit: request.commit,
+    }),
+    request.commit ? "Could not update purchase orders from the ERP." : "Could not preview purchase orders from the ERP.",
+  );
   return { ...data, errors: list(data.errors) };
 };
 
