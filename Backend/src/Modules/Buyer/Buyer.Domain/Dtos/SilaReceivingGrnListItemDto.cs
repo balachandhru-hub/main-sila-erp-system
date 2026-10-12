@@ -18,6 +18,7 @@ namespace Buyer.Domain.Dtos
         public string Status { get; set; } = string.Empty;
         public DateTime ReceivedOn { get; set; }
         public int LineCount { get; set; }
+        public Guid? ErpPostingId { get; set; }
         public string? ErpStatus { get; set; }
         public string? ErpReference { get; set; }
     }

@@ -273,6 +273,7 @@ namespace Buyer.Application.Features.Shared
                     Status = receipt.Status,
                     ReceivedOn = receipt.DateCreated,
                     LineCount = lineReceiptIds.Count(id => id == receipt.Id),
+                    ErpPostingId = receipt.ErpPostingId,
                     ErpStatus = posting?.Status,
                     ErpReference = posting?.ErpReference
                 };

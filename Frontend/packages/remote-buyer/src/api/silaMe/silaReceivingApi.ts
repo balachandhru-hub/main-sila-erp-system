@@ -105,6 +105,7 @@ export interface SilaGoodsReceipt {
   status: string;
   receivedOn: string;
   lineCount: number;
+  erpPostingId?: string | null;
   erpStatus?: SilaErpPostingStatus | null;
   erpReference?: string | null;
 }
@@ -316,7 +317,7 @@ export const getErpPostings = async (status: string, search: string, page: SilaP
     params: { status: status || undefined, search: search.trim() || undefined, ...page },
   }), "Could not load the ERP postings."));
 
-/** FAILED or SKIPPED back to PENDING; the job sends it within a minute. */
+/** FAILED or SKIPPED → send to S4 again immediately (stock was already updated on the GRN). */
 export const reprocessErpPosting = async (postingId: string): Promise<void> => {
   await call(() => axiosInstance.post(`${BASE}/erp-postings/${postingId}/reprocess`), "Could not reprocess the posting.");
 };

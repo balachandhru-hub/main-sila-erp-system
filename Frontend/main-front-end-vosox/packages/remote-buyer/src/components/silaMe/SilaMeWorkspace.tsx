@@ -34,12 +34,13 @@ import SilaPoImport from "./receiving/SilaPoImport";
 import SilaOcrSettings from "./receiving/SilaOcrSettings";
 import SilaApprovalFlows from "./setup/SilaApprovalFlows";
 import SilaPriceApprovals from "./materials/SilaPriceApprovals";
+import "./SilaMeWorkspace.css";
 
 interface SilaMeWorkspaceProps {
   navKey: SilaMeNavKey;
   role: SilaMeRole;
-  /** Opens another SILA ME screen. */
-  onNavigate: (key: SilaMeNavKey) => void;
+  /** Opens another SILA ME screen or navigation route (e.g. 'models'). */
+  onNavigate: (key: any) => void;
 }
 
 /**
@@ -59,108 +60,119 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
     onNavigate("silaStockCounts");
   };
 
-  switch (navKey) {
-    case "silaDashboard":
-      return (
-        <SilaInventoryDashboard
-          canTransfer={can.manageTransfer}
-          canRequestPurchase={can.requestPurchase}
-          onNavigate={(key, query) => {
-            setLiveSearch(key === "silaLiveInventory" ? query : undefined);
-            onNavigate(key);
-          }}
-        />
-      );
-    case "silaLiveInventory":
-      return <SilaLiveInventory canTransfer={can.manageTransfer} canRequestPurchase={can.requestPurchase} initialSearch={liveSearch} />;
-    case "silaTransactions":
-      return <SilaInventoryTransactions />;
-    case "silaTransfers":
-      return <SilaTransfers canApprove={can.approveTransfer} />;
-    case "silaGoodsIssue":
-      return <SilaGoodsIssue />;
-    case "silaAdjustments":
-      return <SilaStockAdjustments />;
-    case "silaStockCounts":
-      return <SilaStockCounts canApprove={can.approveCount} initialCountId={countToOpen} />;
-    case "silaEnquiries":
-      return <SilaShortageEnquiries canReview={can.approveCount} />;
-    case "silaShortageReport":
-      return <SilaShortageReport onOpenCount={openCount} />;
-    case "silaPhysicalInventory":
-      return <SilaPhysicalInventoryRequests canRequest={can.manageCount} canSchedule={can.approveCount} onOpenCount={openCount} />;
-    case "silaAlerts":
-      return (
-        <SilaAlerts onCountRequested={openCount} onPhysicalInventoryRequested={() => onNavigate("silaPhysicalInventory")} />
-      );
-    case "silaPurchaseRequests":
-      return <SilaPurchaseRequests canAddToBucket={role === "admin" || role === "store-manager"} />;
-    case "silaRecipeDashboard":
-      return (
-        <SilaRecipeDashboard
-          onOpenRecipes={() => onNavigate("silaRecipes")}
-          onOpenRecipe={(recipeId) => {
-            setRecipeToOpen(recipeId);
-            onNavigate("silaRecipes");
-          }}
-          onOpenApprovals={can.approveRecipe ? () => onNavigate("silaRecipeApprovals") : undefined}
-          onOpenPosTransactions={can.managePos ? () => onNavigate("silaTracker") : undefined}
-          onNewRecipe={can.manageRecipe ? () => {
-            setNewRecipe(true);
-            onNavigate("silaRecipes");
-          } : undefined}
-        />
-      );
-    case "silaRecipes":
-      return (
-        <SilaRecipes
-          canManage={can.manageRecipe}
-          canRequestPrice={can.manageMasterData}
-          openRecipeId={recipeToOpen}
-          startNew={newRecipe}
-        />
-      );
-    case "silaRecipeApprovals":
-      return <SilaRecipeApprovals />;
-    case "silaSubstitutions":
-      return <SilaSubstitutions canDecide={can.manageRecipe} />;
-    case "silaPos":
-      return <SilaPosIntegration canManage={can.managePos} />;
-    case "silaTracker":
-      return <SilaTransactionTracker />;
-    case "silaPurchaseOrders":
-      return <SilaPurchaseOrdersOpen />;
-    case "silaGoodsReceipts":
-      return <SilaGoodsReceipts canPost={can.postGrn} />;
-    case "silaInvoices":
-      return <SilaInvoices canPost={can.postGrn} />;
-    case "silaErpPostings":
-      return <SilaErpPostings canReprocess={can.manageErpPosting} />;
-    case "silaPriceApprovals":
-      return <SilaPriceApprovals />;
-    case "silaAuditLog":
-      return <SilaAuditLog />;
-    case "silaLocations":
-      return <SilaLocationMaster canManage={can.manageLocation} />;
-    case "silaMaterials":
-      return <SilaMaterialInventory canManage={can.manageLocation} canManageMasterData={can.manageMasterData} />;
-    case "silaRecipeMasterData":
-      return <SilaRecipeMasterData canManage={can.manageMasterData} />;
-    case "silaSuppliers":
-      return <SilaSuppliers canManage={can.manageMasterData} />;
-    case "silaCompanyCodes":
-      return <SilaCompanyCodes canManage={can.manageMasterData} />;
-    case "silaPoImport":
-      return <SilaPoImport canManage={can.manageMasterData} />;
-    case "silaQuickTransferPolicy":
-      return <SilaQuickTransferPolicy canManage={can.manageMasterData} />;
-    case "silaOcrSettings":
-      return <SilaOcrSettings canManage={can.manageMasterData} />;
-    case "silaApprovalFlows":
-      return <SilaApprovalFlows />;
-    default:
-      return null;
-  }
+  const renderContent = () => {
+    switch (navKey) {
+      case "silaDashboard":
+        return (
+          <SilaInventoryDashboard
+            canTransfer={can.manageTransfer}
+            canRequestPurchase={can.requestPurchase}
+            onNavigate={(key, query) => {
+              setLiveSearch(key === "silaLiveInventory" ? query : undefined);
+              onNavigate(key);
+            }}
+          />
+        );
+      case "silaLiveInventory":
+        return <SilaLiveInventory canTransfer={can.manageTransfer} canRequestPurchase={can.requestPurchase} initialSearch={liveSearch} />;
+      case "silaTransactions":
+        return <SilaInventoryTransactions />;
+      case "silaTransfers":
+        return <SilaTransfers canApprove={can.approveTransfer} />;
+      case "silaGoodsIssue":
+        return <SilaGoodsIssue />;
+      case "silaAdjustments":
+        return <SilaStockAdjustments />;
+      case "silaStockCounts":
+        return <SilaStockCounts canApprove={can.approveCount} initialCountId={countToOpen} />;
+      case "silaEnquiries":
+        return <SilaShortageEnquiries canReview={can.approveCount} />;
+      case "silaShortageReport":
+        return <SilaShortageReport onOpenCount={openCount} />;
+      case "silaPhysicalInventory":
+        return <SilaPhysicalInventoryRequests canRequest={can.manageCount} canSchedule={can.approveCount} onOpenCount={openCount} />;
+      case "silaAlerts":
+        return (
+          <SilaAlerts onCountRequested={openCount} onPhysicalInventoryRequested={() => onNavigate("silaPhysicalInventory")} />
+        );
+      case "silaPurchaseRequests":
+        return <SilaPurchaseRequests canAddToBucket={role === "admin" || role === "store-manager"} />;
+      case "silaRecipeDashboard":
+        return (
+          <SilaRecipeDashboard
+            onOpenRecipes={() => onNavigate("silaRecipes")}
+            onOpenRecipe={(recipeId) => {
+              setRecipeToOpen(recipeId);
+              onNavigate("silaRecipes");
+            }}
+            onOpenApprovals={can.approveRecipe ? () => onNavigate("silaRecipeApprovals") : undefined}
+            onOpenPosTransactions={can.managePos ? () => onNavigate("silaTracker") : undefined}
+            onNewRecipe={can.manageRecipe ? () => {
+              setNewRecipe(true);
+              onNavigate("silaRecipes");
+            } : undefined}
+          />
+        );
+      case "silaRecipes":
+        return (
+          <SilaRecipes
+            canManage={can.manageRecipe}
+            canRequestPrice={can.manageMasterData}
+            openRecipeId={recipeToOpen}
+            startNew={newRecipe}
+          />
+        );
+      case "silaRecipeApprovals":
+        return <SilaRecipeApprovals />;
+      case "silaSubstitutions":
+        return <SilaSubstitutions canDecide={can.manageRecipe} />;
+      case "silaPos":
+        return <SilaPosIntegration canManage={can.managePos} />;
+      case "silaTracker":
+        return <SilaTransactionTracker />;
+      case "silaPurchaseOrders":
+        return <SilaPurchaseOrdersOpen />;
+      case "silaGoodsReceipts":
+        return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
+      case "silaInvoices":
+        return <SilaInvoices canPost={can.postGrn} />;
+      case "silaErpPostings":
+        return <SilaErpPostings canReprocess={can.manageErpPosting} />;
+      case "silaPriceApprovals":
+        return <SilaPriceApprovals />;
+      case "silaAuditLog":
+        return <SilaAuditLog />;
+      case "silaLocations":
+        return <SilaLocationMaster canManage={can.manageLocation} />;
+      case "silaMaterials":
+        return <SilaMaterialInventory canManage={can.manageLocation} canManageMasterData={can.manageMasterData} />;
+      case "silaRecipeMasterData":
+        return <SilaRecipeMasterData canManage={can.manageMasterData} />;
+      case "silaSuppliers":
+        return <SilaSuppliers canManage={can.manageMasterData} />;
+      case "silaCompanyCodes":
+        return <SilaCompanyCodes canManage={can.manageMasterData} />;
+      case "silaPoImport":
+        return <SilaPoImport canManage={can.manageMasterData} />;
+      case "silaQuickTransferPolicy":
+        return <SilaQuickTransferPolicy canManage={can.manageMasterData} />;
+      case "silaOcrSettings":
+        return <SilaOcrSettings canManage={can.manageMasterData} />;
+      case "silaApprovalFlows":
+        return <SilaApprovalFlows />;
+      default:
+        return null;
+    }
+  };
+
+  const content = renderContent();
+  if (!content) return null;
+
+  return (
+    <div className="sila-workspace-container">
+      <div className="sila-workspace-body">{content}</div>
+    </div>
+  );
 };
 
 export default SilaMeWorkspace;

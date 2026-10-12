@@ -52,13 +52,25 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         public async Task<SilaErpPostingRunResultDto> Handle(PostPendingErpPostingsCommand request, CancellationToken cancellationToken)
         {
             int batchSize = request.BatchSize <= 0 ? MAX_BATCH : Math.Min(request.BatchSize, MAX_BATCH);
-            List<Guid> postingIds = await _repository.InventoryErpPosting
-                .FindByCondition(x => x.IsActive && x.Status == Common.SILA_POSTING_PENDING && (request.BuyerId == null || x.BuyerId == request.BuyerId))
-                .OrderBy(x => x.DateCreated)
-                .ThenBy(x => x.ReferenceType == Common.SILA_REF_INVOICE ? 1 : 0)
-                .Take(batchSize)
-                .Select(x => x.Id)
-                .ToListAsync(cancellationToken);
+            List<Guid> postingIds;
+            if (request.PostingId != null)
+            {
+                postingIds = await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.Id == request.PostingId.Value && x.IsActive && x.Status == Common.SILA_POSTING_PENDING
+                        && (request.BuyerId == null || x.BuyerId == request.BuyerId))
+                    .Select(x => x.Id)
+                    .ToListAsync(cancellationToken);
+            }
+            else
+            {
+                postingIds = await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.IsActive && x.Status == Common.SILA_POSTING_PENDING && (request.BuyerId == null || x.BuyerId == request.BuyerId))
+                    .OrderBy(x => x.DateCreated)
+                    .ThenBy(x => x.ReferenceType == Common.SILA_REF_INVOICE ? 1 : 0)
+                    .Take(batchSize)
+                    .Select(x => x.Id)
+                    .ToListAsync(cancellationToken);
+            }
             SilaErpPostingRunResultDto result = new SilaErpPostingRunResultDto();
             if (postingIds.Count == 0)
             {
@@ -568,6 +580,15 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             List<GoodsReceiptItem> items = await _repository.GoodsReceiptItem
                 .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive && x.AcceptedQty > 0)
                 .ToListAsync(cancellationToken);
+            // S4 gets inventory (stocked) lines only; non-stock / service lines stay internal to the PO.
+            List<Guid> materialIds = items.Where(x => x.MaterialId != null).Select(x => x.MaterialId!.Value).Distinct().ToList();
+            HashSet<Guid> stockedMaterialIds = (await _repository.ItemBuyerMaster
+                    .FindByCondition(x => materialIds.Contains(x.Id) && x.IsActive)
+                    .ToListAsync(cancellationToken))
+                .Where(SilaMaterialRules.HoldsStock)
+                .Select(x => x.Id)
+                .ToHashSet();
+            items = items.Where(x => x.MaterialId != null && stockedMaterialIds.Contains(x.MaterialId.Value)).ToList();
             if (items.Count == 0)
             {
                 return null;

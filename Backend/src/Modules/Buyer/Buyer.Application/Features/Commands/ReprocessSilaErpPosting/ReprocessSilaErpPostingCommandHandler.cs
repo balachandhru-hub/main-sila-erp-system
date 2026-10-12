@@ -1,3 +1,4 @@
+using Buyer.Application.Features.Commands.PostPendingErpPostings;
 using Buyer.Application.Features.Shared;
 using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
@@ -12,11 +13,13 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
     {
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
+        private readonly IMediator _mediator;
 
-        public ReprocessSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger)
+        public ReprocessSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator)
         {
             _repository = repository;
             _logger = logger;
+            _mediator = mediator;
         }
 
         public async Task<Guid> Handle(ReprocessSilaErpPostingCommand request, CancellationToken cancellationToken)
@@ -42,7 +45,17 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
             posting.ErrorMessage = null;
             await _repository.SaveAsync();
 
-            _logger.LogInfo($"ERP posting queued again. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}");
+            // Send step 2 (S4) immediately; stock was already updated when the GRN was posted.
+            try
+            {
+                await _mediator.Send(new PostPendingErpPostingsCommand { BuyerId = buyer.Id, PostingId = posting.Id }, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError($"Reprocess ERP send failed. PostingId: {posting.Id}, Error: {SilaLogText.Short(exception.Message)}");
+            }
+
+            _logger.LogInfo($"ERP posting reprocessed. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}");
             return posting.Id;
         }
     }

@@ -15,5 +15,8 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
 
         /// <summary>Only this buyer (BuyerBusinessProfile id) when set; the scheduler runs one buyer per scope.</summary>
         public Guid? BuyerId { get; set; }
+
+        /// <summary>When set, only this PENDING posting is sent (step 2 right after a GRN, or a reprocess).</summary>
+        public Guid? PostingId { get; set; }
     }
 }

@@ -38,6 +38,13 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
             List<GoodsReceiptItem> items = await _repository.GoodsReceiptItem
                 .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive)
                 .ToListAsync(cancellationToken);
+            List<Guid> materialIds = items.Where(x => x.MaterialId != null).Select(x => x.MaterialId!.Value).Distinct().ToList();
+            HashSet<Guid> stockedMaterialIds = (await _repository.ItemBuyerMaster
+                    .FindByCondition(x => materialIds.Contains(x.Id) && x.IsActive)
+                    .ToListAsync(cancellationToken))
+                .Where(SilaMaterialRules.HoldsStock)
+                .Select(x => x.Id)
+                .ToHashSet();
             InventoryErpPosting? posting = receipt.ErpPostingId == null
                 ? null
                 : await _repository.InventoryErpPosting.FindByCondition(x => x.Id == receipt.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
@@ -71,7 +78,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
                     RejectedQty = item.RejectedQty,
                     DamagedQty = item.DamagedQty,
                     Uom = item.Uom,
-                    Stocked = item.MaterialId != null,
+                    Stocked = item.MaterialId != null && stockedMaterialIds.Contains(item.MaterialId.Value),
                     OpenQtyBefore = item.OpenQtyBefore,
                     InvoiceQty = item.InvoiceQty,
                     BatchNumber = item.BatchNumber,

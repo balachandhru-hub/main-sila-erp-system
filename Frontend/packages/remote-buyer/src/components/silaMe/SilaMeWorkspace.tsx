@@ -133,7 +133,7 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       case "silaPurchaseOrders":
         return <SilaPurchaseOrdersOpen />;
       case "silaGoodsReceipts":
-        return <SilaGoodsReceipts canPost={can.postGrn} />;
+        return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
       case "silaInvoices":
         return <SilaInvoices canPost={can.postGrn} />;
       case "silaErpPostings":
