@@ -6,6 +6,7 @@ import {
   INTEGRATION_PROTOCOLS,
   getIntegration,
   integrationProcessOf,
+  isPushProcess,
   pullIntegration,
   setIntegrationActive,
   testIntegration,
@@ -13,6 +14,7 @@ import {
   type IntegrationSide,
   type IntegrationTestResult,
 } from "../../api/integrationsApi";
+import IntegrationBodyEditor from "./IntegrationBodyEditor";
 import IntegrationConfigForm from "./IntegrationConfigForm";
 import IntegrationHistory from "./IntegrationHistory";
 import IntegrationMappingEditor from "./IntegrationMappingEditor";
@@ -20,7 +22,7 @@ import IntegrationSchemaPanel from "./IntegrationSchemaPanel";
 import { errorMessage, formatDateTime, statusBadgeClass, statusLabel } from "./integrationFormat";
 import "./Integration.css";
 
-type Tab = "configuration" | "schema" | "mapping" | "history";
+type Tab = "configuration" | "schema" | "mapping" | "body" | "history";
 
 type View = { name: "opening" } | { name: "create" } | { name: "workspace"; configuration: IntegrationConfiguration; tab: Tab };
 
@@ -30,11 +32,12 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "configuration", label: "Configuration" },
   { key: "schema", label: "Schema" },
   { key: "mapping", label: "Field mapping" },
+  { key: "body", label: "Request body" },
   { key: "history", label: "Run history" },
 ];
 
 const CONNECTION_TABS: Tab[] = ["configuration", "schema"];
-const WORKFLOW_TABS: Tab[] = ["mapping", "history"];
+const WORKFLOW_TABS: Tab[] = ["mapping", "body", "history"];
 
 const labelOf = (options: { value: string; label: string }[], value: string): string =>
   options.find((option) => option.value === value)?.label ?? statusLabel(value);
@@ -54,6 +57,8 @@ interface IntegrationWorkspaceProps {
   side: IntegrationSide;
   /** The API type a new integration starts with. */
   initialProcessType?: string;
+  /** Prefill the create form from this configuration (copy). */
+  copyFromId?: string;
   /** View only: the integration is shown but cannot be changed, tested, activated or pulled. */
   readOnly?: boolean;
 }
@@ -68,6 +73,7 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
   mode,
   side,
   initialProcessType,
+  copyFromId,
   readOnly = false,
 }) => {
   // The tabs of one integration: those of the screen's half that its API type has.
@@ -75,26 +81,38 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
     const process = integrationProcessOf(processType);
     return TABS.filter((item) => {
       if (item.key === "mapping" && !process.hasMapping) return false;
+      // The body editor saves through the Buyer API, for the types the application sends to.
+      if (item.key === "body" && (side !== "buyer" || !isPushProcess(processType))) return false;
       return mode === "connection" ? CONNECTION_TABS.includes(item.key) : WORKFLOW_TABS.includes(item.key);
     });
   };
-  const [view, setView] = useState<View>(startWith === "create" ? { name: "create" } : { name: "opening" });
+  const [view, setView] = useState<View>(
+    startWith === "create" && !copyFromId ? { name: "create" } : { name: "opening" },
+  );
+  const [draftFrom, setDraftFrom] = useState<IntegrationConfiguration | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [testResult, setTestResult] = useState<IntegrationTestResult | null>(null);
   // Bumped after a pull or a test so the run history reloads.
   const [historyVersion, setHistoryVersion] = useState(0);
 
-  // Opened on one integration by the host screen.
+  // Opened on one integration by the host screen, or loading a source API to copy.
   useEffect(() => {
-    if (startWith === "create") return undefined;
+    if (startWith === "create" && !copyFromId) return undefined;
     let active = true;
-    getIntegration(side, startWith.configurationId)
+    const sourceId = startWith === "create" ? copyFromId! : startWith.configurationId;
+    getIntegration(side, sourceId)
       .then((configuration) => {
-        if (active) setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType)[0].key });
+        if (!active) return;
+        if (startWith === "create") {
+          setDraftFrom(configuration);
+          setView({ name: "create" });
+          return;
+        }
+        setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType)[0].key });
       })
       .catch((err: unknown) => {
         if (!active) return;
-        toastService.error(errorMessage(err, "Could not open the integration."));
+        toastService.error(errorMessage(err, startWith === "create" ? "Could not copy the integration." : "Could not open the integration."));
         onExit();
       });
     return () => {
@@ -104,19 +122,34 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
 
   const openWorkspace = (configuration: IntegrationConfiguration) => {
     setTestResult(null);
+    setDraftFrom(null);
     setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType)[0].key });
   };
 
+  const startCopy = () => {
+    if (view.name !== "workspace") return;
+    setDraftFrom(view.configuration);
+    setTestResult(null);
+    setView({ name: "create" });
+  };
+
   if (view.name === "opening") {
-    return <Loader size={24} message="Opening integration..." />;
+    return <Loader size={24} message={copyFromId ? "Preparing copy..." : "Opening integration..."} />;
   }
 
   if (view.name === "create") {
     return (
       <div className="ops-section">
-        <PageHeader className="pud-page-header" title="New integration" onBack={onExit} backLabel="Back to integrations" />
+        <PageHeader
+          className="pud-page-header"
+          title={draftFrom ? "Copy integration" : "Add new integration"}
+          onBack={onExit}
+          backLabel="Back to integrations"
+        />
         <IntegrationConfigForm
+          key={draftFrom?.id ?? "new"}
           configuration={null}
+          draftFrom={draftFrom}
           side={side}
           initialProcessType={initialProcessType}
           onCancel={onExit}
@@ -211,15 +244,20 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
         actions={readOnly ? undefined : (
           <div className="sila-btn-group">
             {showConnectionActions && (
-              <button type="button" className="sila-btn sila-btn--secondary" onClick={handleTest} disabled={busy}>
-                {action === "test" ? "Testing..." : "Test connection"}
-              </button>
+              <>
+                <button type="button" className="sila-btn sila-btn--secondary" onClick={startCopy} disabled={busy}>
+                  Copy
+                </button>
+                <button type="button" className="sila-btn sila-btn--secondary" onClick={handleTest} disabled={busy}>
+                  {action === "test" ? "Testing..." : "Test connection"}
+                </button>
+              </>
             )}
+            <button type="button" className="sila-btn sila-btn--secondary" onClick={handleActivate} disabled={busy || (!isActive && !canActivate)} title={!isActive && !canActivate ? "Run a successful connection test first" : undefined}>
+              {action === "activate" ? "Saving..." : isActive ? "Deactivate" : "Activate"}
+            </button>
             {showWorkflowActions && (
               <>
-                <button type="button" className="sila-btn sila-btn--secondary" onClick={handleActivate} disabled={busy || (!isActive && !canActivate)} title={!isActive && !canActivate ? "Run a successful connection test first" : undefined}>
-                  {action === "activate" ? "Saving..." : isActive ? "Deactivate" : "Activate"}
-                </button>
                 {process.pull === "full" && (
                   <button type="button" className="sila-btn sila-btn--secondary" onClick={() => handlePull(true)} disabled={busy || !isActive || configuration.isRunning}>
                     {action === "fullSync" ? "Pulling..." : "Full sync"}
@@ -315,6 +353,14 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
       )}
       {tab === "schema" && <IntegrationSchemaPanel configuration={configuration} readOnly={readOnly} />}
       {tab === "mapping" && <IntegrationMappingEditor configuration={configuration} readOnly={readOnly} />}
+      {tab === "body" && (
+        <IntegrationBodyEditor
+          key={configuration.id}
+          configuration={configuration}
+          readOnly={readOnly}
+          onSaved={(saved) => setView({ name: "workspace", configuration: saved, tab: "body" })}
+        />
+      )}
       {tab === "history" && <IntegrationHistory side={side} configurationId={configuration.id} refreshKey={historyVersion} />}
     </div>
   );

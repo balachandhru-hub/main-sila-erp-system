@@ -5,6 +5,7 @@ import {
   INTEGRATION_DEFAULT_API_KEY_HEADER,
   INTEGRATION_HTTP_METHODS,
   INTEGRATION_PAYLOAD_FORMATS,
+  INTEGRATION_CONTRACT_BODY_TOKENS,
   INTEGRATION_PO_BODY_TOKENS,
   INTEGRATION_PROTOCOLS,
   INTEGRATION_SYSTEMS,
@@ -27,6 +28,8 @@ import "./Integration.css";
 interface IntegrationConfigFormProps {
   /** The configuration being edited, or null to create a new one. */
   configuration: IntegrationConfiguration | null;
+  /** Prefill a new draft from another API (copy). Ignored when editing. */
+  draftFrom?: IntegrationConfiguration | null;
   /** Whose API types are offered. */
   side?: IntegrationSide;
   /** The API type a new integration starts with. */
@@ -93,30 +96,50 @@ const nextHeaderKey = (): string => {
 /** A push posts by default, a pull reads. */
 const defaultHttpMethod = (processType: string): IntegrationHttpMethod => (isPushProcess(processType) ? "POST" : "GET");
 
-const toForm = (configuration: IntegrationConfiguration | null, newProcessType: string): ConfigForm => {
-  if (!configuration) return { ...NEW_FORM, processType: newProcessType, httpMethod: defaultHttpMethod(newProcessType) };
-  return {
-    ...NEW_FORM,
-    name: configuration.name,
-    entityCode: configuration.entityCode,
-    processType: configuration.processType,
-    systemName: configuration.systemName ?? "",
-    protocol: configuration.protocol,
-    baseUrl: configuration.baseUrl,
-    resourcePath: configuration.resourcePath ?? "",
-    httpMethod: configuration.httpMethod ?? defaultHttpMethod(configuration.processType),
-    payloadFormat: configuration.payloadFormat ?? "JSON",
-    requestBody: configuration.requestBody ?? "",
-    headers: Object.entries(configuration.headers ?? {}).map(([name, value]) => ({ key: nextHeaderKey(), name, value })),
-    authenticationType: configuration.authenticationType,
-    username: configuration.username ?? "",
-    apiKeyHeader: configuration.apiKeyHeader ?? "",
-    timeoutSeconds: String(configuration.timeoutSeconds),
-    retryCount: String(configuration.retryCount),
-    pageSize: configuration.pageSize == null ? "" : String(configuration.pageSize),
-    watermarkField: configuration.watermarkField ?? "",
-    scheduleCron: configuration.scheduleCron ?? "",
-  };
+const formFromConfiguration = (configuration: IntegrationConfiguration): ConfigForm => ({
+  ...NEW_FORM,
+  name: configuration.name,
+  entityCode: configuration.entityCode,
+  processType: configuration.processType,
+  systemName: configuration.systemName ?? "",
+  protocol: configuration.protocol,
+  baseUrl: configuration.baseUrl,
+  resourcePath: configuration.resourcePath ?? "",
+  httpMethod: configuration.httpMethod ?? defaultHttpMethod(configuration.processType),
+  payloadFormat: configuration.payloadFormat ?? "JSON",
+  requestBody: configuration.requestBody ?? "",
+  headers: Object.entries(configuration.headers ?? {}).map(([name, value]) => ({ key: nextHeaderKey(), name, value })),
+  authenticationType: configuration.authenticationType,
+  username: configuration.username ?? "",
+  apiKeyHeader: configuration.apiKeyHeader ?? "",
+  timeoutSeconds: String(configuration.timeoutSeconds),
+  retryCount: String(configuration.retryCount),
+  pageSize: configuration.pageSize == null ? "" : String(configuration.pageSize),
+  watermarkField: configuration.watermarkField ?? "",
+  scheduleCron: configuration.scheduleCron ?? "",
+});
+
+const copyName = (name: string): string => (name.startsWith("Copy of ") ? name : `Copy of ${name}`);
+
+const toForm = (
+  configuration: IntegrationConfiguration | null,
+  newProcessType: string,
+  draftFrom: IntegrationConfiguration | null = null,
+): ConfigForm => {
+  if (configuration) return formFromConfiguration(configuration);
+  if (draftFrom) {
+    return {
+      ...formFromConfiguration(draftFrom),
+      name: copyName(draftFrom.name),
+      // Secrets are write-only and are not returned by the API; the copy must be signed in again.
+      password: "",
+      apiKey: "",
+      clientId: "",
+      clientSecret: "",
+      bearerToken: "",
+    };
+  }
+  return { ...NEW_FORM, processType: newProcessType, httpMethod: defaultHttpMethod(newProcessType) };
 };
 
 /** "name=value" lines to an object; null when nothing was entered. Throws on a line without "=". */
@@ -156,6 +179,7 @@ const inRange = (value: number, min: number, max: number): boolean => Number.isI
 /** Create or edit one integration: what it does, where it calls, what it sends, how it signs in, and when it runs. */
 const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
   configuration,
+  draftFrom = null,
   side = "buyer",
   initialProcessType,
   readOnly = false,
@@ -163,7 +187,8 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
   onCancel,
 }) => {
   const offeredTypes = integrationProcessTypesFor(side);
-  const [form, setForm] = useState<ConfigForm>(() => toForm(configuration, initialProcessType ?? offeredTypes[0]?.value ?? ""));
+  const [form, setForm] = useState<ConfigForm>(() =>
+    toForm(configuration, initialProcessType ?? draftFrom?.processType ?? "", draftFrom));
   const [saving, setSaving] = useState(false);
   const [companyCodes, setCompanyCodes] = useState<SilaCompanyCode[]>([]);
 
@@ -331,7 +356,15 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
             </div>
             <div className="sila-field">
               <label className="sila-label" htmlFor="integration-process">API type<span className="sila-required">*</span></label>
-              <select id="integration-process" className="sila-select" value={form.processType} onChange={(event) => changeProcessType(event.target.value)}>
+              <select
+                id="integration-process"
+                className="sila-select"
+                value={form.processType}
+                required
+                disabled={!!configuration}
+                onChange={(event) => changeProcessType(event.target.value)}
+              >
+                {!configuration && <option value="">Select API type</option>}
                 {typeOptions.map((option) => <option key={option.value} value={option.value}>{option.label} ({option.value})</option>)}
               </select>
             </div>
@@ -385,6 +418,12 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
 
         <div className="sila-form-section">
           <h3 className="sila-form-section-title">Request</h3>
+          {!isPush && (
+            <p className="sila-help">
+              This API type only reads from the ERP, so it has no request body. To send a body, set the API type above to one
+              that creates or posts a document, such as Purchase order (create in ERP) or Contract (create in ERP).
+            </p>
+          )}
           <div className="sila-form-grid">
             {isPush && (
               <>
@@ -407,7 +446,8 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
                   <textarea id="integration-body" className="sila-textarea" rows={8} value={form.requestBody} onChange={(event) => setField("requestBody", event.target.value)} />
                   <span className="sila-help ops-break">
                     {bodyRequired ? "SOAP and cXML send this body." : "Leave empty to send the application's standard JSON body."}
-                    {form.processType === "POST_PO" ? ` Tokens: ${INTEGRATION_PO_BODY_TOKENS.join(" ")} ({{entries}} is the JSON array of the lines).` : ""}
+                    {form.processType === "POST_PO" ? ` Tokens: ${INTEGRATION_PO_BODY_TOKENS.join(" ")} ({{entries}} and {{items}} are the JSON array of the lines; the contract tokens apply to a purchase order created from a contract).` : ""}
+                    {form.processType === "POST_CONTRACT" ? ` Tokens: ${INTEGRATION_CONTRACT_BODY_TOKENS.join(" ")}.` : ""}
                   </span>
                 </div>
               </>

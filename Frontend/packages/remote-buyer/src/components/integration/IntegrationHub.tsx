@@ -28,7 +28,7 @@ const CONNECTED_STATUSES = ["TESTED", "ACTIVE", "INACTIVE"];
 
 type View =
   | { name: "list" }
-  | { name: "create"; processType: string }
+  | { name: "create"; processType: string; copyFromId?: string }
   | { name: "open"; configurationId: string };
 
 const purposeOf = (processType: string): string =>
@@ -79,6 +79,7 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
       <IntegrationWorkspace
         startWith={view.name === "create" ? "create" : { configurationId: view.configurationId }}
         initialProcessType={view.name === "create" ? view.processType : undefined}
+        copyFromId={view.name === "create" ? view.copyFromId : undefined}
         onExit={backToList}
         mode={isWorkflow ? "workflow" : "connection"}
         side={side}
@@ -96,9 +97,12 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
   const canCreate = !isWorkflow && !readOnly && apiTypes.length > 0;
 
   const handleCreate = () => {
-    if (!newType) return;
     setView({ name: "create", processType: newType });
     setNewType("");
+  };
+
+  const handleCopy = (row: IntegrationConfiguration) => {
+    setView({ name: "create", processType: row.processType, copyFromId: row.id });
   };
 
   return (
@@ -111,6 +115,7 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
             <select
               className="sila-select"
               aria-label="API type"
+              required
               value={newType}
               onChange={(event) => setNewType(event.target.value)}
             >
@@ -120,7 +125,7 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
               ))}
             </select>
             <button type="button" className="sila-btn sila-btn--primary" onClick={handleCreate} disabled={!newType}>
-              New integration
+              Add new
             </button>
           </div>
         ) : undefined}
@@ -142,7 +147,7 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
               ? "Connect an API under Integration and pass its connection test. It then appears here to be configured."
               : readOnly
                 ? `Your ${side} administrator sets up the integrations of the organization.`
-                : "Select an API type and choose New integration."}
+                : "Select an API type and choose Add new."}
           />
         ) : (
           <div className="sila-table-wrap">
@@ -168,13 +173,24 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
                     <td>{row.entityCode || "—"}</td>
                     <td><span className={statusBadgeClass(row.status)}>{statusLabel(row.status)}</span></td>
                     <td>
-                      <button
-                        type="button"
-                        className="sila-btn sila-btn--secondary sila-btn--sm"
-                        onClick={() => setView({ name: "open", configurationId: row.id })}
-                      >
-                        {readOnly ? "View" : isWorkflow ? "Configure" : "Open"}
-                      </button>
+                      <div className="sila-btn-group">
+                        <button
+                          type="button"
+                          className="sila-btn sila-btn--secondary sila-btn--sm"
+                          onClick={() => setView({ name: "open", configurationId: row.id })}
+                        >
+                          {readOnly ? "View" : isWorkflow ? "Configure" : "Open"}
+                        </button>
+                        {canCreate && (
+                          <button
+                            type="button"
+                            className="sila-btn sila-btn--secondary sila-btn--sm"
+                            onClick={() => handleCopy(row)}
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
