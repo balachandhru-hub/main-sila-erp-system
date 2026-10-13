@@ -69,25 +69,28 @@ IF NOT EXISTS (SELECT 1 FROM IdentitySystemDB.identitysystem.user_role_mapping W
     INSERT INTO IdentitySystemDB.identitysystem.user_role_mapping (id, user_id, role_id, date_created, date_updated, created_by, updated_by, is_active)
     VALUES (NEWID(), @financeUser, @financeRole, @now, @now, @actor, @actor, 1);
 
--- Approval type list used by Approval Management.
+-- Approval type list used by Approval Management / SILA ME Setup.
 INSERT INTO MasterDataDb.masterdata.metadata (id, [key], type, description, date_created, date_updated, created_by, updated_by, is_active)
 SELECT NEWID(), v.[key], 'APPROVAL_TYPE', v.description, @now, @now, @actor, @actor, 1
 FROM (VALUES
     ('RECIPE', 'Recipe approval'),
     ('ITO', 'Internal transfer approval'),
-    ('INVENTORY', 'Inventory count approval')
+    ('INVENTORY', 'Inventory count approval'),
+    ('MATERIAL_PRICE', 'Material price approval')
 ) v([key], description)
 WHERE NOT EXISTS (SELECT 1 FROM MasterDataDb.masterdata.metadata m WHERE m.type = 'APPROVAL_TYPE' AND m.[key] = v.[key] AND m.is_active = 1);
 
 DECLARE @outletUser UNIQUEIDENTIFIER = 'bddf4efb-bb2c-4a5a-a462-b5c274638e37';
 DECLARE @storeUser UNIQUEIDENTIFIER = '649c22a7-e308-4588-8816-096e24a4724f';
 DECLARE @costUser UNIQUEIDENTIFIER = 'a0b4da97-69dc-4e6f-b495-cd5329ad9f02';
+DECLARE @adminUser UNIQUEIDENTIFIER = 'dca4f6dd-d630-40f3-b349-33c0cf9edb02';
 
 DECLARE @flows TABLE (code NVARCHAR(40), name NVARCHAR(120), type NVARCHAR(40));
 INSERT INTO @flows VALUES
     ('SILA-RECIPE', 'Recipe approval', 'RECIPE'),
     ('SILA-ITO', 'Internal transfer approval', 'ITO'),
-    ('SILA-INVENTORY', 'Inventory count approval', 'INVENTORY');
+    ('SILA-INVENTORY', 'Inventory count approval', 'INVENTORY'),
+    ('SILA-MATERIAL-PRICE', 'Material price approval', 'MATERIAL_PRICE');
 
 INSERT INTO BuyerSystemDB.buyersystem.master_approval_flow
     (id, approval_code, approval_name, buyer_id, date_created, date_updated, created_by, updated_by, is_active, currency, total_amount, type, scope_kind)
@@ -97,14 +100,20 @@ WHERE NOT EXISTS (
     SELECT 1 FROM BuyerSystemDB.buyersystem.master_approval_flow have
     WHERE have.buyer_id = @buyer AND have.approval_code = f.code AND have.is_active = 1);
 
+-- Buyer admin is first so they can decide every chain; role-based IsAdministrator also bypasses level order.
 DECLARE @levels TABLE (code NVARCHAR(40), user_id UNIQUEIDENTIFIER, sort_order INT);
 INSERT INTO @levels VALUES
-    ('SILA-RECIPE', @costUser, 1),
-    ('SILA-RECIPE', @fnbUser, 2),
-    ('SILA-ITO', @outletUser, 1),
-    ('SILA-ITO', @storeUser, 2),
-    ('SILA-INVENTORY', @costUser, 1),
-    ('SILA-INVENTORY', @financeUser, 2);
+    ('SILA-RECIPE', @adminUser, 1),
+    ('SILA-RECIPE', @costUser, 2),
+    ('SILA-RECIPE', @fnbUser, 3),
+    ('SILA-ITO', @adminUser, 1),
+    ('SILA-ITO', @outletUser, 2),
+    ('SILA-ITO', @storeUser, 3),
+    ('SILA-INVENTORY', @adminUser, 1),
+    ('SILA-INVENTORY', @costUser, 2),
+    ('SILA-INVENTORY', @financeUser, 3),
+    ('SILA-MATERIAL-PRICE', @adminUser, 1),
+    ('SILA-MATERIAL-PRICE', @costUser, 2);
 
 INSERT INTO BuyerSystemDB.buyersystem.approval_flow_user_mapping
     (id, approval_flow_id, user_id, [order], date_created, date_updated, created_by, updated_by, is_active)
