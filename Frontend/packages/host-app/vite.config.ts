@@ -9,6 +9,23 @@ import { federationSafeAliases } from '../shared-ui/build/federationAliases';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootNodeModules = path.resolve(__dirname, '../../node_modules');
 
+const devProxy = (env) => ({
+  target: env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com',
+  changeOrigin: true,
+  secure: false,
+  configure: (proxy) => {
+    proxy.on('proxyRes', (proxyRes) => {
+      const cookies = proxyRes.headers['set-cookie'];
+      if (!cookies) return;
+      proxyRes.headers['set-cookie'] = cookies.map((cookie) =>
+        cookie
+          .replace(/;\s*Domain=[^;]*/i, '')
+          .replace(/;\s*SameSite=None/i, '; SameSite=Lax'),
+      );
+    });
+  },
+});
+
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -59,10 +76,13 @@ export default defineConfig(({ command, mode }) => {
         key: fs.existsSync('./localhost-key.pem') ? fs.readFileSync('./localhost-key.pem') : undefined,
         cert: fs.existsSync('./localhost.pem') ? fs.readFileSync('./localhost.pem') : undefined,
       },
-      // Local gateway: set VITE_DEV_API_PROXY (and leave VITE_AUTH_API_BASE empty) in .env.local so the browser stays same-origin.
-      proxy: env.VITE_DEV_API_PROXY
-        ? { '/api': { target: env.VITE_DEV_API_PROXY, changeOrigin: true, secure: false } }
-        : undefined,
+      // Dev stays same-origin so the access_token cookie is not dropped as third-party.
+      // The API sets Domain=.chervicaon.com; strip that so the cookie belongs to localhost.
+      proxy: command === 'serve' ? {
+        '/api': devProxy(env),
+        '/buyermessageHub': { ...devProxy(env), ws: true },
+        '/suppliermessageHub': { ...devProxy(env), ws: true },
+      } : undefined,
     },
     build: {
       target: 'esnext',
