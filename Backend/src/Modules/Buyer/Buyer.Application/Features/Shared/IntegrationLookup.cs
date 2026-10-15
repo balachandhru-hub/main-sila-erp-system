@@ -3,7 +3,6 @@ using Buyer.Infrastructure.Contracts.IRepository;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.Integration;
 using SharedKernel.Integration.Entities;
-using SharedKernel.Integration.Enums;
 using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Shared
@@ -43,7 +42,7 @@ namespace Buyer.Application.Features.Shared
         /// Whether the organization already has another API of this type for the entity code: it has one API per API type
         /// and entity code (ALL, or a company code, so SAP and Ariba can serve different company codes).
         /// </summary>
-        public static Task<bool> HasOtherOfTypeAsync(IRepositoryWrapper repository, ApiIntegrationConfiguration configuration, IntegrationProcessType processType, string? entityCode, CancellationToken cancellationToken)
+        public static Task<bool> HasOtherOfTypeAsync(IRepositoryWrapper repository, ApiIntegrationConfiguration configuration, string processType, string? entityCode, CancellationToken cancellationToken)
         {
             string code = (entityCode ?? string.Empty).Trim();
             return repository.ApiIntegrationConfiguration

@@ -47,14 +47,45 @@ export const isPushProcess = (processType: string): boolean =>
 export const integrationProcessTypesFor = (side: IntegrationSide): IntegrationProcessType[] =>
   INTEGRATION_PROCESS_TYPES.filter((type) => type.side === side);
 
-/** The table row of an API type. An unknown type gets the tabs and actions of its direction. */
+/** Select value that opens the fields for a code that is not in the built-in list. */
+export const NEW_API_TYPE = "__new__";
+
+export type ApiTypeDirection = "read" | "send";
+
+const CUSTOM_API_TYPE = /^(GET_|POST_)[A-Z][A-Z0-9_]*$/;
+
+/** True when the code is one of the built-in API types. */
+export const isKnownProcessType = (processType: string): boolean =>
+  INTEGRATION_PROCESS_TYPES.some((type) => type.value === processType);
+
+/**
+ * The code stored for an API type the organization adds. GET_ reads from the external system and POST_ sends to it.
+ * A built-in code is returned unchanged.
+ */
+export const customApiTypeCode = (raw: string, direction: ApiTypeDirection): string => {
+  const cleaned = raw.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+  if (!cleaned) return "";
+  if (isKnownProcessType(cleaned)) return cleaned;
+  const body = cleaned.replace(/^(GET_|POST_)/, "");
+  if (!body) return "";
+  return `${direction === "send" ? "POST" : "GET"}_${body}`.slice(0, 30);
+};
+
+/** A built-in API type, or a custom GET_/POST_ code of at most 30 characters. */
+export const isAcceptableProcessType = (processType: string): boolean =>
+  isKnownProcessType(processType) || (processType.length <= 30 && CUSTOM_API_TYPE.test(processType) && !isKnownProcessType(processType));
+
+/** The table row of an API type. A custom code is a connection only: it is not pulled into application data. */
 export const integrationProcessOf = (processType: string): IntegrationProcessType =>
   INTEGRATION_PROCESS_TYPES.find((type) => type.value === processType) ?? {
     value: processType,
     label: processType,
     side: "buyer",
-    hasMapping: !isPushProcess(processType),
-    pull: isPushProcess(processType) ? "none" : "full",
+    hasMapping: false,
+    pull: "none",
+    calledWhen: isPushProcess(processType)
+      ? "A custom API type is not called for a built-in document. Use Test connection to call it."
+      : "A custom API type is read by Test connection. It is not pulled into the application.",
   };
 
 export const INTEGRATION_PROTOCOLS: { value: string; label: string }[] = [
@@ -284,6 +315,14 @@ export const createIntegration = async (side: IntegrationSide, payload: Integrat
     return response.data;
   } catch (error: unknown) {
     throw new Error(readError(error, "Could not save the integration."));
+  }
+};
+
+export const deleteIntegration = async (side: IntegrationSide, configurationId: string): Promise<void> => {
+  try {
+    await axiosInstance.delete(`${BASE[side]}/${configurationId}`);
+  } catch (error: unknown) {
+    throw new Error(readError(error, "Could not delete the integration."));
   }
 };
 

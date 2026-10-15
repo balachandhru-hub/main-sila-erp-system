@@ -64,9 +64,10 @@ namespace Buyer.Application.Features.Shared
 
         public static async Task<SilaOcrConfigurationDto> ToDtoAsync(IRepositoryWrapper repository, BuyerBusinessProfile buyer, SilaOcrConfiguration configuration, CancellationToken cancellationToken)
         {
+            string extractInvoice = nameof(IntegrationProcessType.EXTRACT_INVOICE);
             bool externalConfigured = await repository.ApiIntegrationConfiguration
                 .FindByCondition(x => x.BuyerId == buyer.Id
-                    && x.ProcessType == IntegrationProcessType.EXTRACT_INVOICE
+                    && x.ProcessType == extractInvoice
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .AnyAsync(cancellationToken);

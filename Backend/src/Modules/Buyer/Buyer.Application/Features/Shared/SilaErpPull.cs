@@ -20,9 +20,10 @@ namespace Buyer.Application.Features.Shared
         public static async Task<List<ApiIntegrationConfiguration>> ActiveConfigurationsAsync(
             IRepositoryWrapper repository, Guid organizationId, IntegrationProcessType processType, CancellationToken cancellationToken)
         {
+            string code = processType.ToString();
             List<ApiIntegrationConfiguration> configurations = await repository.ApiIntegrationConfiguration
                 .FindByCondition(x => IntegrationLookup.BuyerIdsOf(repository, organizationId).Contains(x.BuyerId)
-                    && x.ProcessType == processType
+                    && x.ProcessType == code
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .ToListAsync(cancellationToken);

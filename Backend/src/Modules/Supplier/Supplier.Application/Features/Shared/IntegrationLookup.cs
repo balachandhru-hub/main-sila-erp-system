@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Supplier.Infrastructure.Contracts.IRepository;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.Integration.Entities;
-using SharedKernel.Integration.Enums;
 using SharedKernel.LoggerServices;
 
 namespace Supplier.Application.Features.Shared
@@ -27,7 +26,7 @@ namespace Supplier.Application.Features.Shared
         }
 
         /// <summary>Whether the organization already has another API of this type: it has one API per API type.</summary>
-        public static Task<bool> HasOtherOfTypeAsync(IRepositoryWrapper repository, ApiIntegrationConfiguration configuration, IntegrationProcessType processType, CancellationToken cancellationToken)
+        public static Task<bool> HasOtherOfTypeAsync(IRepositoryWrapper repository, ApiIntegrationConfiguration configuration, string processType, CancellationToken cancellationToken)
         {
             return repository.ApiIntegrationConfiguration
                 .FindByCondition(x => x.Id != configuration.Id && x.OrganizationId == configuration.OrganizationId && x.ProcessType == processType)

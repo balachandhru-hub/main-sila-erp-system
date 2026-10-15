@@ -33,11 +33,12 @@ namespace Supplier.Infrastructure.Repository
         public Task<List<ApiIntegrationConfiguration>> ListDueAsync(DateTime now, int take, List<IntegrationProcessType> processTypes, CancellationToken cancellationToken)
         {
             DateTime staleBefore = now.AddMinutes(-30);
+            List<string> codes = processTypes.Select(type => type.ToString()).ToList();
             return RepositoryContext.ApiIntegrationConfiguration
                 .AsNoTracking()
                 .Where(x => x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive
-                    && processTypes.Contains(x.ProcessType)
+                    && codes.Contains(x.ProcessType)
                     && x.ScheduleCron != null && x.NextRunAt <= now
                     && (!x.IsRunning || x.RunningSince == null || x.RunningSince < staleBefore))
                 .OrderBy(x => x.NextRunAt)

@@ -102,7 +102,7 @@ namespace Supplier.Application.Features.Commands.RunIntegration
                 execution.RecordsRead++;
                 try
                 {
-                    items.Add(IntegrationCatalogRules.ReadCatalogItem(configuration.ProcessType, mappings, record));
+                    items.Add(IntegrationCatalogRules.ReadCatalogItem(Enum.Parse<IntegrationProcessType>(configuration.ProcessType), mappings, record));
                 }
                 catch (InvalidOperationException exception)
                 {
@@ -124,7 +124,7 @@ namespace Supplier.Application.Features.Commands.RunIntegration
                     Request = new SupplierCatalogSyncRequestDto
                     {
                         OrganizationId = configuration.OrganizationId,
-                        Mode = configuration.ProcessType == IntegrationProcessType.GET_CATALOG
+                        Mode = configuration.ProcessType == nameof(IntegrationProcessType.GET_CATALOG)
                             ? SupplierCatalogSyncRequestDto.MODE_CATALOG
                             : SupplierCatalogSyncRequestDto.MODE_STOCK,
                         Items = items

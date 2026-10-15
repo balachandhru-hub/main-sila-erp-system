@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Loader, PageHeader, toastService } from "@vosox/shared-ui";
+import { Loader, Modal, PageHeader, toastService } from "@vosox/shared-ui";
 import {
   INTEGRATION_AUTH_TYPES,
   INTEGRATION_PROCESS_TYPES,
   INTEGRATION_PROTOCOLS,
+  deleteIntegration,
   getIntegration,
   integrationProcessOf,
   isPushProcess,
@@ -91,6 +92,8 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
   );
   const [draftFrom, setDraftFrom] = useState<IntegrationConfiguration | null>(null);
   const [action, setAction] = useState<Action | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [testResult, setTestResult] = useState<IntegrationTestResult | null>(null);
   // Bumped after a pull or a test so the run history reloads.
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -179,6 +182,18 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteIntegration(side, configuration.id);
+      toastService.success("API deleted.");
+      onExit();
+    } catch (err: unknown) {
+      toastService.error(errorMessage(err, "Could not delete the integration."));
+      setDeleting(false);
+    }
+  };
+
   const handleTest = async () => {
     setAction("test");
     try {
@@ -243,6 +258,9 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
         backLabel="Back to integrations"
         actions={readOnly ? undefined : (
           <div className="sila-btn-group">
+            <button type="button" className="sila-btn sila-btn--danger" onClick={() => setConfirmingDelete(true)} disabled={busy || deleting}>
+              Delete
+            </button>
             {showConnectionActions && (
               <>
                 <button type="button" className="sila-btn sila-btn--secondary" onClick={startCopy} disabled={busy}>
@@ -362,6 +380,21 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
         />
       )}
       {tab === "history" && <IntegrationHistory side={side} configurationId={configuration.id} refreshKey={historyVersion} />}
+      <Modal
+        isOpen={confirmingDelete}
+        onClose={() => { if (!deleting) setConfirmingDelete(false); }}
+        variant="danger"
+        size="sm"
+        headerProps={{ heading: "Delete API" }}
+        bodyProps={{
+          content: `Delete "${configuration.name}"?`,
+          contentDescription: "The connection, its field mapping and its run history are removed. This cannot be undone.",
+        }}
+        footerProps={{
+          secondaryButton: { text: "Cancel", onClick: () => setConfirmingDelete(false), disabled: deleting },
+          primaryButton: { text: "Delete", onClick: handleDelete, loading: deleting },
+        }}
+      />
     </div>
   );
 };

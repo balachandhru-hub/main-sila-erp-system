@@ -31,7 +31,7 @@ namespace Buyer.Application.Features.Shared
             }
 
             List<SilaMasterImportRowDto> outcome;
-            if (configuration.ProcessType == IntegrationProcessType.GET_SUPPLIER)
+            if (configuration.ProcessType == nameof(IntegrationProcessType.GET_SUPPLIER))
             {
                 List<(int RowNumber, SilaSupplierWriteDto Supplier)> rows = new List<(int, SilaSupplierWriteDto)>();
                 Dictionary<string, int> byCode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
