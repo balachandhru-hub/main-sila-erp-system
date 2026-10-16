@@ -331,7 +331,16 @@ const handle = async (
     current[side] = current[side].map((row) => {
       if (row.public.id !== id) return row;
       const status = row.public.status === "ACTIVE" ? "ACTIVE" : (result.success ? "TESTED" : "TEST_FAILED");
-      return { ...row, public: { ...row.public, status, testedAt: result.testedAt, updatedAt: result.testedAt } };
+      return {
+        ...row,
+        public: {
+          ...row.public,
+          status,
+          testedAt: result.testedAt,
+          updatedAt: result.testedAt,
+          lastErrorSafe: result.success ? null : result.message,
+        },
+      };
     });
     writeStore(filePath, current);
     sendJson(res, 200, result);
@@ -352,37 +361,72 @@ const handle = async (
   next();
 };
 
-const testConnection = async (saved: StoredIntegration): Promise<{ success: boolean; message: string; httpStatus: number | null; testedAt: string }> => {
-  const testedAt = new Date().toISOString();
+const headerMap = (value: unknown): Record<string, string> => {
+  const headers: Record<string, string> = {};
+  if (!value || typeof value !== "object") return headers;
+  Object.entries(value as Record<string, unknown>).forEach(([name, headerValue]) => {
+    if (typeof headerValue === "string") headers[name] = headerValue;
+  });
+  return headers;
+};
+
+/** Sign-in header for the probe. The password stays in the local draft and is not written to the answer. */
+const authorizationHeader = (saved: StoredIntegration): Record<string, string> => {
+  const auth = text(saved.public.authenticationType);
+  if (auth === "BASIC") {
+    const username = text(saved.public.username);
+    const password = saved.secrets.password || "";
+    if (!username || !password) return {};
+    return { Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}` };
+  }
+  if (auth === "BEARER_TOKEN" && saved.secrets.bearerToken) {
+    return { Authorization: `Bearer ${saved.secrets.bearerToken}` };
+  }
+  if (auth === "API_KEY" && saved.secrets.apiKey) {
+    return { [text(saved.public.apiKeyHeader) || "X-API-KEY"]: saved.secrets.apiKey };
+  }
+  return {};
+};
+
+const probeUrl = (saved: StoredIntegration): URL => {
   const baseUrl = String(saved.public.baseUrl || "");
   const resourcePath = text(saved.public.resourcePath);
+  const target = new URL(resourcePath ? `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}` : baseUrl);
+  if (text(saved.public.protocol) === "ODATA_V4" && !target.searchParams.has("$top")) {
+    target.searchParams.set("$top", "1");
+  }
+  return target;
+};
+
+/**
+ * Proves the endpoint and the sign-in. The probe is a GET, the same call Postman uses to fetch the SAP CSRF token
+ * (x-csrf-token: Fetch plus Basic). It does not post the request body, so a stock transfer is not created.
+ * A POST-only API that answers 405 is reachable and the credentials were accepted.
+ */
+const testConnection = async (saved: StoredIntegration): Promise<{ success: boolean; message: string; httpStatus: number | null; testedAt: string }> => {
+  const testedAt = new Date().toISOString();
   let target: URL;
   try {
-    target = new URL(resourcePath ? `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}` : baseUrl);
+    target = probeUrl(saved);
   } catch {
     return { success: false, message: "The base URL could not be called.", httpStatus: null, testedAt };
   }
   if (target.protocol !== "http:" && target.protocol !== "https:") {
     return { success: false, message: "The base URL could not be called.", httpStatus: null, testedAt };
   }
-  const headers: Record<string, string> = {};
-  const extra = saved.public.headers;
-  if (extra && typeof extra === "object") {
-    Object.entries(extra as Record<string, unknown>).forEach(([name, value]) => {
-      if (typeof value === "string") headers[name] = value;
-    });
-  }
-  const method = text(saved.public.httpMethod) || "GET";
+  const headers = { ...headerMap(saved.public.headers), ...authorizationHeader(saved) };
+  const configuredMethod = text(saved.public.httpMethod) || "GET";
+  const timeout = Number(saved.public.timeoutSeconds || 30) * 1000;
   try {
-    const response = await fetch(target, { method, headers, signal: AbortSignal.timeout(Number(saved.public.timeoutSeconds || 30) * 1000) });
-    const success = response.ok || (method !== "GET" && response.status === 405);
+    const response = await fetch(target, { method: "GET", headers, signal: AbortSignal.timeout(timeout) });
+    const success = response.ok || (configuredMethod !== "GET" && response.status === 405);
     return {
       success,
-      message: success ? "The connection test passed." : `The endpoint answered ${response.status}.`,
+      message: success ? "API connection succeeded." : `The API returned HTTP ${response.status}.`,
       httpStatus: response.status,
       testedAt,
     };
   } catch {
-    return { success: false, message: "The endpoint could not be reached.", httpStatus: null, testedAt };
+    return { success: false, message: "The configured API could not be reached.", httpStatus: null, testedAt };
   }
 };
