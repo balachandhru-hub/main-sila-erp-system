@@ -57,6 +57,7 @@ namespace Buyer.Application.Features.Commands.DispatchSilaTransfer
             transfer.DispatchedBy = request.UserId;
             transfer.DispatchedOn = DateTime.UtcNow;
             ledger.AddEvent(Common.SILA_REF_ITO, transfer.Id, Common.SILA_ITO_DISPATCHED, request.Request.Comment?.Trim());
+            await SilaTransferSap.QueueAsync(_repository, _logger, ledger, transfer, items, buyer.OrganizationId, cancellationToken);
             await _repository.SaveAsync();
 
             _logger.LogInfo($"Transfer dispatched. TransferId: {transfer.Id}, Lines: {items.Count(x => x.DispatchedQty > 0)}");

@@ -60,6 +60,7 @@ namespace Buyer.Application.Features.Commands.ConfirmSilaTransferHandover
             transfer.ReceivedOn = now;
             string? comment = string.IsNullOrWhiteSpace(request.Request.Comment) ? null : request.Request.Comment.Trim();
             ledger.AddEvent(Common.SILA_REF_ITO, transfer.Id, SilaTransferRules.ACTION_CONFIRM_HANDOVER, comment);
+            await SilaTransferSap.QueueAsync(_repository, _logger, ledger, transfer, items, buyer.OrganizationId, cancellationToken);
             await _repository.SaveAsync();
 
             _logger.LogInfo($"Transfer handover confirmed. TransferId: {transfer.Id}, Lines: {items.Count}");

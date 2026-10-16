@@ -255,7 +255,7 @@ namespace Buyer.Application.Features.Shared
 
         /// <summary>
         /// Books stock the requester already collected: TRANSFER_OUT at the source and TRANSFER_IN at the destination of
-        /// the approved quantities (nothing goes in transit), and queues the transfer for the ERP. The caller sets the status.
+        /// the approved quantities (nothing goes in transit). The caller queues the SAP posting and sets the status.
         /// </summary>
         public static async Task PostCollectedAsync(
             InventoryLedger ledger,
@@ -296,8 +296,6 @@ namespace Buyer.Application.Features.Shared
                     }, cancellationToken);
                 }
             }
-
-            // ITO stays on the SILA ledger. It is not posted to SAP.
         }
 
         /// <summary>What the user may do with the transfer now, from its status and the user's locations.</summary>

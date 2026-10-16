@@ -127,6 +127,12 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return await PostConsumptionGroupAsync(posting, cancellationToken);
             }
 
+            // Internal transfer is posted only through FIVE S4 - Transfer Stock. It must not use the goods-movement API.
+            if (posting.ReferenceType == Common.SILA_REF_ITO)
+            {
+                return await PostTransferAsync(posting, cancellationToken);
+            }
+
             BuyerBusinessProfile? buyer = await _repository.BuyerBusinessProfile
                 .FindByCondition(x => x.Id == posting.BuyerId)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -850,6 +856,115 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         private static string Camel(string name)
         {
             return char.ToLowerInvariant(name[0]) + name[1..];
+        }
+
+        /// <summary>
+        /// One FIVE S4 - Transfer Stock call for the transfer. The request is built from the transfer lines.
+        /// A missing API or a data error fails once and does not use another API. An unclear answer is UNKNOWN.
+        /// </summary>
+        private async Task<string> PostTransferAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
+        {
+            BuyerBusinessProfile? buyer = await _repository.BuyerBusinessProfile
+                .FindByCondition(x => x.Id == posting.BuyerId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (buyer == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, "The buyer of this document no longer exists.", cancellationToken);
+            }
+
+            InternalTransferOrder? transfer = await _repository.InternalTransferOrder
+                .FindByCondition(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (transfer == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, "Transfer not found.", cancellationToken);
+            }
+
+            if (!SilaTransferSap.MovesStock(transfer.Status))
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, "The transfer is not in a state that moves stock.", cancellationToken);
+            }
+
+            bool alreadyPosted = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.Id != posting.Id && x.BuyerId == posting.BuyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_ITO && x.ReferenceId == posting.ReferenceId
+                    && x.Status == Common.SILA_POSTING_POSTED)
+                .AnyAsync(cancellationToken);
+            if (alreadyPosted || !string.IsNullOrWhiteSpace(posting.ErpReference))
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, SilaTransferSap.Failure(SilaTransferSap.TRANSFER_ALREADY_POSTED), cancellationToken);
+            }
+
+            bool unknown = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.Id != posting.Id && x.BuyerId == posting.BuyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_ITO && x.ReferenceId == posting.ReferenceId
+                    && x.Status == Common.SILA_POSTING_UNKNOWN)
+                .AnyAsync(cancellationToken);
+            if (unknown)
+            {
+                _logger.LogError($"Transfer SAP posting held. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}");
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null,
+                    "POSTING_UNKNOWN. A posting for this transfer has an unknown SAP result. Reconcile it before sending again.", cancellationToken);
+            }
+
+            InventoryLocation? from = await _repository.InventoryLocation.FindFirstByConditionAsync(x => x.Id == transfer.FromLocationId);
+            InventoryLocation? to = await _repository.InventoryLocation.FindFirstByConditionAsync(x => x.Id == transfer.ToLocationId);
+            BuyerProperty? fromProperty = from == null ? null : await _repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == from.PropertyId);
+            BuyerProperty? toProperty = to == null ? null : await _repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == to.PropertyId);
+            posting.CompanyCode ??= string.IsNullOrWhiteSpace(fromProperty?.CompanyCode) ? null : fromProperty.CompanyCode.Trim();
+
+            List<InternalTransferOrderItem> items = await _repository.InternalTransferOrderItem
+                .FindByCondition(x => x.InternalTransferOrderId == transfer.Id && x.IsActive)
+                .ToListAsync(cancellationToken);
+            List<Guid> materialIds = items.Select(x => x.MaterialId).Distinct().ToList();
+            Dictionary<Guid, ItemBuyerMaster> materials = materialIds.Count == 0
+                ? new Dictionary<Guid, ItemBuyerMaster>()
+                : await _repository.ItemBuyerMaster.FindByCondition(x => materialIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            Dictionary<Guid, List<MaterialUomConversion>> conversions = await UomConverter.GetConversionsAsync(_repository, materialIds, cancellationToken);
+            string? problem = SilaTransferSap.TryBuildBody(transfer, from, to, fromProperty, toProperty, items, materials, conversions, out string? body);
+            if (problem != null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, SilaTransferSap.Failure(problem), cancellationToken);
+            }
+
+            if (body == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, "The transfer has no quantity to post.", cancellationToken);
+            }
+
+            ApiIntegrationConfiguration? api = await SilaTransferSap.ResolveAsync(_repository, buyer.OrganizationId, posting.CompanyCode, cancellationToken);
+            if (api == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, SilaTransferSap.Failure(SilaTransferSap.TRANSFER_API_NOT_CONFIGURED), cancellationToken);
+            }
+
+            IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.Id, posting, body, cancellationToken);
+            posting.IntegrationSystem = api.Name;
+            posting.ErpHttpStatus = sent.Answered ? sent.StatusCode : null;
+            posting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            posting.ErpResponsePayload = SilaErpPayload.Sanitise(sent.ResponseBody);
+            bool succeeded = sent.Answered && sent.StatusCode >= 200 && sent.StatusCode < 300;
+            if (succeeded)
+            {
+                string? reference = SilaTransferSap.ReadMaterialDocument(sent.ResponseBody) ?? ReadReference(sent.ResponseBody);
+                return await FinishAsync(posting, Common.SILA_POSTING_POSTED, reference, null, cancellationToken);
+            }
+
+            string error = sent.Answered
+                ? $"The ERP returned HTTP {sent.StatusCode}.{Snippet(sent.ResponseBody)}"
+                : sent.ErrorMessage ?? "The ERP could not be reached.";
+            error = SilaErpPayload.Sanitise(error) ?? error;
+            posting.Attempts++;
+            if (sent.OutcomeUnknown)
+            {
+                _logger.LogError($"Transfer SAP posting outcome unknown. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}, StatusCode: {sent.StatusCode}, Code: {sent.ErrorCode}");
+                return await FinishAsync(posting, Common.SILA_POSTING_UNKNOWN, null,
+                    $"{error} The ERP gave no clear answer: check whether {posting.ReferenceNumber} exists in the ERP, then reconcile this posting. It is not sent again automatically.", cancellationToken);
+            }
+
+            string status = posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
+            _logger.LogError($"Transfer SAP posting was not accepted. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}, Attempts: {posting.Attempts}, StatusCode: {sent.StatusCode}, Code: {sent.ErrorCode}");
+            return await FinishAsync(posting, status, null, error, cancellationToken);
         }
 
         // Stock count prefers the tested UPDATE_STOCK config named FIVE_POS_UPDATE, then any UPDATE_STOCK API, then a goods movement API.
