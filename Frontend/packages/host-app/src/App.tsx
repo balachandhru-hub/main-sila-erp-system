@@ -7,6 +7,7 @@ import SupplierRegistration from './components/SupplierRegistration';
 import BuyersRegistration from './components/BuyersRegistration';
 import { Loader } from '@vosox/shared-ui';
 import BuyerAssistant from './components/assistant/BuyerAssistant';
+import { registerMobilePwa } from './registerMobilePwa';
 
 const BuyerApp = React.lazy(() => import('remoteBuyer/BuyerApp'));
 const SupplierApp = React.lazy(() => import('remoteSupplier/SupplierApp'));
@@ -95,6 +96,16 @@ const Shell = () => {
   const isRegistration = location.pathname.includes('/registration');
   const isExternalBid = location.pathname.startsWith('/external-supplier/');
   const isMobile = location.pathname.startsWith(MOBILE_PATH);
+  React.useEffect(() => {
+    if (!isMobile) return undefined;
+    registerMobilePwa();
+    const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const previous = theme?.content;
+    if (theme) theme.content = '#0f5f8c';
+    return () => {
+      if (theme && previous) theme.content = previous;
+    };
+  }, [isMobile]);
   // The assistant is for all buyer-side roles and buyer administrators.
   const { userRole } = useAuthStore();
   const roleLower = (userRole ?? '').toLowerCase();

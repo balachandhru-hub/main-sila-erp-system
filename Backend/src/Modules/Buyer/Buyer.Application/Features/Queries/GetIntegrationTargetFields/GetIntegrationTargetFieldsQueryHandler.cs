@@ -19,9 +19,7 @@ namespace Buyer.Application.Features.Queries.GetIntegrationTargetFields
         public Task<List<IntegrationTargetFieldResponseDto>> Handle(GetIntegrationTargetFieldsQuery request, CancellationToken cancellationToken)
         {
             _logger.LogInfo($"Fetching integration target fields. OrganizationId: {request.OrganizationId}, ProcessType: {request.ProcessType}");
-            List<IntegrationProcessType> processTypes = request.ProcessType == null
-                ? Enum.GetValues<IntegrationProcessType>().Where(item => IntegrationProcessCatalog.BelongsTo(item, Common.INTEGRATION_SIDE)).ToList()
-                : new List<IntegrationProcessType> { request.ProcessType.Value };
+            List<IntegrationProcessType> processTypes = IntegrationProcessCatalog.TargetTypes(request.ProcessType, Common.INTEGRATION_SIDE);
             List<IntegrationTargetFieldResponseDto> fields = IntegrationTargetFieldRegistry.Fields
                 .Where(field => processTypes.Any(processType => IntegrationProcessCatalog.OwnsTarget(processType, field.TargetField)))
                 .ToList();

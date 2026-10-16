@@ -73,10 +73,14 @@ namespace SharedKernel.Integration.Rules
             }
 
             // The Buyer service configures the buyer's API types and the Supplier service the supplier's.
+            // A code the organization adds itself (GET_PRICE, POST_PAYMENT) is stored by the service that receives it.
+            input.ProcessType = IntegrationProcessCatalog.Canonical(input.ProcessType);
             if (!IntegrationProcessCatalog.BelongsTo(input.ProcessType, side))
             {
                 logger.LogError($"Integration process is not available. ProcessType: {input.ProcessType}, Side: {side}");
-                throw new BadRequestCustomException("API type is not available.", "This API type is not available for your organization.");
+                throw new BadRequestCustomException(
+                    "API type is not available.",
+                    "Choose a built-in API type, or add one as GET_NAME (read) or POST_NAME (send), up to 30 characters.");
             }
 
             string payloadFormat = PayloadFormat(input);

@@ -5,7 +5,7 @@ import { ROLE_ID_MAPPING } from '../../constants/roleMapping';
 import { getAssignableRoles, getCountries, type AssignableRole } from '../../api/networkAdminApi';
 import { getOutlets, type Outlet } from '../../../../remote-buyer/src/api/outletApi';
 import type { CountryDto } from '../../dto/networkAdminDto';
-import { toastService } from '@vosox/shared-ui';
+import { Dropdown, toastService, type DropdownValue } from '@vosox/shared-ui';
 import './CreateUserModal.css';
 
 interface CreateUserModalProps {
@@ -619,34 +619,33 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
               {needsOutlet && (
                 <div className="nad-form-group">
-                  <label htmlFor="outletId" className="nad-label">
-                    Outlet <span className="nad-required sila-required" aria-hidden="true">*</span>
-                  </label>
-                  <select
-                    id="outletId"
-                    name="outletId"
-                    value={outletId}
-                    onChange={(e) => {
-                      setOutletId(e.target.value);
+                  <Dropdown
+                    label="Outlet"
+                    isRequired
+                    isDisable={isLoading || isLoadingOutlets}
+                    isClearable
+                    placeholder={isLoadingOutlets ? 'Loading outlets...' : outlets.length === 0 ? 'No outlets available' : 'Select an outlet'}
+                    error={formErrors.outletId || undefined}
+                    options={outlets.map((outlet) => ({
+                      name: `${outlet.outletName}${outlet.outletCode ? ` (${outlet.outletCode})` : ''}`,
+                      value: outlet.id,
+                    }))}
+                    value={outletId
+                      ? {
+                          value: outletId,
+                          name: (() => {
+                            const outlet = outlets.find((item) => item.id === outletId);
+                            return outlet
+                              ? `${outlet.outletName}${outlet.outletCode ? ` (${outlet.outletCode})` : ''}`
+                              : outletId;
+                          })(),
+                        }
+                      : null}
+                    onChange={(next: DropdownValue | null) => {
+                      setOutletId(next?.value ?? '');
                       if (formErrors.outletId) setFormErrors((prev) => ({ ...prev, outletId: '' }));
                     }}
-                    disabled={isLoading || isLoadingOutlets}
-                    aria-invalid={formErrors.outletId ? true : undefined}
-                    aria-describedby={formErrors.outletId ? 'outletId-error' : undefined}
-                    className={`nad-input ${formErrors.outletId ? 'error' : ''}`}
-                  >
-                    <option value="">
-                      {isLoadingOutlets ? 'Loading outlets...' : outlets.length === 0 ? 'No outlets available' : 'Select an outlet'}
-                    </option>
-                    {outlets.map((outlet) => (
-                      <option key={outlet.id} value={outlet.id}>
-                        {outlet.outletName}{outlet.outletCode ? ` (${outlet.outletCode})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.outletId && (
-                    <span id="outletId-error" className="nad-error-text sila-error-text">{formErrors.outletId}</span>
-                  )}
+                  />
                 </div>
               )}
             </div>

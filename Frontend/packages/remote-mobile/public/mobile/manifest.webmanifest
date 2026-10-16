@@ -1,0 +1,31 @@
+{
+  "id": "/mobile/",
+  "name": "SILA Store",
+  "short_name": "SILA Store",
+  "description": "SILA ME store and outlet app for receiving, inventory, transfers, stock counts and tasks.",
+  "start_url": "/mobile/home",
+  "scope": "/mobile",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f5f8c",
+  "icons": [
+    {
+      "src": "/mobile/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/mobile/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/mobile/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

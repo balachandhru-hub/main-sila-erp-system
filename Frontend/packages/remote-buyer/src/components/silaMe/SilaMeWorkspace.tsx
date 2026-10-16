@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { FaArrowLeft } from "react-icons/fa";
 import type { SilaMeNavKey, SilaMeRole } from "./silaMeNav";
 import { silaMePermissions } from "./silaMePermissions";
 import SilaInventoryDashboard from "./inventory/SilaInventoryDashboard";
@@ -33,6 +32,7 @@ import SilaSuppliers from "./receiving/SilaSuppliers";
 import SilaCompanyCodes from "./receiving/SilaCompanyCodes";
 import SilaPoImport from "./receiving/SilaPoImport";
 import SilaOcrSettings from "./receiving/SilaOcrSettings";
+import SilaApprovalFlows from "./setup/SilaApprovalFlows";
 import SilaPriceApprovals from "./materials/SilaPriceApprovals";
 import "./SilaMeWorkspace.css";
 
@@ -133,7 +133,7 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       case "silaPurchaseOrders":
         return <SilaPurchaseOrdersOpen />;
       case "silaGoodsReceipts":
-        return <SilaGoodsReceipts canPost={can.postGrn} />;
+        return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
       case "silaInvoices":
         return <SilaInvoices canPost={can.postGrn} />;
       case "silaErpPostings":
@@ -158,6 +158,8 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
         return <SilaQuickTransferPolicy canManage={can.manageMasterData} />;
       case "silaOcrSettings":
         return <SilaOcrSettings canManage={can.manageMasterData} />;
+      case "silaApprovalFlows":
+        return <SilaApprovalFlows />;
       default:
         return null;
     }
@@ -168,16 +170,6 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
 
   return (
     <div className="sila-workspace-container">
-      <div className="sila-workspace-topbar">
-        <button
-          type="button"
-          className="sila-workspace-back-btn"
-          onClick={() => onNavigate("models")}
-        >
-          <FaArrowLeft aria-hidden="true" />
-          <span>Back to Add-ons</span>
-        </button>
-      </div>
       <div className="sila-workspace-body">{content}</div>
     </div>
   );

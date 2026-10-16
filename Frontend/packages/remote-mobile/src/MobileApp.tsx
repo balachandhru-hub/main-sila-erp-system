@@ -16,6 +16,12 @@ import PoDetailScreen from './screens/receive/PoDetailScreen';
 import HistoryScreen from './screens/receive/HistoryScreen';
 import PendingGrnScreen from './screens/receive/PendingGrnScreen';
 import PurchaseRequestsScreen from './screens/inventory/PurchaseRequestsScreen';
+import GoodsIssuesScreen from './screens/inventory/GoodsIssuesScreen';
+import GoodsIssueFormScreen from './screens/inventory/GoodsIssueFormScreen';
+import GoodsIssueDetailScreen from './screens/inventory/GoodsIssueDetailScreen';
+import AdjustmentsScreen from './screens/inventory/AdjustmentsScreen';
+import AdjustmentFormScreen from './screens/inventory/AdjustmentFormScreen';
+import AdjustmentDetailScreen from './screens/inventory/AdjustmentDetailScreen';
 import SearchScreen from './screens/more/SearchScreen';
 import SuppliersScreen from './screens/more/SuppliersScreen';
 import SupplierDetailScreen from './screens/more/SupplierDetailScreen';
@@ -28,6 +34,8 @@ import TransfersScreen from './screens/inventory/TransfersScreen';
 import TransferFormScreen from './screens/inventory/TransferFormScreen';
 import TransferDetailScreen from './screens/inventory/TransferDetailScreen';
 import CountListScreen from './screens/count/CountListScreen';
+import RecipesScreen from './screens/recipes/RecipesScreen';
+import RecipeDetailScreen from './screens/recipes/RecipeDetailScreen';
 import CountSessionScreen from './screens/count/CountSessionScreen';
 import TasksScreen from './screens/tasks/TasksScreen';
 import EnquiryScreen from './screens/tasks/EnquiryScreen';
@@ -36,6 +44,7 @@ import SubstitutionScreen from './screens/tasks/SubstitutionScreen';
 import MoreScreen from './screens/more/MoreScreen';
 import ProfileScreen from './screens/more/ProfileScreen';
 import HelpScreen from './screens/more/HelpScreen';
+import { registerMobilePwa } from './pwa';
 import './mobile.css';
 
 /** Path the parent route matched (e.g. /mobile): the current path without the splat part. */
@@ -66,6 +75,9 @@ const useInterFont = (): void => {
 const MobileApp: React.FC = () => {
   const base = useAppBase();
   useInterFont();
+  useEffect(() => {
+    registerMobilePwa();
+  }, []);
 
   return (
     <MobileBaseProvider base={base}>
@@ -93,9 +105,17 @@ const MobileApp: React.FC = () => {
                 <Route path="inventory/transfers" element={<TransfersScreen />} />
                 <Route path="inventory/transfers/new" element={<TransferFormScreen />} />
                 <Route path="inventory/transfers/:transferId" element={<TransferDetailScreen />} />
+                <Route path="recipes" element={<RecipesScreen />} />
+                <Route path="recipes/:recipeId" element={<RecipeDetailScreen />} />
                 <Route path="inventory/counts" element={<CountListScreen />} />
                 <Route path="inventory/counts/:stockCountId" element={<CountSessionScreen />} />
                 <Route path="inventory/purchase-requests" element={<PurchaseRequestsScreen />} />
+                <Route path="inventory/goods-issues" element={<GoodsIssuesScreen />} />
+                <Route path="inventory/goods-issues/new" element={<GoodsIssueFormScreen />} />
+                <Route path="inventory/goods-issues/:goodsIssueId" element={<GoodsIssueDetailScreen />} />
+                <Route path="inventory/adjustments" element={<AdjustmentsScreen />} />
+                <Route path="inventory/adjustments/new" element={<AdjustmentFormScreen />} />
+                <Route path="inventory/adjustments/:adjustmentId" element={<AdjustmentDetailScreen />} />
 
                 <Route path="tasks" element={<TasksScreen />} />
                 <Route path="tasks/alerts" element={<AlertsScreen />} />

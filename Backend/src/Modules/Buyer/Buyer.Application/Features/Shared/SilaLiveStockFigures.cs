@@ -157,6 +157,11 @@ namespace Buyer.Application.Features.Shared
                 return "Transfers disabled";
             }
 
+            if (row.SafetyStock > 0)
+            {
+                return "Available minus safety stock";
+            }
+
             if (row.AvailableQty <= 0)
             {
                 return row.ReservedQty > 0 ? "Reserved by open transfers" : "No available stock";

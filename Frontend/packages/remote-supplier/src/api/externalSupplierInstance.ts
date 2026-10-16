@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_AUTH_API_BASE;
+const baseURL = import.meta.env.DEV ? '' : import.meta.env.VITE_AUTH_API_BASE;
 const apiKey = import.meta.env.VITE_API_KEY;
 
 // Lean axios client for the External Supplier Bid page. It sends credentials

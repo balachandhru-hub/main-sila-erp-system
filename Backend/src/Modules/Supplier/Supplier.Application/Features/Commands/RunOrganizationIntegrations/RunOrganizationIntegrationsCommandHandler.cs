@@ -33,9 +33,10 @@ namespace Supplier.Application.Features.Commands.RunOrganizationIntegrations
             List<Guid> organizationIds = request.OrganizationIds.Distinct().ToList();
             _logger.LogInfo($"Running organization integrations. ProcessType: {request.ProcessType}, Organizations: {organizationIds.Count}");
             RunOrganizationIntegrationsResultDto result = new RunOrganizationIntegrationsResultDto();
+            string processType = request.ProcessType.ToString();
             List<ApiIntegrationConfiguration> configurations = await _repository.ApiIntegrationConfiguration
                 .FindByCondition(x => organizationIds.Contains(x.OrganizationId)
-                    && x.ProcessType == request.ProcessType
+                    && x.ProcessType == processType
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .ToListAsync(cancellationToken);

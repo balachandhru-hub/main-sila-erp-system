@@ -46,6 +46,9 @@ namespace Buyer.Domain.Common
                 public static Guid BUYER_ADMIN_ROLE_ID = new Guid("c95f5a1b-4aec-4647-9328-895a58193ec4");
                 public static Guid STORE_MANAGER_ROLE_ID = new Guid("b054de41-7da1-4b96-a2aa-d8387bfb0ef0");
                 public static Guid COST_CONTROLLER_ROLE_ID = new Guid("3f9d6c2e-5b1a-4e8f-9c7d-2a6b8e4f1c03");
+                public static Guid OUTLET_MANAGER_ROLE_ID = new Guid("7c4e1a90-6b2d-4f58-9c31-0e8a5d6f4b21");
+                public static Guid FNB_DIRECTOR_ROLE_ID = new Guid("8d2a6c40-1f7e-4b9a-9c55-6e3a1d8b4f02");
+                public static Guid FINANCE_MANAGER_ROLE_ID = new Guid("9e3b7d51-2a8f-4c0b-8d66-7f4b2e9c5a13");
                 public const string DEFAULT_TEMPLATE = "DEFAULT_TEMPLATE";
                 public const string BUYER = "BUYER";
                 public const string RADIO_BUTTON = "Radio";
@@ -251,6 +254,8 @@ namespace Buyer.Domain.Common
                 // ---- SILA ME release 2
                 public const string SILA_APPROVAL_TYPE_RECIPE = "RECIPE";
                 public const string SILA_APPROVAL_TYPE_MATERIAL_PRICE = "MATERIAL_PRICE";
+                public const string SILA_APPROVAL_TYPE_ITO = "ITO";
+                public const string SILA_APPROVAL_TYPE_INVENTORY = "INVENTORY";
                 public const string SILA_SCOPE_ALL = "ALL";
                 public const string SILA_SCOPE_PROPERTY = "PROPERTY";
                 public const string SILA_SCOPE_OUTLET = "OUTLET";

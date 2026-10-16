@@ -86,6 +86,13 @@ namespace Buyer.Application.Features.Shared
             List<SilaPoImportRowDto> lines = new List<SilaPoImportRowDto>();
             ApiFieldMapping? itemsMapping = mappings.FirstOrDefault(x => x.TargetField.Equals("Po.Items", StringComparison.OrdinalIgnoreCase));
             JsonElement? items = itemsMapping == null ? null : IntegrationRecordReader.ReadPath(record, itemsMapping.SourceField);
+            // OData V2 nav properties are often { "results": [ ... ] } rather than a bare array.
+            if (items != null && items.Value.ValueKind == JsonValueKind.Object
+                && items.Value.TryGetProperty("results", out JsonElement nested) && nested.ValueKind == JsonValueKind.Array)
+            {
+                items = nested;
+            }
+
             IEnumerable<JsonElement> sources = items != null && items.Value.ValueKind == JsonValueKind.Array
                 ? items.Value.EnumerateArray().ToList()
                 : new List<JsonElement> { record };

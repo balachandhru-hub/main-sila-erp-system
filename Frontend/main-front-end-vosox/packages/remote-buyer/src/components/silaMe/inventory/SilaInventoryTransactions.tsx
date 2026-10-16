@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { EmptyState, Loader, PageHeader } from "@vosox/shared-ui";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import {
   SILA_TRANSACTION_TYPES,
   formatQty,
@@ -83,22 +84,13 @@ const SilaInventoryTransactions: React.FC = () => {
 
       <section className="sila-card">
         <div className="sinv-filters">
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="sinv-txn-location">Location</label>
-            <select
-              id="sinv-txn-location"
-              className="sila-select"
-              value={locationId}
-              onChange={(event) => filterSetter(setLocationId)(event.target.value)}
-            >
-              <option value="">All my locations</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.locationName} ({location.locationCode})
-                </option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            placeholder="All my locations"
+            value={locationId}
+            options={silaLocationOptions(locations)}
+            onChange={(value) => filterSetter(setLocationId)(value)}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="sinv-txn-type">Transaction type</label>
             <select

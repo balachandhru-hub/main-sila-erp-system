@@ -4,8 +4,8 @@ import { todayIso } from '../../format';
 /** ERP outcomes that need someone to look at the goods receipt (prototype: FAILED / UNKNOWN). */
 export const GRN_EXCEPTION_STATUSES = ['FAILED', 'UNKNOWN'];
 
-/** Not yet confirmed by the ERP (prototype "Pending GRN": failed, unknown, still posting). */
-export const GRN_PENDING_STATUSES = ['FAILED', 'UNKNOWN', 'PENDING', 'POSTING'];
+/** Not yet confirmed by the ERP (failed, skipped, unknown, still posting). */
+export const GRN_PENDING_STATUSES = ['FAILED', 'SKIPPED', 'UNKNOWN', 'PENDING', 'POSTING'];
 
 /** The ERP status of a receipt, or its own status when it was not sent to the ERP. */
 export const grnErpStatus = (grn: Pick<SilaGoodsReceipt, 'erpStatus' | 'status'>): string => (grn.erpStatus ?? grn.status ?? '').toUpperCase();

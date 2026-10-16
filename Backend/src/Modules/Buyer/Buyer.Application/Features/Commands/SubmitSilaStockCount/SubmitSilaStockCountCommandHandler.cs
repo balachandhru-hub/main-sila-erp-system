@@ -62,6 +62,10 @@ namespace Buyer.Application.Features.Commands.SubmitSilaStockCount
             }
 
             InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
+            bool managerConfigured = await _repository.InventoryLocationUserMapping
+                .FindByCondition(x => x.LocationId == count.LocationId && x.IsActive)
+                .AnyAsync(cancellationToken);
+            string managerNote = managerConfigured ? "Sent to the location manager." : "MANAGER NOT CONFIGURED";
             // A count resubmitted after a recount keeps the enquiries of the lines that were not recounted.
             List<StockShortageEnquiry> existingEnquiries = await _repository.StockShortageEnquiry
                 .FindByCondition(x => x.StockCountId == count.Id && x.IsActive)
@@ -97,7 +101,7 @@ namespace Buyer.Application.Features.Commands.SubmitSilaStockCount
                     AlertType = Common.SILA_ALERT_INVENTORY_VARIANCE,
                     Severity = Common.SILA_SEVERITY_MEDIUM,
                     Title = $"Count shortage: {item.MaterialName}",
-                    Message = $"{count.CountNumber} found {shortageQty:0.####} {item.BaseUom} less than the system quantity. Enquiry {enquiry.EnquiryNumber} was sent to the location. Assigned to the cost controller for review.",
+                    Message = $"{count.CountNumber} found {shortageQty:0.####} {item.BaseUom} less than the system quantity. Enquiry {enquiry.EnquiryNumber}. {managerNote}",
                     LocationId = count.LocationId,
                     MaterialId = item.MaterialId,
                     ReferenceType = Common.SILA_REF_STOCK_COUNT,
@@ -114,6 +118,17 @@ namespace Buyer.Application.Features.Commands.SubmitSilaStockCount
                 count.Id,
                 SilaStockCountRules.EVENT_SUBMITTED,
                 $"Lines={items.Count} CountedAsZero={uncounted.Count} Shortages={shortages.Count}");
+            bool approvalStarted = await _repository.SilaApprovalStep
+                .FindByCondition(x => x.ReferenceType == Common.SILA_REF_STOCK_COUNT && x.ReferenceId == count.Id && x.Version == 1 && x.IsActive)
+                .AnyAsync(cancellationToken);
+            if (!approvalStarted)
+            {
+                InventoryLocation location = await SilaAccess.GetLocationAsync(_repository, _logger, buyer.Id, count.LocationId);
+                await SilaApprovals.StartAsync(
+                    _repository, _logger, buyer.Id, Common.SILA_APPROVAL_TYPE_INVENTORY, Common.SILA_REF_STOCK_COUNT, count.Id, 1,
+                    new ApprovalScope { LocationId = location.Id, PropertyId = location.PropertyId }, cancellationToken);
+            }
+
             await _repository.SaveAsync();
 
             _logger.LogInfo($"Stock count submitted. StockCountId: {count.Id}, Status: {count.Status}, Enquiries: {shortages.Count}");

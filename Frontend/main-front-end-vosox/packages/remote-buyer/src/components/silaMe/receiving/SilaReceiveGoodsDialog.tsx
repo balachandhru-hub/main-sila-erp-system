@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import { getMyLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import {
   getOpenPurchaseOrders,
   getPurchaseOrder,
@@ -197,13 +198,15 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
               </div>
             </>
           )}
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="srcv-rcv-store">Receiving store<span className="sila-required">*</span></label>
-            <select id="srcv-rcv-store" className="sila-select" value={locationId} disabled={saving} onChange={(event) => setLocationId(event.target.value)}>
-              <option value="">Select a store</option>
-              {stores.map((store) => <option key={store.id} value={store.id}>{store.locationName}</option>)}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Receiving store"
+            required
+            placeholder="Select a store"
+            value={locationId}
+            disabled={saving}
+            options={stores.map((store) => ({ value: store.id, label: store.locationName }))}
+            onChange={setLocationId}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="srcv-rcv-note">Delivery note</label>
             <input id="srcv-rcv-note" className="sila-input" value={deliveryNote} maxLength={100} disabled={saving} onChange={(event) => setDeliveryNote(event.target.value)} />

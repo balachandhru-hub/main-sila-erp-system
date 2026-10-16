@@ -103,7 +103,13 @@ namespace Buyer.Application.Features.Shared
                 DateCreated = transaction.DateCreated
             };
 
-            if (transaction.Status == Common.SILA_POS_FAILED)
+            if (transaction.Status == Common.SILA_POS_RECEIVED)
+            {
+                dto.DeductState = STEP_FAILED;
+                dto.FailureMessage = "Received, inventory not updated.";
+                dto.CanReprocess = true;
+            }
+            else if (transaction.Status == Common.SILA_POS_FAILED)
             {
                 // MATCH and DEDUCT are both part of the inventory step.
                 if (transaction.FailedStep == Common.SILA_POS_STEP_POST)

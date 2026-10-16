@@ -14,6 +14,9 @@ export const ROLE_MAPPING: Record<string, UserRole> = {
   '7c4e1a90-6b2d-4f58-9c31-0e8a5d6f4b21': 'outlet-manager', // OUTLET_MANAGER
   'b054de41-7da1-4b96-a2aa-d8387bfb0ef0': 'store-manager',  // STORE_MANAGER
   '3f9d6c2e-5b1a-4e8f-9c7d-2a6b8e4f1c03': 'cost-controller', // COST_CONTROLLER
+  // F&B director / finance manager use the buyer shell. SILA screens still read the role name.
+  '8d2a6c40-1f7e-4b9a-9c55-6e3a1d8b4f02': 'cost-controller', // FNB_DIRECTOR
+  '9e3b7d51-2a8f-4c0b-8d66-7f4b2e9c5a13': 'cost-controller', // FINANCE_MANAGER
 };
 export interface AuthState {
   isLoggedIn: boolean;

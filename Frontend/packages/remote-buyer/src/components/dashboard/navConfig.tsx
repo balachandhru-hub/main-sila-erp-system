@@ -78,8 +78,6 @@ export interface BuyerNavOptions {
   isStoreManager?: boolean;
   /** Key of the RFQ list in this dashboard ("allRfqs" for buyer users, "activeRFQs" for the administrator). */
   rfqListKey: string;
-  /** The "SILA ME" entry, when the organization has the add-on. */
-  silaMeItem?: BuyerNavItem | null;
 }
 
 const leaf = (key: string, label: string): NavLeaf => ({ key, label });

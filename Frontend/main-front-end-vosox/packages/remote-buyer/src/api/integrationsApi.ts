@@ -20,17 +20,19 @@ export interface IntegrationProcessType {
 
 /** Every API type. The options and the tabs/actions of an integration are derived from this table. */
 export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
-  { value: "POST_PO", label: "Purchase order (create in ERP)", side: "buyer", hasMapping: false, pull: "none", calledWhen: "Called when a weekly bucket is fully approved." },
+  { value: "POST_PO", label: "Purchase order (create in ERP)", side: "buyer", hasMapping: false, pull: "none", calledWhen: "Called when a weekly bucket is fully approved, and when a purchase order is created from a contract." },
   { value: "GET_STOCK", label: "Material stock (stock in hand)", side: "buyer", hasMapping: true, pull: "check" },
-  { value: "GET_MATERIAL", label: "Material master", side: "buyer", hasMapping: false, pull: "none" },
-  { value: "GET_CONTRACT", label: "Contract", side: "buyer", hasMapping: false, pull: "none" },
-  { value: "POST_SUPPLIER", label: "Supplier onboarding", side: "buyer", hasMapping: false, pull: "none", calledWhen: "Not called by the application yet." },
+  { value: "GET_MATERIAL", label: "Material master (read from ERP)", side: "buyer", hasMapping: false, pull: "none" },
+  { value: "GET_CONTRACT", label: "Contract (read from ERP)", side: "buyer", hasMapping: false, pull: "none" },
+  { value: "POST_CONTRACT", label: "Contract (create in ERP)", side: "buyer", hasMapping: false, pull: "none", calledWhen: "Called when a contract is approved, signed by both parties and created. The id the ERP returns is kept as the contract's ERP contract ID." },
+  { value: "POST_SUPPLIER", label: "Supplier onboarding (post to ERP)", side: "buyer", hasMapping: false, pull: "none", calledWhen: "Not called by the application yet." },
   { value: "GET_CATALOG", label: "Product catalog", side: "supplier", hasMapping: true, pull: "full" },
   { value: "GET_CATALOG_STOCK", label: "Product stock", side: "supplier", hasMapping: true, pull: "full" },
-  { value: "POST_SALES_ORDER", label: "Purchase order (receive in ERP)", side: "supplier", hasMapping: false, pull: "none", calledWhen: "Not called by the application yet." },
+  { value: "POST_SALES_ORDER", label: "Sales order (receive in ERP)", side: "supplier", hasMapping: false, pull: "none", calledWhen: "Not called by the application yet." },
   { value: "POST_GOODS_MOVEMENT", label: "Inventory goods movement (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME transfers, goods issues, adjustments, stock counts and POS consumption waiting for ERP posting. Mapping is optional: it renames the payload fields." },
+  { value: "UPDATE_STOCK", label: "Stock count adjustment (UPDATE_STOCK)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called for an approved stock count when this API is active. Name the configuration FIVE_POS_UPDATE to use the tested SAP stock update. Shortage posts Z02 and surplus posts Z01, goods movement code 03, quantity always positive. An empty body sends the SAP material-document shape. A request body template is filled instead when one is saved." },
   { value: "POST_GRN", label: "Goods receipt (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME goods receipts waiting for ERP posting. Mapping is optional: it renames the payload fields." },
-  { value: "GET_POS_SALE", label: "POS sales", side: "buyer", hasMapping: true, pull: "check" },
+  { value: "GET_POS_SALE", label: "POS sales (read from ERP)", side: "buyer", hasMapping: true, pull: "check" },
   { value: "POST_INVOICE", label: "Supplier invoice (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME invoices once their goods receipt reached the ERP. Mapping is optional: it renames the payload fields (Invoice.*). Configure one per company code to route SAP or Ariba." },
   { value: "GET_SUPPLIER", label: "Supplier master (read from ERP)", side: "buyer", hasMapping: true, pull: "full" },
   { value: "GET_PO", label: "Purchase orders (read from ERP)", side: "buyer", hasMapping: true, pull: "full" },
@@ -39,20 +41,51 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
 
 /** Push types send data to the external system (EXTRACT_INVOICE sends the file and reads the answer); every other type reads from it. */
 export const isPushProcess = (processType: string): boolean =>
-  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE";
+  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE" || processType.toUpperCase() === "UPDATE_STOCK";
 
 /** The API types one side can configure. */
 export const integrationProcessTypesFor = (side: IntegrationSide): IntegrationProcessType[] =>
   INTEGRATION_PROCESS_TYPES.filter((type) => type.side === side);
 
-/** The table row of an API type. An unknown type gets the tabs and actions of its direction. */
+/** Select value that opens the fields for a code that is not in the built-in list. */
+export const NEW_API_TYPE = "__new__";
+
+export type ApiTypeDirection = "read" | "send";
+
+const CUSTOM_API_TYPE = /^(GET_|POST_)[A-Z][A-Z0-9_]*$/;
+
+/** True when the code is one of the built-in API types. */
+export const isKnownProcessType = (processType: string): boolean =>
+  INTEGRATION_PROCESS_TYPES.some((type) => type.value === processType);
+
+/**
+ * The code stored for an API type the organization adds. GET_ reads from the external system and POST_ sends to it.
+ * A built-in code is returned unchanged.
+ */
+export const customApiTypeCode = (raw: string, direction: ApiTypeDirection): string => {
+  const cleaned = raw.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+  if (!cleaned) return "";
+  if (isKnownProcessType(cleaned)) return cleaned;
+  const body = cleaned.replace(/^(GET_|POST_)/, "");
+  if (!body) return "";
+  return `${direction === "send" ? "POST" : "GET"}_${body}`.slice(0, 30);
+};
+
+/** A built-in API type, or a custom GET_/POST_ code of at most 30 characters. */
+export const isAcceptableProcessType = (processType: string): boolean =>
+  isKnownProcessType(processType) || (processType.length <= 30 && CUSTOM_API_TYPE.test(processType) && !isKnownProcessType(processType));
+
+/** The table row of an API type. A custom code is a connection only: it is not pulled into application data. */
 export const integrationProcessOf = (processType: string): IntegrationProcessType =>
   INTEGRATION_PROCESS_TYPES.find((type) => type.value === processType) ?? {
     value: processType,
     label: processType,
     side: "buyer",
-    hasMapping: !isPushProcess(processType),
-    pull: isPushProcess(processType) ? "none" : "full",
+    hasMapping: false,
+    pull: "none",
+    calledWhen: isPushProcess(processType)
+      ? "A custom API type is not called for a built-in document. Use Test connection to call it."
+      : "A custom API type is read by Test connection. It is not pulled into the application.",
   };
 
 export const INTEGRATION_PROTOCOLS: { value: string; label: string }[] = [
@@ -91,10 +124,25 @@ export const INTEGRATION_DEFAULT_API_KEY_HEADER = "X-API-KEY";
 export const INTEGRATION_PO_BODY_TOKENS: string[] = [
   "{{weeklyBucketId}}", "{{bucketCode}}", "{{companyCode}}", "{{plant}}", "{{supplierId}}", "{{supplierName}}",
   "{{buyerDocumentNumber}}", "{{shipTo}}", "{{orderDate}}", "{{currency}}", "{{deliveryInstruction}}", "{{entries}}",
+  "{{purchaseOrderId}}", "{{contractId}}", "{{contractNumber}}",
+  "{{purchaseOrderNumber}}", "{{purchaseOrderType}}", "{{purchaseOrderDate}}", "{{purchasingOrganization}}",
+  "{{purchasingGroup}}", "{{supplierCode}}", "{{documentCurrency}}", "{{items}}",
 ];
 
-/** Extra request headers cannot carry credentials: the server refuses a name containing one of these words. */
-export const isReservedIntegrationHeader = (name: string): boolean => /authorization|secret|token|key/i.test(name);
+/** Tokens the POST_CONTRACT request body template can contain. */
+export const INTEGRATION_CONTRACT_BODY_TOKENS: string[] = [
+  "{{contractId}}", "{{contractNumber}}", "{{contractName}}", "{{rfqNumber}}", "{{supplierId}}", "{{buyerOrganizationId}}",
+  "{{startDate}}", "{{endDate}}", "{{amount}}", "{{currency}}",
+];
+
+/** Value Fetch marks a CSRF handshake header (SAP: x-csrf-token=Fetch); same rule as the server. */
+export const isCsrfSwitchHeader = (value: string): boolean => value.trim().toLowerCase() === "fetch";
+
+/** Extra request headers cannot carry credentials. CSRF Fetch is allowed (matches the server). */
+export const isReservedIntegrationHeader = (name: string, value = ""): boolean => {
+  if (isCsrfSwitchHeader(value)) return /authorization/i.test(name);
+  return /authorization|secret|token|key/i.test(name);
+};
 
 export const INTEGRATION_NULL_POLICIES: { value: string; label: string }[] = [
   { value: "IGNORE_NULL", label: "Ignore empty values" },
@@ -270,6 +318,14 @@ export const createIntegration = async (side: IntegrationSide, payload: Integrat
   }
 };
 
+export const deleteIntegration = async (side: IntegrationSide, configurationId: string): Promise<void> => {
+  try {
+    await axiosInstance.delete(`${BASE[side]}/${configurationId}`);
+  } catch (error: unknown) {
+    throw new Error(readError(error, "Could not delete the integration."));
+  }
+};
+
 export const updateIntegration = async (
   side: IntegrationSide,
   configurationId: string,
@@ -280,6 +336,20 @@ export const updateIntegration = async (
     return response.data;
   } catch (error: unknown) {
     throw new Error(readError(error, "Could not update the integration."));
+  }
+};
+
+/** Saves only the request body template and its format. The API keeps its status, so an active API stays active. Buyer APIs only. */
+export const updateIntegrationRequestBody = async (
+  configurationId: string,
+  payloadFormat: IntegrationPayloadFormat,
+  requestBody: string | null,
+): Promise<IntegrationConfiguration> => {
+  try {
+    const response = await axiosInstance.put<IntegrationConfiguration>(`${BASE.buyer}/${configurationId}/request-body`, { payloadFormat, requestBody });
+    return response.data;
+  } catch (error: unknown) {
+    throw new Error(readError(error, "Could not save the request body."));
   }
 };
 

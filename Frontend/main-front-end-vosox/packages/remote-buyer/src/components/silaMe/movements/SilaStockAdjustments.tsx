@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { EmptyState, Loader, Modal, PageHeader } from "@vosox/shared-ui";
 import { formatQty, getMyLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import {
   SILA_ADJUSTMENT_TYPES,
   getAdjustment,
@@ -181,20 +182,13 @@ const SilaStockAdjustments: React.FC = () => {
 
       <section className="sila-card">
         <div className="smov-filters">
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-adj-filter-location">Location</label>
-            <select
-              id="smov-adj-filter-location"
-              className="sila-select"
-              value={locationFilter}
-              onChange={(event) => setLocationFilter(event.target.value)}
-            >
-              <option value="">All my locations</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>{location.locationName}</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            placeholder="All my locations"
+            value={locationFilter}
+            options={locations.map((location) => ({ value: location.id, label: location.locationName }))}
+            onChange={setLocationFilter}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="smov-adj-filter-type">Type</label>
             <select

@@ -26,6 +26,13 @@ namespace Buyer.Application.Features.Shared
 
         public static readonly string[] InventoryTypes = { INVENTORY_TYPE_STOCK, INVENTORY_TYPE_NON_STOCK, INVENTORY_TYPE_SERVICE };
 
+        /// <summary>Only a stocked inventory item gets a balance. NON_STOCK and SERVICE never do.</summary>
+        public static bool HoldsStock(ItemBuyerMaster material)
+        {
+            return material.IsInventoryItem
+                && string.Equals(material.InventoryType, INVENTORY_TYPE_STOCK, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static readonly string[] PriceStatuses = { Common.SILA_PRICE_APPROVED, PRICE_STATUS_MISSING, Common.SILA_PRICE_PENDING_APPROVAL };
 
         private static readonly Regex CurrencyPattern = new Regex("^[A-Z]{3}$", RegexOptions.Compiled);

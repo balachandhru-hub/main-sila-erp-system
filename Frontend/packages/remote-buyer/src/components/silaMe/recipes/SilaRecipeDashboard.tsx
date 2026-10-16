@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { EmptyState, KpiCard, Loader, PageHeader } from "@vosox/shared-ui";
+import { Card, EmptyState, KpiCard, Loader, PageHeader } from "@vosox/shared-ui";
 import { getRecipeDashboard, type SilaRecipeDashboard as Dashboard, type SilaRecipeNextAction } from "../../../api/silaMe/silaRecipeToolsApi";
+import "../../purchasing/Purchasing.css";
 import "../silaMeTheme.css";
 import "./SilaRecipes.css";
 
@@ -64,9 +65,8 @@ const SilaRecipeDashboard: React.FC<SilaRecipeDashboardProps> = ({ onOpenRecipes
   };
 
   return (
-    <div className="sila-me srec-page">
+    <div className="pdash-page">
       <PageHeader
-        className="pud-page-header"
         title="Recipe control center"
         description="Approved recipes, POS sales posting, and the consumption that feeds inventory."
         actions={
@@ -88,7 +88,7 @@ const SilaRecipeDashboard: React.FC<SilaRecipeDashboardProps> = ({ onOpenRecipes
         />
       ) : (
         <>
-          <div className="sila-kpi-grid">
+          <div className="pdash-kpis">
             <KpiCard label="Active recipes" value={data.activeRecipes} tone="primary"
               meta={`${data.draftRecipes} draft${data.totalRecipes != null ? ` · ${data.totalRecipes} total` : ""}${data.materialCount != null ? ` · ${data.materialCount} materials` : ""}`}
               onClick={onOpenRecipes} linkText={onOpenRecipes ? "Open recipes" : undefined} />
@@ -99,11 +99,8 @@ const SilaRecipeDashboard: React.FC<SilaRecipeDashboardProps> = ({ onOpenRecipes
             <KpiCard label="Posted consumption" value={data.consumptionPostedToday} tone="neutral" meta="Sales deducted from stock today" />
           </div>
 
-          <section className="sila-card">
-            <div className="sila-card-header">
-              <h2 className="sila-card-title">What to do next</h2>
-            </div>
-            <div className="sila-card-body">
+          <div className="pdash-panels">
+            <Card title="What to do next" subtitle="Approvals, recipes to finish, and failed POS sales">
               {data.nextActions.length === 0 ? (
                 <EmptyState title="Nothing to do right now" description="No recipe or POS exceptions need action." />
               ) : (
@@ -127,23 +124,21 @@ const SilaRecipeDashboard: React.FC<SilaRecipeDashboardProps> = ({ onOpenRecipes
                   })}
                 </ul>
               )}
-            </div>
-          </section>
-          <section className="sila-card">
-            <div className="sila-card-header">
-              <h2 className="sila-card-title">Consumption</h2>
-              {onOpenPosTransactions && (
+            </Card>
+            <Card
+              title="Consumption"
+              subtitle="Sales deducted from stock today"
+              actions={onOpenPosTransactions ? (
                 <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={onOpenPosTransactions}>Transaction tracker</button>
-              )}
-            </div>
-            <div className="sila-card-body">
+              ) : undefined}
+            >
               <p className="sila-help">
                 {data.consumptionPostedToday === 0
                   ? "No consumption posted today. Upload POS sales to deduct outlet stock."
                   : `${data.consumptionPostedToday} POS sale consumption${data.consumptionPostedToday === 1 ? "" : "s"} posted to inventory today. Open the Transaction Tracker for the audit trail.`}
               </p>
-            </div>
-          </section>
+            </Card>
+          </div>
         </>
       )}
     </div>

@@ -88,10 +88,10 @@ namespace Buyer.Application.Features.Shared
             return quantity > 0 ? quantity : null;
         }
 
-        /// <summary>Stock a location can give away: its on hand quantity when transfers are enabled, never below zero.</summary>
-        public static decimal Transferable(InventoryLocation location, decimal onHand)
+        /// <summary>Stock a location can give away: available minus safety stock, when transfers are enabled, never below zero.</summary>
+        public static decimal Transferable(InventoryLocation location, decimal available, decimal safetyStock = 0)
         {
-            return location.TransferEnabled ? Math.Max(0, onHand) : 0;
+            return location.TransferEnabled ? Math.Max(0, available - Math.Max(0, safetyStock)) : 0;
         }
     }
 }

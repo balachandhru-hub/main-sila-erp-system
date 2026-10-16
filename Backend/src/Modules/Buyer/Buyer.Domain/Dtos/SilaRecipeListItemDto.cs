@@ -39,6 +39,12 @@ namespace Buyer.Domain.Dtos
         public decimal? DraftTotalCost { get; set; }
         /// <summary>TotalCost / ServingQty: the cost of one serving.</summary>
         public decimal CostPerServing { get; set; }
+        /// <summary>Lowest outlet menu price of this version; null when no outlet is priced.</summary>
+        public decimal? MenuPrice { get; set; }
+        /// <summary>Cost of one serving / menu price x 100. Null until cost is complete and a menu price exists.</summary>
+        public decimal? CostPercent { get; set; }
+        /// <summary>Menu price minus the cost of one serving. Null until cost is complete and a menu price exists.</summary>
+        public decimal? MarginAmount { get; set; }
         /// <summary>ACTIVE | INACTIVE | PENDING APPROVAL | READY FOR APPROVAL | NOT READY (n).</summary>
         public string ReadinessStatus { get; set; } = string.Empty;
         /// <summary>POS item description.</summary>

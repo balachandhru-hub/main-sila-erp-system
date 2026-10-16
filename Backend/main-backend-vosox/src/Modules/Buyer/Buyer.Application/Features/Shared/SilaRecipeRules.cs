@@ -151,7 +151,7 @@ namespace Buyer.Application.Features.Shared
                     Id = Guid.NewGuid(),
                     RecipeId = recipe.Id,
                     Version = recipe.Version,
-                    IngredientCode = $"{recipe.RecipeCode}-I{sequence}",
+                    IngredientCode = $"{recipe.RecipeCode}I{sequence}",
                     Quantity = line.Quantity,
                     Sequence = sequence,
                     IsActive = true

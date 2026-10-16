@@ -3,6 +3,7 @@ import { PageHeader } from "@vosox/shared-ui";
 import { getOpenPurchaseOrders, type SilaPage } from "../../../api/silaMe/silaReceivingApi";
 import { formatDate } from "../../cart/lineFormat";
 import PagedListBody from "./PagedListBody";
+import SilaPoErpPullPanel from "./SilaPoErpPullPanel";
 import SilaPurchaseOrderDialog from "./SilaPurchaseOrderDialog";
 import { formatAmount, receivingBadgeClass, receivingLabel } from "./receivingFormat";
 import { useDebounced, usePagedList } from "./usePagedList";
@@ -21,6 +22,7 @@ const SilaPurchaseOrdersOpen: React.FC = () => {
   return (
     <div className="sila-me srcv-page">
       <PageHeader className="pud-page-header" title="Open purchase orders" description="Orders with quantity still to receive, by PO number or supplier." />
+      <SilaPoErpPullPanel onPulled={list.reload} />
       <section className="sila-card">
         <div className="srcv-filters">
           <div className="sila-field">

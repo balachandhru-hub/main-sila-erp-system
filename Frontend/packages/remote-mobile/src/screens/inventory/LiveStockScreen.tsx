@@ -7,13 +7,16 @@ import {
 } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import ScreenHeader from '../../components/ScreenHeader';
 import { Empty, ErrorNotice, Loading } from '../../components/StateViews';
+import { useMyLocation } from '../../location';
 import { useGo } from '../../navigation';
 import { errorText } from '../../useLoad';
 
 const MIN_SEARCH = 2;
 
+/** Own location's stock by default. A material search lists that material at every location the user can open. */
 const LiveStockScreen: React.FC = () => {
   const go = useGo();
+  const { location } = useMyLocation();
   const [search, setSearch] = useState<string>('');
   const [rows, setRows] = useState<SilaLiveInventoryRow[]>([]);
   const [hasMore, setHasMore] = useState<boolean>(false);
@@ -21,9 +24,11 @@ const LiveStockScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState<number>(0);
   const text = search.trim();
+  const searching = text.length >= MIN_SEARCH;
+  const locationId = searching ? null : location?.id ?? null;
 
   useEffect(() => {
-    if (text.length < MIN_SEARCH) {
+    if (!searching && !locationId) {
       setRows([]);
       setHasMore(false);
       setError(null);
@@ -33,7 +38,7 @@ const LiveStockScreen: React.FC = () => {
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError(null);
-      searchLiveInventory(text, null, 0)
+      searchLiveInventory(searching ? text : '', locationId, 0)
         .then((found) => {
           if (!active) return;
           setRows(found);
@@ -45,17 +50,17 @@ const LiveStockScreen: React.FC = () => {
         .finally(() => {
           if (active) setLoading(false);
         });
-    }, 350);
+    }, searching ? 350 : 100);
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [text, attempt]);
+  }, [text, searching, locationId, attempt]);
 
   const loadMore = async () => {
     setLoading(true);
     try {
-      const found = await searchLiveInventory(text, null, rows.length);
+      const found = await searchLiveInventory(searching ? text : '', locationId, rows.length);
       setRows((current) => [...current, ...found]);
       setHasMore(found.length === SILA_LIVE_PAGE_SIZE);
     } catch (caught: unknown) {
@@ -77,9 +82,15 @@ const LiveStockScreen: React.FC = () => {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        {text.length < MIN_SEARCH && <p className="sm-muted">Type at least 2 characters to search.</p>}
+        {location && !searching && (
+          <p className="sm-muted">Stock at {location.locationName} ({location.locationCode}). Search a material to see it at other locations.</p>
+        )}
+        {searching && <p className="sm-muted">“{text}” at every location you can open. Open a material to raise an ITO.</p>}
+        {!location && !searching && <p className="sm-muted">Choose your location on Home, or search a material.</p>}
         {error && <ErrorNotice message={error} onRetry={() => setAttempt((value) => value + 1)} />}
-        {!loading && !error && text.length >= MIN_SEARCH && rows.length === 0 && <Empty text="No materials" description={`Server-side search found no matches for “${text}”.`} />}
+        {!loading && !error && (searching || location) && rows.length === 0 && (
+          <Empty text="No materials" description={searching ? `No matches for “${text}”.` : 'Nothing is in stock at this location.'} />
+        )}
         <ul className="sm-list">
           {rows.map((row) => (
             <li key={row.materialId}>
@@ -99,7 +110,7 @@ const LiveStockScreen: React.FC = () => {
             </li>
           ))}
         </ul>
-        {loading && <Loading text="Searching…" />}
+        {loading && <Loading text={searching ? 'Searching…' : 'Loading stock…'} />}
         {hasMore && !loading && (
           <button type="button" className="sm-btn sm-btn--block" onClick={loadMore}>
             Load more

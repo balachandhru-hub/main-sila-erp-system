@@ -148,6 +148,14 @@ namespace Buyer.Application.Features.Shared
             foreach (SilaTransferLineWriteDto line in lines)
             {
                 ItemBuyerMaster material = materials[line.MaterialId];
+                if (!SilaMaterialRules.HoldsStock(material))
+                {
+                    logger.LogError($"Transfer line is not a stock material. MaterialId: {material.Id}, TransferId: {transferId}");
+                    throw new BadRequestCustomException(
+                        $"{material.MaterialCode} is not a stock item.",
+                        "Only materials with inventory type STOCK can be transferred.");
+                }
+
                 decimal baseQuantity = UomConverter.ToBase(logger, material, line.Quantity, line.Uom, conversions);
                 items.Add(new InternalTransferOrderItem
                 {
@@ -289,7 +297,7 @@ namespace Buyer.Application.Features.Shared
                 }
             }
 
-            ledger.QueueErpPosting(Common.SILA_REF_ITO, transfer.Id, transfer.ItoNumber, transfer.ToLocationId, Common.SILA_MOVEMENT_TRANSFER);
+            // ITO stays on the SILA ledger. It is not posted to SAP.
         }
 
         /// <summary>What the user may do with the transfer now, from its status and the user's locations.</summary>

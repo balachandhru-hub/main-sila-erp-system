@@ -12,8 +12,13 @@ namespace Buyer.Domain.Dtos
         public string MaterialName { get; set; } = string.Empty;
         public Guid LocationId { get; set; }
         public string? LocationName { get; set; }
+        public decimal? SystemQty { get; set; }
+        public decimal? PhysicalQty { get; set; }
         public decimal ShortageQty { get; set; }
         public string Uom { get; set; } = string.Empty;
+        /// <summary>First user mapped to the location. Null when no manager is configured.</summary>
+        public Guid? AssignedManagerUserId { get; set; }
+        public bool ManagerConfigured { get; set; }
         public decimal? ShortageValue { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? JustificationCategory { get; set; }

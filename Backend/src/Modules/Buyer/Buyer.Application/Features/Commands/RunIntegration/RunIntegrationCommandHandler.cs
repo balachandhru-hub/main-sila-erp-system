@@ -91,7 +91,7 @@ namespace Buyer.Application.Features.Commands.RunIntegration
             ApiIntegrationExecution execution,
             CancellationToken cancellationToken)
         {
-            if (configuration.ProcessType == IntegrationProcessType.GET_SUPPLIER || configuration.ProcessType == IntegrationProcessType.GET_PO)
+            if (configuration.ProcessType == nameof(IntegrationProcessType.GET_SUPPLIER) || configuration.ProcessType == nameof(IntegrationProcessType.GET_PO))
             {
                 await SilaErpSync.ApplyAsync(_repository, configuration, mappings, records, execution, cancellationToken);
                 return;

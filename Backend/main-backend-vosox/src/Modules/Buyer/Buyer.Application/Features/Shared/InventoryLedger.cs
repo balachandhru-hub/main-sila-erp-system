@@ -25,6 +25,13 @@ namespace Buyer.Application.Features.Shared
             _userId = userId;
         }
 
+        public Task<bool> HasReferenceAsync(string referenceType, Guid referenceId, CancellationToken cancellationToken)
+        {
+            return _repository.InventoryTransaction
+                .FindByCondition(x => x.BuyerId == _buyerId && x.IsActive && x.ReferenceType == referenceType && x.ReferenceId == referenceId)
+                .AnyAsync(cancellationToken);
+        }
+
         public async Task<InventoryTransaction> PostAsync(InventoryMovement movement, CancellationToken cancellationToken)
         {
             InventoryBalance balance = await GetBalanceAsync(movement.LocationId, movement.Material, cancellationToken);

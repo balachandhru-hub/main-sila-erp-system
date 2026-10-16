@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { EmptyState, Loader, PageHeader, Pagination, toastService } from "@vosox/shared-ui";
 import { getLocations, searchMaterials, type SilaLocation, type SilaMaterial } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import {
   getPosTransactions,
   reprocessPosTransaction,
@@ -169,15 +170,13 @@ const SilaTransactionTracker: React.FC = () => {
             <label className="sila-label" htmlFor="strk-date">Business date</label>
             <input id="strk-date" className="sila-input" type="date" value={businessDate} onChange={(e) => changeFilter(() => setBusinessDate(e.target.value))} />
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="strk-outlet">Outlet</label>
-            <select id="strk-outlet" className="sila-select" value={outletLocationId} onChange={(e) => changeFilter(() => setOutletLocationId(e.target.value))}>
-              <option value="">All outlets</option>
-              {outlets.map((outlet) => (
-                <option key={outlet.id} value={outlet.id}>{outlet.locationName} ({outlet.locationCode})</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Outlet"
+            placeholder="All outlets"
+            value={outletLocationId}
+            options={silaLocationOptions(outlets)}
+            onChange={(value) => changeFilter(() => setOutletLocationId(value))}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="strk-status">Status</label>
             <select id="strk-status" className="sila-select" value={status} onChange={(e) => changeFilter(() => setStatus(e.target.value))}>

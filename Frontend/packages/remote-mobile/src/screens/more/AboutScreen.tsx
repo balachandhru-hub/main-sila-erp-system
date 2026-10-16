@@ -12,8 +12,8 @@ const CAPABILITIES: { label: string; status: 'CONNECTED' | 'CLOUD_ONLY' }[] = [
   { label: 'Stock count, recount and photos', status: 'CONNECTED' },
   { label: 'Shortage enquiries', status: 'CONNECTED' },
   { label: 'Purchase requests', status: 'CONNECTED' },
-  { label: 'Price and recipe approvals', status: 'CLOUD_ONLY' },
-  { label: 'Goods issue, waste and adjustments', status: 'CLOUD_ONLY' },
+  { label: 'Price and recipe approvals', status: 'CONNECTED' },
+  { label: 'Goods issue, waste and adjustments', status: 'CONNECTED' },
 ];
 
 const AboutScreen: React.FC = () => (
@@ -23,7 +23,7 @@ const AboutScreen: React.FC = () => (
       <Card title="SILA ME Mobile">
         <p className="sm-meta">
           SILA Store is the store and outlet app of the SILA ME add-on for VOSOX: receiving, inventory, transfers, stock counts and
-          tasks. Sign in with your VOSOX account.
+          tasks. Sign in with your VOSOX account. Install it from Settings so it opens from your home screen.
         </p>
       </Card>
       <Card title="Capability status">

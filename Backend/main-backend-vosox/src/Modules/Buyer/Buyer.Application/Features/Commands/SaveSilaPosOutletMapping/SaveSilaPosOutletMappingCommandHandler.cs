@@ -41,10 +41,12 @@ namespace Buyer.Application.Features.Commands.SaveSilaPosOutletMapping
 
             Guid locationId = request.Request!.OutletLocationId;
             InventoryLocation location = await SilaAccess.GetLocationAsync(_repository, _logger, buyer.Id, locationId);
-            if (location.LocationType != Common.SILA_LOCATION_OUTLET)
+            if (location.LocationType != Common.SILA_LOCATION_OUTLET
+                && location.LocationType != Common.SILA_LOCATION_STORE
+                && location.LocationType != Common.SILA_LOCATION_VENUE)
             {
-                _logger.LogError($"POS outlet mapping to a non-outlet location. LocationId: {location.Id}, Type: {location.LocationType}");
-                throw new BadRequestCustomException("The location is not an outlet.", "Map the POS outlet to an OUTLET location; sales are consumed at outlets.");
+                _logger.LogError($"POS outlet mapping to a location that cannot consume sales. LocationId: {location.Id}, Type: {location.LocationType}");
+                throw new BadRequestCustomException("The location cannot consume POS sales.", "Map the POS outlet to an outlet, store, or venue.");
             }
 
             await SilaAccess.EnsureLocationAccessAsync(_repository, _logger, buyer.Id, request.UserId, request.RoleId, location.Id, cancellationToken);

@@ -11,7 +11,7 @@ namespace SharedKernel.Integration.Dtos
         public Guid BuyerId { get; set; }
         public string EntityCode { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public IntegrationProcessType ProcessType { get; set; }
+        public string ProcessType { get; set; } = string.Empty;
         public IntegrationProtocol Protocol { get; set; }
         public string BaseUrl { get; set; } = string.Empty;
         public string? ResourcePath { get; set; }

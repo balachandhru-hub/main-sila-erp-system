@@ -34,7 +34,8 @@ namespace Buyer.Application.Features.Queries.GetSilaRecipeApprovals
             _logger.LogInfo($"Fetching recipes pending my approval. OrganizationId: {request.OrganizationId}, UserId: {request.UserId}");
 
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
-            List<Guid> recipeIds = await SilaApprovals.PendingForUserAsync(_repository, buyer.Id, Common.SILA_REF_RECIPE, request.UserId, cancellationToken);
+            List<Guid> recipeIds = await SilaApprovals.PendingForUserAsync(
+                _repository, buyer.Id, Common.SILA_REF_RECIPE, request.UserId, cancellationToken, SilaAccess.IsAdministrator(request.RoleId));
             List<Recipe> pending = recipeIds.Count == 0
                 ? new List<Recipe>()
                 : await _repository.Recipe

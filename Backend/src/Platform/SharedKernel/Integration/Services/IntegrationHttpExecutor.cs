@@ -298,6 +298,27 @@ namespace SharedKernel.Integration.Services
                     return value.EnumerateArray().Select(item => item.Clone()).ToList();
                 }
 
+                // OData V2 (SAP Gateway): { "d": { "results": [ ... ] } } or { "d": { ...one entity... } }.
+                if (document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("d", out JsonElement d))
+                {
+                    if (d.ValueKind == JsonValueKind.Object
+                        && d.TryGetProperty("results", out JsonElement results) && results.ValueKind == JsonValueKind.Array)
+                    {
+                        return results.EnumerateArray().Select(item => item.Clone()).ToList();
+                    }
+
+                    if (d.ValueKind == JsonValueKind.Array)
+                    {
+                        return d.EnumerateArray().Select(item => item.Clone()).ToList();
+                    }
+
+                    if (d.ValueKind == JsonValueKind.Object)
+                    {
+                        return new List<JsonElement> { d.Clone() };
+                    }
+                }
+
                 return new List<JsonElement> { document.RootElement.Clone() };
             }
             catch (JsonException)

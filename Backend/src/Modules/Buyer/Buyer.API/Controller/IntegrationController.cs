@@ -1,6 +1,7 @@
 using Buyer.Application.Features.Commands.ActivateIntegration;
 using Buyer.Application.Features.Commands.CreateIntegration;
 using Buyer.Application.Features.Commands.DeactivateIntegration;
+using Buyer.Application.Features.Commands.DeleteIntegration;
 using Buyer.Application.Features.Commands.DiscoverIntegrationSchema;
 using Buyer.Application.Features.Commands.RunIntegration;
 using Buyer.Application.Features.Commands.SaveIntegrationMappings;
@@ -48,7 +49,7 @@ namespace Buyer.API.Controllers
         [ApiAuthorization(Name = "VIEW_INTEGRATION")]
         [SwaggerOperation("GetIntegrationTargetFields")]
         [SwaggerResponse(200, type: typeof(List<IntegrationTargetFieldResponseDto>))]
-        public async Task<IActionResult> GetIntegrationTargetFields([FromQuery] IntegrationProcessType? processType)
+        public async Task<IActionResult> GetIntegrationTargetFields([FromQuery] string? processType)
         {
             _logger.LogDebug($"Fetching integration target fields. ProcessType: {processType}");
             List<IntegrationTargetFieldResponseDto> result = await _mediator.Send(new GetIntegrationTargetFieldsQuery
@@ -151,6 +152,30 @@ namespace Buyer.API.Controllers
             });
             _logger.LogDebug($"Integration updated. ConfigurationId: {result.Id}");
             return Ok(result);
+        }
+
+        [HttpDelete]
+        [Route("api/v1/buyer/integrations/{configurationId:guid}")]
+        [ApiAuthorization(Name = "MANAGE_INTEGRATION")]
+        [SwaggerOperation("DeleteIntegration")]
+        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
+        public async Task<IActionResult> DeleteIntegration([FromRoute] Guid configurationId)
+        {
+            _logger.LogDebug($"Deleting integration. ConfigurationId: {configurationId}");
+            await _mediator.Send(new DeleteIntegrationCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                ConfigurationId = configurationId
+            });
+            _logger.LogDebug($"Integration deleted. ConfigurationId: {configurationId}");
+            return Ok(new SuccessResponseDto
+            {
+                Id = configurationId.ToString(),
+                StatusCode = 200,
+                Message = "Success",
+                Description = "Integration deleted."
+            });
         }
 
         [HttpPut]

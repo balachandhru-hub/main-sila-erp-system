@@ -23,13 +23,9 @@
     overflow: hidden;
 }
 
-/* The logo PNG carries wide transparent padding (content ~ x 96-508, y 119-212 of 677x369).
-   Negative margins trim it so the visible mark sits at ~1.625rem high on the 3.5rem bar. */
 .vx-logo-img {
     display: block;
-    height: 6.25rem;
+    height: 2rem;
     width: auto;
-    max-width: none;
-    margin: -2rem -2.875rem -2.625rem -1.625rem;
     object-fit: contain;
 }

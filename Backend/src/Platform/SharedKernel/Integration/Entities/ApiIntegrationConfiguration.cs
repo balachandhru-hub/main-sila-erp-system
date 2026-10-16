@@ -28,8 +28,11 @@ namespace SharedKernel.Integration.Entities
         [MaxLength(200)]
         public string Name { get; set; } = string.Empty;
 
+        /// <summary>Built-in API type, or a code the organization added (GET_… reads, POST_… sends). Stored as text.</summary>
+        [Required]
+        [MaxLength(30)]
         [Column(TypeName = "nvarchar(30)")]
-        public IntegrationProcessType ProcessType { get; set; }
+        public string ProcessType { get; set; } = string.Empty;
 
         [Column(TypeName = "nvarchar(20)")]
         public IntegrationProtocol Protocol { get; set; }

@@ -73,11 +73,18 @@ namespace Buyer.API.Controllers
         [ApiAuthorization(Name = "MANAGE_SILA_MASTER_DATA")]
         [SwaggerOperation("PullSilaPurchaseOrders")]
         [SwaggerResponse(200, type: typeof(SilaMasterPullResultDto))]
-        public async Task<IActionResult> Pull()
+        public async Task<IActionResult> Pull([FromBody] SilaPurchaseOrderPullWriteDto? request)
         {
-            _logger.LogDebug("Pulling purchase orders from the ERP.");
-            SilaMasterPullResultDto result = await _mediator.Send(new PullSilaPurchaseOrdersCommand { OrganizationId = GetOrganizationId(), UserId = GetUserId() });
-            _logger.LogDebug($"Purchase orders pulled. Read: {result.Read}, Created: {result.Created}, Updated: {result.Updated}, Invalid: {result.Invalid}");
+            _logger.LogDebug(
+                $"Pulling purchase orders from the ERP. CompanyCode: {request?.CompanyCode}, From: {request?.FromDate:yyyy-MM-dd}, To: {request?.ToDate:yyyy-MM-dd}, Commit: {request?.Commit}");
+            SilaMasterPullResultDto result = await _mediator.Send(new PullSilaPurchaseOrdersCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                Request = request
+            });
+            _logger.LogDebug(
+                $"Purchase orders {(result.Committed ? "pulled" : "previewed")}. Read: {result.Read}, Created: {result.Created}, Updated: {result.Updated}, Invalid: {result.Invalid}, Committed: {result.Committed}");
             return Ok(result);
         }
 

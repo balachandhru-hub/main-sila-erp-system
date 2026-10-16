@@ -120,7 +120,9 @@ const buildConnectionKey = ({ rfqId, supplierId, sessionToken }: RfqChatHubParam
   `${rfqId}::${supplierId || ""}::${sessionToken || ""}`;
 
 const buildHubUrl = ({ rfqId, supplierId, sessionToken }: RfqChatHubParams) => {
-  const apiBaseUrl = (import.meta.env.VITE_AUTH_API_BASE as string).replace(/\/+$/, "");
+  const apiBaseUrl = import.meta.env.DEV
+    ? ""
+    : (import.meta.env.VITE_AUTH_API_BASE as string).replace(/\/+$/, "");
   // supplierId is only ever passed by the Supplier Admin chat (SupplierRFQChat.tsx) —
   // the Buyer Admin chat (BuyerRFQChat.tsx) and the external-supplier callers
   // (which authenticate via sessionToken instead) always connect with just rfqId.

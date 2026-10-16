@@ -12,7 +12,6 @@ interface SilaLiveDecisionPanelProps {
   locations: SilaLocation[];
   currentLocationId: string;
   requiredQty: string;
-  onCurrentLocationChange: (locationId: string) => void;
   onRequiredQtyChange: (value: string) => void;
   canTransfer: boolean;
   canRequestPurchase: boolean;
@@ -39,7 +38,6 @@ const SilaLiveDecisionPanel: React.FC<SilaLiveDecisionPanelProps> = ({
   locations,
   currentLocationId,
   requiredQty,
-  onCurrentLocationChange,
   onRequiredQtyChange,
   canTransfer,
   canRequestPurchase,
@@ -149,18 +147,9 @@ const SilaLiveDecisionPanel: React.FC<SilaLiveDecisionPanelProps> = ({
       </dl>
       <div className="sinv-filters">
         <div className="sila-field">
-          <label className="sila-label" htmlFor="sinv-live-current">Transfer location</label>
-          <select
-            id="sinv-live-current"
-            className="sila-select"
-            value={detail.currentLocationId ?? currentLocationId}
-            onChange={(event) => onCurrentLocationChange(event.target.value)}
-          >
-            {!detail.currentLocationId && <option value="">Select a location</option>}
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>{location.locationName} ({location.locationCode})</option>
-            ))}
-          </select>
+          <span className="sila-label">Needed at</span>
+          <span className="sila-cell-strong">{current?.locationName ?? "Pick a location above"}</span>
+          {current && <span className="sinv-sub">{current.locationCode} · {current.propertyName}</span>}
         </div>
         <div className="sila-field">
           <label className="sila-label" htmlFor="sinv-live-required">Required quantity ({detail.baseUom})</label>

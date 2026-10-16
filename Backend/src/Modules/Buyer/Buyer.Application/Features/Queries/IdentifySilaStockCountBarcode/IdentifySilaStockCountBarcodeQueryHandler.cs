@@ -47,7 +47,9 @@ namespace Buyer.Application.Features.Queries.IdentifySilaStockCountBarcode
             if (material == null)
             {
                 _logger.LogError($"No material for the barcode. Barcode: {code}, BuyerId: {buyer.Id}");
-                throw new NotFoundCustomException("Barcode not recognised.", "Search the material by name, or add the barcode to the material in the Item Master.");
+                throw new NotFoundCustomException(
+                    "BARCODE NOT MAPPED",
+                    "This barcode is not linked to a material. Search the material. A material is not created from a scan.");
             }
 
             StockCountItem? item = await _repository.StockCountItem

@@ -31,7 +31,7 @@ namespace Buyer.Application.Features.Queries.GetSilaPriceApprovals
             int index = request.Index < 0 ? 0 : request.Index;
             int limit = request.Limit <= 0 ? 50 : Math.Min(request.Limit, 200);
             List<Guid> waiting = await SilaApprovals.PendingForUserAsync(
-                _repository, buyer.Id, Common.SILA_REF_MATERIAL_PRICE, request.UserId, cancellationToken);
+                _repository, buyer.Id, Common.SILA_REF_MATERIAL_PRICE, request.UserId, cancellationToken, SilaAccess.IsAdministrator(request.RoleId));
 
             List<MaterialPriceChange> changes = waiting.Count == 0
                 ? new List<MaterialPriceChange>()

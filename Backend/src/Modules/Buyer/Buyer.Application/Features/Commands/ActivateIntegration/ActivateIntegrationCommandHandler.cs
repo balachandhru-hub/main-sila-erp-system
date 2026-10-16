@@ -41,7 +41,7 @@ namespace Buyer.Application.Features.Commands.ActivateIntegration
             await _repository.SaveAsync();
             _logger.LogInfo($"Integration activated. ConfigurationId: {configuration.Id}");
 
-            if (configuration.ProcessType == IntegrationProcessType.POST_CONTRACT)
+            if (configuration.ProcessType == nameof(IntegrationProcessType.POST_CONTRACT))
             {
                 // Contracts created before this API existed are sent to the ERP now.
                 BuyerBusinessProfile? buyer = _repository.BuyerBusinessProfile.FindFirstByCondition(

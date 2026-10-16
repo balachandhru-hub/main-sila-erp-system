@@ -3,6 +3,7 @@ import { EmptyState, Loader, PageHeader, toastService } from "@vosox/shared-ui";
 import type { MasterApprovalFlowDto } from "../../api/Buyerapi";
 import { createOutlet, getOutlets, updateOutlet, type Outlet, type OutletWrite } from "../../api/outletApi";
 import { getProperties, getWeeklyBucketApprovalFlows, type Property } from "../../api/propertyApi";
+import SilaSearchableSelect from "../silaMe/SilaSearchableSelect";
 import PropertyPanel from "./PropertyPanel";
 
 interface OutletManagementProps {
@@ -155,18 +156,18 @@ const OutletManagement: React.FC<OutletManagementProps> = ({ buyerId }) => {
                 <label className="sila-label" htmlFor="outlet-code">Outlet code</label>
                 <input id="outlet-code" className="sila-input" value={form.outletCode} onChange={(event) => setField("outletCode", event.target.value)} />
               </div>
-              <div className="sila-field">
-                <label className="sila-label" htmlFor="outlet-property">Property<span className="sila-required">*</span></label>
-                <select id="outlet-property" className="sila-select" value={form.propertyId} onChange={(event) => setField("propertyId", event.target.value)}>
-                  <option value="">Select a property</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.propertyName}{property.plantCode ? ` (${property.plantCode})` : ""}
-                    </option>
-                  ))}
-                </select>
-                {properties.length === 0 && <span className="sila-help">Create a property first.</span>}
-              </div>
+              <SilaSearchableSelect
+                label="Property"
+                required
+                placeholder="Select a property"
+                value={form.propertyId}
+                options={properties.map((property) => ({
+                  value: property.id,
+                  label: `${property.propertyName}${property.plantCode ? ` (${property.plantCode})` : ""}`,
+                }))}
+                onChange={(propertyId) => setField("propertyId", propertyId)}
+                infoText={properties.length === 0 ? "Create a property first." : undefined}
+              />
               <div className="sila-field">
                 <label className="sila-label" htmlFor="outlet-storage">Storage location</label>
                 <input id="outlet-storage" className="sila-input" value={form.storageLocation} onChange={(event) => setField("storageLocation", event.target.value)} />

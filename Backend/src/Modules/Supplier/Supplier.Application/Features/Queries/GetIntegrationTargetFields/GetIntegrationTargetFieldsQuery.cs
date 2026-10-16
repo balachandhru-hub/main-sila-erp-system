@@ -1,6 +1,5 @@
 using MediatR;
 using SharedKernel.Integration.Dtos;
-using SharedKernel.Integration.Enums;
 
 namespace Supplier.Application.Features.Queries.GetIntegrationTargetFields
 {
@@ -11,6 +10,6 @@ namespace Supplier.Application.Features.Queries.GetIntegrationTargetFields
     {
         public Guid OrganizationId { get; set; }
         public Guid UserId { get; set; }
-        public IntegrationProcessType? ProcessType { get; set; }
+        public string? ProcessType { get; set; }
     }
 }

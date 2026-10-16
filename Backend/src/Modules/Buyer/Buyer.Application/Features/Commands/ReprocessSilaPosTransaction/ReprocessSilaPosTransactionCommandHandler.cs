@@ -48,28 +48,37 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaPosTransaction
 
             InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
 
-            if (transaction.Status == Common.SILA_POS_INVENTORY_DEDUCTED && transaction.ErpPostingId != null)
+            if (transaction.Status == Common.SILA_POS_POSTED)
+            {
+                _logger.LogError($"POS transaction is already posted. TransactionId: {transaction.Id}");
+                throw new BadRequestCustomException("Nothing to reprocess.", "A posted sale is not reprocessed.");
+            }
+
+            bool stockPosted = await ledger.HasReferenceAsync(Common.SILA_REF_POS_SALE, transaction.Id, cancellationToken);
+            if (transaction.ErpPostingId != null && (stockPosted || transaction.Status == Common.SILA_POS_INVENTORY_DEDUCTED))
             {
                 Guid postingId = transaction.ErpPostingId.Value;
                 InventoryErpPosting? posting = await _repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == postingId && x.BuyerId == buyer.Id);
-                if (posting == null || posting.Status != Common.SILA_POSTING_FAILED)
+                if (posting == null || posting.Status == Common.SILA_POSTING_POSTED || posting.Status == Common.SILA_POSTING_PENDING || posting.Status == Common.SILA_POSTING_UNKNOWN)
                 {
-                    _logger.LogError($"POS transaction posting is not failed. TransactionId: {transaction.Id}, PostingStatus: {posting?.Status}");
-                    throw new BadRequestCustomException("Nothing to reprocess.", "Only a failed transaction or a failed ERP posting can be reprocessed.");
+                    _logger.LogError($"POS transaction posting cannot be sent again. TransactionId: {transaction.Id}, PostingStatus: {posting?.Status}");
+                    throw new BadRequestCustomException("Nothing to reprocess.", "A posted or in-flight ERP posting is not sent again. Reprocess only a failed posting.");
                 }
 
                 posting.Status = Common.SILA_POSTING_PENDING;
                 posting.ErrorMessage = null;
-                ledger.AddEvent(Common.SILA_REF_POS_SALE, transaction.Id, SilaPosProcessing.EVENT_POSTING_REQUEUED, "The failed ERP posting is queued again.");
+                posting.Attempts = 0;
+                ledger.AddEvent(Common.SILA_REF_POS_SALE, transaction.Id, SilaPosProcessing.EVENT_POSTING_REQUEUED, "Step 2 is queued again. Inventory is not deducted again.");
                 await _repository.SaveAsync();
                 _logger.LogInfo($"POS transaction ERP posting queued again. TransactionId: {transaction.Id}, PostingId: {posting.Id}");
                 return Unit.Value;
             }
 
-            if (transaction.Status != Common.SILA_POS_FAILED)
+            bool needsPosting = transaction.Status == Common.SILA_POS_INVENTORY_DEDUCTED && transaction.ErpPostingId == null;
+            if (transaction.Status != Common.SILA_POS_FAILED && transaction.Status != Common.SILA_POS_RECEIVED && !needsPosting)
             {
                 _logger.LogError($"POS transaction is not failed. TransactionId: {transaction.Id}, Status: {transaction.Status}");
-                throw new BadRequestCustomException("Nothing to reprocess.", "Only a failed transaction or a failed ERP posting can be reprocessed.");
+                throw new BadRequestCustomException("Nothing to reprocess.", "Only a failed sale, or one whose inventory was not updated, can be reprocessed.");
             }
 
             ledger.AddEvent(Common.SILA_REF_POS_SALE, transaction.Id, SilaPosProcessing.EVENT_REPROCESS, $"Reprocess from step {transaction.FailedStep ?? Common.SILA_POS_STEP_MATCH}.");

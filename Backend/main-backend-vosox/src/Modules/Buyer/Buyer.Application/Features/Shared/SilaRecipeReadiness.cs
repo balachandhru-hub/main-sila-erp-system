@@ -25,6 +25,7 @@ namespace Buyer.Application.Features.Shared
         private readonly HashSet<Guid> _pendingPriceMaterials;
         private readonly Dictionary<Guid, decimal> _proposedPrices;
         private readonly Dictionary<Guid, Recipe> _subRecipes;
+        private readonly Dictionary<Guid, List<MaterialOutletPrice>> _outletPrices;
 
         private SilaRecipeReadiness(
             Dictionary<Guid, List<RecipeIngredient>> ingredients,
@@ -32,8 +33,10 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, ItemBuyerMaster> materials,
             Dictionary<Guid, List<MaterialUomConversion>> conversions,
             Dictionary<Guid, decimal> proposedPrices,
-            Dictionary<Guid, Recipe> subRecipes)
+            Dictionary<Guid, Recipe> subRecipes,
+            Dictionary<Guid, List<MaterialOutletPrice>> outletPrices)
         {
+            _outletPrices = outletPrices;
             _proposedPrices = proposedPrices;
             _ingredients = ingredients;
             _prices = prices;
@@ -75,6 +78,14 @@ namespace Buyer.Application.Features.Shared
                     .Select(x => (MaterialId: x.MaterialId, Proposed: x.ProposedUnitCost, Created: x.DateCreated))
                     .ToList();
 
+            Dictionary<Guid, List<MaterialOutletPrice>> outletPrices = materialIds.Count == 0
+                ? new Dictionary<Guid, List<MaterialOutletPrice>>()
+                : (await repository.MaterialOutletPrice
+                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && materialIds.Contains(x.MaterialId))
+                    .ToListAsync(cancellationToken))
+                    .GroupBy(x => x.MaterialId)
+                    .ToDictionary(x => x.Key, x => x.ToList());
+
             List<Guid> subIds = ingredients.Where(x => x.SubRecipeId != null).Select(x => x.SubRecipeId!.Value).Distinct().ToList();
             Dictionary<Guid, Recipe> subRecipes = subIds.Count == 0
                 ? new Dictionary<Guid, Recipe>()
@@ -88,7 +99,8 @@ namespace Buyer.Application.Features.Shared
                 materials,
                 conversions,
                 pending.GroupBy(x => x.MaterialId).ToDictionary(x => x.Key, x => x.OrderByDescending(y => y.Created).First().Proposed),
-                subRecipes);
+                subRecipes,
+                outletPrices);
         }
 
         public List<RecipeIngredient> IngredientsOf(Guid recipeId, int version)
@@ -113,6 +125,19 @@ namespace Buyer.Application.Features.Shared
         public List<MaterialUomConversion> ConversionsOf(Guid materialId)
         {
             return _conversions.TryGetValue(materialId, out List<MaterialUomConversion>? list) ? list : new List<MaterialUomConversion>();
+        }
+
+        public List<MaterialOutletPrice> OutletPricesOf(Guid materialId)
+        {
+            return _outletPrices.TryGetValue(materialId, out List<MaterialOutletPrice>? list) ? list : new List<MaterialOutletPrice>();
+        }
+
+        /// <summary>The unit cost (per base unit) of the material at the outlet: its outlet price, else the default price; null when neither is set.</summary>
+        public decimal? UnitCostAt(ItemBuyerMaster material, Guid? outletLocationId)
+        {
+            MaterialOutletPrice? own = outletLocationId == null ? null : OutletPricesOf(material.Id).FirstOrDefault(x => x.OutletLocationId == outletLocationId);
+            decimal? cost = own?.UnitCost ?? material.UnitCost;
+            return cost > 0 ? cost : null;
         }
 
         /// <summary>The unit cost waiting for approval for the material, or null.</summary>
@@ -171,8 +196,11 @@ namespace Buyer.Application.Features.Shared
             return TryToBase(material, ingredient.Quantity, ingredient.Uom, ConversionsOf(material.Id));
         }
 
-        /// <summary>The readiness problem of one line, or null.</summary>
-        public string? LineIssue(RecipeIngredient ingredient)
+        /// <summary>
+        /// The readiness problem of one line, or null. With outlets (those the recipe is priced for) the material needs a price
+        /// at every one of them, else the default price is used.
+        /// </summary>
+        public string? LineIssue(RecipeIngredient ingredient, IReadOnlyCollection<Guid>? outletIds = null)
         {
             if (ingredient.SubRecipeId != null)
             {
@@ -194,7 +222,7 @@ namespace Buyer.Application.Features.Shared
                 return "Material price pending approval";
             }
 
-            if (status == PRICE_MISSING)
+            if (status == PRICE_MISSING && !PricedAtEvery(material, outletIds))
             {
                 return "Price missing";
             }
@@ -206,6 +234,7 @@ namespace Buyer.Application.Features.Shared
         {
             List<RecipeIngredient> ingredients = IngredientsOf(recipe.Id, version);
             List<string> issues = new List<string>();
+            List<Guid> outletIds = PricesOf(recipe.Id, version).Select(x => x.OutletLocationId).ToList();
             bool costComplete = ingredients.Count > 0;
             if (ingredients.Count == 0)
             {
@@ -214,7 +243,7 @@ namespace Buyer.Application.Features.Shared
 
             foreach (RecipeIngredient ingredient in ingredients)
             {
-                string? issue = LineIssue(ingredient);
+                string? issue = LineIssue(ingredient, outletIds);
                 if (issue != null)
                 {
                     costComplete = false;
@@ -225,6 +254,16 @@ namespace Buyer.Application.Features.Shared
             if (recipe.ItemMode == Common.SILA_RECIPE_DIRECT && ingredients.Count != 1)
             {
                 issues.Add("A DIRECT item needs exactly one ingredient");
+            }
+
+            if (recipe.FamilyId == null)
+            {
+                issues.Add("Family is required");
+            }
+
+            if (recipe.CategoryId == null && string.IsNullOrWhiteSpace(recipe.Category))
+            {
+                issues.Add("Category is required");
             }
 
             if (PricesOf(recipe.Id, version).Count == 0)
@@ -241,29 +280,19 @@ namespace Buyer.Application.Features.Shared
             };
         }
 
+        private bool PricedAtEvery(ItemBuyerMaster material, IReadOnlyCollection<Guid>? outletIds)
+        {
+            return outletIds != null && outletIds.Count > 0 && outletIds.All(x => UnitCostAt(material, x) != null);
+        }
+
         /// <summary>Like UomConverter.ToBase, but returns null instead of throwing when no conversion exists.</summary>
         public static decimal? TryToBase(ItemBuyerMaster material, decimal quantity, string? uom, List<MaterialUomConversion> conversions)
         {
-            string baseUom = UomConverter.BaseUomOf(material);
-            string unit = string.IsNullOrWhiteSpace(uom) ? baseUom : uom.Trim().ToUpperInvariant();
-            if (unit == baseUom)
-            {
-                return quantity;
-            }
-
-            MaterialUomConversion? forward = conversions.FirstOrDefault(x => Same(x.FromUom, unit) && Same(x.ToUom, baseUom) && x.Factor > 0);
-            if (forward != null)
-            {
-                return quantity * forward.Factor;
-            }
-
-            MaterialUomConversion? backward = conversions.FirstOrDefault(x => Same(x.FromUom, baseUom) && Same(x.ToUom, unit) && x.Factor > 0);
-            return backward != null ? quantity / backward.Factor : null;
-        }
-
-        private static bool Same(string left, string right)
-        {
-            return string.Equals(left.Trim(), right, StringComparison.OrdinalIgnoreCase);
+            return UomConverter.TryToBase(
+                material,
+                quantity,
+                uom,
+                new Dictionary<Guid, List<MaterialUomConversion>> { [material.Id] = conversions });
         }
     }
 }

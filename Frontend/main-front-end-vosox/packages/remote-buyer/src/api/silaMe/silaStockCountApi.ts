@@ -192,8 +192,12 @@ export interface SilaEnquiry {
   materialName: string;
   locationId: string;
   locationName?: string | null;
+  systemQty?: number | null;
+  physicalQty?: number | null;
   shortageQty: number;
   uom: string;
+  assignedManagerUserId?: string | null;
+  managerConfigured?: boolean;
   shortageValue?: number | null;
   status: SilaEnquiryStatus;
   justificationCategory?: string | null;
@@ -337,7 +341,30 @@ export const identifyBarcode = async (stockCountId: string, barcode: string): Pr
     const data = response.data;
     return { ...data, item: data.item ? normalizeItem(data.item) : null };
   } catch (error: unknown) {
-    throw new Error(readError(error, "Barcode not recognised."));
+    throw new Error(readError(error, "BARCODE NOT MAPPED"));
+  }
+};
+
+export interface SilaStockCountPhotoCandidate {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  baseUom: string;
+}
+
+export interface SilaStockCountPhotoIdentify {
+  configured: boolean;
+  message: string;
+  candidates: SilaStockCountPhotoCandidate[];
+}
+
+/** Asks for photo candidates. Does not select a material and does not change inventory. */
+export const identifyStockCountPhoto = async (stockCountId: string): Promise<SilaStockCountPhotoIdentify> => {
+  try {
+    const response = await axiosInstance.post<SilaStockCountPhotoIdentify>(`${BASE}/stock-counts/${stockCountId}/identify-photo`);
+    return { ...response.data, candidates: list(response.data.candidates) };
+  } catch (error: unknown) {
+    throw new Error(readError(error, "Photo identification is not available. Search the material."));
   }
 };
 

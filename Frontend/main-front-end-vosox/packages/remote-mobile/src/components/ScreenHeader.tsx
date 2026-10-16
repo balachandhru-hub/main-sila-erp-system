@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import logo from '../assets/sila-logo.png';
 import { useGo } from '../navigation';
 
 interface ScreenHeaderProps {
@@ -28,13 +29,14 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, eyebrow, intro, back
   return (
     <header>
       <div className="sm-topbar">
-        {back || backTo ? (
-          <button type="button" className="sm-header__back" aria-label="Back" onClick={onBack}>
-            ←
-          </button>
-        ) : (
-          <span aria-hidden="true" />
-        )}
+        <span className="sm-topbar__lead">
+          <img className="sm-logo" src={logo} alt="SILA" />
+          {(back || backTo) && (
+            <button type="button" className="sm-header__back" aria-label="Back" onClick={onBack}>
+              ←
+            </button>
+          )}
+        </span>
         <span className="sm-brand" aria-label="SILA Store">
           SILA <span>Store</span>
         </span>

@@ -17,6 +17,7 @@ using Buyer.Application.Features.Queries.GetSilaStockCount;
 using Buyer.Application.Features.Queries.GetSilaStockCounts;
 using Buyer.Application.Features.Queries.GetSilaStockCountTasks;
 using Buyer.Application.Features.Queries.IdentifySilaStockCountBarcode;
+using Buyer.Application.Features.Queries.IdentifySilaStockCountPhoto;
 using Buyer.Domain.Dtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -191,6 +192,25 @@ namespace Buyer.API.Controllers
                 Barcode = barcode
             });
             _logger.LogDebug($"Barcode identified. StockCountId: {stockCountId}, MaterialId: {result.MaterialId}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/stock-counts/{stockCountId:guid}/identify-photo")]
+        [ApiAuthorization(Name = "MANAGE_SILA_STOCK_COUNT")]
+        [SwaggerOperation("IdentifySilaStockCountPhoto")]
+        [SwaggerResponse(200, type: typeof(SilaStockCountPhotoIdentifyDto))]
+        public async Task<IActionResult> IdentifyPhoto([FromRoute] Guid stockCountId)
+        {
+            _logger.LogDebug($"Identifying material from a photo. StockCountId: {stockCountId}");
+            SilaStockCountPhotoIdentifyDto result = await _mediator.Send(new IdentifySilaStockCountPhotoQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                StockCountId = stockCountId
+            });
+            _logger.LogDebug($"Photo identification finished. StockCountId: {stockCountId}, Candidates: {result.Candidates.Count}");
             return Ok(result);
         }
 

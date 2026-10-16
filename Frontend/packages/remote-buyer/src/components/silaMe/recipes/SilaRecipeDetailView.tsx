@@ -245,7 +245,13 @@ const SilaRecipeDetailView: React.FC<SilaRecipeDetailViewProps> = ({ recipeId, c
         servingUom={recipe.servingUom}
         currency={recipe.currency}
         pricedOutlets={recipe.outletPrices.length}
+        menuPrice={recipe.outletPrices.length === 0 ? "" : String(Math.min(...recipe.outletPrices.map((price) => price.menuPrice)))}
+        menuOutlet={recipe.outletPrices.slice().sort((a, b) => a.menuPrice - b.menuPrice)[0]?.locationName ?? undefined}
         priceStatuses={recipe.ingredients.filter((ingredient) => ingredient.materialId).map((ingredient) => ingredient.priceStatus)}
+        breakup={recipe.ingredients.map((ingredient) => ({
+          name: `${ingredient.itemCode} ${ingredient.itemName}`.trim(),
+          cost: ingredient.cost,
+        }))}
       />
       <SilaRecipeCosting recipe={recipe} />
       <SilaRecipeApprovalTrail recipe={recipe} />

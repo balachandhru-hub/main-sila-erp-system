@@ -10,12 +10,12 @@ namespace Buyer.Application.Features.Queries.GetSilaUoms
 {
     /// <summary>
     /// Distinct units (upper case, sorted) from the active Item Master (base, order and alternate units), the material unit
-    /// conversions and the serving defaults EA, PORTION, GLASS, SCOOP and SLICE. Used by the serving UOM select.
+    /// conversions and the serving defaults EA, PORTION, GLASS, SCOOP, SLICE, ML, L, BTL, G and KG. Used by the serving UOM select.
     /// </summary>
     public class GetSilaUomsQueryHandler : IRequestHandler<GetSilaUomsQuery, List<string>>
     {
         private const int MAX_UOM_LENGTH = 20;
-        private static readonly string[] SERVING_DEFAULTS = { "EA", "PORTION", "GLASS", "SCOOP", "SLICE" };
+        private static readonly string[] SERVING_DEFAULTS = { "EA", "PORTION", "GLASS", "SCOOP", "SLICE", "ML", "L", "BTL", "G", "KG" };
 
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;

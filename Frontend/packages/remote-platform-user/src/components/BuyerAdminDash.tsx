@@ -44,7 +44,7 @@ import WeeklyBucketSection from "../../../remote-buyer/src/components/weeklyBuck
 import CartSection from "../../../remote-buyer/src/components/cart/CartSection";
 import OutletManagement from "../../../remote-buyer/src/components/outlet/OutletManagement";
 import SilaMeWorkspace from "../../../remote-buyer/src/components/silaMe/SilaMeWorkspace";
-import { SILA_ME_MODEL_KEY, SILA_ME_NAV_PATHS, isSilaMeNav } from "../../../remote-buyer/src/components/silaMe/silaMeNav";
+import { SILA_ME_MODEL_KEY, SILA_ME_NAV_PATHS, buildSilaMeModuleNav, isSilaMeNav } from "../../../remote-buyer/src/components/silaMe/silaMeNav";
 import { useSilaMeAddon } from "../../../remote-buyer/src/components/silaMe/useSilaMeAddon";
 import { PURCHASING_NAV_PATHS, buildBuyerNavItems, type BuyerNavItem } from "../../../remote-buyer/src/components/dashboard/navConfig";
 import NeedsAttentionPanel from "../../../remote-buyer/src/components/dashboard/attention/NeedsAttentionPanel";
@@ -319,13 +319,16 @@ const BuyerAdminDash: React.FC = () => {
 
   // The SILA ME (hospitality) add-on menu, for organizations that have the add-on.
   const hasSilaMe = useSilaMeAddon();
-  // The administrator's menu: every buyer-side screen, grouped as Sourcing, Purchasing, Approvals and Settings.
+  const inSilaModule = isSilaMeNav(activeNav);
+  // Inside SILA ME the bar is that module. Outside it, the purchasing menu.
   const headerNavItems = useMemo(
-    () => withContractPurchaseOrderNav(buildBuyerNavItems({
-      isAdmin: true,
-      rfqListKey: "activeRFQs",
-    })),
-    [],
+    () => inSilaModule
+      ? buildSilaMeModuleNav("admin")
+      : withContractPurchaseOrderNav(buildBuyerNavItems({
+          isAdmin: true,
+          rfqListKey: "activeRFQs",
+        })),
+    [inSilaModule],
   );
 
   const [loggingOut, setLoggingOut] = useState(false);
@@ -803,7 +806,7 @@ const BuyerAdminDash: React.FC = () => {
         <ToastContainer />
         <div className="bad-main">
           <div className="bad-content">
-            {hasSilaMe && isSilaMeNav(activeNav) ? (
+            {isSilaMeNav(activeNav) ? (
               <SilaMeWorkspace navKey={activeNav} role="admin" onNavigate={handleNavClick} />
             ) : activeNav === "purchasing" ? (
               <PurchasingDashboard
@@ -833,10 +836,10 @@ const BuyerAdminDash: React.FC = () => {
               <ApprovalManagement />
             ) : activeNav === "models" ? (
               <Models
-                silaMeRole={hasSilaMe ? "admin" : null}
+                silaMeRole="admin"
                 onNavigate={handleNavClick}
                 onOpenModel={(model) => {
-                  if (!hasSilaMe || model.key !== SILA_ME_MODEL_KEY) return false;
+                  if (model.key !== SILA_ME_MODEL_KEY) return false;
                   handleNavClick("silaDashboard");
                   return true;
                 }}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Modal, toastService } from "@vosox/shared-ui";
 import { formatQty, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import { createGoodsIssue, getGoodsIssueFromBucket } from "../../../api/silaMe/silaMovementsApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import MovementLinesEditor, { lineInBaseUnit, toLineWrites, validateLines, type MovementLine } from "./MovementLinesEditor";
 
 interface SilaGoodsIssueFormProps {
@@ -121,38 +122,24 @@ const SilaGoodsIssueForm: React.FC<SilaGoodsIssueFormProps> = ({ stores, outlets
     >
       <div className="sila-root sila-me smov-dialog">
         <div className="sila-form-grid">
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-gi-store">Store<span className="sila-required">*</span></label>
-            <select
-              id="smov-gi-store"
-              className="sila-select"
-              value={storeId}
-              disabled={busy}
-              onChange={(event) => handleStore(event.target.value)}
-            >
-              <option value="">Select the store</option>
-              {stores.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.locationName} ({location.locationCode}){location.propertyName ? ` — ${location.propertyName}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-gi-outlet">Outlet<span className="sila-required">*</span></label>
-            <select
-              id="smov-gi-outlet"
-              className="sila-select"
-              value={outletId}
-              disabled={busy || !store}
-              onChange={(event) => handleOutlet(event.target.value)}
-            >
-              <option value="">{store ? "Select the outlet" : "Select the store first"}</option>
-              {outletOptions.map((location) => (
-                <option key={location.id} value={location.id}>{location.locationName} ({location.locationCode})</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Store"
+            required
+            placeholder="Select the store"
+            value={storeId}
+            disabled={busy}
+            options={silaLocationOptions(stores)}
+            onChange={handleStore}
+          />
+          <SilaSearchableSelect
+            label="Outlet"
+            required
+            placeholder={store ? "Select the outlet" : "Select the store first"}
+            value={outletId}
+            disabled={busy || !store}
+            options={silaLocationOptions(outletOptions)}
+            onChange={handleOutlet}
+          />
           <div className="sila-field smov-field-action">
             <button
               type="button"

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Modal, toastService } from "@vosox/shared-ui";
 import { getLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import { saveOutletMapping, type SilaPosOutletMapping, type SilaPosOutletMappingWrite } from "../../../api/silaMe/silaPosMasterApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import { errorText } from "./posFormat";
 
 interface SilaPosOutletMappingFormProps {
@@ -104,27 +105,18 @@ const SilaPosOutletMappingForm: React.FC<SilaPosOutletMappingFormProps> = ({ sou
             />
           </div>
           <div className="sila-field sila-field--full">
-            <label className="sila-label" htmlFor="spos-om-location">SILA outlet location<span className="sila-required">*</span></label>
-            <select
-              id="spos-om-location"
-              className="sila-select"
+            <SilaSearchableSelect
+              label="SILA outlet location"
+              required
+              placeholder="Select an outlet location"
               value={form.outletLocationId}
-              onChange={(event) => setForm((current) => ({ ...current, outletLocationId: event.target.value }))}
-            >
-              <option value="">Select an outlet location</option>
-              {outlets.map((outlet) => (
-                <option key={outlet.id} value={outlet.id}>
-                  {outlet.locationName} ({outlet.locationCode}) · {outlet.propertyName}
-                </option>
-              ))}
-            </select>
+              options={silaLocationOptions(outlets)}
+              onChange={(outletLocationId) => setForm((current) => ({ ...current, outletLocationId }))}
+              infoText={selected
+                ? `Property ${selected.propertyName}${selected.storageLocationCode ? ` · storage location ${selected.storageLocationCode}` : ""}`
+                : undefined}
+            />
             {outletsError && <span className="sila-error-text">{outletsError}</span>}
-            {selected && (
-              <span className="sila-help">
-                Property {selected.propertyName}
-                {selected.storageLocationCode ? ` · storage location ${selected.storageLocationCode}` : ""}
-              </span>
-            )}
           </div>
         </div>
       </form>

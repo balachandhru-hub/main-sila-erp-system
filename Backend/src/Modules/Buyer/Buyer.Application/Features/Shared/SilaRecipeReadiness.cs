@@ -256,6 +256,16 @@ namespace Buyer.Application.Features.Shared
                 issues.Add("A DIRECT item needs exactly one ingredient");
             }
 
+            if (recipe.FamilyId == null)
+            {
+                issues.Add("Family is required");
+            }
+
+            if (recipe.CategoryId == null && string.IsNullOrWhiteSpace(recipe.Category))
+            {
+                issues.Add("Category is required");
+            }
+
             if (PricesOf(recipe.Id, version).Count == 0)
             {
                 issues.Add("No outlet menu price");
@@ -278,26 +288,11 @@ namespace Buyer.Application.Features.Shared
         /// <summary>Like UomConverter.ToBase, but returns null instead of throwing when no conversion exists.</summary>
         public static decimal? TryToBase(ItemBuyerMaster material, decimal quantity, string? uom, List<MaterialUomConversion> conversions)
         {
-            string baseUom = UomConverter.BaseUomOf(material);
-            string unit = string.IsNullOrWhiteSpace(uom) ? baseUom : uom.Trim().ToUpperInvariant();
-            if (unit == baseUom)
-            {
-                return quantity;
-            }
-
-            MaterialUomConversion? forward = conversions.FirstOrDefault(x => Same(x.FromUom, unit) && Same(x.ToUom, baseUom) && x.Factor > 0);
-            if (forward != null)
-            {
-                return quantity * forward.Factor;
-            }
-
-            MaterialUomConversion? backward = conversions.FirstOrDefault(x => Same(x.FromUom, baseUom) && Same(x.ToUom, unit) && x.Factor > 0);
-            return backward != null ? quantity / backward.Factor : null;
-        }
-
-        private static bool Same(string left, string right)
-        {
-            return string.Equals(left.Trim(), right, StringComparison.OrdinalIgnoreCase);
+            return UomConverter.TryToBase(
+                material,
+                quantity,
+                uom,
+                new Dictionary<Guid, List<MaterialUomConversion>> { [material.Id] = conversions });
         }
     }
 }

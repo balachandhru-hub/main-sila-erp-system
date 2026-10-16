@@ -61,8 +61,13 @@ namespace Buyer.Application.Features.Queries.GetSilaTransfer
             SilaTransferFigures.CostBook book = await SilaTransferFigures.GetCostBookAsync(
                 _repository, buyer.Id, new[] { transfer.FromLocationId, transfer.ToLocationId }, items.Select(x => x.MaterialId), cancellationToken);
             Dictionary<Guid, (decimal? Value, string? Currency)> totals = SilaTransferFigures.Totals(new[] { transfer }, items, book);
+            List<SilaApprovalStep> approvalSteps = await _repository.SilaApprovalStep
+                .FindByCondition(x => x.ReferenceType == Common.SILA_REF_ITO && x.ReferenceId == transfer.Id && x.Version == 1 && x.IsActive)
+                .OrderBy(x => x.Order)
+                .ToListAsync(cancellationToken);
+            SilaApprovalStep? waiting = approvalSteps.FirstOrDefault(x => x.Status == Common.SILA_APPROVAL_PENDING);
             Dictionary<Guid, string> users = await SilaMovementLookup.GetUserNamesAsync(
-                _identityApiClient, _logger, events.Select(x => x.ActorUserId).Append(transfer.RequestedBy), cancellationToken);
+                _identityApiClient, _logger, events.Select(x => x.ActorUserId).Append(transfer.RequestedBy).Append(waiting?.UserId ?? Guid.Empty), cancellationToken);
 
             SilaTransferDetailDto result = new SilaTransferDetailDto
             {
@@ -123,6 +128,15 @@ namespace Buyer.Application.Features.Queries.GetSilaTransfer
                 Currency = totals.TryGetValue(transfer.Id, out (decimal? Value, string? Currency) currency) ? currency.Currency : null,
                 Approvals = SilaTransferApprovals.Build(transfer, items, events, book, users)
             };
+            if (waiting != null)
+            {
+                SilaTransferApprovalDto? source = result.Approvals.FirstOrDefault(x => x.Side == SilaTransferApprovals.SIDE_SOURCE);
+                if (source != null && source.ActorName == null)
+                {
+                    string name = SilaMovementLookup.NameOf(users, waiting.UserId) ?? "the next approver";
+                    source.Comment = $"Level {waiting.Order} of {approvalSteps.Count}: waiting for {name}.";
+                }
+            }
 
             _logger.LogInfo($"Transfer fetched. TransferId: {transfer.Id}, Lines: {result.Items.Count}, Events: {result.Events.Count}");
             return result;
