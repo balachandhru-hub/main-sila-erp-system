@@ -1,5 +1,5 @@
 /* SILA Store service worker. It only controls pages under /mobile. */
-const CACHE = 'sila-store-v1';
+const CACHE = 'sila-store-v2';
 const SHELL = '/mobile/home';
 const PRECACHE = [
   '/mobile/offline.html',
@@ -40,6 +40,9 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  // A page that moved from /mobile to the ERP (for example /integration) can stay controlled.
+  // Leave those requests to the network so the ERP document is not replaced by the store shell.
+  if (url.origin === self.location.origin && url.pathname !== '/mobile' && !url.pathname.startsWith('/mobile/')) return;
   if (leaveToNetwork(url)) return;
 
   if (request.mode === 'navigate') {

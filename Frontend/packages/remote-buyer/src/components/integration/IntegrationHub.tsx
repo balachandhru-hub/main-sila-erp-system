@@ -74,12 +74,27 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
   };
 
   useEffect(() => {
-    if (view.name === "list") load();
+    if (view.name !== "list") return undefined;
+    let active = true;
+    setError(null);
+    getIntegrations(side)
+      .then((next) => {
+        if (active) setRows(next);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : "Could not load the integrations.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [view.name, variant, side]);
 
-  // Leaving one screen for the other starts on its list.
+  // Switching between Integration and Workflow returns to that screen's list, without remounting the one already shown.
   useEffect(() => {
-    setView({ name: "list" });
+    setView((current) => (current.name === "list" ? current : { name: "list" }));
   }, [variant]);
 
   const backToList = () => setView({ name: "list" });
