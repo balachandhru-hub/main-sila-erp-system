@@ -224,6 +224,7 @@ namespace Buyer.Application.Features.Shared
                 ErrorMessage = posting.ErrorMessage,
                 PostedOn = posting.PostedOn,
                 CompanyCode = posting.CompanyCode,
+                IntegrationSystem = posting.IntegrationSystem,
                 CreatedOn = posting.DateCreated
             };
         }

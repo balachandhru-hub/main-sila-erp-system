@@ -23,8 +23,10 @@ namespace Buyer.Tests.Shared
             Assert.Equal(SilaTransferSap.SOURCE_SAP_LOCATION_MAPPING_MISSING, SilaTransferSap.LocationProblem("PL-9", " ", "PL-9", "BB"));
             Assert.Equal(SilaTransferSap.DESTINATION_SAP_LOCATION_MAPPING_MISSING, SilaTransferSap.LocationProblem("PL-9", "AA", "PL-9", null));
             Assert.Equal(SilaTransferSap.DESTINATION_SAP_LOCATION_MAPPING_MISSING, SilaTransferSap.LocationProblem("PL-9", "AA", null, "BB"));
-            Assert.Equal(SilaTransferSap.TRANSFER_PLANT_MISMATCH, SilaTransferSap.LocationProblem("PL-9", "AA", "PL-8", "BB"));
-            Assert.Equal(SilaTransferSap.INVALID_TRANSFER_LOCATION, SilaTransferSap.LocationProblem("PL-9", "AA", "PL-9", "AA"));
+            Assert.Equal(SilaTransferSap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED, SilaTransferSap.LocationProblem("PL-9", "AA", "PL-8", "BB"));
+            Assert.Equal(SilaTransferSap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED, SilaTransferSap.LocationProblem("PL-9", "AA", "PL-8", "BB", "1000", "2000"));
+            Assert.Null(SilaTransferSap.LocationProblem("PL-9", "AA", "PL-8", "AA", "1000", "1000"));
+            Assert.Equal(SilaTransferSap.INVALID_TRANSFER_LOCATION, SilaTransferSap.LocationProblem("PL-9", "AA", "PL-9", "AA", "1000", "1000"));
         }
 
         [Fact]
@@ -85,6 +87,7 @@ namespace Buyer.Tests.Shared
             Assert.Equal("0.400", lines[0].GetProperty("QuantityInEntryUnit").GetString());
             Assert.Equal("KG", lines[0].GetProperty("EntryUnit").GetString());
             Assert.Equal("BB", lines[0].GetProperty("IssuingOrReceivingStorageLoc").GetString());
+            Assert.False(lines[0].TryGetProperty("IssuingOrReceivingPlant", out _));
             Assert.Equal("MAT-B", lines[1].GetProperty("Material").GetString());
             Assert.Equal("2.000", lines[1].GetProperty("QuantityInEntryUnit").GetString());
             Assert.Equal("BOX", lines[1].GetProperty("EntryUnit").GetString());
@@ -133,8 +136,25 @@ namespace Buyer.Tests.Shared
             Dictionary<Guid, List<MaterialUomConversion>> conversions = new Dictionary<Guid, List<MaterialUomConversion>>();
 
             document.destination.PlantCode = "PL-8";
-            Assert.Equal(SilaTransferSap.TRANSFER_PLANT_MISMATCH, SilaTransferSap.TryBuildBody(
+            document.destination.CompanyCode = "2000";
+            Assert.Equal(SilaTransferSap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED, SilaTransferSap.TryBuildBody(
                 document.transfer, document.from, document.to, document.source, document.destination, new[] { item }, materials, conversions, out _));
+
+            document.destination.CompanyCode = "1000";
+            string? plantMove = SilaTransferSap.TryBuildBody(
+                document.transfer, document.from, document.to, document.source, document.destination, new[] { item }, materials, conversions, out string? plantBody);
+            Assert.Null(plantMove);
+            Assert.NotNull(plantBody);
+            using (JsonDocument plantJson = JsonDocument.Parse(plantBody))
+            {
+                JsonElement plantLine = plantJson.RootElement.GetProperty("to_MaterialDocumentItem")[0];
+                Assert.Equal("04", plantJson.RootElement.GetProperty("GoodsMovementCode").GetString());
+                Assert.Equal("301", plantLine.GetProperty("GoodsMovementType").GetString());
+                Assert.Equal("PL-9", plantLine.GetProperty("Plant").GetString());
+                Assert.Equal("PL-8", plantLine.GetProperty("IssuingOrReceivingPlant").GetString());
+                Assert.Equal("5.000", SilaTransferSap.FormatQuantity(5m));
+                Assert.False(plantLine.GetProperty("QuantityInEntryUnit").GetString()!.StartsWith("-", StringComparison.Ordinal));
+            }
 
             document.destination.PlantCode = "PL-9";
             document.to.StorageLocationCode = "AA";

@@ -73,7 +73,7 @@ namespace Buyer.Application.Features.Shared
             }
         }
 
-        /// <summary>Both locations exist, differ, belong to the same property and allow transfers.</summary>
+        /// <summary>Both locations exist, differ, belong to the same company and allow transfers.</summary>
         public static async Task<(InventoryLocation From, InventoryLocation To)> ValidateLocationsAsync(
             IRepositoryWrapper repository, ILoggerManager logger, Guid buyerId, Guid fromLocationId, Guid toLocationId)
         {
@@ -87,10 +87,19 @@ namespace Buyer.Application.Features.Shared
             InventoryLocation to = await SilaAccess.GetLocationAsync(repository, logger, buyerId, toLocationId);
             if (from.PropertyId != to.PropertyId)
             {
-                logger.LogError($"Cross-property transfer. From: {from.Id} ({from.PropertyId}), To: {to.Id} ({to.PropertyId})");
-                throw new BadRequestCustomException(
-                    "Transfers across properties are not allowed",
-                    "Select a source and a destination of the same property.");
+                BuyerProperty? fromProperty = await repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == from.PropertyId);
+                BuyerProperty? toProperty = await repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == to.PropertyId);
+                bool sameCompany = fromProperty != null
+                    && toProperty != null
+                    && !string.IsNullOrWhiteSpace(fromProperty.CompanyCode)
+                    && string.Equals(fromProperty.CompanyCode.Trim(), toProperty.CompanyCode.Trim(), StringComparison.OrdinalIgnoreCase);
+                if (!sameCompany)
+                {
+                    logger.LogError($"Cross-company transfer. From: {from.Id} ({from.PropertyId}), To: {to.Id} ({to.PropertyId})");
+                    throw new BadRequestCustomException(
+                        SilaInventorySap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED,
+                        SilaInventorySap.Describe(SilaInventorySap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED));
+                }
             }
 
             if (!from.TransferEnabled || !to.TransferEnabled)

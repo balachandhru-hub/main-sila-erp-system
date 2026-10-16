@@ -21,5 +21,8 @@ namespace Buyer.Domain.Dtos
 
         /// <summary>Company code the ERP API is chosen by (falls back to the ALL API).</summary>
         public string? CompanyCode { get; set; }
+
+        /// <summary>The integration configuration that posted the document, for example FIVE S4 - Goods Issue.</summary>
+        public string? IntegrationSystem { get; set; }
     }
 }

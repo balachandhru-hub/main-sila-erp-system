@@ -91,6 +91,8 @@ namespace Buyer.Application.Features.Commands.CreateSilaAdjustment
             _repository.StockAdjustment.Create(adjustment);
 
             InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
+            bool stockOut = false;
+            bool stockIn = false;
             foreach (SilaAdjustmentLineWriteDto line in lines)
             {
                 ItemBuyerMaster material = materials[line.MaterialId];
@@ -112,6 +114,16 @@ namespace Buyer.Application.Features.Commands.CreateSilaAdjustment
                 });
 
                 string direction = opening || (manual && line.Quantity > 0) ? Common.SILA_DIRECTION_IN : Common.SILA_DIRECTION_OUT;
+                if (!opening && direction == Common.SILA_DIRECTION_OUT)
+                {
+                    stockOut = true;
+                }
+
+                if (!opening && direction == Common.SILA_DIRECTION_IN)
+                {
+                    stockIn = true;
+                }
+
                 await ledger.PostAsync(new InventoryMovement
                 {
                     LocationId = location.Id,
@@ -129,9 +141,14 @@ namespace Buyer.Application.Features.Commands.CreateSilaAdjustment
                 }, cancellationToken);
             }
 
-            if (!opening)
+            if (stockOut)
             {
-                ledger.QueueErpPosting(Common.SILA_REF_ADJUSTMENT, adjustment.Id, adjustment.AdjustmentNumber, location.Id, Common.SILA_MOVEMENT_ADJUSTMENT);
+                ledger.QueueErpPosting(Common.SILA_REF_ADJUSTMENT, adjustment.Id, adjustment.AdjustmentNumber, location.Id, SilaInventorySap.TYPE_Z02);
+            }
+
+            if (stockIn)
+            {
+                ledger.QueueErpPosting(Common.SILA_REF_ADJUSTMENT, adjustment.Id, adjustment.AdjustmentNumber, location.Id, SilaInventorySap.TYPE_Z01);
             }
 
             await _repository.SaveAsync();

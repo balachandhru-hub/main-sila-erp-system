@@ -12,11 +12,10 @@ using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Shared
 {
-    /// <summary>
-    /// Same-plant internal transfer posted through the existing integration named FIVE S4 - Transfer Stock.
-    /// Source and destination plants must match and the storage locations must differ. The movement is decided
-    /// here; the user does not choose it. One transfer is one material document with every line.
-    /// </summary>
+        /// <summary>
+        /// Internal transfer posted through <see cref="SilaInventorySap"/>. Same plant is 311. A different plant in the
+        /// same company is 301. The user does not choose the movement. One transfer is one material document.
+        /// </summary>
     public static class SilaTransferSap
     {
         public const string API_CONFIG_NAME = "FIVE S4 - Transfer Stock";
@@ -25,8 +24,8 @@ namespace Buyer.Application.Features.Shared
 
         public const string SOURCE_SAP_LOCATION_MAPPING_MISSING = "SOURCE_SAP_LOCATION_MAPPING_MISSING";
         public const string DESTINATION_SAP_LOCATION_MAPPING_MISSING = "DESTINATION_SAP_LOCATION_MAPPING_MISSING";
-        public const string TRANSFER_PLANT_MISMATCH = "TRANSFER_PLANT_MISMATCH";
         public const string INVALID_TRANSFER_LOCATION = "INVALID_TRANSFER_LOCATION";
+        public const string CROSS_COMPANY_TRANSFER_NOT_CONFIGURED = SilaInventorySap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED;
         public const string UOM_CONVERSION_MISSING = "UOM_CONVERSION_MISSING";
         public const string TRANSFER_API_NOT_CONFIGURED = "TRANSFER_API_NOT_CONFIGURED";
         public const string TRANSFER_ALREADY_POSTED = "TRANSFER_ALREADY_POSTED";
@@ -41,32 +40,13 @@ namespace Buyer.Application.Features.Shared
         }
 
         /// <summary>
-        /// Null when the two inventory locations are the same plant and different storage locations.
-        /// Plant comes from the property the location belongs to. Storage location comes from the location.
+        /// Null when the locations can be posted. Plant comes from the property. Storage location comes from the
+        /// inventory location. A different company code is refused.
         /// </summary>
-        public static string? LocationProblem(string? fromPlant, string? fromStorage, string? toPlant, string? toStorage)
+        public static string? LocationProblem(
+            string? fromPlant, string? fromStorage, string? toPlant, string? toStorage, string? fromCompany = null, string? toCompany = null)
         {
-            if (string.IsNullOrWhiteSpace(fromPlant) || string.IsNullOrWhiteSpace(fromStorage))
-            {
-                return SOURCE_SAP_LOCATION_MAPPING_MISSING;
-            }
-
-            if (string.IsNullOrWhiteSpace(toPlant) || string.IsNullOrWhiteSpace(toStorage))
-            {
-                return DESTINATION_SAP_LOCATION_MAPPING_MISSING;
-            }
-
-            if (!Same(fromPlant, toPlant))
-            {
-                return TRANSFER_PLANT_MISMATCH;
-            }
-
-            if (Same(fromStorage, toStorage))
-            {
-                return INVALID_TRANSFER_LOCATION;
-            }
-
-            return null;
+            return SilaInventorySap.DecideTransfer(fromPlant, fromStorage, toPlant, toStorage, fromCompany, toCompany, out _);
         }
 
         /// <summary>The material's own base unit. Blank is missing; it is not replaced with a default unit.</summary>
@@ -98,8 +78,8 @@ namespace Buyer.Application.Features.Shared
             {
                 SOURCE_SAP_LOCATION_MAPPING_MISSING => "The source location has no SAP plant or storage location.",
                 DESTINATION_SAP_LOCATION_MAPPING_MISSING => "The destination location has no SAP plant or storage location.",
-                TRANSFER_PLANT_MISMATCH => "The source and destination plants differ, so this transfer is not posted.",
                 INVALID_TRANSFER_LOCATION => "The source and destination storage locations are the same.",
+                CROSS_COMPANY_TRANSFER_NOT_CONFIGURED => SilaInventorySap.Describe(CROSS_COMPANY_TRANSFER_NOT_CONFIGURED),
                 UOM_CONVERSION_MISSING => "The material has no SAP unit of measure, or the quantity cannot be converted to it.",
                 TRANSFER_API_NOT_CONFIGURED => "FIVE S4 - Transfer Stock is not an active integration. Activate that API. No other API is used.",
                 TRANSFER_ALREADY_POSTED => "This transfer already has an SAP material document.",
@@ -128,22 +108,24 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, List<MaterialUomConversion>> conversions,
             out string? body)
         {
-            body = null;
-            string? location = LocationProblem(
-                fromProperty?.PlantCode,
-                from?.StorageLocationCode,
-                toProperty?.PlantCode,
-                to?.StorageLocationCode);
-            if (location != null)
-            {
-                return location;
-            }
+            return TryPrepare(transfer, from, to, fromProperty, toProperty, items, materials, conversions, out body, out _);
+        }
 
-            string plant = fromProperty!.PlantCode.Trim();
-            string fromStorage = from!.StorageLocationCode!.Trim();
-            string toStorage = to!.StorageLocationCode!.Trim();
-            List<object> lines = new List<object>();
-            foreach (InternalTransferOrderItem item in items.OrderBy(x => x.MaterialCode))
+        /// <summary>The request and the API rule (311 or 301). A null body with a null error means there is no quantity.</summary>
+        public static string? TryPrepare(
+            InternalTransferOrder transfer,
+            InventoryLocation? from,
+            InventoryLocation? to,
+            BuyerProperty? fromProperty,
+            BuyerProperty? toProperty,
+            IReadOnlyList<InternalTransferOrderItem> items,
+            IReadOnlyDictionary<Guid, ItemBuyerMaster> materials,
+            Dictionary<Guid, List<MaterialUomConversion>> conversions,
+            out string? body,
+            out SilaInventorySap.Rule? rule)
+        {
+            List<SilaInventorySap.TransferLine> lines = new List<SilaInventorySap.TransferLine>();
+            foreach (InternalTransferOrderItem item in items)
             {
                 decimal quantity = item.DispatchedQty > 0 ? item.DispatchedQty : item.ApprovedQty;
                 if (quantity <= 0)
@@ -151,52 +133,29 @@ namespace Buyer.Application.Features.Shared
                     continue;
                 }
 
-                if (!materials.TryGetValue(item.MaterialId, out ItemBuyerMaster? material)
-                    || !material.IsActive
-                    || !SilaMaterialRules.HoldsStock(material)
-                    || string.IsNullOrWhiteSpace(material.MaterialCode))
+                if (!materials.TryGetValue(item.MaterialId, out ItemBuyerMaster? material))
                 {
+                    body = null;
+                    rule = null;
                     return MATERIAL_NOT_VALID;
                 }
 
-                string? entryUnit = EntryUnitOf(material.BaseUnitOfMeasure);
-                if (entryUnit == null)
-                {
-                    return UOM_CONVERSION_MISSING;
-                }
-
-                decimal? converted = UomConverter.TryToBase(material, quantity, item.Uom, conversions);
-                if (converted == null || converted.Value <= 0)
-                {
-                    return UOM_CONVERSION_MISSING;
-                }
-
-                lines.Add(new
-                {
-                    Material = material.MaterialCode.Trim(),
-                    Plant = plant,
-                    StorageLocation = fromStorage,
-                    GoodsMovementType = GOODS_MOVEMENT_TYPE,
-                    QuantityInEntryUnit = FormatQuantity(converted.Value),
-                    EntryUnit = entryUnit,
-                    IssuingOrReceivingStorageLoc = toStorage
-                });
+                lines.Add(new SilaInventorySap.TransferLine(material, quantity, item.Uom));
             }
 
-            if (lines.Count == 0)
-            {
-                return null;
-            }
-
-            DateTime businessDate = transfer.DispatchedOn ?? DateTime.UtcNow;
-            body = JsonSerializer.Serialize(new
-            {
-                PostingDate = FormatDate(businessDate),
-                DocumentDate = FormatDate(businessDate),
-                GoodsMovementCode = GOODS_MOVEMENT_CODE,
-                to_MaterialDocumentItem = lines
-            });
-            return null;
+            string? problem = SilaInventorySap.TryBuildTransfer(
+                transfer.DispatchedOn ?? DateTime.UtcNow,
+                fromProperty?.PlantCode,
+                from?.StorageLocationCode,
+                toProperty?.PlantCode,
+                to?.StorageLocationCode,
+                fromProperty?.CompanyCode,
+                toProperty?.CompanyCode,
+                lines,
+                conversions,
+                out body,
+                out rule);
+            return problem == SilaInventorySap.MATERIAL_NOT_VALID ? MATERIAL_NOT_VALID : problem;
         }
 
         /// <summary>Material document number, with the year when SAP returned it (stored in the existing reference field).</summary>
@@ -301,11 +260,17 @@ namespace Buyer.Application.Features.Shared
             }
 
             string? companyCode = string.IsNullOrWhiteSpace(fromProperty?.CompanyCode) ? null : fromProperty.CompanyCode.Trim();
-            ApiIntegrationConfiguration? api = await ResolveAsync(repository, organizationId, companyCode, cancellationToken);
-            if (api == null)
+            SilaInventorySap.DecideTransfer(
+                fromProperty?.PlantCode, from?.StorageLocationCode, toProperty?.PlantCode, to?.StorageLocationCode,
+                fromProperty?.CompanyCode, toProperty?.CompanyCode, out SilaInventorySap.Rule? rule);
+            ApiIntegrationConfiguration? api = rule == null
+                ? null
+                : await SilaInventorySap.ResolveAsync(repository, organizationId, rule.ApiName, companyCode, cancellationToken);
+            if (api == null || rule == null)
             {
-                logger.LogError($"FIVE S4 - Transfer Stock is not active. TransferId: {transfer.Id}, CompanyCode: {companyCode}");
-                throw new BadRequestCustomException(TRANSFER_API_NOT_CONFIGURED, Describe(TRANSFER_API_NOT_CONFIGURED));
+                string apiName = rule?.ApiName ?? API_CONFIG_NAME;
+                logger.LogError($"Transfer SAP API is not active. TransferId: {transfer.Id}, Api: {apiName}, CompanyCode: {companyCode}");
+                throw new BadRequestCustomException(SilaInventorySap.SAP_API_CONFIGURATION_NOT_FOUND, SilaInventorySap.MissingApi(apiName));
             }
 
             InventoryErpPosting posting = ledger.QueueErpPosting(
@@ -313,7 +278,7 @@ namespace Buyer.Application.Features.Shared
                 transfer.Id,
                 transfer.ItoNumber,
                 transfer.FromLocationId,
-                GOODS_MOVEMENT_TYPE);
+                rule.GoodsMovementType);
             posting.CompanyCode = companyCode;
             posting.IntegrationSystem = api.Name;
             logger.LogInfo($"Transfer queued for SAP. TransferId: {transfer.Id}, ItoNumber: {transfer.ItoNumber}, PostingId: {posting.Id}");
