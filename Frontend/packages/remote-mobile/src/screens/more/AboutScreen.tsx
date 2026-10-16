@@ -23,7 +23,7 @@ const AboutScreen: React.FC = () => (
       <Card title="SILA ME Mobile">
         <p className="sm-meta">
           SILA Store is the store and outlet app of the SILA ME add-on for VOSOX: receiving, inventory, transfers, stock counts and
-          tasks. Sign in with your VOSOX account.
+          tasks. Sign in with your VOSOX account. Install it from Settings so it opens from your home screen.
         </p>
       </Card>
       <Card title="Capability status">

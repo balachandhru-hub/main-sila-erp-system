@@ -44,6 +44,7 @@ import SubstitutionScreen from './screens/tasks/SubstitutionScreen';
 import MoreScreen from './screens/more/MoreScreen';
 import ProfileScreen from './screens/more/ProfileScreen';
 import HelpScreen from './screens/more/HelpScreen';
+import { registerMobilePwa } from './pwa';
 import './mobile.css';
 
 /** Path the parent route matched (e.g. /mobile): the current path without the splat part. */
@@ -74,6 +75,9 @@ const useInterFont = (): void => {
 const MobileApp: React.FC = () => {
   const base = useAppBase();
   useInterFont();
+  useEffect(() => {
+    registerMobilePwa();
+  }, []);
 
   return (
     <MobileBaseProvider base={base}>
