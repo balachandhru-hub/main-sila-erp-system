@@ -89,6 +89,8 @@ export interface SilaErpPosting {
   createdOn: string;
   /** Company code the ERP API is chosen by (falls back to the ALL API). */
   companyCode?: string | null;
+  /** Named SAP API that posted the document. */
+  integrationSystem?: string | null;
 }
 
 export interface SilaGoodsReceipt {

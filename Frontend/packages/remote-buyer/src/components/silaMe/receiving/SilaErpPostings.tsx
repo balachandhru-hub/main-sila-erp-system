@@ -83,7 +83,10 @@ const SilaErpPostings: React.FC<SilaErpPostingsProps> = ({ canReprocess }) => {
                         <span className="sila-cell-strong">{row.referenceNumber}</span>
                         <span className="srcv-sub">{receivingLabel(row.referenceType)}</span>
                       </td>
-                      <td>{receivingLabel(row.movementType)}</td>
+                      <td>
+                        {receivingLabel(row.movementType)}
+                        {row.integrationSystem && <span className="srcv-sub">{row.integrationSystem}</span>}
+                      </td>
                       <td>
                         {row.locationName || "—"}
                         {row.companyCode && <span className="srcv-sub">Company code {row.companyCode}</span>}
