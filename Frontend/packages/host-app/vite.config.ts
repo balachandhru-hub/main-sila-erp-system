@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { federationSafeAliases } from '../shared-ui/build/federationAliases';
+import { devCustomIntegrations } from './devCustomIntegrations';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootNodeModules = path.resolve(__dirname, '../../node_modules');
@@ -32,6 +33,7 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [
       react(),
+      ...(command === 'serve' ? [devCustomIntegrations(env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com', path.resolve(__dirname, '../../.data/custom-integrations.json'))] : []),
       federation({
         remotes: command === 'serve' ? {} : {
           remoteBuyer: env.VITE_REMOTE_BUYER_URL || 'https://localhost:6002/assets/remoteEntry.js',

@@ -10,6 +10,7 @@ dist-ssr
 *.local
 *.pem
 .env.local
+.data/
 
 # Editor directories and files
 .vscode/*
