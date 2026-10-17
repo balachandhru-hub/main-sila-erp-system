@@ -28,5 +28,15 @@ namespace Buyer.Domain.Dtos
         public bool? FinancialReconciliation { get; set; }
         /// <summary>Reuse the reading of an identical file (same SHA-256) instead of reading again (default off).</summary>
         public bool? ReuseCachedOcr { get; set; }
+        /// <summary>LOCAL (local downloads path), FILE_PATH, or SHAREPOINT. Omitted keeps the saved choice.</summary>
+        public string? AttachmentStorage { get; set; }
+        /// <summary>Required when the storage is FILE_PATH.</summary>
+        public string? AttachmentPath { get; set; }
+        /// <summary>Required when the storage is SHAREPOINT.</summary>
+        public string? SharePointSiteUrl { get; set; }
+        /// <summary>Required when the storage is SHAREPOINT.</summary>
+        public string? SharePointLibrary { get; set; }
+        /// <summary>Optional folder inside the SharePoint library.</summary>
+        public string? SharePointFolder { get; set; }
     }
 }

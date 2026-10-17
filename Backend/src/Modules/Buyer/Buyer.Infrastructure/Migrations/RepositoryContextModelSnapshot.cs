@@ -7310,6 +7310,16 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("amount_tolerance");
 
+                    b.Property<string>("AttachmentPath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("attachment_path");
+
+                    b.Property<string>("AttachmentStorage")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("attachment_storage");
+
                     b.Property<bool>("AutoExtractOnUpload")
                         .HasColumnType("bit")
                         .HasColumnName("auto_extract_on_upload");
@@ -7371,6 +7381,21 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<bool?>("ReuseCachedOcr")
                         .HasColumnType("bit")
                         .HasColumnName("reuse_cached_ocr");
+
+                    b.Property<string>("SharePointFolder")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)")
+                        .HasColumnName("share_point_folder");
+
+                    b.Property<string>("SharePointLibrary")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("share_point_library");
+
+                    b.Property<string>("SharePointSiteUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("share_point_site_url");
 
                     b.Property<bool?>("SupplierValidation")
                         .HasColumnType("bit")
@@ -9124,6 +9149,7 @@ namespace Buyer.Infrastructure.Migrations
 
                     b.Property<string>("ProcessType")
                         .IsRequired()
+                        .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)")
                         .HasColumnName("process_type");
 

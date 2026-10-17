@@ -300,6 +300,61 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindByCondition(x => x.Id == invoice.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
+            List<Guid> grnPostingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> grnPostings = grnPostingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => grnPostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            bool service = IsServiceInvoice(invoice);
+            bool GrnConfirmed(GoodsReceipt receipt)
+            {
+                if (receipt.ErpPostingId == null)
+                {
+                    return true;
+                }
+
+                return grnPostings.TryGetValue(receipt.ErpPostingId.Value, out InventoryErpPosting? row)
+                    && (row.Status is Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_FAILED_LOCAL
+                        || !string.IsNullOrWhiteSpace(row.ErpReference));
+            }
+
+            bool grnConfirmed = receipts.Count > 0 && receipts.All(GrnConfirmed);
+            bool postingOpen = posting != null && (posting.Status is Common.SILA_POSTING_PENDING or Common.SILA_POSTING_UNKNOWN
+                or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_POSTED or Common.SILA_POSTING_FAILED_LOCAL
+                || !string.IsNullOrWhiteSpace(posting.ErpReference));
+            List<InventoryWorkflowEvent> pdfs = await repository.InventoryWorkflowEvent
+                .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.IsActive && x.Action == SilaGrnDocument.ACTION
+                    && x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == invoice.Id)
+                .OrderBy(x => x.DateCreated)
+                .ToListAsync(cancellationToken);
+            List<SilaInvoiceDocumentDto> documents = new List<SilaInvoiceDocumentDto>();
+            if (!string.IsNullOrWhiteSpace(invoice.FileName))
+            {
+                documents.Add(new SilaInvoiceDocumentDto
+                {
+                    DocumentType = "Original Supplier Invoice",
+                    PoNumber = invoice.PoNumber,
+                    FileName = invoice.FileName,
+                    GeneratedOn = invoice.DateCreated
+                });
+            }
+
+            foreach (InventoryWorkflowEvent pdf in pdfs)
+            {
+                GoodsReceipt? receipt = receipts.FirstOrDefault(x => pdf.Comment != null && pdf.Comment.Contains(x.Id.ToString("N"), StringComparison.OrdinalIgnoreCase));
+                documents.Add(new SilaInvoiceDocumentDto
+                {
+                    DocumentType = "GRN PDF",
+                    GrnNumber = receipt?.GrnNumber,
+                    PoNumber = receipt?.PoNumber ?? invoice.PoNumber,
+                    GeneratedOn = pdf.DateCreated,
+                    FileName = string.IsNullOrWhiteSpace(pdf.Comment) ? "grn.pdf" : Path.GetFileName(pdf.Comment.Replace('/', Path.DirectorySeparatorChar)),
+                    GoodsReceiptId = receipt?.Id
+                });
+            }
+
+            string? blocked = posting?.ErrorMessage ?? await SilaInvoicePosting.LatestBlockAsync(repository, invoice.Id, cancellationToken);
+            string paymentIntegration = await SilaInvoicePosting.PaymentIntegrationAsync(repository, invoice.BuyerId, cancellationToken);
+            bool supplierMatched = invoice.SilaSupplierId != null || invoice.SupplierId != null || !string.IsNullOrWhiteSpace(invoice.SupplierName);
 
             return new SilaInvoiceDetailDto
             {
@@ -341,7 +396,7 @@ namespace Buyer.Application.Features.Shared
                 ErpPostingId = invoice.ErpPostingId,
                 ErpStatus = posting?.Status,
                 ErpReference = posting?.ErpReference,
-                ErpMessage = posting?.ErrorMessage,
+                ErpMessage = blocked,
                 NeedsReview = invoice.Status == SilaOcrSettings.INVOICE_REVIEW_REQUIRED,
                 InvoiceType = invoice.InvoiceType,
                 NetAmount = invoice.NetAmount,
@@ -352,7 +407,24 @@ namespace Buyer.Application.Features.Shared
                 ReconciliationWarning = SilaOcrPolicy.FinancialReconciliation(settings)
                     ? SilaOcrPolicy.ReconciliationWarning(invoice.NetAmount, invoice.TaxAmount, invoice.GrossAmount, SilaOcrPolicy.AmountTolerance(settings))
                     : null,
-                ContentHash = invoice.ContentHash
+                ContentHash = invoice.ContentHash,
+                CanSubmitInvoice = SilaInvoiceLifecycle.CanSubmit(invoice.Status, service, grnConfirmed, postingOpen, SilaInvoiceLifecycle.AlreadyPosted(invoice.Status, posting?.ErpReference)),
+                PaymentStatus = invoice.Status is Common.SILA_INVOICE_AWAITING_PAYMENT or Common.SILA_INVOICE_PARTIALLY_PAID or Common.SILA_INVOICE_PAID or Common.SILA_INVOICE_OVERDUE
+                    ? invoice.Status
+                    : null,
+                PaymentIntegration = paymentIntegration,
+                OutstandingAmount = invoice.Status is Common.SILA_INVOICE_AWAITING_PAYMENT or Common.SILA_INVOICE_OVERDUE ? invoice.GrossAmount
+                    : invoice.Status == Common.SILA_INVOICE_PAID ? 0 : null,
+                Documents = documents,
+                Timeline = SilaInvoiceLifecycle.Timeline(
+                    invoice.Status,
+                    supplierMatched,
+                    invoice.PurchaseOrderId != null,
+                    !service,
+                    receipts.Count > 0,
+                    grnConfirmed,
+                    pdfs.Count > 0,
+                    posting?.Status)
             };
         }
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from './store/useAuthStore';
+import { isSupplierRoleId, useAuthStore } from './store/useAuthStore';
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './components/Login';
 import SupplierRegistration from './components/SupplierRegistration';
@@ -58,12 +58,17 @@ const RoleApp: React.FC = () => {
 
 /** SILA Store (mobile) for buyer-side users; signed-out users sign in first and come back here. */
 const MobileRoute: React.FC = () => {
-  const { isLoggedIn, isInitialized } = useAuthStore();
+  const { isLoggedIn, isInitialized, roleId } = useAuthStore();
+  const { pathname } = useLocation();
   if (!isInitialized) {
     return <Loader fullScreen={true} message='Verifying session...' theme='light' />;
   }
   if (!isLoggedIn) {
     return <Navigate to={`/?next=${MOBILE_PATH}`} replace />;
+  }
+  const supplierWorkspace = pathname === `${MOBILE_PATH}/supplier` || pathname.startsWith(`${MOBILE_PATH}/supplier/`);
+  if (isSupplierRoleId(roleId) && !supplierWorkspace) {
+    return <Navigate to={`${MOBILE_PATH}/supplier`} replace />;
   }
   return <MobileApp />;
 };
@@ -107,7 +112,7 @@ const Shell = () => {
     };
   }, [isMobile]);
   // The assistant is for all buyer-side roles and buyer administrators.
-  const { userRole } = useAuthStore();
+  const { userRole, roleId } = useAuthStore();
   const roleLower = (userRole ?? '').toLowerCase();
   const isBuyerSideRole =
     !roleLower.includes('supplier') &&
@@ -119,7 +124,8 @@ const Shell = () => {
 
   const showAssistant =
     isLoggedIn && !isAuthPage && !isRegistration && !isExternalBid && !isMobile && isBuyerSideRole;
-  const nextPath = new URLSearchParams(location.search).get('next') === MOBILE_PATH ? MOBILE_PATH : '/dashboard';
+  const wantsMobile = new URLSearchParams(location.search).get('next') === MOBILE_PATH;
+  const nextPath = wantsMobile ? (isSupplierRoleId(roleId) ? `${MOBILE_PATH}/supplier` : MOBILE_PATH) : '/dashboard';
 
   return (
     <div className="app-container sila-root">

@@ -11,13 +11,42 @@ interface SilaOcrSettingsProps {
   canManage: boolean;
 }
 
+interface AttachmentForm {
+  /** LOCAL | FILE_PATH | SHAREPOINT */
+  storage: string;
+  path: string;
+  siteUrl: string;
+  library: string;
+  folder: string;
+}
+
 interface OcrForm {
   provider: string;
   autoExtractOnUpload: boolean;
   /** Percentage as typed, 0-100. */
   minimumConfidence: string;
   policy: OcrPolicyForm;
+  attachment: AttachmentForm;
 }
+
+const attachmentOf = (data: SilaOcrConfiguration): AttachmentForm => ({
+  storage: data.attachmentStorage || "LOCAL",
+  path: data.attachmentPath || "",
+  siteUrl: data.sharePointSiteUrl || "",
+  library: data.sharePointLibrary || "",
+  folder: data.sharePointFolder || "",
+});
+
+/** The first problem of the attachment choice, or null (the server checks the same rules). */
+const attachmentProblem = (attachment: AttachmentForm): string | null => {
+  if (attachment.storage === "FILE_PATH" && attachment.path.trim() === "") return "Enter the folder where invoice files should be kept.";
+  if (attachment.storage === "SHAREPOINT") {
+    const site = attachment.siteUrl.trim();
+    if (!/^https?:\/\/[^/\s]+/i.test(site) || site.includes("@")) return "Enter the SharePoint site URL, for example https://tenant.sharepoint.com/sites/finance.";
+    if (attachment.library.trim() === "") return "Enter the document library that will hold the invoice files.";
+  }
+  return null;
+};
 
 /** How invoices are read: the built-in OCR service or the external EXTRACT_INVOICE API; automatic reading; minimum confidence. */
 const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
@@ -34,6 +63,7 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
       autoExtractOnUpload: data.autoExtractOnUpload,
       minimumConfidence: String(Math.round(data.minimumConfidence * 100)),
       policy: toPolicyForm(data),
+      attachment: data.attachmentStorage ? attachmentOf(data) : (form?.attachment ?? attachmentOf(data)),
     });
   };
 
@@ -56,7 +86,7 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
       toastService.error("Enter a minimum confidence between 0 and 100 %.");
       return;
     }
-    const problem = policyProblem(form.policy);
+    const problem = policyProblem(form.policy) || attachmentProblem(form.attachment);
     if (problem) {
       toastService.error(problem);
       return;
@@ -68,6 +98,11 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
         autoExtractOnUpload: form.autoExtractOnUpload,
         minimumConfidence: percent / 100,
         ...toPolicyWrite(form.policy),
+        attachmentStorage: form.attachment.storage,
+        attachmentPath: form.attachment.path.trim() || null,
+        sharePointSiteUrl: form.attachment.siteUrl.trim() || null,
+        sharePointLibrary: form.attachment.library.trim() || null,
+        sharePointFolder: form.attachment.folder.trim() || null,
       }));
       toastService.success("OCR settings saved.");
     } catch (err: unknown) {
@@ -79,7 +114,7 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
 
   return (
     <div className="sila-me srcv-page">
-      <PageHeader className="pud-page-header" title="Invoice OCR settings" description="Control how uploaded invoices are read and when a reading needs review." />
+      <PageHeader className="pud-page-header" title="Invoice OCR settings" description="Control how uploaded invoices are read, when a reading needs review, and where the invoice file is kept." />
       {error ? (
         <EmptyState
           variant="error"
@@ -112,6 +147,74 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
               </div>
             </div>
             <SilaOcrPolicyFields form={form.policy} onChange={(policy) => setForm({ ...form, policy })} />
+            <div className="srcv-stack">
+              <p className="srcv-sub"><strong>Invoice attachment</strong></p>
+              <div className="sila-form-grid">
+                <div className="sila-field">
+                  <label className="sila-label" htmlFor="srcv-ocr-storage">Save invoice files to</label>
+                  <select
+                    id="srcv-ocr-storage"
+                    className="sila-select"
+                    value={form.attachment.storage}
+                    onChange={(event) => setForm({ ...form, attachment: { ...form.attachment, storage: event.target.value } })}
+                  >
+                    <option value="LOCAL">Local downloads path</option>
+                    <option value="FILE_PATH">File path</option>
+                    <option value="SHAREPOINT">SharePoint</option>
+                  </select>
+                  <span className="sila-help">
+                    Files are saved on the local downloads path
+                    {settings.attachmentLocalPath ? ` (${settings.attachmentLocalPath})` : ""}.
+                    {" "}SharePoint and a file path are kept with these settings.
+                  </span>
+                </div>
+                {form.attachment.storage === "FILE_PATH" && (
+                  <div className="sila-field">
+                    <label className="sila-label" htmlFor="srcv-ocr-path">Folder path</label>
+                    <input
+                      id="srcv-ocr-path"
+                      className="sila-input"
+                      value={form.attachment.path}
+                      onChange={(event) => setForm({ ...form, attachment: { ...form.attachment, path: event.target.value } })}
+                    />
+                    <span className="sila-help">The folder that will hold the invoice files.</span>
+                  </div>
+                )}
+                {form.attachment.storage === "SHAREPOINT" && (
+                  <>
+                    <div className="sila-field">
+                      <label className="sila-label" htmlFor="srcv-ocr-site">SharePoint site</label>
+                      <input
+                        id="srcv-ocr-site"
+                        className="sila-input"
+                        value={form.attachment.siteUrl}
+                        placeholder="https://tenant.sharepoint.com/sites/finance"
+                        onChange={(event) => setForm({ ...form, attachment: { ...form.attachment, siteUrl: event.target.value } })}
+                      />
+                    </div>
+                    <div className="sila-field">
+                      <label className="sila-label" htmlFor="srcv-ocr-library">Document library</label>
+                      <input
+                        id="srcv-ocr-library"
+                        className="sila-input"
+                        value={form.attachment.library}
+                        onChange={(event) => setForm({ ...form, attachment: { ...form.attachment, library: event.target.value } })}
+                      />
+                    </div>
+                    <div className="sila-field">
+                      <label className="sila-label" htmlFor="srcv-ocr-folder">Folder</label>
+                      <input
+                        id="srcv-ocr-folder"
+                        className="sila-input"
+                        value={form.attachment.folder}
+                        onChange={(event) => setForm({ ...form, attachment: { ...form.attachment, folder: event.target.value } })}
+                      />
+                      <span className="sila-help">Optional. Leave empty to use the library itself.</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
             {form.provider === "EXTERNAL" && !settings.externalConfigured && (
               <div className="sila-alert sila-alert--warning" role="alert">No active EXTRACT_INVOICE API is configured under Integration; readings will fail until one is activated.</div>
             )}

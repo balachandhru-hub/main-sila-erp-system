@@ -18,6 +18,12 @@ export const ROLE_MAPPING: Record<string, UserRole> = {
   '8d2a6c40-1f7e-4b9a-9c55-6e3a1d8b4f02': 'cost-controller', // FNB_DIRECTOR
   '9e3b7d51-2a8f-4c0b-8d66-7f4b2e9c5a13': 'cost-controller', // FINANCE_MANAGER
 };
+
+/** Supplier roles stay on supplier screens. Network admin is stored as platform-user, so the role id is the check. */
+export const isSupplierRoleId = (roleId: string | null | undefined): boolean =>
+  roleId === '937aab61-b505-4e1c-a5a3-cd63e29c6db9' ||
+  roleId === '735bb267-fec0-489f-8249-d3d65b3857ea' ||
+  roleId === '22067509-af24-48f8-a7e9-416a0b6a439b';
 export interface AuthState {
   isLoggedIn: boolean;
   isInitialized:boolean;

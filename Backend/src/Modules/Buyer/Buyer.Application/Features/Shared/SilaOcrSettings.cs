@@ -62,7 +62,8 @@ namespace Buyer.Application.Features.Shared
             }
         }
 
-        public static async Task<SilaOcrConfigurationDto> ToDtoAsync(IRepositoryWrapper repository, BuyerBusinessProfile buyer, SilaOcrConfiguration configuration, CancellationToken cancellationToken)
+        public static async Task<SilaOcrConfigurationDto> ToDtoAsync(
+            IRepositoryWrapper repository, BuyerBusinessProfile buyer, SilaOcrConfiguration configuration, CancellationToken cancellationToken, string? localBasePath = null)
         {
             string extractInvoice = nameof(IntegrationProcessType.EXTRACT_INVOICE);
             bool externalConfigured = await repository.ApiIntegrationConfiguration
@@ -80,7 +81,7 @@ namespace Buyer.Application.Features.Shared
                 Saved = configuration.Id != Guid.Empty,
                 UpdatedOn = configuration.Id == Guid.Empty ? null : (configuration.DateUpdated == default ? configuration.DateCreated : configuration.DateUpdated)
             };
-            SilaOcrPolicy.Fill(dto, configuration);
+            SilaOcrPolicy.Fill(dto, configuration, localBasePath);
             return dto;
         }
     }

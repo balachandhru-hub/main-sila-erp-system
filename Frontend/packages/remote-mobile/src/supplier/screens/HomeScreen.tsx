@@ -1,15 +1,26 @@
 import React from 'react';
 import type { SupplierDashboardAnalytics } from '@vosox/shared-ui';
+import { firstNameOf, initialsOf, useAccess } from '../../access';
 import { useGo } from '../../navigation';
 import { useLoad } from '../../useLoad';
 import { formatWhen } from '../format';
 import { loadAnalytics, loadCustomerOrders, loadRfqs, loadSupplierContext, loadSync, PAGE_SIZE } from '../live';
 import { EmptyState, ErrorNote, KpiCard, Loading, NotConnected, PageHeader, StatusBadge, toneOfStatus } from '../ui';
 
+/** Same wording as the SILA Store home. */
+const greeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+};
+
 const count = (value: number | undefined, loading: boolean): string => (loading ? '…' : value == null ? '—' : String(value));
 
 const HomeScreen: React.FC = () => {
   const go = useGo();
+  const { person } = useAccess();
+  const name = firstNameOf(person);
   const context = useLoad(loadSupplierContext, 'supplier-context');
   const analytics = useLoad(loadAnalytics, 'supplier-analytics');
   const orders = useLoad(() => loadCustomerOrders(0, 5), 'supplier-po-home');
@@ -28,7 +39,15 @@ const HomeScreen: React.FC = () => {
 
   return (
     <>
-      <PageHeader eyebrow="Supplier workspace" title="Home" intro="What needs attention, from the Cloud services already connected." />
+      <PageHeader
+        title={`${greeting()}${name ? `, ${name}` : ''}`}
+        band={<p className="sm-muted">{person?.organizationName || 'What needs attention, from the Cloud services already connected.'}</p>}
+        aside={
+          <button type="button" className="sm-avatar" aria-label="More" onClick={() => go('supplier/more')}>
+            {initialsOf(person) || '•'}
+          </button>
+        }
+      />
       <div className="sp-screen">
         <section className="sp-section">
           <h2>Today</h2>
@@ -119,19 +138,20 @@ const HomeScreen: React.FC = () => {
 
         <section className="sp-section">
           <h2>Quick actions</h2>
-          <div className="sp-actions">
+          <div className="sm-grid-3">
             {[
-              ['RFQ', 'supplier/sales/rfq'],
-              ['E-Auction', 'supplier/sales/auction'],
-              ['Catalog', 'supplier/catalog'],
-              ['Customer PO', 'supplier/orders/customer-pos'],
-              ['Inventory', 'supplier/inventory'],
-              ['VMI', 'supplier/vmi'],
-              ['Shipments', 'supplier/logistics'],
-              ['O2C', 'supplier/o2c'],
-            ].map(([label, to]) => (
-              <button key={to} type="button" className="sp-action" onClick={() => go(to)}>
-                <strong>{label}</strong>
+              ['RFQ', '⚑', 'supplier/sales/rfq'],
+              ['E-Auction', '◎', 'supplier/sales/auction'],
+              ['Catalog', '▤', 'supplier/catalog'],
+              ['Customer PO', '☰', 'supplier/orders/customer-pos'],
+              ['Inventory', '▦', 'supplier/inventory'],
+              ['VMI', '▣', 'supplier/vmi'],
+              ['Shipments', '⇨', 'supplier/logistics'],
+              ['O2C', '✓', 'supplier/o2c'],
+            ].map(([label, icon, to]) => (
+              <button key={to} type="button" className="sm-action" onClick={() => go(to)}>
+                <span className="sm-action__icon" aria-hidden="true">{icon}</span>
+                {label}
               </button>
             ))}
           </div>

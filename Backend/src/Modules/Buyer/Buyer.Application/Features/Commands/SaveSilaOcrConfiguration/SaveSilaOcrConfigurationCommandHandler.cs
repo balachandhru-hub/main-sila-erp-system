@@ -1,8 +1,10 @@
 using Buyer.Application.Features.Shared;
+using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.LoggerServices;
 
@@ -12,11 +14,13 @@ namespace Buyer.Application.Features.Commands.SaveSilaOcrConfiguration
     {
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
+        private readonly IConfiguration _configuration;
 
-        public SaveSilaOcrConfigurationCommandHandler(IRepositoryWrapper repository, ILoggerManager logger)
+        public SaveSilaOcrConfigurationCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IConfiguration configuration)
         {
             _repository = repository;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<SilaOcrConfigurationDto> Handle(SaveSilaOcrConfigurationCommand request, CancellationToken cancellationToken)
@@ -51,7 +55,8 @@ namespace Buyer.Application.Features.Commands.SaveSilaOcrConfiguration
             }
 
             await _repository.SaveAsync();
-            SilaOcrConfigurationDto result = await SilaOcrSettings.ToDtoAsync(_repository, buyer, configuration, cancellationToken);
+            SilaOcrConfigurationDto result = await SilaOcrSettings.ToDtoAsync(
+                _repository, buyer, configuration, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
             if (provider == SilaOcrSettings.PROVIDER_EXTERNAL && !result.ExternalConfigured)
             {
                 _logger.LogInfo($"OCR set to EXTERNAL without an active EXTRACT_INVOICE API. BuyerId: {buyer.Id}");

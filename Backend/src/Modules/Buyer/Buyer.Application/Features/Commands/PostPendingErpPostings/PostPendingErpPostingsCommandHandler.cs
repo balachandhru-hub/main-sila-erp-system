@@ -10,6 +10,7 @@ using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.Integration;
 using SharedKernel.Integration.Entities;
@@ -41,12 +42,14 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
         private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
 
-        public PostPendingErpPostingsCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator)
+        public PostPendingErpPostingsCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator, IConfiguration configuration)
         {
             _repository = repository;
             _logger = logger;
             _mediator = mediator;
+            _configuration = configuration;
         }
 
         public async Task<SilaErpPostingRunResultDto> Handle(PostPendingErpPostingsCommand request, CancellationToken cancellationToken)
@@ -125,7 +128,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             // A document number is already stored. Finish SILA only; do not send the movement again.
             if (SilaTrackerRules.ErpAlreadyAccepted(posting))
             {
-                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken);
+                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
             }
 
             if (posting.ReferenceType == Common.SILA_REF_POS_SALE
@@ -186,16 +189,20 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             bool stockCount = SilaStockCountSap.IsStockCount(posting.MovementType) && !isGrn && !isInvoice;
             IntegrationApiDto api = stockCount
                 ? await ResolveStockCountApiAsync(buyer.OrganizationId, posting.CompanyCode, cancellationToken)
-                : await _mediator.Send(new ResolveIntegrationQuery
-                {
-                    OrganizationId = buyer.OrganizationId,
-                    ProcessType = processType,
-                    EntityCode = posting.CompanyCode
-                }, cancellationToken);
+                : isInvoice
+                    ? await ResolveInvoiceApiAsync(buyer.OrganizationId, posting.CompanyCode, cancellationToken)
+                    : await _mediator.Send(new ResolveIntegrationQuery
+                    {
+                        OrganizationId = buyer.OrganizationId,
+                        ProcessType = processType,
+                        EntityCode = posting.CompanyCode
+                    }, cancellationToken);
             if (!api.Configured || api.ConfigurationId == null)
             {
                 string scope = posting.CompanyCode == null ? string.Empty : $" for company code {posting.CompanyCode} (or ALL)";
-                string expected = stockCount ? $"{IntegrationProcessType.UPDATE_STOCK} ({SilaStockCountSap.API_CONFIG_NAME}) or {processType}" : processType.ToString();
+                string expected = isInvoice
+                    ? SilaInvoiceLifecycle.API_INVOICE
+                    : stockCount ? $"{IntegrationProcessType.UPDATE_STOCK} ({SilaStockCountSap.API_CONFIG_NAME}) or {processType}" : processType.ToString();
                 return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, $"No active {expected} API is configured{scope}.", cancellationToken);
             }
 
@@ -209,6 +216,21 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, "The document has no lines to post.", cancellationToken);
             }
 
+            if (isInvoice)
+            {
+                string? accepted = await InvoiceAlreadyAcceptedAsync(posting, cancellationToken);
+                if (accepted != null)
+                {
+                    return accepted;
+                }
+
+                string? blocked = await InvoiceReadyAsync(posting, document, api.RequestBody, cancellationToken);
+                if (blocked != null)
+                {
+                    return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, blocked, cancellationToken);
+                }
+            }
+
             List<ApiFieldMapping> mappings = await _repository.ApiFieldMapping
                 .FindByCondition(x => x.ConfigurationId == api.ConfigurationId.Value && x.IsActive)
                 .ToListAsync(cancellationToken);
@@ -220,24 +242,52 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 && string.IsNullOrWhiteSpace(api.RequestBody)
                 && (string.Equals(api.Name, SilaStockCountSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
                     || api.ProcessType == IntegrationProcessType.UPDATE_STOCK);
-            string body = sapGrn
+            string? invoiceBody = null;
+            if (isInvoice && string.Equals(api.Name, SilaInvoiceLifecycle.API_INVOICE, StringComparison.OrdinalIgnoreCase))
+            {
+                SilaInvoicePosting.Document invoiceDocument = new SilaInvoicePosting.Document();
+                foreach ((string name, object? value) in document.Header)
+                {
+                    invoiceDocument.Header.Add((name, value));
+                }
+
+                foreach (List<(string Name, object? Value)> item in document.Items)
+                {
+                    invoiceDocument.Items.Add(item);
+                }
+
+                (string? built, List<string> missingFields) = SilaInvoicePosting.SupplierInvoiceRequest(api.RequestBody, invoiceDocument);
+                if (missingFields.Count > 0)
+                {
+                    return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null,
+                        SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missingFields), cancellationToken);
+                }
+
+                invoiceBody = built;
+            }
+
+            string body = invoiceBody
+                ?? (sapGrn
                 ? SapGrnBody(document)
                 : sapShape
                     ? StockCountSapBody(document)
                     : string.IsNullOrWhiteSpace(api.RequestBody)
                         ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
-                        : ApplyTemplate(api.RequestBody, area, document, mappings);
+                        : ApplyTemplate(api.RequestBody, area, document, mappings));
 
             IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.ConfigurationId.Value, posting, body, cancellationToken);
-            // The last call, sanitised, for the transaction tracker.
-            posting.IntegrationSystem = api.SystemName ?? api.Name;
+            // The last call, sanitised, for the transaction tracker. Invoice postings keep the API configuration name.
+            posting.IntegrationSystem = isInvoice ? api.Name : api.SystemName ?? api.Name;
             posting.ErpHttpStatus = sent.Answered ? sent.StatusCode : null;
             posting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
             posting.ErpResponsePayload = SilaErpPayload.Sanitise(sent.ResponseBody);
             bool succeeded = sent.Answered && sent.StatusCode >= 200 && sent.StatusCode < 300;
             if (succeeded)
             {
-                return await FinishAsync(posting, Common.SILA_POSTING_POSTED, ReadReference(sent.ResponseBody), null, cancellationToken);
+                string? reference = isInvoice
+                    ? SilaInvoicePosting.ReadSupplierInvoice(sent.ResponseBody) ?? ReadReference(sent.ResponseBody)
+                    : ReadReference(sent.ResponseBody);
+                return await FinishAsync(posting, Common.SILA_POSTING_POSTED, reference, null, cancellationToken);
             }
 
             string error = sent.Answered
@@ -606,8 +656,9 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 posting.PostedOn = DateTime.UtcNow;
                 posting.Status = Common.SILA_POSTING_ERP_ACCEPTED;
                 posting.ErrorMessage = null;
+                SilaInvoicePosting.RememberResponse(_repository, posting, Guid.Empty);
                 await _repository.SaveAsync();
-                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, null, cancellationToken);
+                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, null, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
             }
 
             posting.Status = status;
@@ -616,6 +667,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 await UpdatePosSalesAsync(posting, false, cancellationToken);
             }
 
+            await SilaInvoicePosting.OnFinishedAsync(_repository, _logger, _configuration[Common.BASE_FOLDER_PATH], posting, status, cancellationToken);
             await _repository.SaveAsync();
             if (status == Common.SILA_POSTING_POSTED)
             {
@@ -849,65 +901,111 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 : $"Goods receipt {failed.ReferenceNumber} of this invoice was not posted to the ERP. Reprocess the goods receipt first, then this invoice.";
         }
 
-        // The supplier invoice with its lines, the purchase order and the goods receipts it bills.
+        // The supplier invoice, the S/4 purchase order and the goods receipt. Invoice amounts stay on the invoice.
         private async Task<ErpDocument?> BuildInvoiceAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
+        {
+            SilaInvoicePosting.Document? described = await SilaInvoicePosting.DescribeAsync(
+                _repository, posting.BuyerId, posting.ReferenceId, posting.CompanyCode, cancellationToken);
+            if (described == null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(posting.CompanyCode) && !string.IsNullOrWhiteSpace(described.CompanyCode))
+            {
+                posting.CompanyCode = described.CompanyCode;
+            }
+
+            ErpDocument document = new ErpDocument();
+            foreach ((string name, object? value) in described.Header)
+            {
+                document.Header.Add((name, value));
+            }
+
+            foreach (List<(string Name, object? Value)> item in described.Items)
+            {
+                document.Items.Add(item);
+            }
+
+            return document;
+        }
+
+        /// <summary>Stops the send when the invoice or the API body is missing a value. Does not invent one.</summary>
+        private async Task<string?> InvoiceReadyAsync(InventoryErpPosting posting, ErpDocument document, string? template, CancellationToken cancellationToken)
         {
             Invoice? invoice = await _repository.Invoice
                 .FindByCondition(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive)
                 .FirstOrDefaultAsync(cancellationToken);
             if (invoice == null)
             {
-                return null;
+                return "The invoice no longer exists.";
             }
 
             List<InvoiceItem> items = await _repository.InvoiceItem
                 .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)
-                .OrderBy(x => x.LineNumber)
                 .ToListAsync(cancellationToken);
-            if (items.Count == 0)
+            bool service = SilaReceivingRules.IsServiceInvoice(invoice);
+            bool grnPosted = service || await _repository.GoodsReceipt
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.BuyerId == posting.BuyerId && x.IsActive)
+                .AnyAsync(cancellationToken);
+            List<string> missing = SilaInvoiceLifecycle.Missing(invoice, items, !service, grnPosted, posting.CompanyCode);
+            missing.AddRange(SilaInvoiceLifecycle.MissingContract(template, SilaInvoicePosting.TextOf(document.Header)));
+            if (missing.Count == 0)
             {
                 return null;
             }
 
-            List<Guid> poItemIds = items.Where(x => x.PurchaseOrderItemId != null).Select(x => x.PurchaseOrderItemId!.Value).ToList();
-            Dictionary<Guid, PurchaseOrderItem> poItems = await _repository.PurchaseOrderItem
-                .FindByCondition(x => poItemIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, cancellationToken);
-            string? supplierCode = invoice.SilaSupplierId == null
-                ? null
-                : await _repository.SilaSupplier.FindByCondition(x => x.Id == invoice.SilaSupplierId.Value).Select(x => x.SupplierCode).FirstOrDefaultAsync(cancellationToken);
-            List<string> grnNumbers = await _repository.GoodsReceipt
-                .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)
-                .OrderBy(x => x.DateCreated)
-                .Select(x => x.GrnNumber)
-                .ToListAsync(cancellationToken);
+            return SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missing);
+        }
 
-            ErpDocument document = new ErpDocument();
-            document.Header.Add(("InvoiceNumber", invoice.InvoiceNumber));
-            document.Header.Add(("InvoiceDate", invoice.InvoiceDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
-            document.Header.Add(("SupplierCode", supplierCode));
-            document.Header.Add(("SupplierName", invoice.SupplierName));
-            document.Header.Add(("PoNumber", invoice.PoNumber));
-            document.Header.Add(("GrnNumber", grnNumbers.Count == 0 ? null : string.Join(",", grnNumbers)));
-            document.Header.Add(("CompanyCode", posting.CompanyCode));
-            document.Header.Add(("Currency", invoice.Currency));
-            document.Header.Add(("GrossAmount", invoice.GrossAmount));
-            foreach (InvoiceItem item in items)
+        /// <summary>A confirmed SAP invoice, or an unknown result, is not sent again.</summary>
+        private async Task<string?> InvoiceAlreadyAcceptedAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
+        {
+            List<InventoryErpPosting> others = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.Id != posting.Id && x.BuyerId == posting.BuyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == posting.ReferenceId)
+                .ToListAsync(cancellationToken);
+            if (others.Any(x => x.Status == Common.SILA_POSTING_UNKNOWN))
             {
-                PurchaseOrderItem? poItem = item.PurchaseOrderItemId != null ? poItems.GetValueOrDefault(item.PurchaseOrderItemId.Value) : null;
-                document.Items.Add(new List<(string, object?)>
-                {
-                    ("LineNumber", item.LineNumber),
-                    ("PoLineNumber", poItem?.LineNumber),
-                    ("MaterialCode", poItem?.MaterialCode),
-                    ("Description", item.Description),
-                    ("Quantity", item.Quantity),
-                    ("UnitPrice", item.UnitPrice),
-                    ("Amount", item.Amount)
-                });
+                return await FinishAsync(posting, Common.SILA_POSTING_UNKNOWN, null,
+                    "Another posting of this invoice is POSTING_UNKNOWN. Reconcile it before SAP is called.", cancellationToken);
             }
 
-            return document;
+            InventoryErpPosting? accepted = others.FirstOrDefault(SilaTrackerRules.ErpAlreadyAccepted);
+            if (accepted == null && others.All(x => x.Status != Common.SILA_POSTING_POSTED))
+            {
+                return null;
+            }
+
+            accepted ??= others.First(x => x.Status == Common.SILA_POSTING_POSTED);
+            posting.ErpReference ??= accepted.ErpReference;
+            posting.Status = Common.SILA_POSTING_ERP_ACCEPTED;
+            return await SilaPostingRecovery.FinalizeLocalAsync(
+                _repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
+        }
+
+        private async Task<IntegrationApiDto> ResolveInvoiceApiAsync(Guid organizationId, string? companyCode, CancellationToken cancellationToken)
+        {
+            ApiIntegrationConfiguration? configuration = await SilaInvoicePosting.FindInvoiceApiAsync(_repository, organizationId, companyCode, cancellationToken);
+            if (configuration == null)
+            {
+                return new IntegrationApiDto { Configured = false };
+            }
+
+            return new IntegrationApiDto
+            {
+                Configured = true,
+                ProcessType = IntegrationProcessType.POST_INVOICE,
+                ConfigurationId = configuration.Id,
+                Name = configuration.Name,
+                SystemName = configuration.SystemName,
+                EntityCode = configuration.EntityCode,
+                BaseUrl = configuration.BaseUrl,
+                ResourcePath = configuration.ResourcePath,
+                HttpMethod = configuration.HttpMethod,
+                PayloadFormat = configuration.PayloadFormat,
+                RequestBody = configuration.RequestBody
+            };
         }
 
         // The JSON payload: each field under its mapped ERP name, or its own name in camelCase.

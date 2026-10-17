@@ -6,6 +6,7 @@ using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.LoggerServices;
 
@@ -20,12 +21,14 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
         private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
 
-        public PostSilaGoodsReceiptCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator)
+        public PostSilaGoodsReceiptCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator, IConfiguration configuration)
         {
             _repository = repository;
             _logger = logger;
             _mediator = mediator;
+            _configuration = configuration;
         }
 
         public Task<Guid> Handle(PostSilaGoodsReceiptCommand request, CancellationToken cancellationToken)
@@ -196,19 +199,19 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
 
             if (invoice != null)
             {
-                invoice.Status = Common.SILA_INVOICE_GRN_POSTED;
                 invoice.PurchaseOrderId = purchaseOrder.Id;
                 invoice.PoNumber = purchaseOrder.PoNumber;
                 invoice.SupplierId ??= purchaseOrder.SupplierId;
                 invoice.SupplierName ??= purchaseOrder.SupplierName;
-
-                // Invoice follows its GRN to the ERP when a GRN posting was queued.
-                if (invoice.ErpPostingId == null && inventoryAccepted)
+                if (inventoryAccepted)
                 {
-                    InventoryErpPosting invoicePosting = ledger.QueueErpPosting(
-                        Common.SILA_REF_INVOICE, invoice.Id, invoice.InvoiceNumber ?? invoice.FileName, location.Id, Common.SILA_MOVEMENT_INVOICE);
-                    invoicePosting.CompanyCode = companyCode;
-                    invoice.ErpPostingId = invoicePosting.Id;
+                    // The supplier invoice stays here until SAP confirms the goods receipt and the user submits it.
+                    invoice.Status = Common.SILA_INVOICE_GRN_IN_PROGRESS;
+                }
+                else
+                {
+                    await SilaGrnDocument.StoreAsync(_repository, _logger, _configuration[Common.BASE_FOLDER_PATH], receipt, invoice, null, cancellationToken);
+                    invoice.Status = Common.SILA_INVOICE_READY;
                 }
             }
 

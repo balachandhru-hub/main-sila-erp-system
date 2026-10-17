@@ -51,5 +51,38 @@ namespace Buyer.Domain.Dtos
         public string? ReconciliationWarning { get; set; }
         /// <summary>SHA-256 of the stored file.</summary>
         public string? ContentHash { get; set; }
+
+        /// <summary>The user can submit this invoice. Posting does not start until they do.</summary>
+        public bool CanSubmitInvoice { get; set; }
+
+        public string? PaymentStatus { get; set; }
+        /// <summary>NOT CONFIGURED when no payment-status API exists.</summary>
+        public string? PaymentIntegration { get; set; }
+        public decimal? OutstandingAmount { get; set; }
+        public List<SilaInvoiceDocumentDto> Documents { get; set; } = new();
+        public List<SilaInvoiceStepDto> Timeline { get; set; } = new();
+    }
+
+    public class SilaInvoiceDocumentDto
+    {
+        public string DocumentType { get; set; } = string.Empty;
+        public string? GrnNumber { get; set; }
+        public string? PoNumber { get; set; }
+        public DateTime? GeneratedOn { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public Guid? GoodsReceiptId { get; set; }
+    }
+
+    public class SilaInvoiceStepDto
+    {
+        public string Step { get; set; } = string.Empty;
+        /// <summary>SUCCESS | FAILED | PENDING | NOT_STARTED</summary>
+        public string Status { get; set; } = string.Empty;
+    }
+
+    public class SilaInvoiceDecisionDto
+    {
+        public bool Approve { get; set; }
+        public string? Comment { get; set; }
     }
 }

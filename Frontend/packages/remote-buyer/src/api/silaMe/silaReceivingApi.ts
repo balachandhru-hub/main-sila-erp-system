@@ -202,6 +202,29 @@ export interface SilaInvoiceDetail extends SilaInvoice {
   /** Net + tax differs from gross by more than the tolerance. */
   reconciliationWarning?: string | null;
   contentHash?: string | null;
+  /** The user can submit this invoice. Posting does not start until they do. */
+  canSubmitInvoice?: boolean;
+  paymentStatus?: string | null;
+  /** NOT CONFIGURED when no payment-status API exists. */
+  paymentIntegration?: string | null;
+  outstandingAmount?: number | null;
+  documents?: SilaInvoiceDocument[];
+  timeline?: SilaInvoiceStep[];
+}
+
+export interface SilaInvoiceDocument {
+  documentType: string;
+  grnNumber?: string | null;
+  poNumber?: string | null;
+  generatedOn?: string | null;
+  fileName: string;
+  goodsReceiptId?: string | null;
+}
+
+export interface SilaInvoiceStep {
+  step: string;
+  /** SUCCESS | FAILED | PENDING | NOT_STARTED */
+  status: string;
 }
 
 export interface SilaInvoiceWrite {
@@ -237,6 +260,9 @@ const normalizeInvoice = (invoice: SilaInvoiceDetail): SilaInvoiceDetail => ({
   ...invoice,
   items: list(invoice.items),
   goodsReceipts: list(invoice.goodsReceipts),
+  documents: list(invoice.documents),
+  timeline: list(invoice.timeline),
+  canSubmitInvoice: Boolean(invoice.canSubmitInvoice),
 });
 
 const call = async <T>(request: () => Promise<{ data: T }>, fallback: string): Promise<T> => {
@@ -313,6 +339,17 @@ export const updateInvoice = async (invoiceId: string, request: SilaInvoiceWrite
 /** The stored invoice file, to open or download. */
 export const getInvoiceFile = async (invoiceId: string): Promise<Blob> =>
   call(() => axiosInstance.get<Blob>(`${BASE}/invoices/${invoiceId}/file`, { responseType: "blob" }), "Could not open the invoice file.");
+
+/** The GRN PDF stored against the invoice. */
+export const getInvoiceGrnPdf = async (invoiceId: string, goodsReceiptId: string): Promise<Blob> =>
+  call(() => axiosInstance.get<Blob>(`${BASE}/invoices/${invoiceId}/grn-pdf/${goodsReceiptId}`, { responseType: "blob" }), "Could not open the GRN PDF.");
+
+/** Validates, then approves or posts. A 404 is an error: it must not fall through to another post. */
+export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
+  normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/submit`), "Could not submit the invoice."));
+
+export const decideInvoice = async (invoiceId: string, approve: boolean, comment: string): Promise<SilaInvoiceDetail> =>
+  normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/approval`, { approve, comment: comment.trim() || null }), "Could not record the approval."));
 
 export const getErpPostings = async (status: string, search: string, page: SilaPage): Promise<SilaErpPosting[]> =>
   list(await call(() => axiosInstance.get<SilaErpPosting[]>(`${BASE}/erp-postings`, {

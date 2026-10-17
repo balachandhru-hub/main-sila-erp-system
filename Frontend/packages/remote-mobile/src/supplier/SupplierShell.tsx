@@ -1,7 +1,16 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
+import { PoweredFooter } from '../components/StateViews';
 import { useGo, useMobileBase } from '../navigation';
 import { visibleSupplierModules } from './nav';
+
+const ICONS: Record<string, string> = {
+  home: '⌂',
+  sales: '⚑',
+  orders: '▤',
+  inventory: '▦',
+  more: '☰',
+};
 
 const primaryOf = (path: string): string => {
   if (path.startsWith('supplier/sales')) return 'sales';
@@ -11,7 +20,7 @@ const primaryOf = (path: string): string => {
   return 'more';
 };
 
-/** Sidebar on a wide screen, five-item bar on a phone. */
+/** Same phone column and bottom bar as SILA Store. Supplier activities stay in the tabs. */
 const SupplierShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const go = useGo();
   const base = useMobileBase();
@@ -19,33 +28,24 @@ const SupplierShell: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const relative = pathname.slice(base.length).replace(/^\/+/, '');
   const current = primaryOf(relative);
   const primary = visibleSupplierModules('primary');
-  const more = visibleSupplierModules('more');
 
   return (
-    <div className="sp-shell">
-      <aside className="sp-side" aria-label="Supplier">
-        <strong className="sp-mark">SILA Supplier</strong>
-        {primary.map((item) => (
-          <button key={item.id} type="button" aria-current={current === item.id ? 'page' : undefined} onClick={() => go(item.to)}>
-            {item.label}
-          </button>
-        ))}
-        <h2>Workspace</h2>
-        {more.map((item) => (
-          <button key={item.id} type="button" aria-current={relative.startsWith(item.to) ? 'page' : undefined} onClick={() => go(item.to)}>
-            {item.label}
-          </button>
-        ))}
-        <h2>App</h2>
-        <button type="button" onClick={() => go('home')}>
-          SILA Store
-        </button>
-      </aside>
-      <div className="sp-main">
+    <div className="sm-root">
+      <div className="sm-app">
         {children}
-        <nav className="sp-tabbar" aria-label="Supplier">
+        <PoweredFooter />
+        <nav className="sm-tabbar" aria-label="Main">
           {primary.map((item) => (
-            <button key={item.id} type="button" className="sp-tab" aria-current={current === item.id ? 'page' : undefined} onClick={() => go(item.to)}>
+            <button
+              key={item.id}
+              type="button"
+              className="sm-tabbar__item"
+              aria-current={current === item.id ? 'page' : undefined}
+              onClick={() => go(item.to)}
+            >
+              <span className="sm-tabbar__icon" aria-hidden="true">
+                {ICONS[item.id] ?? '•'}
+              </span>
               {item.label}
             </button>
           ))}

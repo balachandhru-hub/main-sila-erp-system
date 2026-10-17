@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import TabBar from './components/TabBar';
 import { PoweredFooter } from './components/StateViews';
-import { AccessProvider } from './access';
+import { AccessProvider, useAccess } from './access';
 import { MyLocationProvider } from './location';
 import { MobileBaseProvider } from './navigation';
 import HomeScreen from './screens/home/HomeScreen';
@@ -46,6 +46,7 @@ import ProfileScreen from './screens/more/ProfileScreen';
 import HelpScreen from './screens/more/HelpScreen';
 import { registerMobilePwa } from './pwa';
 import SupplierWorkspace from './supplier/SupplierWorkspace';
+import { isSupplierOnlyRole } from './supplier/roles';
 import './mobile.css';
 
 /** Path the parent route matched (e.g. /mobile): the current path without the splat part. */
@@ -72,29 +73,25 @@ const useInterFont = (): void => {
   }, []);
 };
 
-/** SILA Store: the mobile app of the SILA ME add-on, served by the host at /mobile. */
-const MobileApp: React.FC = () => {
-  const base = useAppBase();
+/** SILA Store for buyer-side users. A supplier role stays inside the supplier workspace. */
+const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
   const { pathname } = useLocation();
-  useInterFont();
-  useEffect(() => {
-    registerMobilePwa();
-  }, []);
-
+  const { person, loading } = useAccess();
   const supplier = pathname === `${base}/supplier` || pathname.startsWith(`${base}/supplier/`);
-  if (supplier) {
+  if (loading && !person) {
     return (
-      <MobileBaseProvider base={base}>
-        <AccessProvider>
-          <SupplierWorkspace />
-        </AccessProvider>
-      </MobileBaseProvider>
+      <div className="sm-root">
+        <div className="sm-app">
+          <p className="sm-meta">Opening SILA…</p>
+        </div>
+      </div>
     );
   }
-
+  if (isSupplierOnlyRole(person?.roleName, person?.roleId) && !supplier) {
+    return <Navigate to={`${base}/supplier`} replace />;
+  }
+  if (supplier) return <SupplierWorkspace />;
   return (
-    <MobileBaseProvider base={base}>
-      <AccessProvider>
         <MyLocationProvider>
           <div className="sm-root">
             <div className="sm-app">
@@ -151,6 +148,21 @@ const MobileApp: React.FC = () => {
             </div>
           </div>
         </MyLocationProvider>
+  );
+};
+
+/** SILA Store: the mobile app of the SILA ME add-on, served by the host at /mobile. */
+const MobileApp: React.FC = () => {
+  const base = useAppBase();
+  useInterFont();
+  useEffect(() => {
+    registerMobilePwa();
+  }, []);
+
+  return (
+    <MobileBaseProvider base={base}>
+      <AccessProvider>
+        <MobileSurface base={base} />
       </AccessProvider>
     </MobileBaseProvider>
   );
