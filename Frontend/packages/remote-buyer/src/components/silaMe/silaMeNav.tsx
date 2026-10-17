@@ -27,7 +27,6 @@ export const SILA_ME_NAV_PATHS = {
   silaSubstitutions: "sila-substitutions",
   silaPos: "sila-pos",
   silaTracker: "sila-transaction-tracker",
-  silaPurchasingTracker: "sila-purchasing-transactions",
   silaMeTracker: "sila-me-transactions",
   silaPurchaseOrders: "sila-purchase-orders",
   silaGoodsReceipts: "sila-goods-receipts",
@@ -134,7 +133,6 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
               : [{
                   label: "Transaction Trackers",
                   items: [
-                    { key: "silaPurchasingTracker" as const, label: "Purchasing Transactions" },
                     { key: "silaMeTracker" as const, label: "SILA ME Transactions" },
                   ],
                 }]),

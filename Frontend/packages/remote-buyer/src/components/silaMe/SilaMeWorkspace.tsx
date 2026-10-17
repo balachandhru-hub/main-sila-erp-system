@@ -131,8 +131,6 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       case "silaErpPostings":
       case "silaMeTracker":
         return <SilaConsolidatedTracker tracker="SILA_ME" canReprocess={can.manageErpPosting} />;
-      case "silaPurchasingTracker":
-        return <SilaConsolidatedTracker tracker="PURCHASING" canReprocess={can.manageErpPosting} />;
       case "silaPurchaseOrders":
         return <SilaPurchaseOrdersOpen />;
       case "silaGoodsReceipts":
