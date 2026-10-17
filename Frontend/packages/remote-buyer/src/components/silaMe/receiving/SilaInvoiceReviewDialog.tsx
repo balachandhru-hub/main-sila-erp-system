@@ -14,6 +14,7 @@ import {
   reconcileErpPosting,
   refreshInvoicePosting,
   reprocessErpPosting,
+  reprocessInvoiceAttachment,
   rereadInvoice,
   submitInvoice,
   updateInvoice,
@@ -55,7 +56,7 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
 ];
 
 type Tab = "review" | "matching" | "posting" | "history";
-type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh" | "link";
+type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
@@ -789,6 +790,36 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                     )}
                   </div>
                 )}
+                <div>
+                  <h3 className="sila-section-title">S/4 posting</h3>
+                  <p className="srcv-sub">SAP Invoice Number: {invoice.erpReference || "—"}</p>
+                  <p className="srcv-sub">Fiscal Year: {invoice.fiscalYear || "—"}</p>
+                  <p className="srcv-sub">Posting Status: {invoice.erpStatus ? receivingLabel(invoice.erpStatus) : "—"}</p>
+                </div>
+                <div>
+                  <h3 className="sila-section-title">S/4 attachment</h3>
+                  <p className="srcv-sub">Business Object: {invoice.attachment?.businessObject || "Supplier Invoice"}</p>
+                  <p className="srcv-sub">Business Object Type: {invoice.attachment?.businessObjectType || "BUS2081"}</p>
+                  <p className="srcv-sub">Linked SAP Object Key: {invoice.attachment?.linkedSapObjectKey || "—"}</p>
+                  <p className="srcv-sub">Document: {invoice.attachment?.fileName || invoice.fileName || "—"}</p>
+                  <p className="srcv-sub">Attachment Status: {invoice.attachment?.status || "Not started"}</p>
+                  <p className="srcv-sub">Last Attempt: {invoice.attachment?.lastAttempt ? invoice.attachment.lastAttempt.replace("T", " ").slice(0, 19) : "—"}</p>
+                  {invoice.attachment?.message && <p className="srcv-sub">{invoice.attachment.message}</p>}
+                  {invoice.attachment?.canReprocess && (
+                    <button
+                      type="button"
+                      className="sila-btn sila-btn--secondary sila-btn--sm"
+                      disabled={busy !== null}
+                      onClick={() => run("attachment", async () => {
+                        show(await reprocessInvoiceAttachment(invoiceId));
+                        onChanged();
+                        toastService.success("Attachment reprocessed. The invoice posting was not sent again.");
+                      })}
+                    >
+                      {busy === "attachment" ? "Reprocessing..." : "Reprocess Attachment"}
+                    </button>
+                  )}
+                </div>
                 {(invoice.timeline ?? []).length > 0 && (
                   <div>
                     <h3 className="sila-section-title">Lifecycle</h3>

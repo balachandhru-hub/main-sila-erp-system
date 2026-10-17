@@ -70,9 +70,16 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             }
 
             detail.SourceSystem = "SILA";
-            detail.TargetSystem = posting.IntegrationSystem ?? "SAP";
+            detail.TargetSystem = posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT ? "S4" : posting.IntegrationSystem ?? "SAP";
             detail.BusinessReference = posting.ReferenceNumber;
             detail.LocalReference = posting.ReferenceNumber;
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT)
+            {
+                Invoice? attached = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == buyerId);
+                detail.BusinessReference = attached?.InvoiceNumber ?? posting.ReferenceNumber;
+                detail.LocalReference = "SAP " + (string.IsNullOrWhiteSpace(posting.ErpReference) ? "—" : posting.ErpReference);
+            }
+
             if (posting.ReferenceType == Common.SILA_REF_INVOICE)
             {
                 Invoice? invoice = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == buyerId);

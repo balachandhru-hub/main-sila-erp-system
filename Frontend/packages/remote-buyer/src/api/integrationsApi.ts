@@ -34,6 +34,7 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
   { value: "POST_GRN", label: "Goods receipt (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME goods receipts waiting for ERP posting. Mapping is optional: it renames the payload fields." },
   { value: "GET_POS_SALE", label: "POS sales (read from ERP)", side: "buyer", hasMapping: true, pull: "check" },
   { value: "POST_INVOICE", label: "Supplier invoice (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME invoices once their goods receipt reached the ERP. Mapping is optional: it renames the payload fields (Invoice.*). Configure one per company code to route SAP or Ariba." },
+  { value: "SUPPLIER_INVOICE_ATTACHMENT", label: "Supplier Invoice Attachment", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called after FIVE S4-INVOICE POSTING has stored the SAP supplier invoice number and fiscal year. Sends API_CV_ATTACHMENT_SRV CreateUrlAsAttachment for business object BUS2081. A failed attachment does not change the invoice posting. Map InvoiceAttachment.* (BusinessObjectTypeName, LinkedSAPObjectKey, Url, FileName)." },
   { value: "GET_SUPPLIER", label: "Supplier master (read from ERP)", side: "buyer", hasMapping: true, pull: "full" },
   { value: "GET_PO", label: "Purchase orders (read from ERP)", side: "buyer", hasMapping: true, pull: "full" },
   { value: "EXTRACT_INVOICE", label: "Invoice extraction (external OCR)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called when an invoice is read and the OCR settings use the external reader. Sends {fileName, contentType, contentBase64}; map the answer to InvoiceExtraction.* fields." },
@@ -41,7 +42,7 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
 
 /** Push types send data to the external system (EXTRACT_INVOICE sends the file and reads the answer); every other type reads from it. */
 export const isPushProcess = (processType: string): boolean =>
-  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE" || processType.toUpperCase() === "UPDATE_STOCK";
+  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE" || processType.toUpperCase() === "UPDATE_STOCK" || processType.toUpperCase() === "SUPPLIER_INVOICE_ATTACHMENT";
 
 /** The API types one side can configure. */
 export const integrationProcessTypesFor = (side: IntegrationSide): IntegrationProcessType[] =>

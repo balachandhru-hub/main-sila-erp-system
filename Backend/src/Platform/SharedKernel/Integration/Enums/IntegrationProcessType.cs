@@ -22,6 +22,8 @@ namespace SharedKernel.Integration.Enums
         POST_GRN,
         GET_POS_SALE,
         POST_INVOICE,
+        /// <summary>Attaches a URL to an S/4 supplier invoice (API_CV_ATTACHMENT_SRV). Separate from POST_INVOICE.</summary>
+        SUPPLIER_INVOICE_ATTACHMENT,
         GET_SUPPLIER,
         GET_PO,
         EXTRACT_INVOICE,

@@ -125,10 +125,17 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return posting.Status;
             }
 
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT)
+            {
+                await SilaInvoiceAttachment.SendPendingAsync(
+                    _repository, _logger, _mediator, _configuration[SilaInvoiceAttachment.PUBLIC_BASE], posting, Guid.Empty, cancellationToken);
+                return posting.Status;
+            }
+
             // A document number is already stored. Finish SILA only; do not send the movement again.
             if (SilaTrackerRules.ErpAlreadyAccepted(posting))
             {
-                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
+                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken, _configuration[Common.BASE_FOLDER_PATH], _mediator, _configuration[SilaInvoiceAttachment.PUBLIC_BASE]);
             }
 
             if (posting.ReferenceType == Common.SILA_REF_POS_SALE
@@ -669,7 +676,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 posting.ErrorMessage = null;
                 SilaInvoicePosting.RememberResponse(_repository, posting, Guid.Empty);
                 await _repository.SaveAsync();
-                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, null, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
+                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, null, cancellationToken, _configuration[Common.BASE_FOLDER_PATH], _mediator, _configuration[SilaInvoiceAttachment.PUBLIC_BASE]);
             }
 
             posting.Status = status;
@@ -1016,7 +1023,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             posting.ErpReference ??= accepted.ErpReference;
             posting.Status = Common.SILA_POSTING_ERP_ACCEPTED;
             return await SilaPostingRecovery.FinalizeLocalAsync(
-                _repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
+                _repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken, _configuration[Common.BASE_FOLDER_PATH], _mediator, _configuration[SilaInvoiceAttachment.PUBLIC_BASE]);
         }
 
         private async Task<IntegrationApiDto> ResolveInvoiceApiAsync(Guid organizationId, string? companyCode, CancellationToken cancellationToken)

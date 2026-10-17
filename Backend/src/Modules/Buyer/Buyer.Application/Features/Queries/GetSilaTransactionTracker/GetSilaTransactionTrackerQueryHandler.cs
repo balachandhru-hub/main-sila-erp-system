@@ -370,7 +370,7 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     Plant = place.Plant,
                     StorageLocation = place.Storage,
                     SourceSystem = "SILA",
-                    TargetSystem = integration ?? "SAP",
+                    TargetSystem = posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT ? "S4" : integration ?? "SAP",
                     BusinessReference = posting.ReferenceNumber,
                     UserId = posting.CreatedBy == Guid.Empty ? null : posting.CreatedBy,
                     ReceiveStatus = stages.Receive,

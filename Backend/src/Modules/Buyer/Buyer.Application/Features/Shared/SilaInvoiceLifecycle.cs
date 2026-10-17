@@ -12,6 +12,11 @@ namespace Buyer.Application.Features.Shared
     {
         public const string API_GET_PO = "FIVE S4 - GET PO";
         public const string API_INVOICE = "FIVE S4-INVOICE POSTING";
+        public const string API_ATTACHMENT = "FIVE S4 - INVOICE ATTACHMENT";
+        public const string ATTACHMENT_SERVICE = "API_CV_ATTACHMENT_SRV";
+        public const string ATTACHMENT_PATH = "/sap/opu/odata/sap/API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment";
+        public const string BUSINESS_OBJECT = "BUS2081";
+        public const string BUSINESS_OBJECT_LABEL = "Supplier Invoice";
         public const string MISSING = "INVOICE_POSTING_REQUIRED_FIELD_MISSING";
         public const int VERSION = 1;
 
@@ -144,7 +149,8 @@ namespace Buyer.Application.Features.Shared
             bool grnExists,
             bool grnPosted,
             bool grnPdf,
-            string? erpStatus)
+            string? erpStatus,
+            string? attachmentStatus = null)
         {
             string Step(bool done, bool failed) => failed ? "FAILED" : done ? "SUCCESS" : "NOT_STARTED";
             bool submitted = status is Common.SILA_INVOICE_PENDING_APPROVAL or Common.SILA_INVOICE_APPROVED or Common.SILA_INVOICE_READY_TO_POST
@@ -174,7 +180,21 @@ namespace Buyer.Application.Features.Shared
                 new() { Step = "APPROVAL", Status = Step(approved, status == Common.SILA_INVOICE_APPROVAL_REJECTED) },
                 new() { Step = "S/4 INVOICE POSTING", Status = Step(erpSuccess, status == Common.SILA_INVOICE_POSTING_FAILED || status == Common.SILA_INVOICE_GET_PO_FAILED || erpStatus == Common.SILA_POSTING_FAILED) },
                 new() { Step = "LOCAL FINALIZATION", Status = Step(localSuccess, status == Common.SILA_INVOICE_LOCAL_FAILED || erpStatus == Common.SILA_POSTING_FAILED_LOCAL) },
+                new() { Step = "S/4 INVOICE ATTACHMENT", Status = localSuccess ? AttachmentStep(attachmentStatus) : "NOT_STARTED" },
                 new() { Step = "PAYMENT", Status = status is Common.SILA_INVOICE_PAID ? "SUCCESS" : status is Common.SILA_INVOICE_AWAITING_PAYMENT or Common.SILA_INVOICE_PARTIALLY_PAID or Common.SILA_INVOICE_OVERDUE ? "PENDING" : "NOT_STARTED" }
+            };
+        }
+
+        /// <summary>The attachment step. A failed attachment does not change the invoice posting step.</summary>
+        public static string AttachmentStep(string? attachmentStatus)
+        {
+            return attachmentStatus switch
+            {
+                Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED => "SUCCESS",
+                Common.SILA_POSTING_FAILED or Common.SILA_POSTING_SKIPPED or Common.SILA_POSTING_FAILED_LOCAL => "FAILED",
+                Common.SILA_POSTING_UNKNOWN => "UNKNOWN",
+                Common.SILA_POSTING_PENDING => "PENDING",
+                _ => "NOT_STARTED"
             };
         }
     }

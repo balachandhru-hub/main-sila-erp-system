@@ -207,7 +207,11 @@ export interface SilaInvoiceDetail extends SilaInvoice {
   erpPostingId?: string | null;
   erpStatus?: string | null;
   erpReference?: string | null;
+  /** Fiscal year stored from the S/4 invoice posting response. */
+  fiscalYear?: string | null;
   erpMessage?: string | null;
+  /** S/4 URL attachment. Independent of the invoice posting. */
+  attachment?: SilaInvoiceAttachment;
   /** The reading was below the minimum confidence. */
   needsReview: boolean;
   /** "Goods receipt not applicable for a service invoice." */
@@ -265,8 +269,20 @@ export interface SilaInvoiceDocument {
 
 export interface SilaInvoiceStep {
   step: string;
-  /** SUCCESS | FAILED | PENDING | NOT_STARTED */
+  /** SUCCESS | FAILED | PENDING | NOT_STARTED | UNKNOWN */
   status: string;
+}
+
+export interface SilaInvoiceAttachment {
+  businessObject: string;
+  businessObjectType: string;
+  linkedSapObjectKey?: string | null;
+  fileName?: string | null;
+  /** Not started | Pending | Processing | Success | Failed | Unknown */
+  status: string;
+  lastAttempt?: string | null;
+  message?: string | null;
+  canReprocess: boolean;
 }
 
 export interface SilaInvoiceWrite {
@@ -449,6 +465,10 @@ export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetai
     throw new Error(readError(error, "Could not submit the invoice."));
   }
 };
+
+/** Sends only FIVE S4 - INVOICE ATTACHMENT. It does not post the invoice again. */
+export const reprocessInvoiceAttachment = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
+  normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/attachment/reprocess`), "Could not reprocess the attachment."));
 
 /** Reads FIVE S4 - GET PO again and stores the posting values. It does not post the invoice. */
 export const refreshInvoicePosting = async (invoiceId: string): Promise<SilaInvoiceDetail> =>

@@ -43,7 +43,11 @@ namespace Buyer.Domain.Dtos
         public Guid? ErpPostingId { get; set; }
         public string? ErpStatus { get; set; }
         public string? ErpReference { get; set; }
+        /// <summary>Fiscal year returned by FIVE S4-INVOICE POSTING and stored on that posting.</summary>
+        public string? FiscalYear { get; set; }
         public string? ErpMessage { get; set; }
+        /// <summary>The S/4 URL attachment of this supplier invoice. Independent of the invoice posting result.</summary>
+        public SilaInvoiceAttachmentDto Attachment { get; set; } = new();
 
         /// <summary>The reading was below the minimum confidence: check every field before saving.</summary>
         public bool NeedsReview { get; set; }
@@ -106,6 +110,20 @@ namespace Buyer.Domain.Dtos
         public DateTime? GeneratedOn { get; set; }
         public string FileName { get; set; } = string.Empty;
         public Guid? GoodsReceiptId { get; set; }
+    }
+
+    /// <summary>The URL attachment of a posted S/4 supplier invoice.</summary>
+    public class SilaInvoiceAttachmentDto
+    {
+        public string BusinessObject { get; set; } = "Supplier Invoice";
+        public string BusinessObjectType { get; set; } = "BUS2081";
+        public string? LinkedSapObjectKey { get; set; }
+        public string? FileName { get; set; }
+        /// <summary>Not started, Pending, Processing, Success, Failed, or Unknown.</summary>
+        public string Status { get; set; } = "Not started";
+        public DateTime? LastAttempt { get; set; }
+        public string? Message { get; set; }
+        public bool CanReprocess { get; set; }
     }
 
     public class SilaInvoiceStepDto

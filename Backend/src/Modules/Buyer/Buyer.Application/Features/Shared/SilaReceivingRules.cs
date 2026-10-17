@@ -381,6 +381,12 @@ namespace Buyer.Application.Features.Shared
                 : posting?.ErrorMessage ?? blocked;
             string paymentIntegration = await SilaInvoicePosting.PaymentIntegrationAsync(repository, invoice.BuyerId, cancellationToken);
             bool supplierMatched = invoice.SilaSupplierId != null || invoice.SupplierId != null || !string.IsNullOrWhiteSpace(invoice.SupplierName);
+            InventoryErpPosting? attachment = await repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT && x.ReferenceId == invoice.Id)
+                .OrderByDescending(x => x.DateCreated)
+                .FirstOrDefaultAsync(cancellationToken);
+            SilaInvoiceAttachmentDto attachmentScreen = SilaInvoiceAttachment.Describe(posting, attachment, invoice);
 
             return new SilaInvoiceDetailDto
             {
@@ -429,7 +435,9 @@ namespace Buyer.Application.Features.Shared
                 ErpPostingId = invoice.ErpPostingId,
                 ErpStatus = posting?.Status,
                 ErpReference = posting?.ErpReference,
+                FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting?.ErpResponsePayload),
                 ErpMessage = erpMessage,
+                Attachment = attachmentScreen,
                 NeedsReview = invoice.Status == SilaOcrSettings.INVOICE_REVIEW_REQUIRED,
                 InvoiceType = invoice.InvoiceType,
                 NetAmount = invoice.NetAmount,
@@ -458,7 +466,8 @@ namespace Buyer.Application.Features.Shared
                     receipts.Count > 0,
                     grnConfirmed,
                     pdfs.Count > 0,
-                    posting?.Status)
+                    posting?.Status,
+                    attachment?.Status)
             };
         }
 

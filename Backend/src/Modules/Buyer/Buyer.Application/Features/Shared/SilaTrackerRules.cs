@@ -371,6 +371,11 @@ namespace Buyer.Application.Features.Shared
                 return "INVOICE_POSTING";
             }
 
+            if (referenceType == Common.SILA_REF_INVOICE_ATTACHMENT)
+            {
+                return Common.SILA_MOVEMENT_INVOICE_ATTACHMENT;
+            }
+
             return string.IsNullOrWhiteSpace(referenceType) ? movementType : referenceType;
         }
 

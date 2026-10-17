@@ -304,13 +304,16 @@ namespace Buyer.Domain.Common
                 public const string SILA_PROPOSAL_ACCEPTED = "ACCEPTED";
                 public const string SILA_PROPOSAL_DISMISSED = "DISMISSED";
                 public const string SILA_REF_INVOICE = "INVOICE";
+                public const string SILA_REF_INVOICE_ATTACHMENT = "INVOICE_ATTACHMENT";
                 public const string SILA_REF_MATERIAL_PRICE = "MATERIAL_PRICE";
                 public const string SILA_REF_PURCHASE_REQUEST = "PURCHASE_REQUEST";
                 public const string SILA_REF_PHYSICAL_INVENTORY = "PHYSICAL_INVENTORY";
                 public const string SILA_REF_SUBSTITUTION = "SUBSTITUTION";
                 public const string SILA_REF_MASTER_DATA = "MASTER_DATA";
                 public const string SILA_MOVEMENT_INVOICE = "INVOICE";
+                public const string SILA_MOVEMENT_INVOICE_ATTACHMENT = "SUPPLIER_INVOICE_ATTACHMENT";
                 public const string INTEGRATION_PROCESS_POST_INVOICE = "POST_INVOICE";
+                public const string INTEGRATION_PROCESS_SUPPLIER_INVOICE_ATTACHMENT = "SUPPLIER_INVOICE_ATTACHMENT";
                 public const string INTEGRATION_PROCESS_GET_SUPPLIER = "GET_SUPPLIER";
                 public const string INTEGRATION_PROCESS_EXTRACT_INVOICE = "EXTRACT_INVOICE";
                 public const string INTEGRATION_PROCESS_GET_PO = "GET_PO";

@@ -53,7 +53,7 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
             if (SilaTrackerRules.ErpAlreadyAccepted(posting))
             {
                 string? previous = posting.ErrorMessage;
-                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
+                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken, _configuration[Common.BASE_FOLDER_PATH], _mediator, _configuration[SilaInvoiceAttachment.PUBLIC_BASE]);
                 _logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
                 return posting.Id;
             }

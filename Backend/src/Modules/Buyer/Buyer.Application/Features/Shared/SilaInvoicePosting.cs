@@ -569,6 +569,12 @@ namespace Buyer.Application.Features.Shared
             return ReadNamed(body, InvoiceReferenceNames);
         }
 
+        /// <summary>Fiscal year persisted on the invoice posting response. The attachment key is not built until this is stored.</summary>
+        public static string? ReadFiscalYear(string? body)
+        {
+            return ReadNamed(body, FiscalYearNames);
+        }
+
         public static void RememberResponse(IRepositoryWrapper repository, InventoryErpPosting posting, Guid userId)
         {
             if (posting.ReferenceType != Common.SILA_REF_INVOICE)

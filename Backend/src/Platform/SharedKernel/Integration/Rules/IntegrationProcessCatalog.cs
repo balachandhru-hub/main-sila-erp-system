@@ -58,6 +58,8 @@ namespace SharedKernel.Integration.Rules
             },
             // SILA ME receiving: the invoice is posted after its goods receipt; suppliers and purchase orders are read from the ERP.
             [IntegrationProcessType.POST_INVOICE] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Invoice" },
+            // URL attachment on a supplier invoice that S/4 has already created. It does not post the invoice.
+            [IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT] = new IntegrationProcessInfo { IsPush = true, MappingArea = "InvoiceAttachment" },
             [IntegrationProcessType.GET_SUPPLIER] = new IntegrationProcessInfo
             {
                 CanPull = true,

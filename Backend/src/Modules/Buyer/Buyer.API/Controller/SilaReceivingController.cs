@@ -2,6 +2,7 @@ using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
 using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
 using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
+using Buyer.Application.Features.Commands.ReprocessSilaInvoiceAttachment;
 using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
@@ -402,6 +403,24 @@ namespace Buyer.API.Controllers
                 InvoiceId = invoiceId
             });
             _logger.LogDebug($"Invoice posting data refreshed. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/attachment/reprocess")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("ReprocessSilaInvoiceAttachment")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> ReprocessAttachment([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Reprocessing invoice attachment. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new ReprocessSilaInvoiceAttachmentCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice attachment reprocess finished. InvoiceId: {invoiceId}, Status: {result.Attachment.Status}");
             return Ok(result);
         }
 
