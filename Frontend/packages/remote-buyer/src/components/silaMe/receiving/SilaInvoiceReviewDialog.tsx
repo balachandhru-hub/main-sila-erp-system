@@ -207,6 +207,16 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   });
 
   const handleSubmit = () => run("submit", async () => {
+    // A posting that already failed is sent again through the existing reprocess route.
+    // Submit would start the purchase-order read again, and this server may not have that action.
+    if (invoice?.erpPostingId && (invoice.status === "ERP_POSTING_FAILED" || (invoice.erpStatus === "FAILED" && !posted))) {
+      await reprocessErpPosting(invoice.erpPostingId);
+      show(await getInvoice(invoiceId));
+      setDeferred(false);
+      onChanged();
+      toastService.success("Invoice posting resubmitted from the stored posting data.");
+      return;
+    }
     const data = await submitInvoice(invoiceId);
     show(data);
     setDeferred(false);

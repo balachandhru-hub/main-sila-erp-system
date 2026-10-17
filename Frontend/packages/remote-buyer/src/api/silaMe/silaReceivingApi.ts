@@ -1,4 +1,5 @@
 import axiosInstance from "../axiosInstance";
+import axios from "axios";
 import { readError } from "../readError";
 
 export interface SilaOpenPurchaseOrder {
@@ -381,8 +382,17 @@ export const getInvoiceGrnPdf = async (invoiceId: string, goodsReceiptId: string
   call(() => axiosInstance.get<Blob>(`${BASE}/invoices/${invoiceId}/grn-pdf/${goodsReceiptId}`, { responseType: "blob" }), "Could not open the GRN PDF.");
 
 /** Validates, then approves or posts. A 404 is an error: it must not fall through to another post. */
-export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
-  normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/submit`), "Could not submit the invoice."));
+export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> => {
+  try {
+    const response = await axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/submit`);
+    return normalizeInvoice(response.data);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.status === 404 && !readError(error, "")) {
+      throw new Error("This server has no invoice submit action, so the invoice was not sent. Use Reprocess when a posting was already created.");
+    }
+    throw new Error(readError(error, "Could not submit the invoice."));
+  }
+};
 
 /** Reads FIVE S4 - GET PO again and stores the posting values. It does not post the invoice. */
 export const refreshInvoicePosting = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
