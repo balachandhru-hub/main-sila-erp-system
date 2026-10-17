@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Buyer.Application.Features.Commands.PostPendingErpPostings;
 using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
@@ -274,8 +275,12 @@ namespace Buyer.Application.Features.Shared
         public static async Task<ApiIntegrationConfiguration?> FindInvoiceApiAsync(
             IRepositoryWrapper repository, Guid organizationId, string? companyCode, CancellationToken cancellationToken)
         {
-            List<ApiIntegrationConfiguration> configurations = await SilaErpPull.ActiveConfigurationsAsync(
-                repository, organizationId, IntegrationProcessType.POST_INVOICE, cancellationToken);
+            // The configured API keeps its own process type (POST_FIVE_S4_INVOICE_POSTING). Match it by name.
+            List<ApiIntegrationConfiguration> configurations = await repository.ApiIntegrationConfiguration
+                .FindByCondition(x => IntegrationLookup.BuyerIdsOf(repository, organizationId).Contains(x.BuyerId)
+                    && x.Status == IntegrationConfigurationStatus.ACTIVE
+                    && x.IsActive)
+                .ToListAsync(cancellationToken);
             bool named(ApiIntegrationConfiguration configuration) => configuration.Name.Equals(SilaInvoiceLifecycle.API_INVOICE, StringComparison.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(companyCode))
             {
@@ -314,9 +319,7 @@ namespace Buyer.Application.Features.Shared
             PurchaseOrder? order = invoice.PurchaseOrderId == null
                 ? null
                 : await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId);
-            string? supplierCode = invoice.SilaSupplierId == null
-                ? null
-                : await repository.SilaSupplier.FindByCondition(x => x.Id == invoice.SilaSupplierId.Value).Select(x => x.SupplierCode).FirstOrDefaultAsync(cancellationToken);
+            string? supplierCode = await SupplierCodeAsync(repository, invoice, cancellationToken);
             List<GoodsReceipt> receipts = await repository.GoodsReceipt
                 .FindByCondition(x => x.InvoiceId == invoice.Id && x.BuyerId == buyerId && x.IsActive)
                 .OrderBy(x => x.DateCreated)
@@ -385,9 +388,16 @@ namespace Buyer.Application.Features.Shared
             return values;
         }
 
+        /// <summary>The same supplier id and the same supplier invoice number cannot be posted twice.</summary>
+        public static bool SameSupplier(Invoice left, Invoice right)
+        {
+            return SupplierIds(left).Overlaps(SupplierIds(right));
+        }
+
         public static async Task<string?> DuplicateMessageAsync(IRepositoryWrapper repository, Invoice invoice, string? companyCode, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber))
+            _ = companyCode;
+            if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber) || SupplierIds(invoice).Count == 0)
             {
                 return null;
             }
@@ -396,40 +406,22 @@ namespace Buyer.Application.Features.Shared
             List<Invoice> others = await repository.Invoice
                 .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.Id != invoice.Id && x.IsActive && x.InvoiceNumber == number)
                 .ToListAsync(cancellationToken);
-            if (others.Count == 0)
+            List<Invoice> sameSupplier = others.Where(other => SameSupplier(invoice, other)).ToList();
+            if (sameSupplier.Count == 0)
             {
                 return null;
             }
 
-            List<Guid> postingIds = others.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            List<Guid> postingIds = sameSupplier.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
             Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
                 ? new Dictionary<Guid, InventoryErpPosting>()
                 : await repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
-            List<Guid> orderIds = others.Where(x => x.PurchaseOrderId != null).Select(x => x.PurchaseOrderId!.Value).ToList();
-            Dictionary<Guid, string?> companies = orderIds.Count == 0
-                ? new Dictionary<Guid, string?>()
-                : await repository.PurchaseOrder.FindByCondition(x => orderIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.CompanyCode, cancellationToken);
-            foreach (Invoice other in others)
+            foreach (Invoice other in sameSupplier)
             {
-                bool sameSupplier = (invoice.SilaSupplierId != null && other.SilaSupplierId == invoice.SilaSupplierId)
-                    || (invoice.SupplierId != null && other.SupplierId == invoice.SupplierId)
-                    || (!string.IsNullOrWhiteSpace(invoice.SupplierName) && string.Equals(other.SupplierName, invoice.SupplierName, StringComparison.OrdinalIgnoreCase));
-                if (!sameSupplier)
-                {
-                    continue;
-                }
-
-                string? otherCompany = other.PurchaseOrderId != null && companies.TryGetValue(other.PurchaseOrderId.Value, out string? found) ? found : null;
-                if (!string.IsNullOrWhiteSpace(companyCode) && !string.IsNullOrWhiteSpace(otherCompany)
-                    && !string.Equals(companyCode.Trim(), otherCompany.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 InventoryErpPosting? posting = other.ErpPostingId != null && postings.TryGetValue(other.ErpPostingId.Value, out InventoryErpPosting? row) ? row : null;
                 if (SilaInvoiceLifecycle.AlreadyPosted(other.Status, posting?.ErpReference))
                 {
-                    return "Supplier invoice " + number + " is already posted"
+                    return "Supplier invoice " + number + " for this supplier is already posted"
                         + (string.IsNullOrWhiteSpace(posting?.ErpReference) ? "." : " (SAP " + posting.ErpReference + ").");
                 }
             }
@@ -740,6 +732,187 @@ namespace Buyer.Application.Features.Shared
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Fills the configured supplier-invoice JSON from the invoice, the purchase order and the goods receipt.
+        /// A template that already has {{placeholders}} is left to the normal replacement. Sample values in a
+        /// literal body are not sent.
+        /// </summary>
+        public static (string? Body, List<string> Missing) SupplierInvoiceRequest(string? template, Document document)
+        {
+            List<string> missing = new List<string>();
+            if (string.IsNullOrWhiteSpace(template) || template.Contains("{{", StringComparison.Ordinal))
+            {
+                return (null, missing);
+            }
+
+            JsonNode? root;
+            try
+            {
+                root = JsonNode.Parse(template);
+            }
+            catch (JsonException)
+            {
+                return (null, missing);
+            }
+
+            if (root is not JsonObject header)
+            {
+                return (null, missing);
+            }
+
+            string? Value(string name)
+            {
+                (string Name, object? Field) found = document.Header.LastOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                return found.Name == null ? null : Text(found.Field);
+            }
+
+            string? date = Value("DocumentDate") ?? Value("InvoiceDate");
+            if (!string.IsNullOrWhiteSpace(date) && date.Length == 10)
+            {
+                date += "T00:00";
+            }
+
+            string? supplier = BusinessCode(Value("SupplierCode"));
+            string? currency = Value("Currency");
+            string? company = Value("CompanyCode");
+            string? number = Value("InvoiceNumber");
+            string? gross = Money(Value("GrossAmount"));
+            Set(header, "CompanyCode", company, "CompanyCode, from the purchase order", missing);
+            Set(header, "DocumentDate", date, "Invoice date, from the SILA invoice", missing);
+            Set(header, "PostingDate", date, "Invoice date, from the SILA invoice", missing);
+            Set(header, "DueCalculationBaseDate", date, "Invoice date, from the SILA invoice", missing);
+            Set(header, "TaxDeterminationDate", date, "Invoice date, from the SILA invoice", missing);
+            Set(header, "InvoicingParty", supplier, "Supplier ERP reference, from the purchase order", missing);
+            Set(header, "DocumentCurrency", currency, "Currency, from the SILA invoice", missing);
+            Set(header, "InvoiceGrossAmount", gross, "Invoice amount, from the SILA invoice", missing);
+            Set(header, "SupplierInvoiceIDByInvcgParty", number, "Supplier invoice number, from the SILA invoice", missing);
+            if (header.ContainsKey("ReconciliationAccount"))
+            {
+                header.Remove("ReconciliationAccount");
+            }
+
+            if (header["to_SuplrInvcItemPurOrdRef"] is JsonObject poItems && poItems["results"] is JsonArray)
+            {
+                JsonArray results = new JsonArray();
+                int line = 0;
+                foreach (List<(string Name, object? Value)> item in document.Items)
+                {
+                    line++;
+                    string? ItemValue(string name)
+                    {
+                        (string Name, object? Field) found = item.LastOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                        return found.Name == null ? null : Text(found.Field);
+                    }
+
+                    string? po = ItemValue("PurchaseOrder") ?? Value("PurchaseOrder");
+                    string? poItem = ItemValue("PurchaseOrderItem");
+                    string? quantity = ItemValue("Quantity");
+                    string? amount = Money(ItemValue("Amount"));
+                    string? uom = ItemValue("Uom");
+                    JsonObject row = new JsonObject
+                    {
+                        ["SupplierInvoiceItem"] = line.ToString("00000", CultureInfo.InvariantCulture),
+                        ["PurchaseOrder"] = po,
+                        ["PurchaseOrderItem"] = poItem,
+                        ["DocumentCurrency"] = currency,
+                        ["SupplierInvoiceItemAmount"] = amount,
+                        ["QuantityInPurchaseOrderUnit"] = quantity,
+                        ["PurchaseOrderQuantityUnit"] = uom
+                    };
+                    string? tax = ItemValue("TaxCode") ?? Value("TaxCode");
+                    if (!string.IsNullOrWhiteSpace(tax))
+                    {
+                        row["TaxCode"] = tax;
+                    }
+
+                    Require(po, "Purchase order, from the purchase order", missing);
+                    Require(poItem, "Purchase order item, from the purchase order", missing);
+                    Require(quantity, "Invoice quantity, from the SILA invoice lines", missing);
+                    Require(amount, "Invoice amount, from the SILA invoice lines", missing);
+                    Require(uom, "Unit of measure, from the purchase order", missing);
+                    results.Add(row);
+                }
+
+                poItems["results"] = results;
+            }
+
+            if (header["to_SupplierInvoiceItemGLAcct"] is JsonObject gl)
+            {
+                gl["results"] = new JsonArray();
+            }
+
+            return missing.Count == 0 ? (root.ToJsonString(), missing) : (null, missing.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        }
+
+        private static HashSet<Guid> SupplierIds(Invoice invoice)
+        {
+            HashSet<Guid> ids = new HashSet<Guid>();
+            if (invoice.SilaSupplierId != null && invoice.SilaSupplierId != Guid.Empty)
+            {
+                ids.Add(invoice.SilaSupplierId.Value);
+            }
+
+            if (invoice.SupplierId != null && invoice.SupplierId != Guid.Empty)
+            {
+                ids.Add(invoice.SupplierId.Value);
+            }
+
+            return ids;
+        }
+
+        private static async Task<string?> SupplierCodeAsync(IRepositoryWrapper repository, Invoice invoice, CancellationToken cancellationToken)
+        {
+            List<Guid> ids = SupplierIds(invoice).ToList();
+            if (ids.Count == 0)
+            {
+                return null;
+            }
+
+            List<string> codes = await repository.SilaSupplier
+                .FindByCondition(x => ids.Contains(x.Id) && x.SupplierCode != null && x.SupplierCode != string.Empty)
+                .Select(x => x.SupplierCode)
+                .ToListAsync(cancellationToken);
+            return codes.Select(BusinessCode).FirstOrDefault(x => x != null);
+        }
+
+        private static string? BusinessCode(string? code)
+        {
+            string? text = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+            return text != null && Guid.TryParse(text, out _) ? null : text;
+        }
+
+        private static void Set(JsonObject header, string name, string? value, string missingText, List<string> missing)
+        {
+            if (!header.ContainsKey(name))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                missing.Add(missingText);
+                header[name] = null;
+                return;
+            }
+
+            header[name] = value;
+        }
+
+        private static void Require(string? value, string missingText, List<string> missing)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                missing.Add(missingText);
+            }
+        }
+
+        private static string? Money(string? value)
+        {
+            return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amount)
+                ? amount.ToString("0.00", CultureInfo.InvariantCulture)
+                : value;
         }
 
         private sealed class Snapshot

@@ -64,7 +64,6 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             string? invoiceNumber = string.IsNullOrWhiteSpace(input.InvoiceNumber) ? null : input.InvoiceNumber.Trim();
             Guid? supplierId = input.SupplierId ?? purchaseOrder?.SupplierId;
             string? supplierName = string.IsNullOrWhiteSpace(input.SupplierName) ? purchaseOrder?.SupplierName : input.SupplierName.Trim();
-            await EnsureNotDuplicateAsync(invoice.Id, buyer.Id, invoiceNumber, supplierId, supplierName, cancellationToken);
 
             // The Supplier Master row: the one sent, or the current one unless the supplier name changed.
             if (input.SilaSupplierId != null && input.SilaSupplierId != Guid.Empty)
@@ -89,6 +88,12 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             invoice.InvoiceNumber = invoiceNumber;
             invoice.SupplierId = supplierId;
             invoice.SupplierName = supplierName;
+            string? duplicate = await SilaInvoicePosting.DuplicateMessageAsync(_repository, invoice, purchaseOrder?.CompanyCode, cancellationToken);
+            if (duplicate != null)
+            {
+                _logger.LogError($"Duplicate supplier invoice. InvoiceNumber: {invoiceNumber}, SupplierId: {supplierId}");
+                throw new ConflictCustomException("Duplicate invoice.", duplicate);
+            }
             invoice.InvoiceDate = input.InvoiceDate?.Date;
             invoice.Currency = string.IsNullOrWhiteSpace(input.Currency) ? null : input.Currency.Trim().ToUpperInvariant();
             invoice.GrossAmount = input.GrossAmount;
@@ -186,26 +191,5 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             }
         }
 
-        // One supplier invoice number is entered once per buyer.
-        private async Task EnsureNotDuplicateAsync(Guid invoiceId, Guid buyerId, string? invoiceNumber, Guid? supplierId, string? supplierName, CancellationToken cancellationToken)
-        {
-            if (invoiceNumber == null || (supplierId == null && supplierName == null))
-            {
-                return;
-            }
-
-            bool duplicate = await _repository.Invoice
-                .FindByCondition(x => x.BuyerId == buyerId
-                    && x.IsActive
-                    && x.Id != invoiceId
-                    && x.InvoiceNumber == invoiceNumber
-                    && ((supplierId != null && x.SupplierId == supplierId) || (supplierName != null && x.SupplierName == supplierName)))
-                .AnyAsync(cancellationToken);
-            if (duplicate)
-            {
-                _logger.LogError($"Duplicate supplier invoice. InvoiceNumber: {invoiceNumber}, SupplierId: {supplierId}, SupplierName: {supplierName}");
-                throw new ConflictCustomException("Duplicate invoice.", $"Invoice {invoiceNumber} of this supplier was already entered.");
-            }
-        }
     }
 }

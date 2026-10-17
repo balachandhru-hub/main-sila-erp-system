@@ -111,9 +111,19 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const prefill = invoice && !pastReceipt && invoice.goodsReceiptApplicable !== false && invoice.goodsReceipts.length === 0
     ? toReceivePrefill(invoice)
     : null;
-  const grn = invoice?.goodsReceipts[0];
-  const askSubmit = Boolean(invoice?.canSubmitInvoice && grn && !invoice.goodsReceiptNote);
-  const posted = invoice?.status === "AWAITING_PAYMENT" || invoice?.status === "POSTED" || invoice?.status === "PAID" || invoice?.status === "PARTIALLY_PAID" || invoice?.status === "OVERDUE";
+  const grn = invoice?.goodsReceipts.find((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference)) ?? invoice?.goodsReceipts[0];
+  const postedGrns = (invoice?.goodsReceipts ?? []).filter((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference));
+  const supplierKey = invoice?.silaSupplierId || invoice?.supplierId;
+  const erpAccepted = Boolean(invoice?.erpReference) || invoice?.erpStatus === "POSTED" || invoice?.erpStatus === "ERP_ACCEPTED";
+  const readyToSubmit = Boolean(
+    canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
+    && invoice.status === "GRN_POSTED" && postedGrns.length === 1 && !erpAccepted
+    && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
+  );
+  const canSubmit = Boolean(invoice?.canSubmitInvoice) || readyToSubmit;
+  const askSubmit = Boolean(canSubmit && grn && !invoice?.goodsReceiptNote);
+  const posted = erpAccepted || invoice?.status === "AWAITING_PAYMENT" || invoice?.status === "POSTED" || invoice?.status === "PAID" || invoice?.status === "PARTIALLY_PAID" || invoice?.status === "OVERDUE";
+  const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
 
   const run = async (kind: "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile", action: () => Promise<void>) => {
     setBusy(kind);
@@ -246,7 +256,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Create GRN from invoice
                 </button>
               )}
-              {invoice.canSubmitInvoice && (deferred || !askSubmit) && (
+              {canSubmit && (deferred || !askSubmit) && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                   {busy === "submit" ? "Submitting..." : "Submit invoice"}
                 </button>
@@ -276,7 +286,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p>Status: {receivingLabel(invoice.paymentStatus || invoice.status)}</p>
               </div>
             )}
-            {invoice.status === "ERP_POSTING_FAILED" && (
+            {postingFailed && (
               <div className="sila-alert sila-alert--warning" role="status">
                 <p><strong>INVOICE POSTING FAILED</strong></p>
                 <p>Reason: {invoice.erpMessage || "The ERP did not accept the invoice."}</p>

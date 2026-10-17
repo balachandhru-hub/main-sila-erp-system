@@ -242,13 +242,38 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 && string.IsNullOrWhiteSpace(api.RequestBody)
                 && (string.Equals(api.Name, SilaStockCountSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
                     || api.ProcessType == IntegrationProcessType.UPDATE_STOCK);
-            string body = sapGrn
+            string? invoiceBody = null;
+            if (isInvoice && string.Equals(api.Name, SilaInvoiceLifecycle.API_INVOICE, StringComparison.OrdinalIgnoreCase))
+            {
+                SilaInvoicePosting.Document invoiceDocument = new SilaInvoicePosting.Document();
+                foreach ((string name, object? value) in document.Header)
+                {
+                    invoiceDocument.Header.Add((name, value));
+                }
+
+                foreach (List<(string Name, object? Value)> item in document.Items)
+                {
+                    invoiceDocument.Items.Add(item);
+                }
+
+                (string? built, List<string> missingFields) = SilaInvoicePosting.SupplierInvoiceRequest(api.RequestBody, invoiceDocument);
+                if (missingFields.Count > 0)
+                {
+                    return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null,
+                        SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missingFields), cancellationToken);
+                }
+
+                invoiceBody = built;
+            }
+
+            string body = invoiceBody
+                ?? (sapGrn
                 ? SapGrnBody(document)
                 : sapShape
                     ? StockCountSapBody(document)
                     : string.IsNullOrWhiteSpace(api.RequestBody)
                         ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
-                        : ApplyTemplate(api.RequestBody, area, document, mappings);
+                        : ApplyTemplate(api.RequestBody, area, document, mappings));
 
             IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.ConfigurationId.Value, posting, body, cancellationToken);
             // The last call, sanitised, for the transaction tracker. Invoice postings keep the API configuration name.
