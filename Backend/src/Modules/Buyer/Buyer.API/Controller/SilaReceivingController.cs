@@ -1,4 +1,6 @@
+using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
+using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
@@ -6,6 +8,7 @@ using Buyer.Application.Features.Queries.GetSilaGoodsReceipt;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceipts;
 using Buyer.Application.Features.Queries.GetSilaInvoice;
 using Buyer.Application.Features.Queries.GetSilaInvoiceFile;
+using Buyer.Application.Features.Queries.GetSilaInvoiceGrnFile;
 using Buyer.Application.Features.Queries.GetSilaInvoices;
 using Buyer.Application.Features.Queries.GetSilaOpenPurchaseOrders;
 using Buyer.Application.Features.Queries.GetSilaPurchaseOrder;
@@ -313,6 +316,62 @@ namespace Buyer.API.Controllers
                 Request = request
             });
             _logger.LogDebug($"Invoice reviewed. InvoiceId: {invoiceId}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/grn-pdf/{goodsReceiptId}")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaInvoiceGrnFile")]
+        [SwaggerResponse(200, type: typeof(FileContentResult))]
+        public async Task<IActionResult> GetInvoiceGrnFile([FromRoute] Guid invoiceId, [FromRoute] Guid goodsReceiptId)
+        {
+            _logger.LogDebug($"Fetching GRN PDF. InvoiceId: {invoiceId}, GoodsReceiptId: {goodsReceiptId}");
+            SilaInvoiceFileDto result = await _mediator.Send(new GetSilaInvoiceGrnFileQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                InvoiceId = invoiceId,
+                GoodsReceiptId = goodsReceiptId
+            });
+            return File(result.Content, result.ContentType, result.FileName);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/submit")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("SubmitSilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> SubmitInvoice([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Submitting invoice. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new SubmitSilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice submission finished. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/approval")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("DecideSilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> DecideInvoice([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceDecisionDto request)
+        {
+            _logger.LogDebug($"Deciding invoice approval. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new DecideSilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                InvoiceId = invoiceId,
+                Request = request ?? new SilaInvoiceDecisionDto()
+            });
+            _logger.LogDebug($"Invoice approval finished. InvoiceId: {invoiceId}, Status: {result.Status}");
             return Ok(result);
         }
     }

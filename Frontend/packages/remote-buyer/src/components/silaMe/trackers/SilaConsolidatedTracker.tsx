@@ -20,7 +20,7 @@ const PAGE_SIZE = 25;
 const TYPES = [
   "POS_SALE", "POS_POSITIVE_CORRECTION", "INTERNAL_TRANSFER_311", "PLANT_TRANSFER_301",
   "NEGATIVE_STOCK_ADJUSTMENT", "POSITIVE_STOCK_ADJUSTMENT", "PHYSICAL_COUNT_SHORTAGE", "PHYSICAL_COUNT_SURPLUS",
-  "GOODS_ISSUE", "GRN", "INVOICE", "PO_CREATE", "SUPPLIER_SALES_ORDER_CREATE", "CONTRACT_CREATE",
+  "GOODS_ISSUE", "GRN", "INVOICE", "INVOICE_POSTING", "PO_CREATE", "SUPPLIER_SALES_ORDER_CREATE", "CONTRACT_CREATE",
   "GET_SUPPLIER", "GET_MATERIAL", "GET_PO", "GET_POS_SALE", "POST_SUPPLIER",
 ];
 
@@ -46,6 +46,7 @@ const labelOf = (value?: string | null): string => {
     LOCAL: "Local finalization",
     ERP: "ERP processing",
     RECEIVE: "Receive",
+    INVOICE_POSTING: "Invoice posting",
   };
   return known[value] ?? value.split("_").join(" ");
 };
@@ -163,10 +164,11 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
     setDetailError(null);
     setTechnical(false);
     try {
-      setDetail(await getTrackerDetail(tracker, row.id));
+      const loaded = await getTrackerDetail(tracker, row.id);
+      setDetail(loaded ?? { ...row, attempts: [] });
     } catch (err: unknown) {
       setDetailError(err instanceof Error ? err.message : "Could not open the transaction.");
-      setDetail(row as SilaTrackerDetail);
+      setDetail({ ...row, attempts: [] });
     }
   };
 
@@ -178,7 +180,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
   const runReprocess = async (items: SilaTrackerRow[]) => {
     setBusy(true);
     try {
-      const result = await reprocessTracker(items.map((row) => row.id));
+      const result = await reprocessTracker(items);
       const skipped = selected.length - items.length;
       toastService.success(`${result.completed} reprocessed. ${result.ineligible + skipped} not eligible.`);
       setConfirming(null);
@@ -212,7 +214,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
       <section className="sila-card">
         <div className="srcv-filters">
           <Field id="strk-search" label="Search">
-            <input id="strk-search" className="sila-input" type="search" placeholder="Reference, PO, GRN, transfer, POS, material document" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <input id="strk-search" className="sila-input" type="search" placeholder="Inventory transaction, reference, PO, GRN, transfer, POS" value={search} onChange={(event) => setSearch(event.target.value)} />
           </Field>
           <Field id="strk-type" label="Transaction type">
             <select id="strk-type" className="sila-select" value={transactionType} onChange={(event) => { setTransactionType(event.target.value); setPage(1); }}>
@@ -387,6 +389,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
             <Fact label="Storage location" value={detail.storageLocation} />
             <Fact label="User" value={detail.userId} />
             <Fact label="Business reference" value={detail.businessReference} />
+            {detail.transactionType === "INVOICE_POSTING" && <Fact label="Supplier, PO, GRN" value={detail.localReference} />}
             <Fact label="Source" value={detail.sourceSystem} />
             <Fact label="Target" value={detail.targetSystem} />
             <Fact label="API" value={detail.integrationName} />

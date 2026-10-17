@@ -1,5 +1,7 @@
+import axios from "axios";
 import axiosInstance from "../axiosInstance";
 import { readError } from "../readError";
+import { composeLiveSilaMeTracker, reprocessLivePostings } from "./silaMeTrackerLive";
 
 export type SilaTrackerName = "PURCHASING" | "SILA_ME";
 
@@ -104,41 +106,57 @@ export interface SilaTrackerReprocessResult {
   messages: string[];
 }
 
-const call = async <T>(request: () => Promise<{ data: T }>, fallback: string): Promise<T> => {
+const trackerParams = (query: SilaTrackerQuery) => ({
+  transactionType: query.transactionType || undefined,
+  direction: query.direction || undefined,
+  from: query.from || undefined,
+  to: query.to || undefined,
+  companyCode: query.companyCode || undefined,
+  status: query.status || undefined,
+  userId: query.userId || undefined,
+  plant: query.plant || undefined,
+  storageLocation: query.storageLocation || undefined,
+  sourceSystem: query.sourceSystem || undefined,
+  targetSystem: query.targetSystem || undefined,
+  dataClass: query.dataClass || undefined,
+  search: query.search || undefined,
+  material: query.material || undefined,
+  integration: query.integration || undefined,
+  stage: query.stage || undefined,
+  index: query.index,
+  limit: query.limit,
+});
+
+const missing = (error: unknown): boolean => axios.isAxiosError(error) && error.response?.status === 404;
+
+export const getTracker = async (tracker: SilaTrackerName, query: SilaTrackerQuery): Promise<SilaTrackerPage> => {
   try {
-    const response = await request();
+    const response = await axiosInstance.get<SilaTrackerPage>(`/api/v1/buyer/sila/trackers/${tracker}`, { params: trackerParams(query) });
     return response.data;
   } catch (error) {
-    throw new Error(readError(error, fallback));
+    if (tracker === "SILA_ME" && missing(error)) return composeLiveSilaMeTracker(query);
+    throw new Error(readError(error, "Could not load the transaction tracker."));
   }
 };
 
-export const getTracker = async (tracker: SilaTrackerName, query: SilaTrackerQuery): Promise<SilaTrackerPage> =>
-  call(() => axiosInstance.get<SilaTrackerPage>(`/api/v1/buyer/sila/trackers/${tracker}`, {
-    params: {
-      transactionType: query.transactionType || undefined,
-      direction: query.direction || undefined,
-      from: query.from || undefined,
-      to: query.to || undefined,
-      companyCode: query.companyCode || undefined,
-      status: query.status || undefined,
-      userId: query.userId || undefined,
-      plant: query.plant || undefined,
-      storageLocation: query.storageLocation || undefined,
-      sourceSystem: query.sourceSystem || undefined,
-      targetSystem: query.targetSystem || undefined,
-      dataClass: query.dataClass || undefined,
-      search: query.search || undefined,
-      material: query.material || undefined,
-      integration: query.integration || undefined,
-      stage: query.stage || undefined,
-      index: query.index,
-      limit: query.limit,
-    },
-  }), "Could not load the transaction tracker.");
+export const getTrackerDetail = async (tracker: SilaTrackerName, id: string): Promise<SilaTrackerDetail | null> => {
+  try {
+    const response = await axiosInstance.get<SilaTrackerDetail>(`/api/v1/buyer/sila/trackers/${tracker}/${encodeURIComponent(id)}`);
+    return response.data;
+  } catch (error) {
+    if (missing(error)) return null;
+    throw new Error(readError(error, "Could not open the transaction."));
+  }
+};
 
-export const getTrackerDetail = async (tracker: SilaTrackerName, id: string): Promise<SilaTrackerDetail> =>
-  call(() => axiosInstance.get<SilaTrackerDetail>(`/api/v1/buyer/sila/trackers/${tracker}/${encodeURIComponent(id)}`), "Could not open the transaction.");
-
-export const reprocessTracker = async (ids: string[]): Promise<SilaTrackerReprocessResult> =>
-  call(() => axiosInstance.post<SilaTrackerReprocessResult>("/api/v1/buyer/sila/trackers/reprocess", { ids }), "Could not reprocess the transactions.");
+export const reprocessTracker = async (rows: Array<Pick<SilaTrackerRow, "id" | "erpPostingId">>): Promise<SilaTrackerReprocessResult> => {
+  try {
+    const response = await axiosInstance.post<SilaTrackerReprocessResult>("/api/v1/buyer/sila/trackers/reprocess", {
+      ids: rows.map((row) => row.id),
+    });
+    return response.data;
+  } catch (error) {
+    if (missing(error)) return reprocessLivePostings(rows);
+    throw new Error(readError(error, "Could not reprocess the transactions."));
+  }
+};

@@ -4,6 +4,7 @@ using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.LoggerServices;
 
@@ -14,12 +15,14 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
         private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
 
-        public ReprocessSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator)
+        public ReprocessSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator, IConfiguration configuration)
         {
             _repository = repository;
             _logger = logger;
             _mediator = mediator;
+            _configuration = configuration;
         }
 
         public async Task<Guid> Handle(ReprocessSilaErpPostingCommand request, CancellationToken cancellationToken)
@@ -50,7 +53,7 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
             if (SilaTrackerRules.ErpAlreadyAccepted(posting))
             {
                 string? previous = posting.ErrorMessage;
-                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken);
+                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken, _configuration[Common.BASE_FOLDER_PATH]);
                 _logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
                 return posting.Id;
             }

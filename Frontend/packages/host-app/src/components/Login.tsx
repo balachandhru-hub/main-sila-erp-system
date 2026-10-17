@@ -15,6 +15,11 @@ import {
   FaUtensils,
   FaFileInvoice,
   FaCogs,
+  FaUsers,
+  FaSyncAlt,
+  FaBoxes,
+  FaShippingFast,
+  FaChartLine,
 } from 'react-icons/fa';
 import { login, getTokenClaims } from '../api/authApi';
 import { isSupplierRoleId } from '../store/useAuthStore';
@@ -209,10 +214,44 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onCreateAccount, onCreate
                   Workflow · Analytics · AI Automation
                 </span>
               </li>
+              <li>
+                <FaUsers aria-hidden="true" />
+                <span>
+                  <strong>Sales</strong>
+                  Customer Management
+                </span>
+              </li>
+              <li>
+                <FaSyncAlt aria-hidden="true" />
+                <span>
+                  <strong>Automated O2C</strong>
+                </span>
+              </li>
+              <li>
+                <FaBoxes aria-hidden="true" />
+                <span>
+                  <strong>Inventory</strong>
+                </span>
+              </li>
+              <li>
+                <FaShippingFast aria-hidden="true" />
+                <span>
+                  <strong>Shipment/Logistics</strong>
+                </span>
+              </li>
+              <li>
+                <FaChartLine aria-hidden="true" />
+                <span>
+                  <strong>Forecast</strong>
+                </span>
+              </li>
             </ul>
             <p className="vx-left-foot">
               <FaShieldAlt aria-hidden="true" />
-              <span>Connected operations. Intelligent decisions.</span>
+              <span>
+                Connected operations. Intelligent decisions.
+                <span className="vx-left-foot-next">Buyer &amp; Supplier Business Network.</span>
+              </span>
             </p>
           </aside>
 

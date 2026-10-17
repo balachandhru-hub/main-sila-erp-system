@@ -2,6 +2,7 @@ using Buyer.Application.Features.Shared;
 using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
 using Buyer.Domain.Entities;
+using MaterialEntity = Buyer.Domain.Entities.ItemBuyerMaster;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -47,7 +48,9 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             SilaTrackerSummaryDto summary = new SilaTrackerSummaryDto();
             if (tracker == SilaTrackerRules.TRACKER_SILA_ME)
             {
-                await AddErpAsync(rows, summary, buyer.Id, request, from, to, search, material, locations, excludePos: true, cancellationToken);
+                HashSet<string> ledgerReferences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                await AddInventoryAsync(rows, summary, ledgerReferences, buyer.Id, request, from, to, search, material, locations, cancellationToken);
+                await AddErpAsync(rows, summary, buyer.Id, request, from, to, search, material, locations, excludePos: true, ledgerReferences, cancellationToken);
                 await AddPosAsync(rows, summary, buyer.Id, request, from, to, search, material, locations, cancellationToken);
                 await AddRunsAsync(rows, summary, request.OrganizationId, SilaTrackerRules.SilaMeProcessTypes, request, from, to, search, locations, cancellationToken);
             }
@@ -67,9 +70,184 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             };
         }
 
+        private async Task AddInventoryAsync(
+            List<SilaTrackerRowDto> rows, SilaTrackerSummaryDto summary, HashSet<string> ledgerReferences, Guid buyerId, GetSilaTransactionTrackerQuery request,
+            DateTime from, DateTime to, string? search, string? material, List<Guid>? locations, CancellationToken cancellationToken)
+        {
+            if (request.DataClass == SilaTrackerRules.DATA_MASTER)
+            {
+                return;
+            }
+
+            if (!MatchesSystem(request, "SILA", "SAP"))
+            {
+                return;
+            }
+
+            IQueryable<InventoryTransaction> coveredQuery = _repository.InventoryTransaction.FindByCondition(x => x.BuyerId == buyerId && x.IsActive
+                && x.DateCreated >= from && x.DateCreated < to && x.ReferenceType != Common.SILA_REF_POS_SALE);
+            if (locations != null)
+            {
+                coveredQuery = coveredQuery.Where(x => locations.Contains(x.LocationId));
+            }
+
+            List<InventoryTransaction> window = await coveredQuery.OrderByDescending(x => x.DateCreated).Take(MAX_INDEX).ToListAsync(cancellationToken);
+            foreach (InventoryTransaction line in window)
+            {
+                ledgerReferences.Add(line.ReferenceType + "|" + line.ReferenceId.ToString("D"));
+            }
+
+            if (window.Count == 0)
+            {
+                return;
+            }
+
+            List<InventoryTransaction> lines = window;
+            if (request.UserId != null)
+            {
+                lines = lines.Where(x => x.CreatedBy == request.UserId).ToList();
+            }
+
+            if (request.Direction == SilaTrackerRules.DIRECTION_INBOUND)
+            {
+                lines = lines.Where(x => x.Direction == Common.SILA_DIRECTION_IN).ToList();
+            }
+            else if (request.Direction == SilaTrackerRules.DIRECTION_OUTBOUND)
+            {
+                lines = lines.Where(x => x.Direction == Common.SILA_DIRECTION_OUT).ToList();
+            }
+
+            if (search != null)
+            {
+                lines = lines.Where(x => x.TransactionNumber.Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || (x.ReferenceNumber != null && x.ReferenceNumber.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    || (x.Reason != null && x.Reason.Contains(search, StringComparison.OrdinalIgnoreCase))).ToList();
+            }
+
+            if (lines.Count == 0)
+            {
+                return;
+            }
+
+            Dictionary<Guid, MaterialEntity> materials = new Dictionary<Guid, MaterialEntity>();
+            List<Guid> materialIds = lines.Select(x => x.MaterialId).Distinct().ToList();
+            if (materialIds.Count > 0)
+            {
+                materials = await _repository.ItemBuyerMaster.FindByCondition(x => x.BuyerId == buyerId && materialIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            }
+
+            if (material != null)
+            {
+                lines = lines.Where(x => materials.TryGetValue(x.MaterialId, out MaterialEntity? item)
+                    && ((item.MaterialCode != null && item.MaterialCode.Contains(material, StringComparison.OrdinalIgnoreCase))
+                        || (item.Description != null && item.Description.Contains(material, StringComparison.OrdinalIgnoreCase)))).ToList();
+            }
+
+            if (lines.Count == 0)
+            {
+                return;
+            }
+
+            List<Guid> referenceIds = lines.Select(x => x.ReferenceId).Distinct().ToList();
+            List<InventoryErpPosting> postings = await _repository.InventoryErpPosting.FindByCondition(x => x.BuyerId == buyerId && x.IsActive && referenceIds.Contains(x.ReferenceId))
+                .ToListAsync(cancellationToken);
+            List<Guid> transferIds = lines.Where(x => x.ReferenceType == Common.SILA_REF_ITO).Select(x => x.ReferenceId).Distinct().ToList();
+            Dictionary<Guid, InternalTransferOrder> transfers = transferIds.Count == 0
+                ? new Dictionary<Guid, InternalTransferOrder>()
+                : await _repository.InternalTransferOrder.FindByCondition(x => x.BuyerId == buyerId && transferIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> placeIds = lines.Select(x => x.LocationId)
+                .Concat(transfers.Values.Select(x => x.FromLocationId))
+                .Concat(transfers.Values.Select(x => x.ToLocationId))
+                .Distinct()
+                .ToList();
+            Dictionary<Guid, (string? Property, string? Plant, string? Storage, string? Company)> places = await PlacesAsync(placeIds, cancellationToken);
+            foreach (InventoryTransaction line in lines)
+            {
+                InventoryErpPosting? posting = postings
+                    .Where(x => x.ReferenceType == line.ReferenceType && x.ReferenceId == line.ReferenceId)
+                    .OrderByDescending(x => x.DateCreated)
+                    .FirstOrDefault();
+                places.TryGetValue(line.LocationId, out (string? Property, string? Plant, string? Storage, string? Company) place);
+                if (!string.IsNullOrWhiteSpace(request.CompanyCode)
+                    && !string.Equals(place.Company ?? posting?.CompanyCode, request.CompanyCode.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string movement = posting?.MovementType ?? string.Empty;
+                string? integration = posting?.IntegrationSystem;
+                string? error = posting?.ErrorMessage;
+                if (line.ReferenceType == Common.SILA_REF_ITO && transfers.TryGetValue(line.ReferenceId, out InternalTransferOrder? transfer))
+                {
+                    places.TryGetValue(transfer.FromLocationId, out (string? Property, string? Plant, string? Storage, string? Company) sourcePlace);
+                    places.TryGetValue(transfer.ToLocationId, out (string? Property, string? Plant, string? Storage, string? Company) destinationPlace);
+                    (movement, integration, error) = SilaTrackerRules.DescribeLegacyTransfer(
+                        movement, integration, error, posting?.Status, sourcePlace.Plant, sourcePlace.Storage, destinationPlace.Plant, destinationPlace.Storage, sourcePlace.Company, destinationPlace.Company);
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Integration)
+                    && (integration == null || !integration.Contains(request.Integration.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                string transactionType = line.ReferenceType == Common.SILA_REF_ITO
+                    ? SilaTrackerRules.TransactionTypeOfPosting(line.ReferenceType, movement)
+                    : posting == null ? line.TransactionType : SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, movement);
+                if (!string.IsNullOrWhiteSpace(request.TransactionType)
+                    && !string.Equals(transactionType, request.TransactionType.Trim(), StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(line.TransactionType, request.TransactionType.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                SilaTrackerRules.Stages stages = SilaTrackerRules.OfLedger(posting?.Status, posting?.Attempts ?? 0, posting?.ErpReference);
+                if (!Keep(stages, request))
+                {
+                    continue;
+                }
+
+                Add(rows, summary, new SilaTrackerRowDto
+                {
+                    Id = SilaTrackerRules.Key(SilaTrackerRules.SOURCE_LEDGER, line.Id),
+                    Source = SilaTrackerRules.SOURCE_LEDGER,
+                    OccurredOn = line.DateCreated,
+                    BusinessDate = line.BusinessDate,
+                    TransactionType = transactionType,
+                    DataClass = SilaTrackerRules.DATA_TRANSACTION,
+                    Direction = line.Direction == Common.SILA_DIRECTION_IN ? SilaTrackerRules.DIRECTION_INBOUND : SilaTrackerRules.DIRECTION_OUTBOUND,
+                    CompanyCode = posting?.CompanyCode ?? place.Company,
+                    PropertyName = place.Property,
+                    Plant = place.Plant,
+                    StorageLocation = place.Storage,
+                    SourceSystem = "SILA",
+                    TargetSystem = integration ?? "SAP",
+                    BusinessReference = line.TransactionNumber,
+                    UserId = line.CreatedBy == Guid.Empty ? null : line.CreatedBy,
+                    ReceiveStatus = stages.Receive,
+                    ErpStatus = stages.Erp,
+                    LocalStatus = stages.Local,
+                    OverallStatus = stages.Overall,
+                    RetryCount = posting?.Attempts ?? 0,
+                    LastError = error,
+                    ErpReference = posting?.ErpReference,
+                    ErpHttpStatus = posting?.ErpHttpStatus,
+                    IntegrationName = integration,
+                    Action = stages.Action,
+                    ReprocessFrom = stages.ReprocessFrom,
+                    ErpCallAllowed = stages.ErpCallAllowed,
+                    Quantity = line.Quantity,
+                    Uom = line.BaseUom,
+                    MovementType = string.IsNullOrWhiteSpace(movement) ? null : movement,
+                    ErpPostingId = posting?.Id
+                });
+            }
+        }
+
         private async Task AddErpAsync(
             List<SilaTrackerRowDto> rows, SilaTrackerSummaryDto summary, Guid buyerId, GetSilaTransactionTrackerQuery request,
-            DateTime from, DateTime to, string? search, string? material, List<Guid>? locations, bool excludePos, CancellationToken cancellationToken)
+            DateTime from, DateTime to, string? search, string? material, List<Guid>? locations, bool excludePos, HashSet<string>? ledgerReferences, CancellationToken cancellationToken)
         {
             if (request.Direction == SilaTrackerRules.DIRECTION_INBOUND || request.DataClass == SilaTrackerRules.DATA_MASTER)
             {
@@ -116,12 +294,6 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     || (type == "POSITIVE_STOCK_ADJUSTMENT" && x.ReferenceType == Common.SILA_REF_ADJUSTMENT && x.MovementType == "Z01"));
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Integration))
-            {
-                string integration = request.Integration.Trim();
-                query = query.Where(x => x.IntegrationSystem != null && x.IntegrationSystem.Contains(integration));
-            }
-
             if (search != null || material != null)
             {
                 string term = search ?? material!;
@@ -137,10 +309,40 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             }
 
             List<InventoryErpPosting> postings = await query.OrderByDescending(x => x.DateCreated).Take(MAX_INDEX).ToListAsync(cancellationToken);
-            Dictionary<Guid, (string? Property, string? Plant, string? Storage, string? Company)> places = await PlacesAsync(
-                postings.Where(x => x.LocationId != null).Select(x => x.LocationId!.Value).Distinct().ToList(), cancellationToken);
+            if (ledgerReferences != null)
+            {
+                postings = postings.Where(x => !ledgerReferences.Contains(x.ReferenceType + "|" + x.ReferenceId.ToString("D"))).ToList();
+            }
+
+            List<Guid> transferIds = postings.Where(x => x.ReferenceType == Common.SILA_REF_ITO).Select(x => x.ReferenceId).Distinct().ToList();
+            Dictionary<Guid, InternalTransferOrder> transfers = transferIds.Count == 0
+                ? new Dictionary<Guid, InternalTransferOrder>()
+                : await _repository.InternalTransferOrder.FindByCondition(x => x.BuyerId == buyerId && transferIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> placeIds = postings.Where(x => x.LocationId != null).Select(x => x.LocationId!.Value)
+                .Concat(transfers.Values.Select(x => x.FromLocationId))
+                .Concat(transfers.Values.Select(x => x.ToLocationId))
+                .Distinct()
+                .ToList();
+            Dictionary<Guid, (string? Property, string? Plant, string? Storage, string? Company)> places = await PlacesAsync(placeIds, cancellationToken);
             foreach (InventoryErpPosting posting in postings)
             {
+                string movement = posting.MovementType;
+                string? integration = posting.IntegrationSystem;
+                string? error = posting.ErrorMessage;
+                if (posting.ReferenceType == Common.SILA_REF_ITO && transfers.TryGetValue(posting.ReferenceId, out InternalTransferOrder? transfer))
+                {
+                    places.TryGetValue(transfer.FromLocationId, out (string? Property, string? Plant, string? Storage, string? Company) sourcePlace);
+                    places.TryGetValue(transfer.ToLocationId, out (string? Property, string? Plant, string? Storage, string? Company) destinationPlace);
+                    (movement, integration, error) = SilaTrackerRules.DescribeLegacyTransfer(
+                        movement, integration, error, posting.Status, sourcePlace.Plant, sourcePlace.Storage, destinationPlace.Plant, destinationPlace.Storage, sourcePlace.Company, destinationPlace.Company);
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Integration)
+                    && (integration == null || !integration.Contains(request.Integration.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
                 SilaTrackerRules.Stages stages = SilaTrackerRules.OfPosting(posting.Status, posting.Attempts, posting.ErpReference);
                 if (!Keep(stages, request))
                 {
@@ -148,7 +350,7 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.TargetSystem)
-                    && (posting.IntegrationSystem == null || !posting.IntegrationSystem.Contains(request.TargetSystem.Trim(), StringComparison.OrdinalIgnoreCase))
+                    && (integration == null || !integration.Contains(request.TargetSystem.Trim(), StringComparison.OrdinalIgnoreCase))
                     && !"SAP".Contains(request.TargetSystem.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -160,7 +362,7 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     Id = SilaTrackerRules.Key(SilaTrackerRules.SOURCE_ERP, posting.Id),
                     Source = SilaTrackerRules.SOURCE_ERP,
                     OccurredOn = posting.DateCreated,
-                    TransactionType = SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, posting.MovementType),
+                    TransactionType = SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, movement),
                     DataClass = SilaTrackerRules.DATA_TRANSACTION,
                     Direction = SilaTrackerRules.DIRECTION_OUTBOUND,
                     CompanyCode = posting.CompanyCode ?? place.Company,
@@ -168,7 +370,7 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     Plant = place.Plant,
                     StorageLocation = place.Storage,
                     SourceSystem = "SILA",
-                    TargetSystem = posting.IntegrationSystem ?? "SAP",
+                    TargetSystem = integration ?? "SAP",
                     BusinessReference = posting.ReferenceNumber,
                     UserId = posting.CreatedBy == Guid.Empty ? null : posting.CreatedBy,
                     ReceiveStatus = stages.Receive,
@@ -176,14 +378,14 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     LocalStatus = stages.Local,
                     OverallStatus = stages.Overall,
                     RetryCount = posting.Attempts,
-                    LastError = posting.ErrorMessage,
+                    LastError = error,
                     ErpReference = posting.ErpReference,
                     ErpHttpStatus = posting.ErpHttpStatus,
-                    IntegrationName = posting.IntegrationSystem,
+                    IntegrationName = integration,
                     Action = stages.Action,
                     ReprocessFrom = stages.ReprocessFrom,
                     ErpCallAllowed = stages.ErpCallAllowed,
-                    MovementType = posting.MovementType,
+                    MovementType = movement,
                     ErpPostingId = posting.Id
                 });
             }
