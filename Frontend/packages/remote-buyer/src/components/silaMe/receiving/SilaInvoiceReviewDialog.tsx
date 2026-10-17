@@ -3,6 +3,7 @@ import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import {
   decideInvoice,
   extractInvoice,
+  getGoodsReceipt,
   getGoodsReceipts,
   getInvoice,
   getInvoiceFile,
@@ -28,6 +29,7 @@ import SilaInvoiceLinesEditor from "./SilaInvoiceLinesEditor";
 import SilaInvoicePoMatch from "./SilaInvoicePoMatch";
 import SilaInvoiceSupplierMatch from "./SilaInvoiceSupplierMatch";
 import { INVOICE_TYPES, toInvoiceForm, toInvoiceWrite, toReceivePrefill, validateInvoiceForm, type InvoiceForm } from "./invoiceForm";
+import { billableQuantity, invoiceHoldsGoodsReceipt, selectGoodsReceipts } from "./goodsReceiptMatch";
 import { formatAmount, formatConfidence, receivingBadgeClass, receivingLabel } from "./receivingFormat";
 import type { ReceivePrefill } from "./SilaReceiveGoodsDialog";
 
@@ -81,11 +83,15 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const [candidates, setCandidates] = useState<SilaGoodsReceipt[]>([]);
   const [grnPick, setGrnPick] = useState<string[] | null>(null);
   const [grnNote, setGrnNote] = useState<string | null>(null);
+  const [matchReason, setMatchReason] = useState<string | null>(null);
+  const [heldStatus, setHeldStatus] = useState<Record<string, { status?: string | null; erp?: string | null }>>({});
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKind, setPreviewKind] = useState<"pdf" | "image">("pdf");
   const [previewTitle, setPreviewTitle] = useState("Invoice file");
   const previewUrlRef = useRef<string | null>(null);
   const autoLinkKey = useRef("");
+  const grnPickRef = useRef<string[] | null>(null);
+  grnPickRef.current = grnPick;
 
   const show = (data: SilaInvoiceDetail) => {
     setInvoice(data);
@@ -102,8 +108,11 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     setPostingReviewed(false);
     setGrnPick(null);
     setGrnNote(null);
+    setMatchReason(null);
+    setHeldStatus({});
     setCandidates([]);
     autoLinkKey.current = "";
+    grnPickRef.current = null;
     getInvoice(invoiceId)
       .then((data) => active && show(data))
       .catch((err: unknown) => active && setError(err instanceof Error ? err.message : "Could not load the invoice."));
@@ -174,6 +183,13 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const selectedGrns = grnPick ?? linkedIds;
   const grnDirty = selectedGrns.length !== linkedIds.length || selectedGrns.some((id) => !linkedIds.includes(id));
   const receiptKey = linkedIds.join(",");
+  const poNumbers = Array.from(new Set([
+    invoice?.poNumber,
+    ...(invoice?.purchaseOrders ?? []).map((row) => row.poNumber),
+    ...(invoice?.items ?? []).map((row) => row.poNumber),
+  ].filter((value): value is string => Boolean(value && value.trim())))).sort();
+  const poKey = poNumbers.join("|");
+  const demandKey = (form?.lines ?? []).map((line) => `${line.purchaseOrderItemId}:${line.quantity}`).join("|");
 
   const run = async (kind: Busy, action: () => Promise<void>) => {
     setBusy(kind);
@@ -259,17 +275,22 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   };
 
   useEffect(() => {
-    if (!invoice?.purchaseOrderId || !invoice.poNumber || invoice.goodsReceiptApplicable === false) {
+    if (!invoice || invoice.goodsReceiptApplicable === false || poNumbers.length === 0) {
       setCandidates([]);
       return undefined;
     }
-    const purchaseOrder = invoice.purchaseOrderId;
+    const allowed = new Set([
+      invoice.purchaseOrderId,
+      ...(invoice.purchaseOrders ?? []).map((row) => row.id),
+      ...invoice.items.map((row) => row.purchaseOrderId),
+    ].filter((value): value is string => Boolean(value)));
     const linked = invoice.goodsReceipts;
     let active = true;
-    getGoodsReceipts({ search: invoice.poNumber, fromDate: "", toDate: "" }, { index: 0, limit: 200 })
-      .then((rows) => {
+    Promise.all(poNumbers.map((poNumber) => getGoodsReceipts({ search: poNumber, fromDate: "", toDate: "" }, { index: 0, limit: 200 })))
+      .then((pages) => {
         if (!active) return;
-        const same = rows.filter((row) => row.purchaseOrderId === purchaseOrder);
+        const rows = pages.flat().filter((row, index, all) => all.findIndex((other) => other.id === row.id) === index);
+        const same = rows.filter((row) => allowed.has(row.purchaseOrderId) || poNumbers.includes(row.poNumber));
         const extras = linked.filter((row) => !same.some((candidate) => candidate.id === row.id));
         setCandidates([...extras, ...same]);
       })
@@ -279,44 +300,90 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     return () => {
       active = false;
     };
-  }, [invoice?.id, invoice?.purchaseOrderId, invoice?.poNumber, invoice?.goodsReceiptApplicable, receiptKey]);
+  }, [invoice, poKey, receiptKey]);
 
   useEffect(() => {
-    if (!canPost || !invoice?.purchaseOrderId || invoice.goodsReceiptApplicable === false || grnLocked) return undefined;
-    if (invoice.goodsReceipts.length > 0 || grnPick !== null) return undefined;
-    const purchaseOrder = invoice.purchaseOrderId;
-    const open = candidates.filter((row) => !row.invoiceId && row.purchaseOrderId === purchaseOrder);
-    if (open.length === 0) return undefined;
-    const key = `${invoice.id}:${open.map((row) => row.id).sort().join(",")}`;
-    if (autoLinkKey.current === key) return undefined;
-    autoLinkKey.current = key;
-    let active = true;
+    if (!canPost || !invoice || invoice.goodsReceiptApplicable === false || grnLocked || grnPick !== null) return undefined;
+    if (candidates.length === 0) {
+      setMatchReason(null);
+      return undefined;
+    }
     let settled = false;
-    linkInvoiceGoodsReceipts(invoice.id, open.map((row) => row.id))
-      .then((data) => {
+    const invoiceId = invoice.id;
+    const demand = (form?.lines ?? []).length > 0
+      ? form!.lines.filter((line) => Number(line.quantity) > 0).map((line) => ({ purchaseOrderItemId: line.purchaseOrderItemId || null, quantity: Number(line.quantity) }))
+      : invoice.items.filter((item) => (item.quantity ?? 0) > 0).map((item) => ({ purchaseOrderItemId: item.purchaseOrderItemId, quantity: item.quantity ?? 0 }));
+    const linked = invoice.goodsReceipts.map((row) => row.id);
+    let active = true;
+    (async () => {
+      const details = await Promise.all(candidates.map(async (row) => {
+        try {
+          return await getGoodsReceipt(row.id);
+        } catch {
+          return null;
+        }
+      }));
+      if (!active) return;
+      const statusOf = new Map<string, { status?: string | null; erp?: string | null }>();
+      candidates.forEach((row) => {
+        if (row.invoiceId && row.invoiceId !== invoiceId) statusOf.set(row.invoiceId, { status: row.invoiceStatus, erp: row.invoiceErpStatus });
+      });
+      await Promise.all([...statusOf.entries()].filter(([, value]) => !value.status).map(async ([id]) => {
+        try {
+          const held = await getInvoice(id);
+          if (active) statusOf.set(id, { status: held.status, erp: held.erpStatus });
+        } catch {
+          if (active) statusOf.set(id, { status: "POSTED", erp: null });
+        }
+      }));
+      if (!active) return;
+      const known: Record<string, { status?: string | null; erp?: string | null }> = {};
+      statusOf.forEach((value, id) => { known[id] = value; });
+      setHeldStatus(known);
+      const choice = selectGoodsReceipts(demand, candidates.map((row, index) => {
+        const held = row.invoiceId && row.invoiceId !== invoiceId ? statusOf.get(row.invoiceId) : undefined;
+        const available = !row.invoiceId || row.invoiceId === invoiceId || !invoiceHoldsGoodsReceipt(held?.status ?? row.invoiceStatus, held?.erp ?? row.invoiceErpStatus);
+        return {
+          id: row.id,
+          grnNumber: row.grnNumber,
+          available,
+          lines: (details[index]?.items ?? []).map((item) => ({
+            purchaseOrderItemId: item.purchaseOrderItemId,
+            quantity: billableQuantity(item.acceptedQty, item.receivedQty),
+          })),
+        };
+      }));
+      if (grnPickRef.current !== null) {
+        setMatchReason(choice.reason || null);
+        return;
+      }
+      setMatchReason(choice.reason || (demand.length > 0 ? "No goods receipt matches these quantities exactly. Select one, or several that add up to the invoice." : null));
+      if (choice.ids.length === 0) return;
+      const already = choice.ids.length === linked.length && choice.ids.every((id) => linked.includes(id));
+      if (already) return;
+      const key = `${invoiceId}:${[...choice.ids].sort().join(",")}`;
+      if (autoLinkKey.current === key) return;
+      autoLinkKey.current = key;
+      try {
+        const data = await linkInvoiceGoodsReceipts(invoiceId, choice.ids);
         if (!active) return;
         show(data);
         setGrnNote(null);
         onChanged();
-        toastService.success(
-          open.length === 1
-            ? `Matched goods receipt ${open[0].grnNumber}. You can choose another one.`
-            : `Matched ${open.length} goods receipts with no invoice. You can change the selection.`,
-        );
-      })
-      .catch((err: unknown) => {
+        toastService.success(choice.reason);
+      } catch (err: unknown) {
         if (!active) return;
-        setGrnPick(open.map((row) => row.id));
+        setGrnPick(choice.ids);
         setGrnNote(err instanceof Error ? err.message : "Could not save the goods receipt match.");
-      })
-      .finally(() => {
+      } finally {
         settled = true;
-      });
+      }
+    })();
     return () => {
       active = false;
-      if (!settled && autoLinkKey.current === key) autoLinkKey.current = "";
+      if (!settled && autoLinkKey.current.startsWith(`${invoice.id}:`)) autoLinkKey.current = "";
     };
-  }, [candidates, canPost, grnLocked, grnPick, invoice]);
+  }, [candidates, canPost, demandKey, grnLocked, grnPick, invoice]);
 
   const toggleGrn = (id: string) => {
     setGrnPick(selectedGrns.includes(id) ? selectedGrns.filter((row) => row !== id) : [...selectedGrns, id]);
@@ -671,8 +738,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <div className="srcv-stack">
                     <h3 className="sila-section-title">Goods receipts</h3>
                     <p className="srcv-sub">
-                      Open goods receipts of this purchase order that have no submitted invoice are matched automatically. Change the selection, or create a new goods receipt.
+                      The goods receipt whose quantities equal the invoice lines is selected, including one that sits on an invoice that was not posted. Several receipts can be combined, and receipts from every purchase order on this invoice are included. Create a goods receipt when none of them match.
                     </p>
+                    {matchReason && <p className="srcv-sub">{matchReason}</p>}
                     {!invoice.purchaseOrderId ? (
                       <p className="srcv-sub">Match a purchase order to see its goods receipts.</p>
                     ) : candidates.length === 0 ? (
@@ -681,19 +749,27 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                       <ul className="srcv-grn-list">
                         {candidates.map((receipt) => {
                           const otherInvoice = Boolean(receipt.invoiceId && receipt.invoiceId !== invoice.id);
+                          const known = receipt.invoiceStatus
+                            ? { status: receipt.invoiceStatus, erp: receipt.invoiceErpStatus }
+                            : receipt.invoiceId ? heldStatus[receipt.invoiceId] : undefined;
+                          const held = otherInvoice && Boolean(known) && invoiceHoldsGoodsReceipt(known?.status, known?.erp);
+                          const reusable = otherInvoice && Boolean(known?.status) && !held;
                           return (
                             <li key={receipt.id}>
                               <label>
                                 <input
                                   type="checkbox"
                                   checked={selectedGrns.includes(receipt.id)}
-                                  disabled={grnLocked || busy !== null}
+                                  disabled={grnLocked || busy !== null || held}
                                   onChange={() => toggleGrn(receipt.id)}
                                 />
                                 <span>
                                   {receipt.grnNumber} · {receivingLabel(receipt.status)}
+                                  {receipt.poNumber ? ` · ${receipt.poNumber}` : ""}
                                   {receipt.erpReference ? ` · ${receipt.erpReference}` : ""}
-                                  {otherInvoice ? ` · already on invoice ${receipt.invoiceNumber || "another invoice"}` : ""}
+                                  {held ? ` · already posted on invoice ${receipt.invoiceNumber || "another invoice"}` : ""}
+                                  {reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"}, not posted — available` : ""}
+                                  {otherInvoice && !held && !reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"} — available if that invoice was not posted` : ""}
                                   {!receipt.invoiceId ? " · no invoice" : ""}
                                 </span>
                               </label>

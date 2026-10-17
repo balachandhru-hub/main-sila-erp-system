@@ -14,6 +14,8 @@ namespace Buyer.Domain.Dtos
         public decimal? GrossAmount { get; set; }
         public Guid? PurchaseOrderId { get; set; }
         public string? PoNumber { get; set; }
+        /// <summary>Every purchase order billed by this invoice. The first is the header purchase order.</summary>
+        public List<SilaInvoicePurchaseOrderDto> PurchaseOrders { get; set; } = new();
         public string FileName { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string? OcrText { get; set; }
@@ -117,6 +119,13 @@ namespace Buyer.Domain.Dtos
     {
         public bool Approve { get; set; }
         public string? Comment { get; set; }
+    }
+
+    /// <summary>One purchase order billed by an invoice.</summary>
+    public class SilaInvoicePurchaseOrderDto
+    {
+        public Guid Id { get; set; }
+        public string PoNumber { get; set; } = string.Empty;
     }
 
     /// <summary>Goods receipts of the matched purchase order to attach to this invoice. An empty list clears the link.</summary>

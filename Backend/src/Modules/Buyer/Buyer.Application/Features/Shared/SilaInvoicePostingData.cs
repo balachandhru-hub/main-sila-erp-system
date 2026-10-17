@@ -69,7 +69,9 @@ namespace Buyer.Application.Features.Shared
             Invoice invoice,
             SilaPurchaseOrderInvoiceRead.Order sapOrder,
             Guid userId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IReadOnlyDictionary<Guid, SilaPurchaseOrderInvoiceRead.Order>? sapByPurchaseOrder = null,
+            IReadOnlyDictionary<Guid, string>? poNumbers = null)
         {
             List<InvoiceItem> items = await repository.InvoiceItem
                 .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)
@@ -92,7 +94,7 @@ namespace Buyer.Application.Features.Shared
                 : await repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id)).ToListAsync(cancellationToken);
 
             int version = (Read(invoice.PostingData)?.Version ?? 0) + 1;
-            Prepared prepared = Compose(invoice, items, poItems, receipts, receiptItems, postings, sapOrder, userId, version);
+            Prepared prepared = Compose(invoice, items, poItems, receipts, receiptItems, postings, sapOrder, userId, version, sapByPurchaseOrder, poNumbers);
             invoice.PostingData = Write(prepared);
             repository.Invoice.Update(invoice);
         }
@@ -106,7 +108,9 @@ namespace Buyer.Application.Features.Shared
             IReadOnlyList<InventoryErpPosting> grnPostings,
             SilaPurchaseOrderInvoiceRead.Order sapOrder,
             Guid userId,
-            int version)
+            int version,
+            IReadOnlyDictionary<Guid, SilaPurchaseOrderInvoiceRead.Order>? sapByPurchaseOrder = null,
+            IReadOnlyDictionary<Guid, string>? poNumbers = null)
         {
             string? date = invoice.InvoiceDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             string? currency = First(invoice.Currency, sapOrder.Currency);
@@ -139,26 +143,43 @@ namespace Buyer.Application.Features.Shared
                 PurchaseOrderItem? poItem = item.PurchaseOrderItemId == null
                     ? null
                     : poItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId);
+                SilaPurchaseOrderInvoiceRead.Order lineOrder = sapOrder;
+                string? linePo = invoice.PoNumber?.Trim();
+                if (poItem != null && sapByPurchaseOrder != null && sapByPurchaseOrder.TryGetValue(poItem.PurchaseOrderId, out SilaPurchaseOrderInvoiceRead.Order? specific))
+                {
+                    lineOrder = specific;
+                    if (poNumbers != null && poNumbers.TryGetValue(poItem.PurchaseOrderId, out string? number) && !string.IsNullOrWhiteSpace(number))
+                    {
+                        linePo = number.Trim();
+                    }
+                }
                 SilaPurchaseOrderInvoiceRead.Line? sapLine = poItem == null
                     ? null
-                    : sapOrder.Lines.FirstOrDefault(x => SameItem(x.Item, poItem.LineNumber));
-                GoodsReceiptItem? receiptItem = item.PurchaseOrderItemId == null
-                    ? null
-                    : receiptItems.FirstOrDefault(x => x.PurchaseOrderItemId == item.PurchaseOrderItemId);
-                GoodsReceipt? receipt = receiptItem == null ? null : receipts.FirstOrDefault(x => x.Id == receiptItem.GoodsReceiptId);
-                string? materialDocument = receipt?.ErpPostingId == null
-                    ? null
-                    : grnPostings.FirstOrDefault(x => x.Id == receipt.ErpPostingId)?.ErpReference;
+                    : lineOrder.Lines.FirstOrDefault(x => SameItem(x.Item, poItem.LineNumber));
+                List<GoodsReceiptItem> matchedReceipts = item.PurchaseOrderItemId == null
+                    ? new List<GoodsReceiptItem>()
+                    : receiptItems.Where(x => x.PurchaseOrderItemId == item.PurchaseOrderItemId).ToList();
+                List<string> grnNumbers = matchedReceipts
+                    .Select(x => receipts.FirstOrDefault(receipt => receipt.Id == x.GoodsReceiptId)?.GrnNumber)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x!)
+                    .Distinct()
+                    .ToList();
+                string? materialDocument = matchedReceipts
+                    .Select(x => receipts.FirstOrDefault(receipt => receipt.Id == x.GoodsReceiptId))
+                    .Where(x => x?.ErpPostingId != null)
+                    .Select(x => grnPostings.FirstOrDefault(posting => posting.Id == x!.ErpPostingId)?.ErpReference)
+                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
                 string? itemNumber = sapLine?.Item ?? (poItem == null ? null : poItem.LineNumber.ToString("00000", CultureInfo.InvariantCulture));
                 Line line = new Line
                 {
                     InvoiceLine = item.LineNumber,
                     InvoiceItemId = item.Id,
-                    GrnNumber = receipt?.GrnNumber,
+                    GrnNumber = grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers),
                     MaterialDocument = materialDocument
                 };
                 line.Fields.Add(FieldOf("SupplierInvoiceItem", "Invoice line", item.LineNumber.ToString("00000", CultureInfo.InvariantCulture), SOURCE_DERIVED, "LineNumber", true));
-                line.Fields.Add(FieldOf("PurchaseOrder", "Purchase order", invoice.PoNumber?.Trim(), SOURCE_PO, "PurchaseOrder", true));
+                line.Fields.Add(FieldOf("PurchaseOrder", "Purchase order", linePo, SOURCE_PO, "PurchaseOrder", true));
                 line.Fields.Add(FieldOf("PurchaseOrderItem", "Purchase order item", itemNumber, sapLine == null ? SOURCE_LINE : SOURCE_PO_ITEM, "PurchaseOrderItem", true));
                 line.Fields.Add(FieldOf("DocumentCurrency", "Currency", currency, SOURCE_INVOICE, "Currency", true));
                 line.Fields.Add(FieldOf("SupplierInvoiceItemAmount", "Amount", Money(item.Amount), SOURCE_LINE, "Amount", true));
@@ -166,8 +187,8 @@ namespace Buyer.Application.Features.Shared
                 line.Fields.Add(FieldOf("PurchaseOrderQuantityUnit", "Unit of measure", sapLine?.Uom, SOURCE_PO_ITEM, "PurchaseOrderQuantityUnit", true));
                 line.Fields.Add(FieldOf("TaxCode", "Tax code", sapLine?.TaxCode, SOURCE_PO_ITEM, "TaxCode", true));
                 line.Fields.Add(FieldOf("Material", "Material", sapLine?.Material ?? poItem?.MaterialCode, SOURCE_PO_ITEM, "Material", false));
-                line.Fields.Add(FieldOf("Plant", "Plant", sapLine?.Plant ?? sapOrder.Plant, SOURCE_PO_ITEM, "Plant", false));
-                line.Fields.Add(FieldOf("GrnNumber", "Goods receipt", receipt?.GrnNumber, SOURCE_GRN, "GrnNumber", false));
+                line.Fields.Add(FieldOf("Plant", "Plant", sapLine?.Plant ?? lineOrder.Plant, SOURCE_PO_ITEM, "Plant", false));
+                line.Fields.Add(FieldOf("GrnNumber", "Goods receipt", grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers), SOURCE_GRN, "GrnNumber", false));
                 line.Fields.Add(FieldOf("MaterialDocument", "SAP material document", materialDocument, SOURCE_GRN, "ErpReference", false));
                 prepared.Lines.Add(line);
             }

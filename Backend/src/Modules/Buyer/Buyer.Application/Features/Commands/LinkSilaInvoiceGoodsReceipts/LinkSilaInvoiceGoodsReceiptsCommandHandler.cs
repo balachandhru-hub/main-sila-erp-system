@@ -31,9 +31,26 @@ namespace Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts
                 throw new BadRequestCustomException("Goods receipts cannot be changed.", "This invoice has already been submitted.");
             }
 
-            if (invoice.PurchaseOrderId == null)
+            List<Guid> lineItemIds = await _repository.InvoiceItem
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive && x.PurchaseOrderItemId != null)
+                .Select(x => x.PurchaseOrderItemId!.Value)
+                .ToListAsync(cancellationToken);
+            List<Guid> linePoIds = lineItemIds.Count == 0
+                ? new List<Guid>()
+                : await _repository.PurchaseOrderItem
+                    .FindByCondition(x => lineItemIds.Contains(x.Id))
+                    .Select(x => x.PurchaseOrderId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+            HashSet<Guid> purchaseOrders = linePoIds.ToHashSet();
+            if (invoice.PurchaseOrderId != null)
             {
-                throw new BadRequestCustomException("Match a purchase order first.", "Goods receipts are chosen from the matched purchase order.");
+                purchaseOrders.Add(invoice.PurchaseOrderId.Value);
+            }
+
+            if (purchaseOrders.Count == 0)
+            {
+                throw new BadRequestCustomException("Match a purchase order first.", "Goods receipts are chosen from the purchase orders on the invoice.");
             }
 
             List<Guid> ids = (request.Request?.GoodsReceiptIds ?? new List<Guid>()).Where(x => x != Guid.Empty).Distinct().ToList();
@@ -47,9 +64,9 @@ namespace Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts
                 throw new NotFoundCustomException("Goods receipt not found.", "Choose a goods receipt of this purchase order.");
             }
 
-            if (selected.Any(x => x.PurchaseOrderId != invoice.PurchaseOrderId))
+            if (selected.Any(x => !purchaseOrders.Contains(x.PurchaseOrderId)))
             {
-                throw new BadRequestCustomException("Goods receipt is for another purchase order.", "Choose a goods receipt of the matched purchase order.");
+                throw new BadRequestCustomException("Goods receipt is for another purchase order.", "Choose a goods receipt of a purchase order on this invoice.");
             }
 
             List<Guid> otherIds = selected
@@ -60,16 +77,26 @@ namespace Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts
             List<Invoice> others = otherIds.Count == 0
                 ? new List<Invoice>()
                 : await _repository.Invoice.FindByCondition(x => otherIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken);
+            List<Guid> otherPostingIds = others.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            List<InventoryErpPosting> otherPostings = otherPostingIds.Count == 0
+                ? new List<InventoryErpPosting>()
+                : await _repository.InventoryErpPosting.FindByCondition(x => otherPostingIds.Contains(x.Id)).ToListAsync(cancellationToken);
             GoodsReceipt? taken = selected.FirstOrDefault(receipt =>
             {
                 Invoice? other = others.FirstOrDefault(x => x.Id == receipt.InvoiceId);
-                return other != null && Submitted(other.Status);
+                if (other == null)
+                {
+                    return false;
+                }
+
+                string? erpStatus = other.ErpPostingId == null ? null : otherPostings.FirstOrDefault(x => x.Id == other.ErpPostingId)?.Status;
+                return SilaGoodsReceiptSelection.Holds(other.Status, erpStatus);
             });
             if (taken != null)
             {
                 throw new ConflictCustomException(
-                    "Goods receipt is already on a submitted invoice.",
-                    $"Goods receipt {taken.GrnNumber} is already on an invoice that was submitted.");
+                    "Goods receipt is already on a posted invoice.",
+                    $"Goods receipt {taken.GrnNumber} is already on an invoice that was posted.");
             }
 
             List<GoodsReceipt> current = await _repository.GoodsReceipt
@@ -85,6 +112,18 @@ namespace Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts
             {
                 receipt.InvoiceId = invoice.Id;
                 _repository.GoodsReceipt.Update(receipt);
+            }
+
+            foreach (Invoice other in others)
+            {
+                bool remains = await _repository.GoodsReceipt
+                    .FindByCondition(x => x.InvoiceId == other.Id && x.IsActive && !ids.Contains(x.Id))
+                    .AnyAsync(cancellationToken);
+                if (!remains && other.Status is Common.SILA_INVOICE_READY or Common.SILA_INVOICE_GRN_POSTED or Common.SILA_INVOICE_GRN_IN_PROGRESS)
+                {
+                    other.Status = Common.SILA_INVOICE_REVIEWED;
+                    _repository.Invoice.Update(other);
+                }
             }
 
             bool confirmed = await ConfirmedAsync(selected, cancellationToken);

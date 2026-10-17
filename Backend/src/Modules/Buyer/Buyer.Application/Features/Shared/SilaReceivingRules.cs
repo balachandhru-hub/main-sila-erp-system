@@ -245,9 +245,14 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, string?> suppliers = await repository.PurchaseOrder
                 .FindByCondition(x => purchaseOrderIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, x => x.SupplierName, cancellationToken);
-            Dictionary<Guid, string?> invoices = await repository.Invoice
-                .FindByCondition(x => invoiceIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, x => x.InvoiceNumber, cancellationToken);
+            List<Invoice> invoiceRows = invoiceIds.Count == 0
+                ? new List<Invoice>()
+                : await repository.Invoice.FindByCondition(x => invoiceIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            Dictionary<Guid, Invoice> invoices = invoiceRows.ToDictionary(x => x.Id);
+            List<Guid> invoicePostingIds = invoiceRows.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> invoicePostings = invoicePostingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => invoicePostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
             Dictionary<Guid, InventoryErpPosting> postings = await repository.InventoryErpPosting
                 .FindByCondition(x => postingIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, cancellationToken);
@@ -269,7 +274,9 @@ namespace Buyer.Application.Features.Shared
                     LocationId = receipt.LocationId,
                     LocationName = locations.TryGetValue(receipt.LocationId, out string? location) ? location : null,
                     InvoiceId = receipt.InvoiceId,
-                    InvoiceNumber = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out string? number) ? number : null,
+                    InvoiceNumber = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? held) ? held.InvoiceNumber : null,
+                    InvoiceStatus = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? heldStatus) ? heldStatus.Status : null,
+                    InvoiceErpStatus = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? heldErp) && heldErp.ErpPostingId != null && invoicePostings.TryGetValue(heldErp.ErpPostingId.Value, out InventoryErpPosting? heldPosting) ? heldPosting.Status : null,
                     DeliveryNote = receipt.DeliveryNote,
                     Status = receipt.Status,
                     ReceivedOn = receipt.DateCreated,
@@ -352,6 +359,20 @@ namespace Buyer.Application.Features.Shared
                 });
             }
 
+            List<Guid> detailPoItemIds = items.Where(x => x.PurchaseOrderItemId != null).Select(x => x.PurchaseOrderItemId!.Value).Distinct().ToList();
+            List<PurchaseOrderItem> detailPoItems = detailPoItemIds.Count == 0
+                ? new List<PurchaseOrderItem>()
+                : await repository.PurchaseOrderItem.FindByCondition(x => detailPoItemIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            List<Guid> detailPoIds = detailPoItems.Select(x => x.PurchaseOrderId).ToList();
+            if (invoice.PurchaseOrderId != null)
+            {
+                detailPoIds.Add(invoice.PurchaseOrderId.Value);
+            }
+
+            detailPoIds = detailPoIds.Distinct().ToList();
+            List<PurchaseOrder> detailOrders = detailPoIds.Count == 0
+                ? new List<PurchaseOrder>()
+                : await repository.PurchaseOrder.FindByCondition(x => detailPoIds.Contains(x.Id)).ToListAsync(cancellationToken);
             string? blocked = await SilaInvoicePosting.LatestBlockAsync(repository, invoice.Id, cancellationToken);
             string? erpMessage = invoice.Status == Common.SILA_INVOICE_GET_PO_FAILED
                 ? blocked ?? posting?.ErrorMessage
@@ -370,6 +391,11 @@ namespace Buyer.Application.Features.Shared
                 GrossAmount = invoice.GrossAmount,
                 PurchaseOrderId = invoice.PurchaseOrderId,
                 PoNumber = invoice.PoNumber,
+                PurchaseOrders = detailOrders
+                    .OrderBy(x => x.Id == invoice.PurchaseOrderId ? 0 : 1)
+                    .ThenBy(x => x.PoNumber)
+                    .Select(x => new SilaInvoicePurchaseOrderDto { Id = x.Id, PoNumber = x.PoNumber })
+                    .ToList(),
                 FileName = invoice.FileName,
                 Status = invoice.Status,
 
@@ -388,6 +414,8 @@ namespace Buyer.Application.Features.Shared
                     UnitPrice = item.UnitPrice,
                     Amount = item.Amount,
                     PurchaseOrderItemId = item.PurchaseOrderItemId,
+                    PurchaseOrderId = item.PurchaseOrderItemId == null ? null : detailPoItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId)?.PurchaseOrderId,
+                    PoNumber = item.PurchaseOrderItemId == null ? null : detailOrders.FirstOrDefault(x => x.Id == detailPoItems.FirstOrDefault(line => line.Id == item.PurchaseOrderItemId)?.PurchaseOrderId)?.PoNumber,
                     Uom = item.Uom,
                     SupplierMaterialCode = item.SupplierMaterialCode,
                     TaxRate = item.TaxRate,

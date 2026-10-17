@@ -51,6 +51,30 @@ namespace Buyer.Application.Features.Commands.MatchSilaInvoicePurchaseOrder
                     $"Purchase order {purchaseOrder.PoNumber} is from {purchaseOrder.SupplierName}; match the invoice supplier first if it is wrong.");
             }
 
+            if (request.Append && invoice.PurchaseOrderId != null && invoice.PurchaseOrderId != purchaseOrder.Id)
+            {
+                List<InvoiceItem> openItems = await _repository.InvoiceItem
+                    .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive && x.PurchaseOrderItemId == null)
+                    .ToListAsync(cancellationToken);
+                foreach (InvoiceItem item in openItems)
+                {
+                    Guid? matched = SilaInvoiceMatching.MatchLine(item.Description, poItems);
+                    if (matched == null)
+                    {
+                        continue;
+                    }
+
+                    item.PurchaseOrderItemId = matched;
+                    item.MatchStatus = SilaReceivingRules.MATCH_SUGGESTED;
+                    _repository.InvoiceItem.Update(item);
+                }
+
+                await _repository.SaveAsync();
+                SilaInvoiceDetailDto added = await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
+                _logger.LogInfo($"Purchase order added to invoice. InvoiceId: {invoice.Id}, PoNumber: {purchaseOrder.PoNumber}, MatchedLines: {openItems.Count(x => x.PurchaseOrderItemId != null)}");
+                return added;
+            }
+
             invoice.PurchaseOrderId = purchaseOrder.Id;
             invoice.PoNumber = purchaseOrder.PoNumber;
             if (keys.Count == 0)

@@ -75,12 +75,65 @@ namespace Buyer.Application.Features.Shared
                 return "Matched purchase order, from the SILA invoice";
             }
 
-            PurchaseOrder? order = await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId && x.BuyerId == invoice.BuyerId);
-            if (order == null || string.IsNullOrWhiteSpace(order.PoNumber))
+            PurchaseOrder? primaryOrder = await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId && x.BuyerId == invoice.BuyerId);
+            if (primaryOrder == null || string.IsNullOrWhiteSpace(primaryOrder.PoNumber))
             {
                 return "Matched purchase order, from the SILA invoice";
             }
 
+            List<Guid> lineItemIds = await repository.InvoiceItem
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive && x.PurchaseOrderItemId != null)
+                .Select(x => x.PurchaseOrderItemId!.Value)
+                .ToListAsync(cancellationToken);
+            List<Guid> extraPoIds = lineItemIds.Count == 0
+                ? new List<Guid>()
+                : await repository.PurchaseOrderItem
+                    .FindByCondition(x => lineItemIds.Contains(x.Id) && x.PurchaseOrderId != primaryOrder.Id)
+                    .Select(x => x.PurchaseOrderId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+            List<PurchaseOrder> orders = new List<PurchaseOrder> { primaryOrder };
+            if (extraPoIds.Count > 0)
+            {
+                orders.AddRange(await repository.PurchaseOrder
+                    .FindByCondition(x => extraPoIds.Contains(x.Id) && x.BuyerId == invoice.BuyerId && !string.IsNullOrWhiteSpace(x.PoNumber))
+                    .ToListAsync(cancellationToken));
+            }
+
+            Dictionary<Guid, SilaPurchaseOrderInvoiceRead.Order> sapByPo = new Dictionary<Guid, SilaPurchaseOrderInvoiceRead.Order>();
+            Dictionary<Guid, string> numbers = new Dictionary<Guid, string>();
+            SilaPurchaseOrderInvoiceRead.Order? primarySap = null;
+            foreach (PurchaseOrder current in orders)
+            {
+                (SilaPurchaseOrderInvoiceRead.Order? sap, string? error) = await ReadOnePurchaseOrderAsync(
+                    repository, logger, executor, organizationId, invoice, userId, current, cancellationToken);
+                if (error != null || sap == null)
+                {
+                    return orders.Count == 1 ? error : current.PoNumber + ": " + error;
+                }
+
+                sapByPo[current.Id] = sap;
+                numbers[current.Id] = current.PoNumber.Trim();
+                if (current.Id == primaryOrder.Id)
+                {
+                    primarySap = sap;
+                }
+            }
+
+            await SilaInvoicePostingData.StoreAsync(repository, invoice, primarySap!, userId, cancellationToken, sapByPo, numbers);
+            return null;
+        }
+
+        private static async Task<(SilaPurchaseOrderInvoiceRead.Order? Sap, string? Error)> ReadOnePurchaseOrderAsync(
+            IRepositoryWrapper repository,
+            ILoggerManager logger,
+            IIntegrationHttpExecutor executor,
+            Guid organizationId,
+            Invoice invoice,
+            Guid userId,
+            PurchaseOrder order,
+            CancellationToken cancellationToken)
+        {
             string company = order.CompanyCode?.Trim() ?? string.Empty;
             List<ApiIntegrationConfiguration> configurations = await SilaErpPull.ActiveConfigurationsAsync(
                 repository, organizationId, IntegrationProcessType.GET_PO, cancellationToken);
@@ -91,7 +144,7 @@ namespace Buyer.Application.Features.Shared
                     || x.EntityCode.Equals(SharedKernel.Integration.IntegrationConstants.ENTITY_CODE_ALL, StringComparison.OrdinalIgnoreCase)));
             if (configuration == null)
             {
-                return SilaInvoiceLifecycle.API_GET_PO + (string.IsNullOrEmpty(company) ? " is not configured." : " is not configured for company code " + company);
+                return (null, SilaInvoiceLifecycle.API_GET_PO + (string.IsNullOrEmpty(company) ? " is not configured." : " is not configured for company code " + company));
             }
 
             List<ApiFieldMapping> mappings = await repository.ApiFieldMapping
@@ -99,7 +152,7 @@ namespace Buyer.Application.Features.Shared
                 .ToListAsync(cancellationToken);
             if (mappings.Count == 0)
             {
-                return "Purchase order field mappings are missing on " + configuration.Name;
+                return (null, "Purchase order field mappings are missing on " + configuration.Name);
             }
 
             string filter = SilaPurchaseOrderInvoiceRead.Filter(order.PoNumber);
@@ -112,7 +165,7 @@ namespace Buyer.Application.Features.Shared
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 logger.LogError($"GET PO for invoice posting failed. InvoiceId: {invoice.Id}, Error: {SilaLogText.Short(exception.Message)}");
-                return SilaInvoiceLifecycle.API_GET_PO + " could not be read. " + exception.Message;
+                return (null, SilaInvoiceLifecycle.API_GET_PO + " could not be read. " + exception.Message);
             }
 
             int rowNumber = 0;
@@ -127,7 +180,7 @@ namespace Buyer.Application.Features.Shared
                 .ToList();
             if (matched.Count == 0)
             {
-                return "Purchase order " + order.PoNumber + " was not returned by " + SilaInvoiceLifecycle.API_GET_PO;
+                return (null, "Purchase order " + order.PoNumber + " was not returned by " + SilaInvoiceLifecycle.API_GET_PO);
             }
 
             JsonElement? sapRecord = null;
@@ -148,7 +201,7 @@ namespace Buyer.Application.Features.Shared
 
             if (sapRecord == null)
             {
-                return "Purchase order " + order.PoNumber + " was not returned by " + SilaInvoiceLifecycle.API_GET_PO;
+                return (null, "Purchase order " + order.PoNumber + " was not returned by " + SilaInvoiceLifecycle.API_GET_PO);
             }
 
             SilaPurchaseOrderInvoiceRead.Order sapOrder = SilaPurchaseOrderInvoiceRead.FromRecord(mappings, sapRecord.Value);
@@ -158,11 +211,11 @@ namespace Buyer.Application.Features.Shared
                 .ToListAsync(cancellationToken);
             List<PurchaseOrderItem> poItems = invoiceLineIds.Count == 0
                 ? new List<PurchaseOrderItem>()
-                : await repository.PurchaseOrderItem.FindByCondition(x => invoiceLineIds.Contains(x.Id)).ToListAsync(cancellationToken);
+                : await repository.PurchaseOrderItem.FindByCondition(x => invoiceLineIds.Contains(x.Id) && x.PurchaseOrderId == order.Id).ToListAsync(cancellationToken);
             string? missingFields = SilaPurchaseOrderInvoiceRead.MissingMessage(sapOrder, poItems.Select(x => x.LineNumber).ToList());
             if (missingFields != null)
             {
-                return missingFields;
+                return (null, missingFields);
             }
 
             SilaPoImportRowDto header = matched[0];
@@ -243,8 +296,7 @@ namespace Buyer.Application.Features.Shared
                 ActorUserId = userId,
                 IsActive = true
             });
-            await SilaInvoicePostingData.StoreAsync(repository, invoice, sapOrder, userId, cancellationToken);
-            return null;
+            return (sapOrder, null);
         }
 
         /// <summary>Reads the S/4 purchase order, maps the invoice, then posts through the existing invoice API. Approval has already finished.</summary>

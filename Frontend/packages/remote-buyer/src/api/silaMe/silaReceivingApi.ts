@@ -104,6 +104,10 @@ export interface SilaGoodsReceipt {
   locationName?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
+  /** Status of the invoice holding this goods receipt. */
+  invoiceStatus?: string | null;
+  /** ERP status of that invoice. */
+  invoiceErpStatus?: string | null;
   deliveryNote?: string | null;
   status: string;
   receivedOn: string;
@@ -151,6 +155,8 @@ export interface SilaInvoice {
   grossAmount?: number | null;
   purchaseOrderId?: string | null;
   poNumber?: string | null;
+  /** Every purchase order billed by this invoice. */
+  purchaseOrders?: { id: string; poNumber: string }[];
   fileName: string;
   status: SilaInvoiceStatus;
   /** 0..1 */
@@ -173,6 +179,8 @@ export interface SilaInvoiceItem {
   unitPrice?: number | null;
   amount?: number | null;
   purchaseOrderItemId?: string | null;
+  purchaseOrderId?: string | null;
+  poNumber?: string | null;
   uom?: string | null;
   supplierMaterialCode?: string | null;
   /** Percent. */
@@ -553,6 +561,19 @@ export const getPoCandidates = async (invoiceId: string, search: string, page: S
 /** Links the invoice to an open purchase order of its supplier; the lines are matched again. */
 export const matchInvoicePurchaseOrder = async (invoiceId: string, purchaseOrderId: string): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/match-po`, { purchaseOrderId }), "Could not match the purchase order."));
+
+/** Keeps the purchase orders already on the invoice and adds another. Unmatched lines are matched to it. */
+export const addInvoicePurchaseOrder = async (invoiceId: string, purchaseOrderId: string): Promise<SilaInvoiceDetail> => {
+  try {
+    const response = await axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/match-po/add`, { purchaseOrderId });
+    return normalizeInvoice(response.data);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.status === 404 && !readError(error, "")) {
+      throw new Error("This server cannot add another purchase order to the invoice yet.");
+    }
+    throw new Error(readError(error, "Could not add the purchase order."));
+  }
+};
 
 export const matchInvoiceLines = async (invoiceId: string, lines: { invoiceItemId: string; purchaseOrderItemId: string | null }[]): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/match-lines`, { lines }), "Could not match the invoice lines."));

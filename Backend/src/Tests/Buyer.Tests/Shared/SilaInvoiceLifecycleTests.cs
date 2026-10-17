@@ -366,5 +366,98 @@ namespace Buyer.Tests.Shared
 
             Assert.StartsWith("%PDF", Encoding.ASCII.GetString(pdf));
         }
+
+        [Fact]
+        public void GoodsReceiptSelection_PicksTheExactQuantitiesEvenWhenAnotherInvoiceDidNotPost()
+        {
+            Guid itemA = Guid.NewGuid();
+            Guid itemB = Guid.NewGuid();
+            Guid exact = Guid.NewGuid();
+            Guid other = Guid.NewGuid();
+            List<SilaGoodsReceiptSelection.Line> invoice = new()
+            {
+                new() { PurchaseOrderItemId = itemA, Quantity = 4 },
+                new() { PurchaseOrderItemId = itemB, Quantity = 6 }
+            };
+            SilaGoodsReceiptSelection.Choice choice = SilaGoodsReceiptSelection.Select(invoice, new[]
+            {
+                new SilaGoodsReceiptSelection.Receipt
+                {
+                    Id = other,
+                    GrnNumber = "GR000001",
+                    Available = true,
+                    Lines = new() { new() { PurchaseOrderItemId = itemA, Quantity = 1 } }
+                },
+                new SilaGoodsReceiptSelection.Receipt
+                {
+                    Id = exact,
+                    GrnNumber = "GR000002",
+                    Available = !SilaGoodsReceiptSelection.Holds(Common.SILA_INVOICE_POSTING_FAILED, null),
+                    Lines = new()
+                    {
+                        new() { PurchaseOrderItemId = itemA, Quantity = 4 },
+                        new() { PurchaseOrderItemId = itemB, Quantity = 6 }
+                    }
+                }
+            });
+
+            Assert.False(SilaGoodsReceiptSelection.Holds(Common.SILA_INVOICE_POSTING_FAILED, null));
+            Assert.True(SilaGoodsReceiptSelection.Holds(Common.SILA_INVOICE_POSTED, null));
+            Assert.Equal(new[] { exact }, choice.Ids);
+            Assert.Contains("GR000002", choice.Reason, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GoodsReceiptSelection_CombinesReceiptsWhenOneDoesNotCoverTheInvoice()
+        {
+            Guid first = Guid.NewGuid();
+            Guid second = Guid.NewGuid();
+            List<SilaGoodsReceiptSelection.Line> invoice = new()
+            {
+                new() { Quantity = 2 },
+                new() { Quantity = 5 }
+            };
+            SilaGoodsReceiptSelection.Choice choice = SilaGoodsReceiptSelection.Select(invoice, new[]
+            {
+                new SilaGoodsReceiptSelection.Receipt
+                {
+                    Id = first,
+                    GrnNumber = "GR000001",
+                    Available = true,
+                    Lines = new() { new() { Quantity = 2 } }
+                },
+                new SilaGoodsReceiptSelection.Receipt
+                {
+                    Id = second,
+                    GrnNumber = "GR000002",
+                    Available = true,
+                    Lines = new() { new() { Quantity = 5 } }
+                }
+            });
+
+            Assert.Equal(2, choice.Ids.Count);
+            Assert.Contains(first, choice.Ids);
+            Assert.Contains(second, choice.Ids);
+        }
+
+        [Fact]
+        public void GoodsReceiptSelection_LeavesAPostedInvoiceReceiptAlone()
+        {
+            Guid posted = Guid.NewGuid();
+            SilaGoodsReceiptSelection.Choice choice = SilaGoodsReceiptSelection.Select(
+                new[] { new SilaGoodsReceiptSelection.Line { Quantity = 3 } },
+                new[]
+                {
+                    new SilaGoodsReceiptSelection.Receipt
+                    {
+                        Id = posted,
+                        GrnNumber = "GR000009",
+                        Available = !SilaGoodsReceiptSelection.Holds(Common.SILA_INVOICE_POSTED, Common.SILA_POSTING_POSTED),
+                        Lines = new() { new() { Quantity = 3 } }
+                    }
+                });
+
+            Assert.Empty(choice.Ids);
+        }
     }
 }

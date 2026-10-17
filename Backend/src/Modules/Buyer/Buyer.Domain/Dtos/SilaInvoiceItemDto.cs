@@ -12,6 +12,9 @@ namespace Buyer.Domain.Dtos
         public decimal? UnitPrice { get; set; }
         public decimal? Amount { get; set; }
         public Guid? PurchaseOrderItemId { get; set; }
+        /// <summary>Purchase order of the matched line. An invoice can bill lines from more than one purchase order.</summary>
+        public Guid? PurchaseOrderId { get; set; }
+        public string? PoNumber { get; set; }
         public string? Uom { get; set; }
         public string? SupplierMaterialCode { get; set; }
         /// <summary>Tax rate in percent (5 = 5 %).</summary>
