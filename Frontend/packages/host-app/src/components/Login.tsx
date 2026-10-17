@@ -17,6 +17,7 @@ import {
   FaCogs,
 } from 'react-icons/fa';
 import { login, getTokenClaims } from '../api/authApi';
+import { isSupplierRoleId } from '../store/useAuthStore';
 import './Login.css';
 
 type Role = 'supplier' | 'buyer' | 'platform-user';
@@ -130,7 +131,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onCreateAccount, onCreate
             organizationType: claims.organizationType,
           };
 
-          const redirectUrl = getRedirectUrl(claims.roleId);
+          const wantsMobile = new URLSearchParams(window.location.search).get('next') === '/mobile';
+          const redirectUrl = wantsMobile
+            ? (isSupplierRoleId(claims.roleId) ? '/mobile/supplier' : '/mobile')
+            : getRedirectUrl(claims.roleId);
           if (!redirectUrl) {
             setError('Unrecognized user role. Please contact support.');
             return;

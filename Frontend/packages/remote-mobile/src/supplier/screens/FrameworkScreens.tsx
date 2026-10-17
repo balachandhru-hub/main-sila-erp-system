@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { PurchaseOrderListItem } from '../../../../remote-buyer/src/api/purchaseOrderApi';
+import { useAccess } from '../../access';
 import { useGo } from '../../navigation';
+import { signOut } from '../../person';
 import { useLoad } from '../../useLoad';
 import { CLOUD_LATER, formatMoney, formatWhen } from '../format';
+import { isSupplierOnlyRole } from '../roles';
 import { loadCustomerOrders, loadSync } from '../live';
 import { ALERT_CATEGORIES, AUTO_ORDER_STEPS, FRAMEWORK, VMI_KPIS, type FrameworkModule } from '../modules';
 import { ChipRow, EmptyState, ErrorNote, KpiCard, LaterButton, Loading, NotConnected, PageHeader, SearchField, StatusBadge, Timeline, toneOfStatus } from '../ui';
@@ -188,6 +191,7 @@ export const AlertsScreen: React.FC = () => {
 
 export const MoreHub: React.FC = () => {
   const go = useGo();
+  const { person } = useAccess();
   const items = [
     ['Catalog', 'supplier/catalog', 'Live'],
     ['VMI', 'supplier/vmi', 'Not connected'],
@@ -199,11 +203,20 @@ export const MoreHub: React.FC = () => {
     ['Approvals', 'supplier/approvals', 'Not connected'],
     ['Alerts & Actions', 'supplier/alerts', 'Partial'],
     ['Sync', 'supplier/sync', 'Live'],
-    ['SILA Store', 'home', 'Buyer operations'],
+    ...(isSupplierOnlyRole(person?.roleName) ? [] : [['Buyer home', 'home', 'Store operations']]),
   ];
+  const [leaving, setLeaving] = useState(false);
+  const logOut = async () => {
+    setLeaving(true);
+    try {
+      await signOut();
+    } catch {
+      setLeaving(false);
+    }
+  };
   return (
     <>
-      <PageHeader eyebrow="More" title="More" intro="The rest of the supplier workspace." />
+      <PageHeader eyebrow="More" title="More" intro="The rest of SILA Store." />
       <div className="sp-screen">
         {items.map(([label, to, hint]) => (
           <button key={to} type="button" className="sp-link" onClick={() => go(to)}>
@@ -214,6 +227,9 @@ export const MoreHub: React.FC = () => {
             <span aria-hidden="true">›</span>
           </button>
         ))}
+        <button type="button" className="sm-btn" onClick={logOut} disabled={leaving}>
+          {leaving ? 'Logging out…' : 'Log out'}
+        </button>
       </div>
     </>
   );
