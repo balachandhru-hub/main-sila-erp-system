@@ -34,15 +34,37 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
                 throw new NotFoundCustomException("ERP posting not found.", "Select an ERP posting of this organization.");
             }
 
+            if (posting.Status == Common.SILA_POSTING_UNKNOWN)
+            {
+                _logger.LogError($"ERP posting is unknown and cannot be resent. PostingId: {posting.Id}");
+                throw new BadRequestCustomException(
+                    "Reconcile this posting.",
+                    "SAP did not confirm whether the document was created. Reconcile it before anything is sent again.");
+            }
+
+            if (posting.Status == Common.SILA_POSTING_POSTED)
+            {
+                throw new BadRequestCustomException("Nothing to reprocess.", "This posting already completed in SAP and in SILA.");
+            }
+
+            if (SilaTrackerRules.ErpAlreadyAccepted(posting))
+            {
+                string? previous = posting.ErrorMessage;
+                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken);
+                _logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
+                return posting.Id;
+            }
+
             if (posting.Status != Common.SILA_POSTING_FAILED && posting.Status != Common.SILA_POSTING_SKIPPED)
             {
                 _logger.LogError($"ERP posting cannot be reprocessed. PostingId: {posting.Id}, Status: {posting.Status}");
-                throw new BadRequestCustomException("Posting cannot be reprocessed.", "Only FAILED or SKIPPED postings can be sent again.");
+                throw new BadRequestCustomException("Posting cannot be reprocessed.", "Only a failed ERP call, or a local failure after SAP success, can be reprocessed.");
             }
 
+            string? originalError = posting.ErrorMessage;
             posting.Status = Common.SILA_POSTING_PENDING;
-            posting.Attempts = 0;
             posting.ErrorMessage = null;
+            SilaPostingRecovery.Record(_repository, posting, request.UserId, SilaTrackerRules.FROM_ERP, originalError, true, false, "ERP processing queued again. Receive is not repeated.");
             await _repository.SaveAsync();
 
             // Send step 2 (S4) immediately; stock was already updated when the GRN was posted.

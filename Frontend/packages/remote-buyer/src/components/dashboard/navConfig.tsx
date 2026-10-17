@@ -11,6 +11,7 @@ import {
 } from "@vosox/shared-ui";
 import type { RfqPageView } from "./types";
 import { SILA_ME_NAV_PATHS, type SilaMeRole } from "../silaMe/silaMeNav";
+import { silaMePermissions } from "../silaMe/silaMePermissions";
 
 // subItems can be a flat leaf or a non-clickable group with nested leaves.
 interface NavLeaf {
@@ -37,6 +38,7 @@ export const PURCHASING_NAV_PATHS = {
   purchasing: "purchasing",
   purchaseOrders: "purchase-orders",
   documents: "documents",
+  purchasingTransactions: "sila-purchasing-transactions",
 } as const;
 
 /** Each section's URL (/dashboard, /rfqs …); see useRouteNav. */
@@ -76,6 +78,8 @@ export interface BuyerNavOptions {
   isAdmin?: boolean;
   isOutletManager?: boolean;
   isStoreManager?: boolean;
+  /** Purchasing transaction tracker. Buyer administrators always have it; other roles follow the integration permission. */
+  showPurchasingTracker?: boolean;
   /** Key of the RFQ list in this dashboard ("allRfqs" for buyer users, "activeRFQs" for the administrator). */
   rfqListKey: string;
 }
@@ -92,6 +96,7 @@ export const buildBuyerNavItems = ({
   isAdmin = false,
   isOutletManager = false,
   isStoreManager = false,
+  showPurchasingTracker = false,
   rfqListKey,
 }: BuyerNavOptions): BuyerNavItem[] => {
   const requestsProducts = isAdmin || isOutletManager;
@@ -110,6 +115,7 @@ export const buildBuyerNavItems = ({
     ...(usesWeeklyBucket ? [leaf("weeklyBucket", "Weekly Bucket")] : []),
     ...(requestsProducts ? [leaf("cart", "Cart")] : []),
     leaf("purchaseOrders", "Purchase Orders"),
+    ...((isAdmin || showPurchasingTracker) ? [leaf("purchasingTransactions", "Purchasing Transactions")] : []),
   ];
 
   const settings: NavLeaf[] = [
@@ -152,11 +158,12 @@ export const buildHeaderNavItems = (
   rfqNumber: string | undefined,
   isOutletManager = false,
   isStoreManager = false,
-  _silaMeRole: SilaMeRole | null = null,
+  silaMeRole: SilaMeRole | null = null,
 ): BuyerNavItem[] => {
   const items = buildBuyerNavItems({
     isOutletManager,
     isStoreManager,
+    showPurchasingTracker: silaMeRole ? silaMePermissions(silaMeRole).manageErpPosting : false,
     rfqListKey: "allRfqs",
   });
 

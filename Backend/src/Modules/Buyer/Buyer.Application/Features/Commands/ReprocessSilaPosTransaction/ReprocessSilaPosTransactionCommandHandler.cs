@@ -55,20 +55,32 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaPosTransaction
             }
 
             bool stockPosted = await ledger.HasReferenceAsync(Common.SILA_REF_POS_SALE, transaction.Id, cancellationToken);
-            if (transaction.ErpPostingId != null && (stockPosted || transaction.Status == Common.SILA_POS_INVENTORY_DEDUCTED))
+            if (transaction.ErpPostingId != null && (stockPosted || transaction.Status == Common.SILA_POS_INVENTORY_DEDUCTED || transaction.FailedStep == Common.SILA_POS_STEP_POST))
             {
                 Guid postingId = transaction.ErpPostingId.Value;
                 InventoryErpPosting? posting = await _repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == postingId && x.BuyerId == buyer.Id);
-                if (posting == null || posting.Status == Common.SILA_POSTING_POSTED || posting.Status == Common.SILA_POSTING_PENDING || posting.Status == Common.SILA_POSTING_UNKNOWN)
+                if (posting == null || posting.Status == Common.SILA_POSTING_POSTED || posting.Status == Common.SILA_POSTING_PENDING)
                 {
                     _logger.LogError($"POS transaction posting cannot be sent again. TransactionId: {transaction.Id}, PostingStatus: {posting?.Status}");
                     throw new BadRequestCustomException("Nothing to reprocess.", "A posted or in-flight ERP posting is not sent again. Reprocess only a failed posting.");
                 }
 
+                if (posting.Status == Common.SILA_POSTING_UNKNOWN)
+                {
+                    throw new BadRequestCustomException("Reconcile this posting.", "SAP did not confirm the consumption document. Reconcile it before anything is sent again.");
+                }
+
+                if (SilaTrackerRules.ErpAlreadyAccepted(posting))
+                {
+                    await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, posting.ErrorMessage, cancellationToken);
+                    _logger.LogInfo($"POS transaction finalized locally. TransactionId: {transaction.Id}, PostingId: {posting.Id}");
+                    return Unit.Value;
+                }
+
+                string? originalError = posting.ErrorMessage;
                 posting.Status = Common.SILA_POSTING_PENDING;
                 posting.ErrorMessage = null;
-                posting.Attempts = 0;
-                ledger.AddEvent(Common.SILA_REF_POS_SALE, transaction.Id, SilaPosProcessing.EVENT_POSTING_REQUEUED, "Step 2 is queued again. Inventory is not deducted again.");
+                SilaPostingRecovery.Record(_repository, posting, request.UserId, SilaTrackerRules.FROM_ERP, originalError, true, false, "ERP processing queued again. Inventory is not deducted again.");
                 await _repository.SaveAsync();
                 _logger.LogInfo($"POS transaction ERP posting queued again. TransactionId: {transaction.Id}, PostingId: {posting.Id}");
                 return Unit.Value;

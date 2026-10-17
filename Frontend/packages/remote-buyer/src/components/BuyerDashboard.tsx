@@ -37,6 +37,8 @@ import WishlistSection from "./wishlist/WishlistSection";
 import WeeklyBucketSection from "./weeklyBucket/WeeklyBucketSection";
 import CartSection from "./cart/CartSection";
 import SilaMeWorkspace from "./silaMe/SilaMeWorkspace";
+import SilaConsolidatedTracker from "./silaMe/trackers/SilaConsolidatedTracker";
+import { silaMePermissions } from "./silaMe/silaMePermissions";
 import { SILA_ME_MODEL_KEY, buildSilaMeModuleNav, isSilaMeNav, type SilaMeRole } from "./silaMe/silaMeNav";
 import { useSilaMeAddon } from "./silaMe/useSilaMeAddon";
 import { silaMeRoleOf } from "./silaMe/silaMeRoles";
@@ -233,6 +235,8 @@ const BuyersDashboard: React.FC = () => {
                 classPrefix="pud"
                 onNavigate={handleNavClick}
               />
+            ) : activeNav === "purchasingTransactions" ? (
+              <SilaConsolidatedTracker tracker="PURCHASING" canReprocess={silaMePermissions(silaMeRole).manageErpPosting} />
             ) : activeNav === "purchaseOrders" ? (
               <PurchaseOrderList />
             ) : activeNav === "documents" ? (

@@ -274,6 +274,10 @@ namespace Buyer.Domain.Common
                 public const string SILA_PI_CANCELLED = "CANCELLED";
                 public const string SILA_ENQUIRY_MORE_INFORMATION = "MORE_INFORMATION_REQUIRED";
                 public const string SILA_POSTING_UNKNOWN = "UNKNOWN";
+                // SAP accepted the document. Local completion has not been saved yet, so the job must not send it again.
+                public const string SILA_POSTING_ERP_ACCEPTED = "ERP_ACCEPTED";
+                // SAP accepted the document and SILA failed while finishing the local record. Reprocess continues locally.
+                public const string SILA_POSTING_FAILED_LOCAL = "FAILED_LOCAL";
                 public const string SILA_POS_BATCH_PREVIEW = "PREVIEW";
                 public const string SILA_POS_BATCH_PROCESSED = "PROCESSED";
                 public const string SILA_PROPOSAL_PROPOSED = "PROPOSED";
