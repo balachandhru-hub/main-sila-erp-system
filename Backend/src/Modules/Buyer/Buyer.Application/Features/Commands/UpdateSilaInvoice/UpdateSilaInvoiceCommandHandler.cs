@@ -28,10 +28,13 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             _logger.LogInfo($"Saving reviewed invoice. InvoiceId: {request.InvoiceId}, OrganizationId: {request.OrganizationId}, UserId: {request.UserId}");
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             Invoice invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
-            if (invoice.Status == Common.SILA_INVOICE_GRN_POSTED)
+            if (SilaInvoiceLifecycle.AlreadyPosted(invoice.Status, null)
+                || invoice.Status is Common.SILA_INVOICE_POSTING or Common.SILA_INVOICE_PENDING_APPROVAL
+                    or Common.SILA_INVOICE_POSTING_UNKNOWN or Common.SILA_INVOICE_LOCAL_FAILED
+                    or Common.SILA_INVOICE_GRN_IN_PROGRESS)
             {
-                _logger.LogError($"Invoice already has a goods receipt. InvoiceId: {invoice.Id}");
-                throw new BadRequestCustomException("Invoice already received.", "Goods were received against this invoice; it can no longer be changed.");
+                _logger.LogError($"Invoice cannot be edited. InvoiceId: {invoice.Id}, Status: {invoice.Status}");
+                throw new BadRequestCustomException("Invoice cannot be changed.", "This invoice is already posted or waiting on SAP. It cannot be edited.");
             }
 
             List<SilaInvoiceItemDto> lines = input.Items ?? new List<SilaInvoiceItemDto>();

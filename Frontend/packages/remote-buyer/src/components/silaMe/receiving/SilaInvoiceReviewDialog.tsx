@@ -65,12 +65,14 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const [tab, setTab] = useState<Tab>("review");
   const [readings, setReadings] = useState(0);
   const [deferred, setDeferred] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState("");
   const [sapReference, setSapReference] = useState("");
 
   const show = (data: SilaInvoiceDetail) => {
     setInvoice(data);
     setForm(toInvoiceForm(data));
+    setEditing(false);
   };
 
   useEffect(() => {
@@ -101,10 +103,10 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
 
   const pastReceipt = invoice != null && [
     "GRN_IN_PROGRESS", "GRN_POSTED", "GRN_FAILED", "READY_FOR_INVOICE_SUBMISSION", "PENDING_APPROVAL", "APPROVED",
-    "READY_TO_POST", "POSTING", "POSTED", "ERP_POSTING_FAILED", "GET_PO_FAILED", "LOCAL_FINALIZATION_FAILED",
+    "READY_TO_POST", "POSTING", "POSTED", "ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "LOCAL_FINALIZATION_FAILED",
     "POSTING_UNKNOWN", "AWAITING_PAYMENT", "PARTIALLY_PAID", "PAID", "OVERDUE",
   ].includes(invoice.status);
-  const locked = !canPost || pastReceipt;
+  const retry = invoice != null && ["GET_PO_FAILED", "VALIDATION_FAILED", "ERP_POSTING_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"].includes(invoice.status);
   const canExtract = canPost && invoice !== null && ["UPLOADED", "OCR_FAILED", "EXTRACTED", "REVIEW_REQUIRED"].includes(invoice.status);
   // A re-read keeps the fields the user corrected; it is the only reading of a reviewed invoice.
   const canReread = canPost && invoice !== null && ["EXTRACTED", "REVIEW_REQUIRED", "REVIEWED"].includes(invoice.status);
@@ -120,10 +122,19 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     && invoice.status === "GRN_POSTED" && postedGrns.length === 1 && !erpAccepted
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
   );
-  const canSubmit = Boolean(invoice?.canSubmitInvoice) || readyToSubmit;
-  const askSubmit = Boolean(canSubmit && grn && !invoice?.goodsReceiptNote);
+  const canRetry = Boolean(
+    canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
+    && retry && postedGrns.length >= 1 && !erpAccepted
+    && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
+  );
+  const canSubmit = Boolean(invoice?.canSubmitInvoice) || readyToSubmit || canRetry;
+  const askSubmit = Boolean(canSubmit && !retry && grn && !invoice?.goodsReceiptNote);
   const posted = erpAccepted || invoice?.status === "AWAITING_PAYMENT" || invoice?.status === "POSTED" || invoice?.status === "PAID" || invoice?.status === "PARTIALLY_PAID" || invoice?.status === "OVERDUE";
+  const sealed = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED" || invoice?.status === "GRN_IN_PROGRESS";
+  const canEdit = Boolean(canPost && invoice && pastReceipt && !sealed);
+  const fieldsLocked = !canPost || sealed || (pastReceipt && !editing);
   const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
+  const submitLabel = busy === "submit" ? (retry ? "Resubmitting..." : "Submitting...") : (retry ? "Resubmit" : "Submit invoice");
 
   const run = async (kind: "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile", action: () => Promise<void>) => {
     setBusy(kind);
@@ -224,7 +235,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
       size="xl"
       headerProps={{ heading: invoice ? `Invoice ${invoice.invoiceNumber || invoice.fileName}` : "Invoice" }}
       footerProps={{
-        primaryButton: locked || !form || tab !== "review" ? undefined : { text: "Save review", onClick: handleSave, loading: busy === "save", disabled: busy !== null },
+        primaryButton: fieldsLocked || !form || tab !== "review" ? undefined : { text: "Save review", onClick: handleSave, loading: busy === "save", disabled: busy !== null },
         secondaryButton: { text: "Close", onClick: onClose, disabled: busy !== null },
       }}
     >
@@ -256,9 +267,14 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Create GRN from invoice
                 </button>
               )}
+              {canEdit && !editing && (
+                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>
+                  Edit
+                </button>
+              )}
               {canSubmit && (deferred || !askSubmit) && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
-                  {busy === "submit" ? "Submitting..." : "Submit invoice"}
+                  {submitLabel}
                 </button>
               )}
             </div>
@@ -270,7 +286,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => openGrnPdf(grn.id)}>View GRN PDF</button>
                   <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => setDeferred(true)}>Not now</button>
                   <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
-                    {busy === "submit" ? "Submitting..." : "Submit invoice"}
+                    {submitLabel}
                   </button>
                 </div>
                 <p>Would you like to submit the invoice?</p>
@@ -284,6 +300,20 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p>GRN: {invoice.goodsReceipts.map((receipt) => receipt.grnNumber).join(", ") || "—"}</p>
                 <p>SAP Invoice: {invoice.erpReference || "—"}</p>
                 <p>Status: {receivingLabel(invoice.paymentStatus || invoice.status)}</p>
+              </div>
+            )}
+            {invoice.status === "GET_PO_FAILED" && (
+              <div className="sila-alert sila-alert--warning" role="status">
+                <p><strong>Purchase order read failed</strong></p>
+                <p>The purchase order could not be read for invoice posting. Edit the invoice if the PO reference needs a correction, then resubmit.</p>
+                <div className="srcv-actions">
+                  {canEdit && !editing && (
+                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>Edit</button>
+                  )}
+                  {canSubmit && (
+                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{submitLabel}</button>
+                  )}
+                </div>
               </div>
             )}
             {postingFailed && (
@@ -386,8 +416,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
             </div>
             {tab === "matching" && (
               <div id="srcv-panel-matching" role="tabpanel" aria-labelledby="srcv-tab-matching" className="srcv-stack">
-                <SilaInvoiceSupplierMatch invoice={invoice} disabled={locked || busy !== null} onUpdated={handleMatched} />
-                <SilaInvoicePoMatch invoice={invoice} disabled={locked || busy !== null} onUpdated={handleMatched} />
+                <SilaInvoiceSupplierMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
+                <SilaInvoicePoMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
               </div>
             )}
             {tab === "history" && (
@@ -407,7 +437,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                         type={field.type}
                         step={field.type === "number" ? "any" : undefined}
                         value={form[field.key]}
-                        disabled={locked || busy !== null}
+                        disabled={fieldsLocked || busy !== null}
                         onChange={(event) => setForm({ ...form, [field.key]: event.target.value })}
                       />
                     </div>
@@ -418,7 +448,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                       id="srcv-inv-type"
                       className="sila-select"
                       value={form.invoiceType}
-                      disabled={locked || busy !== null}
+                      disabled={fieldsLocked || busy !== null}
                       onChange={(event) => setForm({ ...form, invoiceType: event.target.value })}
                     >
                       <option value="">Not known</option>
@@ -432,7 +462,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                       id="srcv-inv-po"
                       className="sila-select"
                       value={form.purchaseOrderId}
-                      disabled={locked || busy !== null}
+                      disabled={fieldsLocked || busy !== null}
                       onChange={(event) => setForm({ ...form, purchaseOrderId: event.target.value, lines: form.lines.map((line) => ({ ...line, purchaseOrderItemId: "" })) })}
                     >
                       <option value="">Not linked</option>
@@ -440,7 +470,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                     </select>
                   </div>
                 </div>
-                <SilaInvoiceLinesEditor lines={form.lines} poLines={poLines} disabled={locked || busy !== null} onChange={(lines) => setForm({ ...form, lines })} />
+                <SilaInvoiceLinesEditor lines={form.lines} poLines={poLines} disabled={fieldsLocked || busy !== null} onChange={(lines) => setForm({ ...form, lines })} />
                 {(invoice.timeline ?? []).length > 0 && (
                   <div>
                     <h3 className="sila-section-title">Lifecycle</h3>
