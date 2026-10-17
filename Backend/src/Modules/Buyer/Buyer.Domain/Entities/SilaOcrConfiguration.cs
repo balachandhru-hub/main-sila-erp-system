@@ -48,5 +48,25 @@ namespace Buyer.Domain.Entities
         public bool? FinancialReconciliation { get; set; }
 
         public bool? ReuseCachedOcr { get; set; }
+
+        /// <summary>LOCAL (the local downloads path), FILE_PATH, or SHAREPOINT. Null uses LOCAL.</summary>
+        [MaxLength(20)]
+        public string? AttachmentStorage { get; set; }
+
+        /// <summary>Folder used when AttachmentStorage is FILE_PATH.</summary>
+        [MaxLength(1000)]
+        public string? AttachmentPath { get; set; }
+
+        /// <summary>SharePoint site, for example https://tenant.sharepoint.com/sites/finance.</summary>
+        [MaxLength(2000)]
+        public string? SharePointSiteUrl { get; set; }
+
+        /// <summary>SharePoint document library that holds invoice files.</summary>
+        [MaxLength(200)]
+        public string? SharePointLibrary { get; set; }
+
+        /// <summary>Folder inside the document library. Empty means the library root.</summary>
+        [MaxLength(400)]
+        public string? SharePointFolder { get; set; }
     }
 }

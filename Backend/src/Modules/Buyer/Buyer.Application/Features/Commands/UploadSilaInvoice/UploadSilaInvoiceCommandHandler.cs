@@ -39,15 +39,18 @@ namespace Buyer.Application.Features.Commands.UploadSilaInvoice
             if (string.IsNullOrWhiteSpace(basePath))
             {
                 _logger.LogError("FolderPath:BasePath is not configured.");
-                throw new FailedDependencyCustomException("File storage is not configured.", "Ask your administrator to configure the file storage folder.");
+                throw new FailedDependencyCustomException("File storage is not configured.", "Ask your administrator to configure the local downloads path.");
             }
 
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
+            SilaOcrConfiguration storage = await SilaOcrSettings.GetAsync(_repository, buyer.Id, cancellationToken);
+            // SharePoint and a custom file path are saved on the OCR settings. The file stays on the local downloads path.
+            string? writeRoot = SilaOcrPolicy.AttachmentWriteRoot(storage, basePath);
             Guid invoiceId = Guid.NewGuid();
             // The stored name is generated (Guid + safe extension); the client's name is only kept for display.
             string storedName = SilaFileRules.StoredName(invoiceId, kind);
             string relativePath = Path.Combine(Common.SILA_INVOICE_FOLDER, invoiceId.ToString(), storedName);
-            string? fullPath = SilaFileRules.ResolveUnderRoot(basePath, relativePath);
+            string? fullPath = SilaFileRules.ResolveUnderRoot(writeRoot, relativePath);
             if (fullPath == null)
             {
                 _logger.LogError($"Invoice storage path leaves the storage folder. InvoiceId: {invoiceId}");
@@ -74,8 +77,7 @@ namespace Buyer.Application.Features.Commands.UploadSilaInvoice
             _logger.LogInfo($"Invoice uploaded. InvoiceId: {invoice.Id}, BuyerId: {buyer.Id}");
 
             // Automatic reading (OCR settings): the upload stands even when the reading fails; the failure is in the history.
-            SilaOcrConfiguration settings = await SilaOcrSettings.GetAsync(_repository, buyer.Id, cancellationToken);
-            if (settings.AutoExtractOnUpload)
+            if (storage.AutoExtractOnUpload)
             {
                 try
                 {
