@@ -23,11 +23,10 @@ import SilaRecipeApprovals from "./recipes/SilaRecipeApprovals";
 import SilaRecipeMasterData from "./recipes/SilaRecipeMasterData";
 import SilaSubstitutions from "./substitutions/SilaSubstitutions";
 import SilaPosIntegration from "./pos/SilaPosIntegration";
-import SilaTransactionTracker from "./pos/SilaTransactionTracker";
+import SilaConsolidatedTracker from "./trackers/SilaConsolidatedTracker";
 import SilaPurchaseOrdersOpen from "./receiving/SilaPurchaseOrdersOpen";
 import SilaGoodsReceipts from "./receiving/SilaGoodsReceipts";
 import SilaInvoices from "./receiving/SilaInvoices";
-import SilaErpPostings from "./receiving/SilaErpPostings";
 import SilaSuppliers from "./receiving/SilaSuppliers";
 import SilaCompanyCodes from "./receiving/SilaCompanyCodes";
 import SilaPoImport from "./receiving/SilaPoImport";
@@ -129,15 +128,17 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       case "silaPos":
         return <SilaPosIntegration canManage={can.managePos} />;
       case "silaTracker":
-        return <SilaTransactionTracker />;
+      case "silaErpPostings":
+      case "silaMeTracker":
+        return <SilaConsolidatedTracker tracker="SILA_ME" canReprocess={can.manageErpPosting} />;
+      case "silaPurchasingTracker":
+        return <SilaConsolidatedTracker tracker="PURCHASING" canReprocess={can.manageErpPosting} />;
       case "silaPurchaseOrders":
         return <SilaPurchaseOrdersOpen />;
       case "silaGoodsReceipts":
         return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
       case "silaInvoices":
         return <SilaInvoices canPost={can.postGrn} />;
-      case "silaErpPostings":
-        return <SilaErpPostings canReprocess={can.manageErpPosting} />;
       case "silaPriceApprovals":
         return <SilaPriceApprovals />;
       case "silaAuditLog":

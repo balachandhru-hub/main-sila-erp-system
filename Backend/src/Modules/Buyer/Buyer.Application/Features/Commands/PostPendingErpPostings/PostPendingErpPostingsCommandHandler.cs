@@ -101,7 +101,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     case var skipped when skipped == Common.SILA_POSTING_SKIPPED:
                         result.Skipped++;
                         break;
-                    case var failed when failed == Common.SILA_POSTING_FAILED:
+                    case var failed when failed == Common.SILA_POSTING_FAILED || failed == Common.SILA_POSTING_FAILED_LOCAL:
                         result.Failed++;
                         break;
                     default:
@@ -120,6 +120,12 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             if (posting.Status != Common.SILA_POSTING_PENDING)
             {
                 return posting.Status;
+            }
+
+            // A document number is already stored. Finish SILA only; do not send the movement again.
+            if (SilaTrackerRules.ErpAlreadyAccepted(posting))
+            {
+                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, posting.ErrorMessage, cancellationToken);
             }
 
             if (posting.ReferenceType == Common.SILA_REF_POS_SALE
@@ -592,18 +598,22 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         // Records the outcome on the posting (and on its POS sale) and saves it.
         private async Task<string> FinishAsync(InventoryErpPosting posting, string status, string? erpReference, string? error, CancellationToken cancellationToken)
         {
-            posting.Status = status;
             posting.ErrorMessage = error == null ? null : (error.Length > ERROR_LIMIT ? error[..ERROR_LIMIT] : error);
             if (status == Common.SILA_POSTING_POSTED)
             {
+                // Persist the ERP document before any local completion. A later save failure must not send it again.
                 posting.ErpReference = erpReference;
                 posting.PostedOn = DateTime.UtcNow;
+                posting.Status = Common.SILA_POSTING_ERP_ACCEPTED;
+                posting.ErrorMessage = null;
+                await _repository.SaveAsync();
+                return await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, Guid.Empty, null, cancellationToken);
             }
 
-            if (posting.ReferenceType == Common.SILA_REF_POS_SALE
-                && (status == Common.SILA_POSTING_POSTED || status == Common.SILA_POSTING_FAILED))
+            posting.Status = status;
+            if (posting.ReferenceType == Common.SILA_REF_POS_SALE && status == Common.SILA_POSTING_FAILED)
             {
-                await UpdatePosSalesAsync(posting, status == Common.SILA_POSTING_POSTED, cancellationToken);
+                await UpdatePosSalesAsync(posting, false, cancellationToken);
             }
 
             await _repository.SaveAsync();
@@ -652,6 +662,14 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             {
                 _repository.InventoryErpPosting.DetachAllEntities();
                 InventoryErpPosting posting = await _repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == postingId);
+                if (SilaTrackerRules.ErpAlreadyAccepted(posting))
+                {
+                    posting.Status = Common.SILA_POSTING_FAILED_LOCAL;
+                    posting.ErrorMessage = SilaTrackerRules.LocalFailureMessage(posting.ErpReference);
+                    await _repository.SaveAsync();
+                    return posting.Status;
+                }
+
                 posting.Attempts++;
                 posting.Status = posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
                 posting.ErrorMessage = "The posting could not be prepared or sent. Check the document and the ERP API.";

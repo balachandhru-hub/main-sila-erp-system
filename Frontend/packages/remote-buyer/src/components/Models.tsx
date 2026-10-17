@@ -147,7 +147,7 @@ const Models: React.FC<ModelsProps> = ({ silaMeRole, onNavigate, onOpenModel }) 
                               <span className="models-section-label">{group.label}</span>
                             </div>
                             <div className="models-feature-chips">
-                              {group.items.map((item) => (
+                              {group.items.flatMap((item) => ("items" in item ? item.items : [item])).map((item) => (
                                 <button
                                   type="button"
                                   key={item.key}

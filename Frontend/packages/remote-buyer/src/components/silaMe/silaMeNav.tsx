@@ -27,6 +27,8 @@ export const SILA_ME_NAV_PATHS = {
   silaSubstitutions: "sila-substitutions",
   silaPos: "sila-pos",
   silaTracker: "sila-transaction-tracker",
+  silaPurchasingTracker: "sila-purchasing-transactions",
+  silaMeTracker: "sila-me-transactions",
   silaPurchaseOrders: "sila-purchase-orders",
   silaGoodsReceipts: "sila-goods-receipts",
   silaInvoices: "sila-invoices",
@@ -53,9 +55,16 @@ interface NavLeaf {
   label: string;
 }
 
-interface NavGroup {
+interface NavChildGroup {
   label: string;
   items: NavLeaf[];
+}
+
+type NavChild = NavLeaf | NavChildGroup;
+
+interface NavGroup {
+  label: string;
+  items: NavChild[];
 }
 
 const leaf = (show: boolean, key: SilaMeNavKey, label: string): NavLeaf[] => (show ? [{ key, label }] : []);
@@ -90,7 +99,6 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
         ...leaf(can.approveRecipe, "silaRecipeApprovals", "Recipe Approvals"),
         { key: "silaSubstitutions", label: "Ingredient Substitutions" },
         ...leaf(can.managePos, "silaPos", "POS Integration"),
-        ...leaf(can.managePos, "silaTracker", "Transaction Tracker"),
       ],
     },
     {
@@ -99,7 +107,6 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
         { key: "silaPurchaseOrders", label: "Open Purchase Orders" },
         { key: "silaGoodsReceipts", label: "Goods Receipts" },
         { key: "silaInvoices", label: "Invoices" },
-        ...leaf(can.manageErpPosting, "silaErpPostings", "ERP Postings"),
       ],
     },
     {
@@ -122,6 +129,15 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
             ...leaf(can.manageMasterData, "silaQuickTransferPolicy", "Quick Transfer Policy"),
             ...leaf(can.manageMasterData, "silaOcrSettings", "Invoice OCR Settings"),
             { key: "silaApprovalFlows", label: "Approval flow" },
+            ...(!can.manageErpPosting
+              ? []
+              : [{
+                  label: "Transaction Trackers",
+                  items: [
+                    { key: "silaPurchasingTracker" as const, label: "Purchasing Transactions" },
+                    { key: "silaMeTracker" as const, label: "SILA ME Transactions" },
+                  ],
+                }]),
           ]
         : [],
     },
