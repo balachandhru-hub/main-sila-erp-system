@@ -261,6 +261,11 @@ namespace Buyer.Application.Features.Shared
                     poItem.MaterialCode = sapLine.Material;
                 }
 
+                if (!string.IsNullOrWhiteSpace(sapLine.TaxCode))
+                {
+                    poItem.TaxCode = sapLine.TaxCode.Trim();
+                }
+
                 repository.PurchaseOrderItem.Update(poItem);
             }
 
@@ -441,7 +446,7 @@ namespace Buyer.Application.Features.Shared
             Snapshot? snapshot = await LatestSnapshotAsync(repository, invoice, cancellationToken);
             string? company = First(snapshot?.CompanyCode, companyCode, order?.CompanyCode);
             string? plant = First(snapshot?.Plant, order?.PlantCode);
-            string? supplier = First(snapshot?.SupplierCode, supplierCode);
+            string? supplier = First(SilaReceivingRules.ErpCode(snapshot?.SupplierCode), supplierCode);
             string? currency = First(invoice.Currency, snapshot?.Currency, order?.Currency);
 
             Document document = new Document { CompanyCode = company };
@@ -985,17 +990,14 @@ namespace Buyer.Application.Features.Shared
 
         private static async Task<string?> SupplierCodeAsync(IRepositoryWrapper repository, Invoice invoice, CancellationToken cancellationToken)
         {
-            List<Guid> ids = SupplierIds(invoice).ToList();
-            if (ids.Count == 0)
-            {
-                return null;
-            }
-
-            List<string> codes = await repository.SilaSupplier
-                .FindByCondition(x => ids.Contains(x.Id) && x.SupplierCode != null && x.SupplierCode != string.Empty)
-                .Select(x => x.SupplierCode)
-                .ToListAsync(cancellationToken);
-            return codes.Select(BusinessCode).FirstOrDefault(x => x != null);
+            Guid? purchaseOrderSupplierId = invoice.PurchaseOrderId == null
+                ? null
+                : await repository.PurchaseOrder
+                    .FindByCondition(x => x.Id == invoice.PurchaseOrderId)
+                    .Select(x => (Guid?)x.SupplierId)
+                    .FirstOrDefaultAsync(cancellationToken);
+            return await SilaReceivingRules.ErpSupplierCodeAsync(
+                repository, purchaseOrderSupplierId, invoice.SupplierId, invoice.SilaSupplierId, cancellationToken);
         }
 
         private static string? BusinessCode(string? code)

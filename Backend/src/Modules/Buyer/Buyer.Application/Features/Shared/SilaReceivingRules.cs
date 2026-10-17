@@ -301,9 +301,7 @@ namespace Buyer.Application.Features.Shared
                 .ToListAsync(cancellationToken);
             bool failed = invoice.Status == Common.SILA_INVOICE_OCR_FAILED;
             SilaOcrConfiguration settings = await SilaOcrSettings.GetAsync(repository, invoice.BuyerId, cancellationToken);
-            string? supplierCode = invoice.SilaSupplierId == null
-                ? null
-                : await repository.SilaSupplier.FindByCondition(x => x.Id == invoice.SilaSupplierId.Value).Select(x => x.SupplierCode).FirstOrDefaultAsync(cancellationToken);
+            string? supplierCode = null;
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindByCondition(x => x.Id == invoice.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
@@ -373,6 +371,10 @@ namespace Buyer.Application.Features.Shared
             List<PurchaseOrder> detailOrders = detailPoIds.Count == 0
                 ? new List<PurchaseOrder>()
                 : await repository.PurchaseOrder.FindByCondition(x => detailPoIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            Guid? poSupplierId = invoice.PurchaseOrderId == null
+                ? null
+                : detailOrders.FirstOrDefault(x => x.Id == invoice.PurchaseOrderId)?.SupplierId;
+            supplierCode = await ErpSupplierCodeAsync(repository, poSupplierId, invoice.SupplierId, invoice.SilaSupplierId, cancellationToken);
             string? blocked = await SilaInvoicePosting.LatestBlockAsync(repository, invoice.Id, cancellationToken);
             string? erpMessage = invoice.Status == Common.SILA_INVOICE_GET_PO_FAILED
                 ? blocked ?? posting?.ErrorMessage
@@ -471,6 +473,51 @@ namespace Buyer.Application.Features.Shared
                 item.IsActive = false;
                 repository.InvoiceItem.Update(item);
             }
+        }
+
+        /// <summary>An ERP supplier number. A system id is not a supplier number.</summary>
+        public static string? ErpCode(string? code)
+        {
+            string? text = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+            return text != null && Guid.TryParse(text, out _) ? null : text;
+        }
+
+        /// <summary>The ERP supplier number, preferring the purchase order's supplier over a matched row whose code is a system id.</summary>
+        public static async Task<string?> ErpSupplierCodeAsync(
+            IRepositoryWrapper repository,
+            Guid? purchaseOrderSupplierId,
+            Guid? invoiceSupplierId,
+            Guid? silaSupplierId,
+            CancellationToken cancellationToken)
+        {
+            List<Guid> ids = new[] { purchaseOrderSupplierId, invoiceSupplierId, silaSupplierId }
+                .Where(x => x != null && x != Guid.Empty)
+                .Select(x => x!.Value)
+                .Distinct()
+                .ToList();
+            if (ids.Count == 0)
+            {
+                return null;
+            }
+
+            List<SilaSupplier> suppliers = await repository.SilaSupplier
+                .FindByCondition(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+            foreach (Guid? id in new[] { purchaseOrderSupplierId, invoiceSupplierId, silaSupplierId })
+            {
+                if (id == null)
+                {
+                    continue;
+                }
+
+                string? code = ErpCode(suppliers.FirstOrDefault(x => x.Id == id)?.SupplierCode);
+                if (code != null)
+                {
+                    return code;
+                }
+            }
+
+            return null;
         }
     }
 }

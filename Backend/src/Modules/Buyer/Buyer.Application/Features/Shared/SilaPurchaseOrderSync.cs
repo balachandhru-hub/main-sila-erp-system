@@ -56,6 +56,7 @@ namespace Buyer.Application.Features.Shared
             public string? Uom { get; set; }
             public decimal? UnitPrice { get; set; }
             public decimal ReceivedQuantity { get; set; }
+            public string? TaxCode { get; set; }
             /// <summary>Null when the source does not say (treated as expected).</summary>
             public bool? GoodsReceiptExpected { get; set; }
         }

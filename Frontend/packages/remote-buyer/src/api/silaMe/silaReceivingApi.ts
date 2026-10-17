@@ -7,6 +7,8 @@ export interface SilaOpenPurchaseOrder {
   poNumber: string;
   supplierId: string;
   supplierName?: string | null;
+  /** ERP supplier number. A system id is not shown as the supplier. */
+  supplierCode?: string | null;
   orderDate: string;
   status: string;
   plantCode?: string | null;
@@ -28,6 +30,8 @@ export interface SilaPurchaseOrderLine {
   materialId?: string | null;
   productName: string;
   uom?: string | null;
+  /** Tax code from the purchase order API. */
+  taxCode?: string | null;
   unitPrice?: number | null;
   orderedQty: number;
   receivedQty: number;

@@ -5538,6 +5538,10 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("storage_location");
 
+                    b.Property<string>("TaxCode")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("tax_code");
+
                     b.Property<string>("UnitOfMeasure")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("unit_of_measure");

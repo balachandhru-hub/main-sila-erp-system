@@ -79,7 +79,7 @@ namespace Buyer.Application.Features.Shared
                 SupplierName = IntegrationRecordReader.Read(mappings, "Po.SupplierName", record),
                 Plant = IntegrationRecordReader.Read(mappings, "Po.Plant", record),
                 Currency = IntegrationRecordReader.Read(mappings, "Po.Currency", record),
-                TaxCode = IntegrationRecordReader.Read(mappings, "Po.TaxCode", record),
+                TaxCode = IntegrationRecordReader.Read(mappings, "Po.TaxCode", record) ?? JsonText(record, "TaxCode"),
                 OrderDate = IntegrationRecordReader.Read(mappings, "Po.OrderDate", record),
                 DeliveryDate = IntegrationRecordReader.Read(mappings, "Po.DeliveryDate", record)
             };
@@ -108,7 +108,7 @@ namespace Buyer.Application.Features.Shared
                     SupplierCode = header.SupplierCode,
                     SupplierName = header.SupplierName,
                     Currency = header.Currency,
-                    TaxCode = IntegrationRecordReader.Read(mappings, "Po.Items.TaxCode", item) ?? header.TaxCode,
+                    TaxCode = IntegrationRecordReader.Read(mappings, "Po.Items.TaxCode", item) ?? JsonText(item, "TaxCode") ?? header.TaxCode,
                     Plant = header.Plant ?? IntegrationRecordReader.Read(mappings, "Po.Items.Plant", item),
                     OrderDate = header.OrderDate,
                     DeliveryDate = header.DeliveryDate,
@@ -123,6 +123,18 @@ namespace Buyer.Application.Features.Shared
             }
 
             return lines;
+        }
+
+        private static string? JsonText(JsonElement element, string name)
+        {
+            if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out JsonElement value)
+                || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined or JsonValueKind.Object or JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            string? text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
         }
     }
 }

@@ -764,9 +764,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                                   onChange={() => toggleGrn(receipt.id)}
                                 />
                                 <span>
-                                  {receipt.grnNumber} · {receivingLabel(receipt.status)}
+                                  {receipt.erpReference?.trim() || receipt.grnNumber} · {receivingLabel(receipt.status)}
                                   {receipt.poNumber ? ` · ${receipt.poNumber}` : ""}
-                                  {receipt.erpReference ? ` · ${receipt.erpReference}` : ""}
+                                  {receipt.erpReference ? ` · ${receipt.grnNumber}` : ""}
                                   {held ? ` · already posted on invoice ${receipt.invoiceNumber || "another invoice"}` : ""}
                                   {reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"}, not posted — available` : ""}
                                   {otherInvoice && !held && !reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"} — available if that invoice was not posted` : ""}

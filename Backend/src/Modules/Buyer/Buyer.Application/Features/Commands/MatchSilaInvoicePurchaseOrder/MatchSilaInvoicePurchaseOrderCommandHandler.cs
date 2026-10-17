@@ -87,6 +87,22 @@ namespace Buyer.Application.Features.Commands.MatchSilaInvoicePurchaseOrder
                     .FirstOrDefaultAsync(cancellationToken);
             }
 
+            string? currentSupplierCode = invoice.SilaSupplierId == null
+                ? null
+                : await _repository.SilaSupplier.FindByCondition(x => x.Id == invoice.SilaSupplierId).Select(x => x.SupplierCode).FirstOrDefaultAsync(cancellationToken);
+            if (SilaReceivingRules.ErpCode(currentSupplierCode) == null)
+            {
+                SilaSupplier? erpSupplier = await _repository.SilaSupplier
+                    .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive && x.Id == purchaseOrder.SupplierId)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (erpSupplier != null && SilaReceivingRules.ErpCode(erpSupplier.SupplierCode) != null)
+                {
+                    invoice.SilaSupplierId = erpSupplier.Id;
+                    invoice.SupplierId = erpSupplier.Id;
+                    invoice.SupplierName = erpSupplier.Name;
+                }
+            }
+
             // The lines are matched again against the new purchase order.
             List<InvoiceItem> items = await _repository.InvoiceItem
                 .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)

@@ -35,12 +35,15 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
             MaterialEntity? MaterialOf(PurchaseOrderItem item) =>
                 !string.IsNullOrWhiteSpace(item.MaterialCode) && materials.TryGetValue(item.MaterialCode.Trim(), out MaterialEntity? found) ? found : null;
 
+            string? supplierCode = await SilaReceivingRules.ErpSupplierCodeAsync(
+                _repository, purchaseOrder.SupplierId, null, null, cancellationToken);
             SilaReceivingPoDetailDto result = new SilaReceivingPoDetailDto
             {
                 Id = purchaseOrder.Id,
                 PoNumber = purchaseOrder.PoNumber,
                 SupplierId = purchaseOrder.SupplierId,
                 SupplierName = purchaseOrder.SupplierName,
+                SupplierCode = supplierCode,
                 OrderDate = purchaseOrder.OrderDate,
                 Status = purchaseOrder.Status,
                 CompanyCode = purchaseOrder.CompanyCode,
@@ -59,6 +62,7 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                     MaterialId = !string.IsNullOrWhiteSpace(item.MaterialCode) && materials.TryGetValue(item.MaterialCode.Trim(), out MaterialEntity? material) ? material.Id : null,
                     ProductName = item.ProductName,
                     Uom = item.UnitOfMeasure,
+                    TaxCode = item.TaxCode,
                     UnitPrice = item.UnitPrice,
                     OrderedQty = item.Quantity,
                     ReceivedQty = item.ReceivedQuantity,

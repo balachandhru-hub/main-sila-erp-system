@@ -9,6 +9,8 @@ namespace Buyer.Domain.Dtos
         public string PoNumber { get; set; } = string.Empty;
         public Guid SupplierId { get; set; }
         public string? SupplierName { get; set; }
+        /// <summary>ERP supplier number. A system id is not used as the supplier.</summary>
+        public string? SupplierCode { get; set; }
         public DateTime OrderDate { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? CompanyCode { get; set; }

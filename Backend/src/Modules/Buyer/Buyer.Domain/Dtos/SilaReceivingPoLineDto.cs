@@ -11,6 +11,8 @@ namespace Buyer.Domain.Dtos
         public Guid? MaterialId { get; set; }
         public string ProductName { get; set; } = string.Empty;
         public string? Uom { get; set; }
+        /// <summary>Tax code from the purchase order API.</summary>
+        public string? TaxCode { get; set; }
         public decimal? UnitPrice { get; set; }
         public decimal OrderedQty { get; set; }
         public decimal ReceivedQty { get; set; }

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { getSupplier } from "../../../api/silaMe/silaMasterDataApi";
 import type {
   SilaInvoiceDetail,
   SilaInvoicePostingData as PostingData,
@@ -23,6 +24,17 @@ const sourceLabel = (source: string) => SOURCE[source] || source;
 const dateText = (value?: string | null) => (value ? value.slice(0, 10) : "—");
 
 const itemNumber = (line: SilaPurchaseOrderLine) => line.itemNumber || String(line.lineNumber).padStart(5, "0");
+
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** An ERP number. A system id is not a supplier or a goods receipt. */
+const erpCode = (value?: string | null) => {
+  const text = value?.trim();
+  return text && !GUID.test(text) ? text : "";
+};
+
+const goodsReceiptId = (receipt: { erpReference?: string | null; grnNumber: string }) =>
+  receipt.erpReference?.trim() || receipt.grnNumber;
 
 const FieldRow: React.FC<{ field: SilaInvoicePostingField }> = ({ field }) => (
   <div className="sila-field">
@@ -50,6 +62,28 @@ const SilaInvoicePostingPanel: React.FC<{
 }> = ({ posting, invoice, order, canRefresh, busy, onRefresh }) => {
   const prepared = posting?.preparedAt ? new Date(posting.preparedAt).toLocaleString() : null;
   const currency = invoice.currency || order?.currency || null;
+  const knownSupplier = erpCode(order?.supplierCode) || erpCode(invoice.supplierCode);
+  const [supplierCode, setSupplierCode] = useState(knownSupplier);
+  useEffect(() => {
+    if (knownSupplier) {
+      setSupplierCode(knownSupplier);
+      return undefined;
+    }
+    const supplierId = order?.supplierId || invoice.supplierId;
+    if (!supplierId) {
+      setSupplierCode("");
+      return undefined;
+    }
+    let active = true;
+    getSupplier(supplierId)
+      .then((supplier) => { if (active) setSupplierCode(erpCode(supplier.supplierCode)); })
+      .catch(() => { if (active) setSupplierCode(""); });
+    return () => { active = false; };
+  }, [knownSupplier, order?.supplierId, invoice.supplierId]);
+  const supplierName = order?.supplierName || invoice.supplierName || "";
+  const supplierText = supplierCode ? (supplierName ? `${supplierCode} · ${supplierName}` : supplierCode) : (supplierName || "—");
+  const goodsReceipts = invoice.goodsReceipts.map(goodsReceiptId).filter(Boolean).join(", ");
+  const taxCodes = [...new Set((order?.lines ?? []).map((line) => line.taxCode?.trim()).filter((code): code is string => Boolean(code)))];
   return (
     <div className="srcv-stack">
       <h3 className="sila-section-title">Purchase order extracted</h3>
@@ -62,7 +96,8 @@ const SilaInvoicePostingPanel: React.FC<{
           <dl className="srcv-facts">
             <Fact label="Purchase order" value={order.poNumber} />
             <Fact label="Company code" value={order.companyCode || order.entityCode || "—"} />
-            <Fact label="Supplier" value={order.supplierName || "—"} />
+            <Fact label="Supplier" value={supplierText} />
+            <Fact label="Tax code" value={taxCodes.join(", ") || "—"} />
             <Fact label="Currency" value={order.currency || "—"} />
             <Fact label="Plant" value={order.plantCode || "—"} />
             <Fact label="Order date" value={dateText(order.orderDate)} />
@@ -75,6 +110,7 @@ const SilaInvoicePostingPanel: React.FC<{
                   <th scope="col">Material</th>
                   <th scope="col">Description</th>
                   <th scope="col">UOM</th>
+                  <th scope="col">Tax code</th>
                   <th scope="col">Ordered</th>
                   <th scope="col">Open</th>
                 </tr>
@@ -86,6 +122,7 @@ const SilaInvoicePostingPanel: React.FC<{
                     <td>{line.materialCode || "—"}</td>
                     <td>{line.productName}</td>
                     <td>{line.uom || "—"}</td>
+                    <td>{line.taxCode || "—"}</td>
                     <td>{line.orderedQty}</td>
                     <td>{line.openQty}</td>
                   </tr>
@@ -131,13 +168,13 @@ const SilaInvoicePostingPanel: React.FC<{
       ) : (
         <>
           <p className="srcv-sub">
-            Nothing has been sent. These are the invoice values the post will use. The S/4 supplier code, unit of measure and tax code are filled from the purchase order when you submit.
+            Nothing has been sent. These are the invoice values the post will use. The supplier number, unit of measure and tax code come from the purchase order.
           </p>
           <dl className="srcv-facts">
             <Fact label="Supplier invoice number" value={invoice.invoiceNumber || "—"} />
             <Fact label="Invoice date" value={dateText(invoice.invoiceDate)} />
             <Fact label="Posting date" value={dateText(invoice.invoiceDate)} />
-            <Fact label="Supplier" value={invoice.supplierCode || invoice.supplierName || "—"} />
+            <Fact label="Supplier" value={supplierText} />
             <Fact label="Currency" value={currency || "—"} />
             <Fact label="Gross amount" value={formatAmount(invoice.grossAmount, currency)} />
             <Fact label="Net amount" value={formatAmount(invoice.netAmount, currency)} />
@@ -146,7 +183,7 @@ const SilaInvoicePostingPanel: React.FC<{
             <Fact label="Purchase order" value={invoice.poNumber || "—"} />
             <Fact label="Accounting document type" value="RE" />
             <Fact label="Tax calculated automatically" value="true" />
-            <Fact label="Goods receipts" value={invoice.goodsReceipts.map((receipt) => receipt.grnNumber).join(", ") || "—"} />
+            <Fact label="Goods receipts" value={goodsReceipts || "—"} />
           </dl>
           <div className="sila-table-wrap">
             <table className="sila-table">
@@ -172,7 +209,7 @@ const SilaInvoicePostingPanel: React.FC<{
                       <td>{item.quantity ?? "—"}</td>
                       <td>{poLine?.uom || item.uom || "—"}</td>
                       <td>{formatAmount(item.amount, currency)}</td>
-                      <td>From S/4 on submit</td>
+                      <td>{poLine?.taxCode || "—"}</td>
                     </tr>
                   );
                 })}

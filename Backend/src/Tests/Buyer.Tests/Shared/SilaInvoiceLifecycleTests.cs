@@ -459,5 +459,79 @@ namespace Buyer.Tests.Shared
 
             Assert.Empty(choice.Ids);
         }
+
+        [Fact]
+        public void ErpCode_KeepsTheSupplierNumber()
+        {
+            Assert.Equal("1003430", SilaReceivingRules.ErpCode("1003430"));
+            Assert.Null(SilaReceivingRules.ErpCode("86156347-8517-4DAA-8356-33314EF0FDF3"));
+        }
+
+        [Fact]
+        public void Compose_UsesPurchaseOrderTaxAndTheErpGoodsReceipt()
+        {
+            Guid poItemId = Guid.NewGuid();
+            Guid receiptId = Guid.NewGuid();
+            Guid postingId = Guid.NewGuid();
+            SilaPurchaseOrderInvoiceRead.Order sap = new SilaPurchaseOrderInvoiceRead.Order
+            {
+                CompanyCode = "1050",
+                Currency = "AED"
+            };
+            SilaInvoicePostingData.Prepared prepared = SilaInvoicePostingData.Compose(
+                new Invoice
+                {
+                    InvoiceNumber = "INV-1",
+                    InvoiceDate = new DateTime(2026, 10, 1),
+                    Currency = "AED",
+                    GrossAmount = 10,
+                    PoNumber = "4500004152"
+                },
+                new[]
+                {
+                    new InvoiceItem
+                    {
+                        Id = Guid.NewGuid(),
+                        LineNumber = 1,
+                        Description = "Line",
+                        Quantity = 10,
+                        Amount = 10,
+                        PurchaseOrderItemId = poItemId
+                    }
+                },
+                new[]
+                {
+                    new PurchaseOrderItem
+                    {
+                        Id = poItemId,
+                        LineNumber = 10,
+                        ProductName = "Item",
+                        Quantity = 10,
+                        TaxCode = "V1"
+                    }
+                },
+                new[]
+                {
+                    new GoodsReceipt
+                    {
+                        Id = receiptId,
+                        GrnNumber = "GR000002",
+                        ErpPostingId = postingId,
+                        PurchaseOrderId = Guid.NewGuid(),
+                        PoNumber = "4500004152",
+                        Status = Common.SILA_GRN_POSTED
+                    }
+                },
+                new[] { new GoodsReceiptItem { GoodsReceiptId = receiptId, PurchaseOrderItemId = poItemId } },
+                new[] { new InventoryErpPosting { Id = postingId, ErpReference = "5000003137", Status = Common.SILA_POSTING_POSTED } },
+                sap,
+                Guid.NewGuid(),
+                1,
+                erpSupplierCode: "1003430");
+
+            Assert.Equal("1003430", prepared.Header.Single(x => x.ApiField == "InvoicingParty").Value);
+            Assert.Equal("V1", prepared.Lines[0].Fields.Single(x => x.ApiField == "TaxCode").Value);
+            Assert.Equal("5000003137", prepared.Lines[0].Fields.Single(x => x.ApiField == "GrnNumber").Value);
+        }
     }
 }

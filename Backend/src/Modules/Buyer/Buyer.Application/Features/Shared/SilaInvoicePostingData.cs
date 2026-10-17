@@ -93,8 +93,16 @@ namespace Buyer.Application.Features.Shared
                 ? new List<InventoryErpPosting>()
                 : await repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id)).ToListAsync(cancellationToken);
 
+            Guid? purchaseOrderSupplierId = invoice.PurchaseOrderId == null
+                ? null
+                : await repository.PurchaseOrder
+                    .FindByCondition(x => x.Id == invoice.PurchaseOrderId)
+                    .Select(x => (Guid?)x.SupplierId)
+                    .FirstOrDefaultAsync(cancellationToken);
+            string? supplierCode = await SilaReceivingRules.ErpSupplierCodeAsync(
+                repository, purchaseOrderSupplierId, invoice.SupplierId, invoice.SilaSupplierId, cancellationToken);
             int version = (Read(invoice.PostingData)?.Version ?? 0) + 1;
-            Prepared prepared = Compose(invoice, items, poItems, receipts, receiptItems, postings, sapOrder, userId, version, sapByPurchaseOrder, poNumbers);
+            Prepared prepared = Compose(invoice, items, poItems, receipts, receiptItems, postings, sapOrder, userId, version, sapByPurchaseOrder, poNumbers, supplierCode);
             invoice.PostingData = Write(prepared);
             repository.Invoice.Update(invoice);
         }
@@ -110,10 +118,12 @@ namespace Buyer.Application.Features.Shared
             Guid userId,
             int version,
             IReadOnlyDictionary<Guid, SilaPurchaseOrderInvoiceRead.Order>? sapByPurchaseOrder = null,
-            IReadOnlyDictionary<Guid, string>? poNumbers = null)
+            IReadOnlyDictionary<Guid, string>? poNumbers = null,
+            string? erpSupplierCode = null)
         {
             string? date = invoice.InvoiceDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             string? currency = First(invoice.Currency, sapOrder.Currency);
+            string? supplier = SilaReceivingRules.ErpCode(sapOrder.SupplierCode) ?? SilaReceivingRules.ErpCode(erpSupplierCode);
             Prepared prepared = new Prepared
             {
                 Version = version < 1 ? 1 : version,
@@ -128,7 +138,7 @@ namespace Buyer.Application.Features.Shared
             prepared.Header.Add(FieldOf("PostingDate", "Posting date", date, SOURCE_DERIVED, "InvoiceDate", true));
             prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", date, SOURCE_DERIVED, "InvoiceDate", true));
             prepared.Header.Add(FieldOf("TaxDeterminationDate", "Tax determination date", date, SOURCE_DERIVED, "InvoiceDate", true));
-            prepared.Header.Add(FieldOf("InvoicingParty", "Supplier", sapOrder.SupplierCode, SOURCE_PO, "Supplier", true));
+            prepared.Header.Add(FieldOf("InvoicingParty", "Supplier", supplier, SOURCE_PO, "Supplier", true));
             prepared.Header.Add(FieldOf("DocumentCurrency", "Currency", currency, SOURCE_INVOICE, "Currency", true));
             prepared.Header.Add(FieldOf("InvoiceGrossAmount", "Gross amount", Money(invoice.GrossAmount), SOURCE_INVOICE, "GrossAmount", true));
             prepared.Header.Add(FieldOf("AccountingDocumentType", "Accounting document type", "RE", SOURCE_CONFIGURATION, "AccountingDocumentType", true));
@@ -165,11 +175,17 @@ namespace Buyer.Application.Features.Shared
                     .Select(x => x!)
                     .Distinct()
                     .ToList();
-                string? materialDocument = matchedReceipts
+                List<string> materialDocuments = matchedReceipts
                     .Select(x => receipts.FirstOrDefault(receipt => receipt.Id == x.GoodsReceiptId))
                     .Where(x => x?.ErpPostingId != null)
                     .Select(x => grnPostings.FirstOrDefault(posting => posting.Id == x!.ErpPostingId)?.ErpReference)
-                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x!)
+                    .Distinct()
+                    .ToList();
+                string? materialDocument = materialDocuments.Count == 0 ? null : string.Join(", ", materialDocuments);
+                string? goodsReceipt = materialDocument ?? (grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers));
+                string? taxCode = sapLine?.TaxCode ?? poItem?.TaxCode;
                 string? itemNumber = sapLine?.Item ?? (poItem == null ? null : poItem.LineNumber.ToString("00000", CultureInfo.InvariantCulture));
                 Line line = new Line
                 {
@@ -185,10 +201,10 @@ namespace Buyer.Application.Features.Shared
                 line.Fields.Add(FieldOf("SupplierInvoiceItemAmount", "Amount", Money(item.Amount), SOURCE_LINE, "Amount", true));
                 line.Fields.Add(FieldOf("QuantityInPurchaseOrderUnit", "Quantity", Money(item.Quantity), SOURCE_LINE, "Quantity", true));
                 line.Fields.Add(FieldOf("PurchaseOrderQuantityUnit", "Unit of measure", sapLine?.Uom, SOURCE_PO_ITEM, "PurchaseOrderQuantityUnit", true));
-                line.Fields.Add(FieldOf("TaxCode", "Tax code", sapLine?.TaxCode, SOURCE_PO_ITEM, "TaxCode", true));
+                line.Fields.Add(FieldOf("TaxCode", "Tax code", taxCode, SOURCE_PO_ITEM, "TaxCode", true));
                 line.Fields.Add(FieldOf("Material", "Material", sapLine?.Material ?? poItem?.MaterialCode, SOURCE_PO_ITEM, "Material", false));
                 line.Fields.Add(FieldOf("Plant", "Plant", sapLine?.Plant ?? lineOrder.Plant, SOURCE_PO_ITEM, "Plant", false));
-                line.Fields.Add(FieldOf("GrnNumber", "Goods receipt", grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers), SOURCE_GRN, "GrnNumber", false));
+                line.Fields.Add(FieldOf("GrnNumber", "Goods receipt", goodsReceipt, SOURCE_GRN, "ErpReference", false));
                 line.Fields.Add(FieldOf("MaterialDocument", "SAP material document", materialDocument, SOURCE_GRN, "ErpReference", false));
                 prepared.Lines.Add(line);
             }
