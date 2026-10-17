@@ -155,9 +155,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const postedGrns = (invoice?.goodsReceipts ?? []).filter((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference));
   const supplierKey = invoice?.silaSupplierId || invoice?.supplierId;
   const erpAccepted = Boolean(invoice?.erpReference) || invoice?.erpStatus === "POSTED" || invoice?.erpStatus === "ERP_ACCEPTED";
+  const readyStatus = invoice != null && ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "APPROVED"].includes(invoice.status);
+  const serviceReady = invoice?.goodsReceiptApplicable === false && (invoice.status === "REVIEWED" || invoice.status === "READY_FOR_INVOICE_SUBMISSION");
   const readyToSubmit = Boolean(
     canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
-    && invoice.status === "GRN_POSTED" && postedGrns.length === 1 && !erpAccepted
+    && (serviceReady || (readyStatus && (postedGrns.length >= 1 || invoice.status === "READY_FOR_INVOICE_SUBMISSION")))
+    && !erpAccepted
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
   );
   const canRetry = Boolean(
@@ -490,7 +493,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Edit
                 </button>
               )}
-              {canSubmit && (deferred || !askSubmit) && (
+              {canSubmit && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                   {submitLabel}
                 </button>
