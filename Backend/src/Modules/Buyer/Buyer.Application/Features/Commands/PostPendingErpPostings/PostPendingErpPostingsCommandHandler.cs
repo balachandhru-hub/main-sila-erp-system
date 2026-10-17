@@ -206,11 +206,22 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, $"No active {expected} API is configured{scope}.", cancellationToken);
             }
 
-            ErpDocument? document = isGrn
-                ? await BuildGrnAsync(posting, location, property, cancellationToken)
-                : isInvoice
-                    ? await BuildInvoiceAsync(posting, cancellationToken)
+            ErpDocument? document;
+            if (isInvoice)
+            {
+                (document, string? blocked) = await BuildInvoiceAsync(posting, cancellationToken);
+                if (blocked != null)
+                {
+                    return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, blocked, cancellationToken);
+                }
+            }
+            else
+            {
+                document = isGrn
+                    ? await BuildGrnAsync(posting, location, property, cancellationToken)
                     : await BuildMovementAsync(posting, location, property, cancellationToken);
+            }
+
             if (document == null)
             {
                 return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, "The document has no lines to post.", cancellationToken);
@@ -901,16 +912,29 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 : $"Goods receipt {failed.ReferenceNumber} of this invoice was not posted to the ERP. Reprocess the goods receipt first, then this invoice.";
         }
 
-        // The supplier invoice, the S/4 purchase order and the goods receipt. Invoice amounts stay on the invoice.
-        private async Task<ErpDocument?> BuildInvoiceAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
+        // The body is built from the posting data stored on the invoice. Reprocess does not call GET PO.
+        private async Task<(ErpDocument? Document, string? Blocked)> BuildInvoiceAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
         {
-            SilaInvoicePosting.Document? described = await SilaInvoicePosting.DescribeAsync(
-                _repository, posting.BuyerId, posting.ReferenceId, posting.CompanyCode, cancellationToken);
-            if (described == null)
+            Invoice? invoice = await _repository.Invoice
+                .FindByCondition(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (invoice == null)
             {
-                return null;
+                return (null, "The invoice no longer exists.");
             }
 
+            List<InvoiceItem> items = await _repository.InvoiceItem
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)
+                .OrderBy(x => x.LineNumber)
+                .ToListAsync(cancellationToken);
+            SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
+            string? blocked = SilaInvoicePostingData.BlockSend(prepared, invoice, items);
+            if (blocked != null || prepared == null)
+            {
+                return (null, blocked ?? "Posting data is not stored. Refresh from S/4.");
+            }
+
+            SilaInvoicePosting.Document described = SilaInvoicePostingData.ToDocument(prepared);
             if (string.IsNullOrWhiteSpace(posting.CompanyCode) && !string.IsNullOrWhiteSpace(described.CompanyCode))
             {
                 posting.CompanyCode = described.CompanyCode;
@@ -927,7 +951,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 document.Items.Add(item);
             }
 
-            return document;
+            return (document, null);
         }
 
         /// <summary>Stops the send when the invoice or the API body is missing a value. Does not invent one.</summary>

@@ -70,5 +70,8 @@ namespace Buyer.Domain.Entities
         public string? SupplierTaxNumber { get; set; }
 
         public string? ContentHash { get; set; }
+
+        /// <summary>The business values prepared for FIVE S4-INVOICE POSTING. The request body is built from this, not from a fresh purchase-order read.</summary>
+        public string? PostingData { get; set; }
     }
 }

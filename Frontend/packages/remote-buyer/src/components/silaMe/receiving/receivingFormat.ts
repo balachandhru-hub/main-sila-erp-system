@@ -24,6 +24,7 @@ const LABELS: Record<string, string> = {
   ERP_POSTING_FAILED: "Invoice posting failed",
   GET_PO_FAILED: "Purchase order read failed",
   VALIDATION_FAILED: "Validation failed",
+  POSTING_DATA_STALE: "Posting data needs a refresh",
   LOCAL_FINALIZATION_FAILED: "Local finalization failed",
   POSTING_UNKNOWN: "Posting unknown",
   AWAITING_PAYMENT: "Awaiting payment",

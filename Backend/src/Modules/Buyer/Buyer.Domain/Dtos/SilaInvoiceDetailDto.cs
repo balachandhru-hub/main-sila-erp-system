@@ -61,6 +61,39 @@ namespace Buyer.Domain.Dtos
         public decimal? OutstandingAmount { get; set; }
         public List<SilaInvoiceDocumentDto> Documents { get; set; } = new();
         public List<SilaInvoiceStepDto> Timeline { get; set; } = new();
+
+        /// <summary>The stored S/4 posting values. Null until the purchase order has been read for this invoice.</summary>
+        public SilaInvoicePostingDataDto? PostingData { get; set; }
+    }
+
+    public class SilaInvoicePostingDataDto
+    {
+        public string? PreparationStatus { get; set; }
+        public DateTime? PreparedAt { get; set; }
+        public int Version { get; set; }
+        public string? PurchaseOrder { get; set; }
+        public string? SourceApi { get; set; }
+        public bool Stale { get; set; }
+        public List<SilaInvoicePostingFieldDto> Header { get; set; } = new();
+        public List<SilaInvoicePostingLineDto> Lines { get; set; } = new();
+    }
+
+    public class SilaInvoicePostingFieldDto
+    {
+        public string ApiField { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string? Value { get; set; }
+        public string Source { get; set; } = string.Empty;
+        public string SourceField { get; set; } = string.Empty;
+        public bool Required { get; set; }
+    }
+
+    public class SilaInvoicePostingLineDto
+    {
+        public int InvoiceLine { get; set; }
+        public string? GrnNumber { get; set; }
+        public string? MaterialDocument { get; set; }
+        public List<SilaInvoicePostingFieldDto> Fields { get; set; } = new();
     }
 
     public class SilaInvoiceDocumentDto

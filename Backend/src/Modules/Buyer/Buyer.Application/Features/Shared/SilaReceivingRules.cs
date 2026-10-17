@@ -352,7 +352,10 @@ namespace Buyer.Application.Features.Shared
                 });
             }
 
-            string? blocked = posting?.ErrorMessage ?? await SilaInvoicePosting.LatestBlockAsync(repository, invoice.Id, cancellationToken);
+            string? blocked = await SilaInvoicePosting.LatestBlockAsync(repository, invoice.Id, cancellationToken);
+            string? erpMessage = invoice.Status == Common.SILA_INVOICE_GET_PO_FAILED
+                ? blocked ?? posting?.ErrorMessage
+                : posting?.ErrorMessage ?? blocked;
             string paymentIntegration = await SilaInvoicePosting.PaymentIntegrationAsync(repository, invoice.BuyerId, cancellationToken);
             bool supplierMatched = invoice.SilaSupplierId != null || invoice.SupplierId != null || !string.IsNullOrWhiteSpace(invoice.SupplierName);
 
@@ -396,7 +399,7 @@ namespace Buyer.Application.Features.Shared
                 ErpPostingId = invoice.ErpPostingId,
                 ErpStatus = posting?.Status,
                 ErpReference = posting?.ErpReference,
-                ErpMessage = blocked,
+                ErpMessage = erpMessage,
                 NeedsReview = invoice.Status == SilaOcrSettings.INVOICE_REVIEW_REQUIRED,
                 InvoiceType = invoice.InvoiceType,
                 NetAmount = invoice.NetAmount,
@@ -416,6 +419,7 @@ namespace Buyer.Application.Features.Shared
                 OutstandingAmount = invoice.Status is Common.SILA_INVOICE_AWAITING_PAYMENT or Common.SILA_INVOICE_OVERDUE ? invoice.GrossAmount
                     : invoice.Status == Common.SILA_INVOICE_PAID ? 0 : null,
                 Documents = documents,
+                PostingData = SilaInvoicePostingData.ForScreen(invoice, items),
                 Timeline = SilaInvoiceLifecycle.Timeline(
                     invoice.Status,
                     supplierMatched,

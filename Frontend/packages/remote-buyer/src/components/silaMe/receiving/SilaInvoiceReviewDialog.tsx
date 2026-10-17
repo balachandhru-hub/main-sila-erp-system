@@ -9,6 +9,7 @@ import {
   getOpenPurchaseOrders,
   getPurchaseOrder,
   reconcileErpPosting,
+  refreshInvoicePosting,
   reprocessErpPosting,
   rereadInvoice,
   submitInvoice,
@@ -18,6 +19,7 @@ import {
   type SilaPurchaseOrderLine,
 } from "../../../api/silaMe/silaReceivingApi";
 import SilaInvoiceHistory from "./SilaInvoiceHistory";
+import SilaInvoicePostingPanel from "./SilaInvoicePostingData";
 import SilaInvoiceLinesEditor from "./SilaInvoiceLinesEditor";
 import SilaInvoicePoMatch from "./SilaInvoicePoMatch";
 import SilaInvoiceSupplierMatch from "./SilaInvoiceSupplierMatch";
@@ -46,11 +48,12 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
   { key: "grossAmount", label: "Gross amount", type: "number" },
 ];
 
-type Tab = "review" | "matching" | "history";
+type Tab = "review" | "matching" | "posting" | "history";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
   { key: "matching", label: "Supplier & PO matching" },
+  { key: "posting", label: "S/4 posting data" },
   { key: "history", label: "Reading history" },
 ];
 
@@ -61,7 +64,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const [error, setError] = useState<string | null>(null);
   const [orders, setOrders] = useState<SilaOpenPurchaseOrder[]>([]);
   const [poLines, setPoLines] = useState<SilaPurchaseOrderLine[]>([]);
-  const [busy, setBusy] = useState<"extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | null>(null);
+  const [busy, setBusy] = useState<"extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh" | null>(null);
   const [tab, setTab] = useState<Tab>("review");
   const [readings, setReadings] = useState(0);
   const [deferred, setDeferred] = useState(false);
@@ -136,7 +139,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
   const submitLabel = busy === "submit" ? (retry ? "Resubmitting..." : "Submitting...") : (retry ? "Resubmit" : "Submit invoice");
 
-  const run = async (kind: "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile", action: () => Promise<void>) => {
+  const run = async (kind: "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh", action: () => Promise<void>) => {
     setBusy(kind);
     try {
       await action();
@@ -305,7 +308,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
             {invoice.status === "GET_PO_FAILED" && (
               <div className="sila-alert sila-alert--warning" role="status">
                 <p><strong>Purchase order read failed</strong></p>
-                <p>The purchase order could not be read for invoice posting. Edit the invoice if the PO reference needs a correction, then resubmit.</p>
+                <p>{invoice.erpMessage && !/POST_INVOICE/i.test(invoice.erpMessage) ? invoice.erpMessage : "The purchase order could not be read for invoice posting. The purchase order API has to return the company code, supplier, currency, purchase order item and unit of measure."}</p>
                 <div className="srcv-actions">
                   {canEdit && !editing && (
                     <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>Edit</button>
@@ -321,14 +324,24 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p><strong>INVOICE POSTING FAILED</strong></p>
                 <p>Reason: {invoice.erpMessage || "The ERP did not accept the invoice."}</p>
                 {invoice.erpPostingId && (
-                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("reprocess", async () => {
-                    await reprocessErpPosting(invoice.erpPostingId!);
-                    show(await getInvoice(invoiceId));
-                    onChanged();
-                    toastService.success("Invoice posting reprocessed from the ERP stage.");
-                  })}>
-                    Reprocess
-                  </button>
+                  <div className="srcv-actions">
+                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("reprocess", async () => {
+                      await reprocessErpPosting(invoice.erpPostingId!);
+                      show(await getInvoice(invoiceId));
+                      onChanged();
+                      toastService.success("Invoice posting reprocessed from the stored posting data.");
+                    })}>
+                      Reprocess
+                    </button>
+                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("refresh", async () => {
+                      show(await refreshInvoicePosting(invoiceId));
+                      onChanged();
+                      setTab("posting");
+                      toastService.success("Posting data refreshed from S/4. The invoice was not posted.");
+                    })}>
+                      Refresh from S/4
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -397,6 +410,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 {invoice.erpMessage ? ` — ${invoice.erpMessage}` : ""}
               </p>
             )}
+            {invoice.status === "VALIDATION_FAILED" && (
+              <div className="sila-alert sila-alert--warning" role="status">
+                <p><strong>Posting data is incomplete</strong></p>
+                <p>SAP was not called. The missing values are on S/4 posting data.</p>
+              </div>
+            )}
             <div className="srcv-tabs" role="tablist" aria-label="Invoice sections">
               {TABS.map((item) => (
                 <button
@@ -418,6 +437,20 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               <div id="srcv-panel-matching" role="tabpanel" aria-labelledby="srcv-tab-matching" className="srcv-stack">
                 <SilaInvoiceSupplierMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
                 <SilaInvoicePoMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
+              </div>
+            )}
+            {tab === "posting" && (
+              <div id="srcv-panel-posting" role="tabpanel" aria-labelledby="srcv-tab-posting">
+                <SilaInvoicePostingPanel
+                  posting={invoice.postingData}
+                  canRefresh={canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
+                  busy={busy !== null}
+                  onRefresh={() => run("refresh", async () => {
+                    show(await refreshInvoicePosting(invoiceId));
+                    onChanged();
+                    toastService.success("Posting data refreshed from S/4. The invoice was not posted.");
+                  })}
+                />
               </div>
             )}
             {tab === "history" && (

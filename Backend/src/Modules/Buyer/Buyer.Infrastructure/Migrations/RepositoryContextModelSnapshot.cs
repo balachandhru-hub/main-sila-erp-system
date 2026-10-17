@@ -3121,6 +3121,10 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("po_number");
 
+                    b.Property<string>("PostingData")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("posting_data");
+
                     b.Property<Guid?>("PurchaseOrderId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("purchase_order_id");

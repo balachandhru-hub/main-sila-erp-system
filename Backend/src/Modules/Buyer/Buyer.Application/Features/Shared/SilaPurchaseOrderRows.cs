@@ -79,6 +79,7 @@ namespace Buyer.Application.Features.Shared
                 SupplierName = IntegrationRecordReader.Read(mappings, "Po.SupplierName", record),
                 Plant = IntegrationRecordReader.Read(mappings, "Po.Plant", record),
                 Currency = IntegrationRecordReader.Read(mappings, "Po.Currency", record),
+                TaxCode = IntegrationRecordReader.Read(mappings, "Po.TaxCode", record),
                 OrderDate = IntegrationRecordReader.Read(mappings, "Po.OrderDate", record),
                 DeliveryDate = IntegrationRecordReader.Read(mappings, "Po.DeliveryDate", record)
             };
@@ -106,8 +107,9 @@ namespace Buyer.Application.Features.Shared
                     CompanyCode = header.CompanyCode,
                     SupplierCode = header.SupplierCode,
                     SupplierName = header.SupplierName,
-                    Plant = header.Plant,
                     Currency = header.Currency,
+                    TaxCode = IntegrationRecordReader.Read(mappings, "Po.Items.TaxCode", item) ?? header.TaxCode,
+                    Plant = header.Plant ?? IntegrationRecordReader.Read(mappings, "Po.Items.Plant", item),
                     OrderDate = header.OrderDate,
                     DeliveryDate = header.DeliveryDate,
                     GoodsReceiptExpected = IntegrationRecordReader.Read(mappings, "Po.Items.GoodsReceiptExpected", item),

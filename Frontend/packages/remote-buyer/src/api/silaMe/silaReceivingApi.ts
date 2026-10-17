@@ -210,6 +210,35 @@ export interface SilaInvoiceDetail extends SilaInvoice {
   outstandingAmount?: number | null;
   documents?: SilaInvoiceDocument[];
   timeline?: SilaInvoiceStep[];
+  /** Stored business values for FIVE S4-INVOICE POSTING. Null until the purchase order is read. */
+  postingData?: SilaInvoicePostingData | null;
+}
+
+export interface SilaInvoicePostingField {
+  apiField: string;
+  label: string;
+  value?: string | null;
+  source: string;
+  sourceField: string;
+  required: boolean;
+}
+
+export interface SilaInvoicePostingLine {
+  invoiceLine: number;
+  grnNumber?: string | null;
+  materialDocument?: string | null;
+  fields: SilaInvoicePostingField[];
+}
+
+export interface SilaInvoicePostingData {
+  preparationStatus?: string | null;
+  preparedAt?: string | null;
+  version: number;
+  purchaseOrder?: string | null;
+  sourceApi?: string | null;
+  stale: boolean;
+  header: SilaInvoicePostingField[];
+  lines: SilaInvoicePostingLine[];
 }
 
 export interface SilaInvoiceDocument {
@@ -263,6 +292,13 @@ const normalizeInvoice = (invoice: SilaInvoiceDetail): SilaInvoiceDetail => ({
   documents: list(invoice.documents),
   timeline: list(invoice.timeline),
   canSubmitInvoice: Boolean(invoice.canSubmitInvoice),
+  postingData: invoice.postingData
+    ? {
+        ...invoice.postingData,
+        header: list(invoice.postingData.header),
+        lines: list(invoice.postingData.lines).map((line) => ({ ...line, fields: list(line.fields) })),
+      }
+    : null,
 });
 
 const call = async <T>(request: () => Promise<{ data: T }>, fallback: string): Promise<T> => {
@@ -347,6 +383,10 @@ export const getInvoiceGrnPdf = async (invoiceId: string, goodsReceiptId: string
 /** Validates, then approves or posts. A 404 is an error: it must not fall through to another post. */
 export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/submit`), "Could not submit the invoice."));
+
+/** Reads FIVE S4 - GET PO again and stores the posting values. It does not post the invoice. */
+export const refreshInvoicePosting = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
+  normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/refresh-posting`), "Could not refresh the posting data."));
 
 export const decideInvoice = async (invoiceId: string, approve: boolean, comment: string): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/approval`, { approve, comment: comment.trim() || null }), "Could not record the approval."));

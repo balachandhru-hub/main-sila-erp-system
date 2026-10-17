@@ -1,5 +1,6 @@
 using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
+using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
 using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
@@ -352,6 +353,24 @@ namespace Buyer.API.Controllers
                 InvoiceId = invoiceId
             });
             _logger.LogDebug($"Invoice submission finished. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/refresh-posting")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("RefreshSilaInvoicePosting")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> RefreshPosting([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Refreshing invoice posting data. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new RefreshSilaInvoicePostingCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice posting data refreshed. InvoiceId: {invoiceId}, Status: {result.Status}");
             return Ok(result);
         }
 

@@ -81,26 +81,17 @@ namespace Buyer.Application.Features.Shared
                 return "Matched purchase order, from the SILA invoice";
             }
 
-            if (string.IsNullOrWhiteSpace(order.CompanyCode))
-            {
-                return "Company code, from the purchase order";
-            }
-
-            if (order.OrderDate == default)
-            {
-                return "Purchase order date, from the purchase order";
-            }
-
-            string company = order.CompanyCode.Trim();
+            string company = order.CompanyCode?.Trim() ?? string.Empty;
             List<ApiIntegrationConfiguration> configurations = await SilaErpPull.ActiveConfigurationsAsync(
                 repository, organizationId, IntegrationProcessType.GET_PO, cancellationToken);
             ApiIntegrationConfiguration? configuration = configurations.FirstOrDefault(x =>
                 x.Name.Equals(SilaInvoiceLifecycle.API_GET_PO, StringComparison.OrdinalIgnoreCase)
-                && (x.EntityCode.Equals(company, StringComparison.OrdinalIgnoreCase)
+                && (string.IsNullOrEmpty(company)
+                    || x.EntityCode.Equals(company, StringComparison.OrdinalIgnoreCase)
                     || x.EntityCode.Equals(SharedKernel.Integration.IntegrationConstants.ENTITY_CODE_ALL, StringComparison.OrdinalIgnoreCase)));
             if (configuration == null)
             {
-                return SilaInvoiceLifecycle.API_GET_PO + " is not configured for company code " + company;
+                return SilaInvoiceLifecycle.API_GET_PO + (string.IsNullOrEmpty(company) ? " is not configured." : " is not configured for company code " + company);
             }
 
             List<ApiFieldMapping> mappings = await repository.ApiFieldMapping
@@ -111,13 +102,12 @@ namespace Buyer.Application.Features.Shared
                 return "Purchase order field mappings are missing on " + configuration.Name;
             }
 
-            string companyFilter = company.Replace("'", "''", StringComparison.Ordinal);
-            string day = order.OrderDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            string filter = $"CompanyCode eq '{companyFilter}' and PurchaseOrderDate ge datetime'{day}T00:00:00' and PurchaseOrderDate le datetime'{day}T23:59:59'";
+            string filter = SilaPurchaseOrderInvoiceRead.Filter(order.PoNumber);
             List<JsonElement> records;
             try
             {
-                records = await SilaErpPull.ReadAsync(executor, logger, configuration, "purchase order", filter, cancellationToken);
+                records = await SilaErpPull.ReadAsync(
+                    executor, logger, configuration, "purchase order", filter, SilaPurchaseOrderInvoiceRead.WithItemExpand, cancellationToken, true);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -140,28 +130,85 @@ namespace Buyer.Application.Features.Shared
                 return "Purchase order " + order.PoNumber + " was not returned by " + SilaInvoiceLifecycle.API_GET_PO;
             }
 
-            SilaPoImportRowDto header = matched[0];
-            string? taxCode = null;
+            JsonElement? sapRecord = null;
             foreach (JsonElement record in records)
             {
                 string? number = IntegrationRecordReader.Read(mappings, "Po.Number", record);
-                if (!string.Equals(number?.Trim(), order.PoNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(number) && record.TryGetProperty("PurchaseOrder", out JsonElement purchaseOrder))
                 {
-                    continue;
+                    number = purchaseOrder.GetString();
                 }
 
-                taxCode = IntegrationRecordReader.Read(mappings, "Po.TaxCode", record);
-                break;
+                if (string.Equals(number?.Trim(), order.PoNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    sapRecord = record;
+                    break;
+                }
             }
 
-            if (!string.IsNullOrWhiteSpace(header.CompanyCode))
+            if (sapRecord == null)
+            {
+                return "Purchase order " + order.PoNumber + " was not returned by " + SilaInvoiceLifecycle.API_GET_PO;
+            }
+
+            SilaPurchaseOrderInvoiceRead.Order sapOrder = SilaPurchaseOrderInvoiceRead.FromRecord(mappings, sapRecord.Value);
+            List<Guid> invoiceLineIds = await repository.InvoiceItem
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive && x.PurchaseOrderItemId != null)
+                .Select(x => x.PurchaseOrderItemId!.Value)
+                .ToListAsync(cancellationToken);
+            List<PurchaseOrderItem> poItems = invoiceLineIds.Count == 0
+                ? new List<PurchaseOrderItem>()
+                : await repository.PurchaseOrderItem.FindByCondition(x => invoiceLineIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            string? missingFields = SilaPurchaseOrderInvoiceRead.MissingMessage(sapOrder, poItems.Select(x => x.LineNumber).ToList());
+            if (missingFields != null)
+            {
+                return missingFields;
+            }
+
+            SilaPoImportRowDto header = matched[0];
+            if (!string.IsNullOrWhiteSpace(sapOrder.CompanyCode))
+            {
+                order.CompanyCode = sapOrder.CompanyCode;
+            }
+            else if (!string.IsNullOrWhiteSpace(header.CompanyCode))
             {
                 order.CompanyCode = header.CompanyCode.Trim();
             }
 
-            if (!string.IsNullOrWhiteSpace(header.Plant))
+            if (!string.IsNullOrWhiteSpace(sapOrder.Plant))
+            {
+                order.PlantCode = sapOrder.Plant;
+            }
+            else if (!string.IsNullOrWhiteSpace(header.Plant))
             {
                 order.PlantCode = header.Plant.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(sapOrder.Currency))
+            {
+                order.Currency = sapOrder.Currency;
+            }
+
+            foreach (PurchaseOrderItem poItem in poItems)
+            {
+                SilaPurchaseOrderInvoiceRead.Line? sapLine = sapOrder.Lines.FirstOrDefault(x =>
+                    int.TryParse(x.Item, NumberStyles.Integer, CultureInfo.InvariantCulture, out int number) && number == poItem.LineNumber);
+                if (sapLine == null)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(poItem.UnitOfMeasure) && !string.IsNullOrWhiteSpace(sapLine.Uom))
+                {
+                    poItem.UnitOfMeasure = sapLine.Uom;
+                }
+
+                if (string.IsNullOrWhiteSpace(poItem.MaterialCode) && !string.IsNullOrWhiteSpace(sapLine.Material))
+                {
+                    poItem.MaterialCode = sapLine.Material;
+                }
+
+                repository.PurchaseOrderItem.Update(poItem);
             }
 
             repository.PurchaseOrder.Update(order);
@@ -169,9 +216,16 @@ namespace Buyer.Application.Features.Shared
             {
                 CompanyCode = order.CompanyCode,
                 Plant = order.PlantCode,
-                SupplierCode = header.SupplierCode,
-                TaxCode = taxCode,
-                Lines = matched.Take(40).Select(x => new SnapshotLine { Line = x.LineNumber, Material = x.MaterialCode, Uom = x.Uom }).ToList()
+                SupplierCode = sapOrder.SupplierCode ?? header.SupplierCode,
+                Currency = sapOrder.Currency ?? header.Currency,
+                TaxCode = sapOrder.Lines.Select(x => x.TaxCode).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
+                Lines = sapOrder.Lines.Take(40).Select(x => new SnapshotLine
+                {
+                    Line = x.Item,
+                    Material = x.Material,
+                    Uom = x.Uom,
+                    TaxCode = x.TaxCode
+                }).ToList()
             });
             if (snapshot.Length > 1000)
             {
@@ -189,6 +243,7 @@ namespace Buyer.Application.Features.Shared
                 ActorUserId = userId,
                 IsActive = true
             });
+            await SilaInvoicePostingData.StoreAsync(repository, invoice, sapOrder, userId, cancellationToken);
             return null;
         }
 
@@ -217,22 +272,22 @@ namespace Buyer.Application.Features.Shared
             PurchaseOrder? order = invoice.PurchaseOrderId == null
                 ? null
                 : await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId);
-            Document? described = await DescribeAsync(repository, invoice.BuyerId, invoice.Id, order?.CompanyCode, cancellationToken);
-            ApiIntegrationConfiguration? api = await FindInvoiceApiAsync(repository, buyer.OrganizationId, order?.CompanyCode, cancellationToken);
-            List<string> missing = api == null
-                ? new List<string>()
-                : SilaInvoiceLifecycle.MissingContract(api.RequestBody, described == null ? new Dictionary<string, string?>() : TextOf(described.Header));
-            if (described == null || missing.Count > 0)
+            SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
+            List<string> missing = SilaInvoicePostingData.Missing(prepared);
+            if (missing.Count > 0)
             {
-                string message = described == null
-                    ? SilaInvoiceLifecycle.MISSING + ". Invoice lines, from the SILA invoice"
-                    : SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missing);
-                invoice.Status = Common.SILA_INVOICE_READY_TO_POST;
+                string message = SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missing);
+                invoice.Status = Common.SILA_INVOICE_VALIDATION_FAILED;
                 Block(repository, invoice, userId, message);
                 repository.Invoice.Update(invoice);
                 await repository.SaveAsync();
                 throw new BadRequestCustomException("Invoice cannot be posted.", message);
             }
+
+            Document described = SilaInvoicePostingData.ToDocument(prepared!);
+            invoice.Status = Common.SILA_INVOICE_READY_TO_POST;
+            repository.Invoice.Update(invoice);
+            await repository.SaveAsync();
 
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
@@ -335,6 +390,7 @@ namespace Buyer.Application.Features.Shared
             string? company = First(snapshot?.CompanyCode, companyCode, order?.CompanyCode);
             string? plant = First(snapshot?.Plant, order?.PlantCode);
             string? supplier = First(snapshot?.SupplierCode, supplierCode);
+            string? currency = First(invoice.Currency, snapshot?.Currency, order?.Currency);
 
             Document document = new Document { CompanyCode = company };
             Add(document, "InvoiceNumber", invoice.InvoiceNumber);
@@ -349,7 +405,7 @@ namespace Buyer.Application.Features.Shared
             Add(document, "GrnSapReference", sapReferences.Count == 0 ? null : string.Join(",", sapReferences.Distinct()));
             Add(document, "CompanyCode", company);
             Add(document, "Plant", plant);
-            Add(document, "Currency", invoice.Currency);
+            Add(document, "Currency", currency);
             Add(document, "GrossAmount", invoice.GrossAmount);
             Add(document, "NetAmount", invoice.NetAmount);
             Add(document, "TaxAmount", invoice.TaxAmount);
@@ -370,7 +426,8 @@ namespace Buyer.Application.Features.Shared
                     ("Uom", item.Uom ?? line?.Uom ?? poItem?.UnitOfMeasure),
                     ("UnitPrice", item.UnitPrice),
                     ("Amount", item.Amount),
-                    ("PurchaseOrder", invoice.PoNumber ?? order?.PoNumber)
+                    ("PurchaseOrder", invoice.PoNumber ?? order?.PoNumber),
+                    ("TaxCode", line?.TaxCode ?? snapshot?.TaxCode)
                 });
             }
 
@@ -788,6 +845,18 @@ namespace Buyer.Application.Features.Shared
             Set(header, "DocumentCurrency", currency, "Currency, from the SILA invoice", missing);
             Set(header, "InvoiceGrossAmount", gross, "Invoice amount, from the SILA invoice", missing);
             Set(header, "SupplierInvoiceIDByInvcgParty", number, "Supplier invoice number, from the SILA invoice", missing);
+            string? documentType = Value("AccountingDocumentType");
+            if (!string.IsNullOrWhiteSpace(documentType) && header.ContainsKey("AccountingDocumentType"))
+            {
+                header["AccountingDocumentType"] = documentType;
+            }
+
+            string? taxAutomatic = Value("TaxIsCalculatedAutomatically");
+            if (!string.IsNullOrWhiteSpace(taxAutomatic) && header.ContainsKey("TaxIsCalculatedAutomatically"))
+            {
+                header["TaxIsCalculatedAutomatically"] = taxAutomatic.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+
             if (header.ContainsKey("ReconciliationAccount"))
             {
                 header.Remove("ReconciliationAccount");
@@ -920,6 +989,7 @@ namespace Buyer.Application.Features.Shared
             public string? CompanyCode { get; set; }
             public string? Plant { get; set; }
             public string? SupplierCode { get; set; }
+            public string? Currency { get; set; }
             public string? TaxCode { get; set; }
             public List<SnapshotLine> Lines { get; set; } = new();
         }
@@ -929,6 +999,7 @@ namespace Buyer.Application.Features.Shared
             public string? Line { get; set; }
             public string? Material { get; set; }
             public string? Uom { get; set; }
+            public string? TaxCode { get; set; }
         }
     }
 }

@@ -131,10 +131,11 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
 
             await SilaReceivingRules.DeactivateInvoiceItemsAsync(_repository, invoice.Id, cancellationToken);
             int lineNumber = 0;
+            List<InvoiceItem> storedLines = new List<InvoiceItem>();
             foreach (SilaInvoiceItemDto line in lines)
             {
                 lineNumber++;
-                _repository.InvoiceItem.Create(new InvoiceItem
+                InvoiceItem storedLine = new InvoiceItem
                 {
                     Id = Guid.NewGuid(),
                     InvoiceId = invoice.Id,
@@ -149,8 +150,12 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
                     TaxRate = line.TaxRate,
                     MatchStatus = line.PurchaseOrderItemId == null ? SilaReceivingRules.MATCH_UNMATCHED : SilaReceivingRules.MATCH_MATCHED,
                     IsActive = true
-                });
+                };
+                storedLines.Add(storedLine);
+                _repository.InvoiceItem.Create(storedLine);
             }
+
+            SilaInvoicePostingData.MarkChanged(invoice, storedLines);
 
             await _repository.SaveAsync();
             SilaInvoiceDetailDto detail = await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
