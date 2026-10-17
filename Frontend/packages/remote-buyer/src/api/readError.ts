@@ -67,6 +67,9 @@ const messageFromBody = (data: unknown): string => {
   return "";
 };
 
+/** User-facing text of a response body: description, message, or validation errors. */
+export const readBody = (data: unknown): string => messageFromBody(data);
+
 /** User-facing text of a failed call: the API's description, otherwise the fallback. */
 export const readError = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError(error)) {

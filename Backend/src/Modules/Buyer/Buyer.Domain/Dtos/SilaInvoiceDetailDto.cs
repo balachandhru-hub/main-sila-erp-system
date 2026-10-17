@@ -118,4 +118,10 @@ namespace Buyer.Domain.Dtos
         public bool Approve { get; set; }
         public string? Comment { get; set; }
     }
+
+    /// <summary>Goods receipts of the matched purchase order to attach to this invoice. An empty list clears the link.</summary>
+    public class SilaInvoiceLinkGrnDto
+    {
+        public List<Guid> GoodsReceiptIds { get; set; } = new();
+    }
 }

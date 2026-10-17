@@ -29,7 +29,7 @@ namespace Buyer.Application.Features.Shared
         public const string EXTRACTION_COMPLETED = "COMPLETED";
         public const string EXTRACTION_FAILED = "FAILED";
 
-        /// <summary>The saved settings, or the defaults (built-in reader, no automatic reading, 75 % confidence).</summary>
+        /// <summary>The saved settings, or the defaults (built-in reader, automatic reading on upload, 75 % confidence).</summary>
         public static async Task<SilaOcrConfiguration> GetAsync(IRepositoryWrapper repository, Guid buyerId, CancellationToken cancellationToken)
         {
             SilaOcrConfiguration? saved = await repository.SilaOcrConfiguration
@@ -39,7 +39,7 @@ namespace Buyer.Application.Features.Shared
             {
                 BuyerId = buyerId,
                 Provider = PROVIDER_BUILT_IN,
-                AutoExtractOnUpload = false,
+                AutoExtractOnUpload = true,
                 MinimumConfidence = DEFAULT_MINIMUM_CONFIDENCE
             };
         }

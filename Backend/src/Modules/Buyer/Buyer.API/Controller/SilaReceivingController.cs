@@ -1,5 +1,6 @@
 using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
+using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
 using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
 using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
@@ -16,6 +17,7 @@ using Buyer.Application.Features.Queries.GetSilaPurchaseOrder;
 using Buyer.Application.Features.Queries.ValidateSilaGoodsReceipt;
 using Buyer.Domain.Dtos;
 using MediatR;
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Attributes;
@@ -261,7 +263,12 @@ namespace Buyer.API.Controllers
                 InvoiceId = invoiceId
             });
             _logger.LogDebug($"Invoice file fetched. InvoiceId: {invoiceId}, Bytes: {result.Content.Length}");
-            return File(result.Content, result.ContentType, result.FileName);
+            ContentDispositionHeaderValue disposition = new ContentDispositionHeaderValue("inline")
+            {
+                FileNameStar = result.FileName
+            };
+            Response.Headers.ContentDisposition = disposition.ToString();
+            return File(result.Content, result.ContentType);
         }
 
         [HttpPost]
@@ -334,7 +341,31 @@ namespace Buyer.API.Controllers
                 InvoiceId = invoiceId,
                 GoodsReceiptId = goodsReceiptId
             });
-            return File(result.Content, result.ContentType, result.FileName);
+            ContentDispositionHeaderValue disposition = new ContentDispositionHeaderValue("inline")
+            {
+                FileNameStar = result.FileName
+            };
+            Response.Headers.ContentDisposition = disposition.ToString();
+            return File(result.Content, result.ContentType);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/goods-receipts")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("LinkSilaInvoiceGoodsReceipts")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> LinkGoodsReceipts([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceLinkGrnDto request)
+        {
+            _logger.LogDebug($"Linking goods receipts. InvoiceId: {invoiceId}, Count: {request.GoodsReceiptIds?.Count ?? 0}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new LinkSilaInvoiceGoodsReceiptsCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId,
+                Request = request
+            });
+            _logger.LogDebug($"Goods receipts linked. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
         }
 
         [HttpPost]

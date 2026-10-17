@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { PageHeader, toastService } from "@vosox/shared-ui";
-import { getInvoices, uploadInvoice, type SilaPage } from "../../../api/silaMe/silaReceivingApi";
+import { extractInvoice, getInvoice, getInvoices, uploadInvoice, type SilaPage } from "../../../api/silaMe/silaReceivingApi";
 import { formatDate } from "../../cart/lineFormat";
 import PagedListBody from "./PagedListBody";
 import SilaInvoiceReviewDialog from "./SilaInvoiceReviewDialog";
@@ -44,7 +44,19 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
     setUploading(true);
     try {
       const id = await uploadInvoice(file);
-      toastService.success("Invoice uploaded. Read it with OCR or type the fields.");
+      try {
+        const created = await getInvoice(id);
+        const read = created.status === "UPLOADED" ? await extractInvoice(id) : created;
+        if (read.status === "OCR_FAILED") {
+          toastService.error(read.ocrMessage || "The invoice was uploaded, but it could not be read. Type the fields.");
+        } else if (read.status === "UPLOADED") {
+          toastService.success("Invoice uploaded. Read it with OCR or type the fields.");
+        } else {
+          toastService.success("Invoice uploaded and read. Check the fields.");
+        }
+      } catch (err: unknown) {
+        toastService.error(err instanceof Error ? err.message : "The invoice was uploaded, but it could not be read. Type the fields.");
+      }
       list.reload();
       setOpenId(id);
     } catch (err: unknown) {

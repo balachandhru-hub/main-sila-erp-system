@@ -1,21 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import {
   decideInvoice,
   extractInvoice,
+  getGoodsReceipts,
   getInvoice,
   getInvoiceFile,
   getInvoiceGrnPdf,
   getOpenPurchaseOrders,
   getPurchaseOrder,
+  linkInvoiceGoodsReceipts,
   reconcileErpPosting,
   refreshInvoicePosting,
   reprocessErpPosting,
   rereadInvoice,
   submitInvoice,
   updateInvoice,
+  type SilaGoodsReceipt,
   type SilaInvoiceDetail,
   type SilaOpenPurchaseOrder,
+  type SilaPurchaseOrderDetail,
   type SilaPurchaseOrderLine,
 } from "../../../api/silaMe/silaReceivingApi";
 import SilaInvoiceHistory from "./SilaInvoiceHistory";
@@ -24,7 +28,7 @@ import SilaInvoiceLinesEditor from "./SilaInvoiceLinesEditor";
 import SilaInvoicePoMatch from "./SilaInvoicePoMatch";
 import SilaInvoiceSupplierMatch from "./SilaInvoiceSupplierMatch";
 import { INVOICE_TYPES, toInvoiceForm, toInvoiceWrite, toReceivePrefill, validateInvoiceForm, type InvoiceForm } from "./invoiceForm";
-import { formatAmount, formatConfidence, openBlob, receivingBadgeClass, receivingLabel } from "./receivingFormat";
+import { formatAmount, formatConfidence, receivingBadgeClass, receivingLabel } from "./receivingFormat";
 import type { ReceivePrefill } from "./SilaReceiveGoodsDialog";
 
 interface SilaInvoiceReviewDialogProps {
@@ -49,6 +53,7 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
 ];
 
 type Tab = "review" | "matching" | "posting" | "history";
+type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh" | "link";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
@@ -63,14 +68,24 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const [form, setForm] = useState<InvoiceForm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [orders, setOrders] = useState<SilaOpenPurchaseOrder[]>([]);
+  const [order, setOrder] = useState<SilaPurchaseOrderDetail | null>(null);
   const [poLines, setPoLines] = useState<SilaPurchaseOrderLine[]>([]);
-  const [busy, setBusy] = useState<"extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh" | null>(null);
+  const [busy, setBusy] = useState<Busy | null>(null);
   const [tab, setTab] = useState<Tab>("review");
   const [readings, setReadings] = useState(0);
   const [deferred, setDeferred] = useState(false);
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState("");
   const [sapReference, setSapReference] = useState("");
+  const [postingReviewed, setPostingReviewed] = useState(false);
+  const [candidates, setCandidates] = useState<SilaGoodsReceipt[]>([]);
+  const [grnPick, setGrnPick] = useState<string[] | null>(null);
+  const [grnNote, setGrnNote] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewKind, setPreviewKind] = useState<"pdf" | "image">("pdf");
+  const [previewTitle, setPreviewTitle] = useState("Invoice file");
+  const previewUrlRef = useRef<string | null>(null);
+  const autoLinkKey = useRef("");
 
   const show = (data: SilaInvoiceDetail) => {
     setInvoice(data);
@@ -78,8 +93,17 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     setEditing(false);
   };
 
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
+
   useEffect(() => {
     let active = true;
+    setPostingReviewed(false);
+    setGrnPick(null);
+    setGrnNote(null);
+    setCandidates([]);
+    autoLinkKey.current = "";
     getInvoice(invoiceId)
       .then((data) => active && show(data))
       .catch((err: unknown) => active && setError(err instanceof Error ? err.message : "Could not load the invoice."));
@@ -93,11 +117,16 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
 
   const purchaseOrderId = form?.purchaseOrderId ?? "";
   useEffect(() => {
+    setOrder(null);
     setPoLines([]);
     if (!purchaseOrderId) return undefined;
     let active = true;
     getPurchaseOrder(purchaseOrderId)
-      .then((order) => active && setPoLines(order.lines))
+      .then((loaded) => {
+        if (!active) return;
+        setOrder(loaded);
+        setPoLines(loaded.lines);
+      })
       .catch((err: unknown) => toastService.error(err instanceof Error ? err.message : "Could not load the purchase order lines."));
     return () => {
       active = false;
@@ -113,9 +142,6 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const canExtract = canPost && invoice !== null && ["UPLOADED", "OCR_FAILED", "EXTRACTED", "REVIEW_REQUIRED"].includes(invoice.status);
   // A re-read keeps the fields the user corrected; it is the only reading of a reviewed invoice.
   const canReread = canPost && invoice !== null && ["EXTRACTED", "REVIEW_REQUIRED", "REVIEWED"].includes(invoice.status);
-  const prefill = invoice && !pastReceipt && invoice.goodsReceiptApplicable !== false && invoice.goodsReceipts.length === 0
-    ? toReceivePrefill(invoice)
-    : null;
   const grn = invoice?.goodsReceipts.find((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference)) ?? invoice?.goodsReceipts[0];
   const postedGrns = (invoice?.goodsReceipts ?? []).filter((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference));
   const supplierKey = invoice?.silaSupplierId || invoice?.supplierId;
@@ -134,12 +160,22 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const askSubmit = Boolean(canSubmit && !retry && grn && !invoice?.goodsReceiptNote);
   const posted = erpAccepted || invoice?.status === "AWAITING_PAYMENT" || invoice?.status === "POSTED" || invoice?.status === "PAID" || invoice?.status === "PARTIALLY_PAID" || invoice?.status === "OVERDUE";
   const sealed = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED" || invoice?.status === "GRN_IN_PROGRESS";
+  const grnLocked = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED";
+  const prefill = invoice && !grnLocked && invoice.goodsReceiptApplicable !== false ? toReceivePrefill(invoice) : null;
   const canEdit = Boolean(canPost && invoice && pastReceipt && !sealed);
   const fieldsLocked = !canPost || sealed || (pastReceipt && !editing);
   const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
-  const submitLabel = busy === "submit" ? (retry ? "Resubmitting..." : "Submitting...") : (retry ? "Resubmit" : "Submit invoice");
+  const submitLabel = !postingReviewed
+    ? "Review before S/4"
+    : busy === "submit"
+      ? (retry ? "Resubmitting..." : "Submitting...")
+      : (retry ? "Resubmit to S/4" : "Submit to S/4");
+  const linkedIds = (invoice?.goodsReceipts ?? []).map((receipt) => receipt.id);
+  const selectedGrns = grnPick ?? linkedIds;
+  const grnDirty = selectedGrns.length !== linkedIds.length || selectedGrns.some((id) => !linkedIds.includes(id));
+  const receiptKey = linkedIds.join(",");
 
-  const run = async (kind: "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh", action: () => Promise<void>) => {
+  const run = async (kind: Busy, action: () => Promise<void>) => {
     setBusy(kind);
     try {
       await action();
@@ -190,7 +226,16 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     });
   };
 
-  const handleFile = () => run("file", async () => openBlob(await getInvoiceFile(invoiceId)));
+  const showBlob = (blob: Blob, title: string) => {
+    const url = URL.createObjectURL(blob);
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+    setPreviewKind(blob.type.startsWith("image/") ? "image" : "pdf");
+    setPreviewTitle(title);
+  };
+
+  const handleFile = () => run("file", async () => showBlob(await getInvoiceFile(invoiceId), invoice?.fileName || "Invoice file"));
 
   const openGrnPdf = (goodsReceiptId: string, downloadName?: string) => run("pdf", async () => {
     const blob = await getInvoiceGrnPdf(invoiceId, goodsReceiptId);
@@ -203,10 +248,97 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
       URL.revokeObjectURL(url);
       return;
     }
-    openBlob(blob);
+    const receipt = invoice?.goodsReceipts.find((row) => row.id === goodsReceiptId);
+    showBlob(blob, receipt ? `GRN ${receipt.grnNumber}` : "Goods receipt");
   });
 
-  const handleSubmit = () => run("submit", async () => {
+  const hideFile = () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+    setPreviewUrl(null);
+  };
+
+  useEffect(() => {
+    if (!invoice?.purchaseOrderId || !invoice.poNumber || invoice.goodsReceiptApplicable === false) {
+      setCandidates([]);
+      return undefined;
+    }
+    const purchaseOrder = invoice.purchaseOrderId;
+    const linked = invoice.goodsReceipts;
+    let active = true;
+    getGoodsReceipts({ search: invoice.poNumber, fromDate: "", toDate: "" }, { index: 0, limit: 200 })
+      .then((rows) => {
+        if (!active) return;
+        const same = rows.filter((row) => row.purchaseOrderId === purchaseOrder);
+        const extras = linked.filter((row) => !same.some((candidate) => candidate.id === row.id));
+        setCandidates([...extras, ...same]);
+      })
+      .catch((err: unknown) => {
+        if (active) setGrnNote(err instanceof Error ? err.message : "Could not load the goods receipts.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [invoice?.id, invoice?.purchaseOrderId, invoice?.poNumber, invoice?.goodsReceiptApplicable, receiptKey]);
+
+  useEffect(() => {
+    if (!canPost || !invoice?.purchaseOrderId || invoice.goodsReceiptApplicable === false || grnLocked) return undefined;
+    if (invoice.goodsReceipts.length > 0 || grnPick !== null) return undefined;
+    const purchaseOrder = invoice.purchaseOrderId;
+    const open = candidates.filter((row) => !row.invoiceId && row.purchaseOrderId === purchaseOrder);
+    if (open.length === 0) return undefined;
+    const key = `${invoice.id}:${open.map((row) => row.id).sort().join(",")}`;
+    if (autoLinkKey.current === key) return undefined;
+    autoLinkKey.current = key;
+    let active = true;
+    let settled = false;
+    linkInvoiceGoodsReceipts(invoice.id, open.map((row) => row.id))
+      .then((data) => {
+        if (!active) return;
+        show(data);
+        setGrnNote(null);
+        onChanged();
+        toastService.success(
+          open.length === 1
+            ? `Matched goods receipt ${open[0].grnNumber}. You can choose another one.`
+            : `Matched ${open.length} goods receipts with no invoice. You can change the selection.`,
+        );
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setGrnPick(open.map((row) => row.id));
+        setGrnNote(err instanceof Error ? err.message : "Could not save the goods receipt match.");
+      })
+      .finally(() => {
+        settled = true;
+      });
+    return () => {
+      active = false;
+      if (!settled && autoLinkKey.current === key) autoLinkKey.current = "";
+    };
+  }, [candidates, canPost, grnLocked, grnPick, invoice]);
+
+  const toggleGrn = (id: string) => {
+    setGrnPick(selectedGrns.includes(id) ? selectedGrns.filter((row) => row !== id) : [...selectedGrns, id]);
+  };
+
+  const saveGrns = () => run("link", async () => {
+    const data = await linkInvoiceGoodsReceipts(invoiceId, selectedGrns);
+    setGrnPick(null);
+    setGrnNote(null);
+    show(data);
+    onChanged();
+    toastService.success("Goods receipt selection saved.");
+  });
+
+  const handleSubmit = () => {
+    if (!postingReviewed) {
+      setPostingReviewed(true);
+      setTab("posting");
+      toastService.success("Review the purchase order and the invoice values. Submit to S/4 when they are right.");
+      return;
+    }
+    run("submit", async () => {
     // A posting that already failed is sent again through the existing reprocess route.
     // Submit would start the purchase-order read again, and this server may not have that action.
     if (invoice?.erpPostingId && (invoice.status === "ERP_POSTING_FAILED" || (invoice.erpStatus === "FAILED" && !posted))) {
@@ -224,7 +356,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     if (data.status === "PENDING_APPROVAL") toastService.success("Invoice submitted for approval.");
     else if (data.paymentStatus || data.status === "AWAITING_PAYMENT" || data.status === "POSTED") toastService.success("Invoice posted successfully.");
     else toastService.success("Invoice submitted.");
-  });
+    });
+  };
 
   const handleDecision = (approve: boolean) => run("decide", async () => {
     if (!approve && comment.trim() === "") {
@@ -273,6 +406,11 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               {canExtract && invoice.status !== "EXTRACTED" && invoice.status !== "REVIEW_REQUIRED" && (
                 <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={handleExtract}>
                   {busy === "extract" ? "Reading..." : invoice.status === "UPLOADED" ? "Read with OCR" : "Read again"}
+                </button>
+              )}
+              {previewUrl && (
+                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={hideFile}>
+                  Hide file
                 </button>
               )}
               {canPost && prefill && (
@@ -407,6 +545,16 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 </div>
               </div>
             )}
+            {previewUrl && (
+              <div className="srcv-stack">
+                <p className="srcv-sub">{previewTitle}</p>
+                {previewKind === "image" ? (
+                  <img className="srcv-file-view" src={previewUrl} alt={previewTitle} />
+                ) : (
+                  <iframe className="srcv-file-view" title={previewTitle} src={previewUrl} />
+                )}
+              </div>
+            )}
             {invoice.ocrMessage && <div className="sila-alert sila-alert--warning" role="status">{invoice.ocrMessage}</div>}
             {invoice.goodsReceiptNote && <div className="sila-alert sila-alert--warning" role="status">{invoice.goodsReceiptNote}</div>}
             {invoice.reconciliationWarning && <div className="sila-alert sila-alert--warning" role="status">{invoice.reconciliationWarning}</div>}
@@ -437,7 +585,10 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   aria-controls={`srcv-panel-${item.key}`}
                   className="sila-btn sila-btn--secondary sila-btn--sm srcv-tab"
                   disabled={busy !== null}
-                  onClick={() => setTab(item.key)}
+                  onClick={() => {
+                    setTab(item.key);
+                    if (item.key === "posting") setPostingReviewed(true);
+                  }}
                 >
                   {item.label}
                 </button>
@@ -453,6 +604,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               <div id="srcv-panel-posting" role="tabpanel" aria-labelledby="srcv-tab-posting">
                 <SilaInvoicePostingPanel
                   posting={invoice.postingData}
+                  invoice={invoice}
+                  order={order}
                   canRefresh={canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
                   busy={busy !== null}
                   onRefresh={() => run("refresh", async () => {
@@ -514,6 +667,49 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   </div>
                 </div>
                 <SilaInvoiceLinesEditor lines={form.lines} poLines={poLines} disabled={fieldsLocked || busy !== null} onChange={(lines) => setForm({ ...form, lines })} />
+                {invoice.goodsReceiptApplicable !== false && (
+                  <div className="srcv-stack">
+                    <h3 className="sila-section-title">Goods receipts</h3>
+                    <p className="srcv-sub">
+                      Open goods receipts of this purchase order that have no submitted invoice are matched automatically. Change the selection, or create a new goods receipt.
+                    </p>
+                    {!invoice.purchaseOrderId ? (
+                      <p className="srcv-sub">Match a purchase order to see its goods receipts.</p>
+                    ) : candidates.length === 0 ? (
+                      <p className="srcv-sub">No goods receipt for this purchase order yet. Create one from the invoice.</p>
+                    ) : (
+                      <ul className="srcv-grn-list">
+                        {candidates.map((receipt) => {
+                          const otherInvoice = Boolean(receipt.invoiceId && receipt.invoiceId !== invoice.id);
+                          return (
+                            <li key={receipt.id}>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGrns.includes(receipt.id)}
+                                  disabled={grnLocked || busy !== null}
+                                  onChange={() => toggleGrn(receipt.id)}
+                                />
+                                <span>
+                                  {receipt.grnNumber} · {receivingLabel(receipt.status)}
+                                  {receipt.erpReference ? ` · ${receipt.erpReference}` : ""}
+                                  {otherInvoice ? ` · already on invoice ${receipt.invoiceNumber || "another invoice"}` : ""}
+                                  {!receipt.invoiceId ? " · no invoice" : ""}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {grnNote && <p className="srcv-error" role="status">{grnNote}</p>}
+                    {invoice.purchaseOrderId && (grnDirty || grnNote) && (
+                      <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={grnLocked || busy !== null} onClick={saveGrns}>
+                        {busy === "link" ? "Saving..." : "Save goods receipt selection"}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {(invoice.timeline ?? []).length > 0 && (
                   <div>
                     <h3 className="sila-section-title">Lifecycle</h3>

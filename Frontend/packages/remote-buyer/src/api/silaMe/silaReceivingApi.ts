@@ -1,6 +1,6 @@
 import axiosInstance from "../axiosInstance";
 import axios from "axios";
-import { readError } from "../readError";
+import { readBody, readError } from "../readError";
 
 export interface SilaOpenPurchaseOrder {
   id: string;
@@ -373,13 +373,57 @@ export const extractInvoice = async (invoiceId: string): Promise<SilaInvoiceDeta
 export const updateInvoice = async (invoiceId: string, request: SilaInvoiceWrite): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.put<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}`, request), "Could not save the invoice."));
 
-/** The stored invoice file, to open or download. */
+const fileType = async (blob: Blob, contentType: string): Promise<Blob> => {
+  const declared = contentType.split(";")[0].trim().toLowerCase();
+  if (declared.includes("json") || declared.startsWith("text/")) {
+    throw new Error(readBody(await blob.text()) || "Could not open the file.");
+  }
+  if (declared === "application/pdf" || declared.startsWith("image/")) {
+    return blob.type === declared ? blob : new Blob([blob], { type: declared });
+  }
+  const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+  const pdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;
+  const png = head[0] === 0x89 && head[1] === 0x50;
+  const jpeg = head[0] === 0xff && head[1] === 0xd8;
+  const type = pdf ? "application/pdf" : png ? "image/png" : jpeg ? "image/jpeg" : "application/pdf";
+  return new Blob([blob], { type });
+};
+
+/** A stored PDF or image. An error body is read as text instead of being opened as a file. */
+const fetchFile = async (url: string, fallback: string): Promise<Blob> => {
+  try {
+    const response = await axiosInstance.get<Blob>(url, { responseType: "blob" });
+    const contentType = String(response.headers["content-type"] ?? response.data.type ?? "");
+    return await fileType(response.data, contentType);
+  } catch (error: unknown) {
+    if (error instanceof Error && !axios.isAxiosError(error)) throw error;
+    if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+      throw new Error(readBody(await error.response.data.text()) || fallback);
+    }
+    throw new Error(readError(error, fallback));
+  }
+};
+
+/** The stored invoice file, to view in the invoice screen. */
 export const getInvoiceFile = async (invoiceId: string): Promise<Blob> =>
-  call(() => axiosInstance.get<Blob>(`${BASE}/invoices/${invoiceId}/file`, { responseType: "blob" }), "Could not open the invoice file.");
+  fetchFile(`${BASE}/invoices/${invoiceId}/file`, "Could not open the invoice file.");
 
 /** The GRN PDF stored against the invoice. */
 export const getInvoiceGrnPdf = async (invoiceId: string, goodsReceiptId: string): Promise<Blob> =>
-  call(() => axiosInstance.get<Blob>(`${BASE}/invoices/${invoiceId}/grn-pdf/${goodsReceiptId}`, { responseType: "blob" }), "Could not open the GRN PDF.");
+  fetchFile(`${BASE}/invoices/${invoiceId}/grn-pdf/${goodsReceiptId}`, "Could not open the GRN PDF.");
+
+/** Attaches goods receipts of the matched purchase order. An empty list clears the match. */
+export const linkInvoiceGoodsReceipts = async (invoiceId: string, goodsReceiptIds: string[]): Promise<SilaInvoiceDetail> => {
+  try {
+    const response = await axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/goods-receipts`, { goodsReceiptIds });
+    return normalizeInvoice(response.data);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.status === 404 && !readError(error, "")) {
+      throw new Error("This server cannot save the goods receipt match yet. Choose the receipts again after the update is deployed.");
+    }
+    throw new Error(readError(error, "Could not match the goods receipts."));
+  }
+};
 
 /** Validates, then approves or posts. A 404 is an error: it must not fall through to another post. */
 export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> => {
