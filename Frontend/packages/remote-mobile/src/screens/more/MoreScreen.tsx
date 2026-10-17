@@ -12,6 +12,7 @@ interface MoreEntry {
 }
 
 const ENTRIES: MoreEntry[] = [
+  { label: 'Supplier workspace', detail: 'RFQ, auctions, catalog, customer orders and the supplier framework', to: 'supplier' },
   { label: 'Scan invoice', detail: 'Photograph the supplier invoice and read it', to: 'receive/scan' },
   { label: 'Receive goods', detail: 'Select the supplier purchase order and post the receipt', to: 'receive/pos?mode=receive' },
   { label: 'Purchase orders', detail: 'Search open POs and receive against them', to: 'receive/pos' },

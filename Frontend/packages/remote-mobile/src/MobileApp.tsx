@@ -45,6 +45,7 @@ import MoreScreen from './screens/more/MoreScreen';
 import ProfileScreen from './screens/more/ProfileScreen';
 import HelpScreen from './screens/more/HelpScreen';
 import { registerMobilePwa } from './pwa';
+import SupplierWorkspace from './supplier/SupplierWorkspace';
 import './mobile.css';
 
 /** Path the parent route matched (e.g. /mobile): the current path without the splat part. */
@@ -74,10 +75,22 @@ const useInterFont = (): void => {
 /** SILA Store: the mobile app of the SILA ME add-on, served by the host at /mobile. */
 const MobileApp: React.FC = () => {
   const base = useAppBase();
+  const { pathname } = useLocation();
   useInterFont();
   useEffect(() => {
     registerMobilePwa();
   }, []);
+
+  const supplier = pathname === `${base}/supplier` || pathname.startsWith(`${base}/supplier/`);
+  if (supplier) {
+    return (
+      <MobileBaseProvider base={base}>
+        <AccessProvider>
+          <SupplierWorkspace />
+        </AccessProvider>
+      </MobileBaseProvider>
+    );
+  }
 
   return (
     <MobileBaseProvider base={base}>
