@@ -58,12 +58,17 @@ const RoleApp: React.FC = () => {
 
 /** SILA Store (mobile) for buyer-side users; signed-out users sign in first and come back here. */
 const MobileRoute: React.FC = () => {
-  const { isLoggedIn, isInitialized } = useAuthStore();
+  const { isLoggedIn, isInitialized, roleId } = useAuthStore();
+  const { pathname } = useLocation();
   if (!isInitialized) {
     return <Loader fullScreen={true} message='Verifying session...' theme='light' />;
   }
   if (!isLoggedIn) {
     return <Navigate to={`/?next=${MOBILE_PATH}`} replace />;
+  }
+  const supplierWorkspace = pathname === `${MOBILE_PATH}/supplier` || pathname.startsWith(`${MOBILE_PATH}/supplier/`);
+  if (isSupplierRoleId(roleId) && !supplierWorkspace) {
+    return <Navigate to={`${MOBILE_PATH}/supplier`} replace />;
   }
   return <MobileApp />;
 };

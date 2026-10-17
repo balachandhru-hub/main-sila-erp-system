@@ -87,7 +87,7 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
       </div>
     );
   }
-  if (isSupplierOnlyRole(person?.roleName) && !supplier) {
+  if (isSupplierOnlyRole(person?.roleName, person?.roleId) && !supplier) {
     return <Navigate to={`${base}/supplier`} replace />;
   }
   if (supplier) return <SupplierWorkspace />;
