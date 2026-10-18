@@ -27,10 +27,15 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
         public async Task<SilaReceivingGrnReversalPreviewDto> Handle(GetSilaGoodsReceiptReversalQuery request, CancellationToken cancellationToken)
         {
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
-            GoodsReceipt receipt = await _repository.GoodsReceipt
+            GoodsReceipt? receipt = await _repository.GoodsReceipt
                 .FindByCondition(x => x.Id == request.GoodsReceiptId && x.BuyerId == buyer.Id && x.IsActive)
-                .FirstOrDefaultAsync(cancellationToken)
-                ?? throw new NotFoundCustomException("Goods receipt not found.", "Select a goods receipt of this organization.");
+                .FirstOrDefaultAsync(cancellationToken);
+            if (receipt == null)
+            {
+                throw new NotFoundCustomException(
+                    "GRN_NOT_FOUND",
+                    "Goods Receipt " + request.GoodsReceiptId.ToString("D") + " could not be found for this organization.");
+            }
 
             await SilaAccess.EnsureLocationAccessAsync(_repository, _logger, buyer.Id, request.UserId, request.RoleId, receipt.LocationId, cancellationToken);
 
@@ -47,15 +52,31 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 }
             }
 
+            // Invoice dependency must not abort the load — gate is returned on the preview.
             Invoice? invoice = null;
+            string? invoiceLoadError = null;
             if (receipt.InvoiceId != null)
             {
-                invoice = await _repository.Invoice
-                    .FindByCondition(x => x.Id == receipt.InvoiceId && x.BuyerId == buyer.Id && x.IsActive)
-                    .FirstOrDefaultAsync(cancellationToken);
+                try
+                {
+                    invoice = await _repository.Invoice
+                        .FindByCondition(x => x.Id == receipt.InvoiceId && x.BuyerId == buyer.Id && x.IsActive)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (invoice == null)
+                    {
+                        invoiceLoadError = "Invoice " + receipt.InvoiceId.Value.ToString("D") + " is linked but was not found.";
+                    }
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException and not BaseCustomException)
+                {
+                    _logger.LogError($"GRN invoice dependency load failed. GoodsReceiptId: {receipt.Id}, InvoiceId: {receipt.InvoiceId}, Error: {SilaLogText.Short(exception.Message)}");
+                    invoiceLoadError = "Invoice dependency could not be loaded: " + SilaLogText.Short(exception.Message);
+                }
             }
 
-            string invoiceGate = SilaReceivingReversal.InvoiceGate(invoice?.Status);
+            string invoiceGate = invoiceLoadError != null
+                ? "GRN_INVOICE_DEPENDENCY_LOAD_FAILED"
+                : SilaReceivingReversal.InvoiceGate(invoice?.Status);
             bool invoiceBlocks = SilaReceivingReversal.InvoiceBlocksGrn(invoiceGate);
             bool grnPosted = string.Equals(receipt.Status, Common.SILA_GRN_POSTED, StringComparison.OrdinalIgnoreCase);
             bool alreadyReversed = string.Equals(receipt.Status, Common.SILA_GRN_REVERSED, StringComparison.OrdinalIgnoreCase);
@@ -86,13 +107,25 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 .OrderBy(x => x.DateCreated)
                 .ToListAsync(cancellationToken);
             List<Guid> poItemIds = items.Select(x => x.PurchaseOrderItemId).Distinct().ToList();
-            Dictionary<Guid, int> lineNumbers = poItemIds.Count == 0
-                ? new Dictionary<Guid, int>()
+            List<PurchaseOrderItem> poItems = poItemIds.Count == 0
+                ? new List<PurchaseOrderItem>()
                 : await _repository.PurchaseOrderItem
                     .FindByCondition(x => poItemIds.Contains(x.Id))
-                    .ToDictionaryAsync(x => x.Id, x => x.LineNumber, cancellationToken);
+                    .ToListAsync(cancellationToken);
+            Dictionary<Guid, int> lineNumbers = poItems
+                .GroupBy(x => x.Id)
+                .ToDictionary(g => g.Key, g => g.First().LineNumber);
 
-            SilaReceivingGrnListItemDto header = (await SilaReceivingRules.ToGrnListAsync(_repository, new List<GoodsReceipt> { receipt }, cancellationToken))[0];
+            List<SilaReceivingGrnListItemDto> headers = await SilaReceivingRules.ToGrnListAsync(
+                _repository, new List<GoodsReceipt> { receipt }, cancellationToken);
+            if (headers.Count == 0)
+            {
+                throw new InternalServerCustomException(
+                    "GRN_HEADER_MAP_FAILED",
+                    "Goods Receipt " + receipt.GrnNumber + " was found but its reversal header could not be prepared.");
+            }
+
+            SilaReceivingGrnListItemDto header = headers[0];
 
             List<SilaReceivingGrnReversalLineDto> lines = new List<SilaReceivingGrnReversalLineDto>();
             int itemIndex = 1;
@@ -115,7 +148,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 itemIndex++;
             }
 
-            string? message = decision switch
+            string? message = invoiceLoadError ?? decision switch
             {
                 SilaReceivingReversal.INVOICE_FIRST =>
                     "This Goods Receipt has already been invoiced. The SAP Supplier Invoice must be reversed before the Goods Receipt can be reversed.",
@@ -124,9 +157,11 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 SilaReceivingReversal.IN_FLIGHT => "A GRN reversal is already processing.",
                 SilaReceivingReversal.LOCAL_FINALIZE =>
                     "SAP Cancel succeeded but local inventory finalization failed. Reprocess local finalization only. Do not Cancel again.",
-                SilaReceivingReversal.MISSING_MATERIAL_DOCUMENT => "Original SAP Material Document is not stored on this GRN.",
+                SilaReceivingReversal.MISSING_MATERIAL_DOCUMENT =>
+                    "GRN " + receipt.GrnNumber + " was found, but its SAP Material Document number is missing.",
                 SilaReceivingReversal.NOT_CONFIGURED => "No active FIVE S4 Material Document API is configured for Cancel.",
-                SilaReceivingReversal.NOT_POSTED => "Only a posted goods receipt can be reversed.",
+                SilaReceivingReversal.NOT_POSTED =>
+                    "Only a posted goods receipt can be reversed. Current status: " + receipt.Status + ".",
                 SilaReceivingReversal.READY => "SAP Cancel will reverse the full Material Document (movement type 102).",
                 _ => null
             };
@@ -144,7 +179,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 PoNumber = receipt.PoNumber,
                 SupplierName = header.SupplierName,
                 InvoiceId = receipt.InvoiceId,
-                InvoiceNumber = header.InvoiceNumber,
+                InvoiceNumber = header.InvoiceNumber ?? invoice?.InvoiceNumber,
                 InvoiceStatus = invoice?.Status,
                 InvoiceGate = invoiceGate,
                 Decision = decision,

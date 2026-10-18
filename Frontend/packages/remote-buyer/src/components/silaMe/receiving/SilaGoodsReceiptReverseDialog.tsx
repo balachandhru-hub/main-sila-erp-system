@@ -5,12 +5,20 @@ import {
   reverseGoodsReceipt,
   type SilaGrnReversalPreview,
 } from "../../../api/silaMe/silaReceivingApi";
+import { readHttpStatus } from "../../../api/readError";
 import { formatQtyUom, receivingLabel } from "./receivingFormat";
 
 interface SilaGoodsReceiptReverseDialogProps {
   goodsReceiptId: string;
   onClose: () => void;
   onChanged?: () => void;
+}
+
+interface LoadFailure {
+  message: string;
+  httpStatus: number | null;
+  goodsReceiptId: string;
+  at: string;
 }
 
 /** Cloud Reverse GRN: SAP Cancel on original Material Document (101 → 102). */
@@ -20,28 +28,39 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
   onChanged,
 }) => {
   const [preview, setPreview] = useState<SilaGrnReversalPreview | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadFailure | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [reason, setReason] = useState("");
   const [remarks, setRemarks] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const asFailure = (err: unknown): LoadFailure => ({
+    message: err instanceof Error ? err.message : "Could not load the goods receipt reversal.",
+    httpStatus: readHttpStatus(err),
+    goodsReceiptId,
+    at: new Date().toISOString(),
+  });
+
   const load = () => {
     setError(null);
+    setShowDetails(false);
     getGoodsReceiptReversal(goodsReceiptId)
       .then(setPreview)
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Could not load the goods receipt reversal.");
+        setError(asFailure(err));
       });
   };
 
   useEffect(() => {
     let active = true;
+    setError(null);
+    setShowDetails(false);
     getGoodsReceiptReversal(goodsReceiptId)
       .then((data) => {
         if (active) setPreview(data);
       })
       .catch((err: unknown) => {
-        if (active) setError(err instanceof Error ? err.message : "Could not load the goods receipt reversal.");
+        if (active) setError(asFailure(err));
       });
     return () => {
       active = false;
@@ -110,7 +129,25 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
     >
       <div className="sila-root sila-me srcv-dialog">
         {error ? (
-          <EmptyState variant="error" title="Couldn't load GRN reversal" description={error} />
+          <div className="srcv-stack">
+            <EmptyState variant="error" title="GRN Reversal cannot be prepared" description={error.message} />
+            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setShowDetails((open) => !open)}>
+              {showDetails ? "Hide details" : "View details"}
+            </button>
+            {showDetails && (
+              <dl className="srcv-facts">
+                <div><dt>Stage</dt><dd>LOAD_REVERSAL_CONTEXT</dd></div>
+                <div><dt>HTTP status</dt><dd>{error.httpStatus ?? "—"}</dd></div>
+                <div><dt>GRN ID</dt><dd>{error.goodsReceiptId}</dd></div>
+                <div><dt>Endpoint</dt><dd>GET /api/v1/buyer/sila/grns/{"{id}"}/reversal</dd></div>
+                <div><dt>Timestamp</dt><dd>{error.at}</dd></div>
+                <div><dt>Message</dt><dd>{error.message}</dd></div>
+              </dl>
+            )}
+            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={load}>
+              Retry
+            </button>
+          </div>
         ) : !preview ? (
           <Loader size={24} message="Loading reversal..." />
         ) : (
