@@ -460,7 +460,7 @@ export const submitInvoice = async (invoiceId: string): Promise<SilaInvoiceDetai
     return normalizeInvoice(response.data);
   } catch (error: unknown) {
     if (axios.isAxiosError(error) && error.response?.status === 404 && !readError(error, "")) {
-      throw new Error("This server has no invoice submit action, so the invoice was not sent. Use Reprocess when a posting was already created.");
+      throw new Error("The invoice was not sent. Restart the local screen and submit again.");
     }
     throw new Error(readError(error, "Could not submit the invoice."));
   }

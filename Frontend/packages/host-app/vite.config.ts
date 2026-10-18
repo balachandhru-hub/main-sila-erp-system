@@ -7,6 +7,7 @@ import fs from 'fs';
 import { federationSafeAliases } from '../shared-ui/build/federationAliases';
 import { devCustomIntegrations } from './devCustomIntegrations';
 import { devGoodsReceiptLink } from './devGoodsReceiptLink';
+import { devInvoiceSubmit } from './devInvoiceSubmit';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootNodeModules = path.resolve(__dirname, '../../node_modules');
@@ -37,6 +38,7 @@ export default defineConfig(({ command, mode }) => {
       ...(command === 'serve' ? [
         devCustomIntegrations(env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com', path.resolve(__dirname, '../../.data/custom-integrations.json')),
         devGoodsReceiptLink(env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com', path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
+        devInvoiceSubmit(env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com', path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
       ] : []),
       federation({
         remotes: command === 'serve' ? {} : {
