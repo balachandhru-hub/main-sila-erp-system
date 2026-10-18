@@ -389,7 +389,9 @@ const authorizationHeader = (saved: StoredIntegration): Record<string, string> =
 };
 
 const lastSegment = (resourcePath: string): string => {
-  const parts = resourcePath.split("/").filter(Boolean);
+  // FunctionImport query parameters must not be treated as the last path segment.
+  const pathOnly = resourcePath.split("?", 2)[0];
+  const parts = pathOnly.split("/").filter(Boolean);
   return parts[parts.length - 1] || "";
 };
 

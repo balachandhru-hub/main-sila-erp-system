@@ -409,10 +409,14 @@ namespace SharedKernel.Integration.Services
             };
         }
 
-        /// <summary>CreateUrlAsAttachment is an action. A_MaterialDocumentHeader and AttachmentContentSet are entity sets.</summary>
+        /// <summary>
+        /// CreateUrlAsAttachment is an OData Function Import / action (not an entity set).
+        /// Query-string FunctionImport parameters must be ignored when detecting the last segment.
+        /// </summary>
         private static bool IsODataAction(string? resourcePath)
         {
-            string last = (resourcePath ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
+            string pathOnly = (resourcePath ?? string.Empty).Split('?', 2)[0];
+            string last = pathOnly.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
             if (last.Length == 0 || last.StartsWith("A_", StringComparison.Ordinal) || last.EndsWith("Set", StringComparison.Ordinal))
             {
                 return false;

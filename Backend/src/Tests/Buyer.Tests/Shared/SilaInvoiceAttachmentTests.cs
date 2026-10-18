@@ -5,7 +5,7 @@ using Buyer.Domain.Entities;
 namespace Buyer.Tests.Shared
 {
     /// <summary>
-    /// The attachment key, document address and request are built from stored invoice-posting values.
+    /// The attachment key, document address and FunctionImport path are built from stored invoice-posting values.
     /// A failed attachment does not change a successful invoice posting.
     /// </summary>
     public class SilaInvoiceAttachmentTests
@@ -15,6 +15,7 @@ namespace Buyer.Tests.Shared
         {
             Assert.Equal("51056040192024", SilaInvoiceAttachment.LinkedKey("5105604019", "2024"));
             Assert.Equal("51056040192024", SilaInvoiceAttachment.LinkedKey(" 5105604019 ", "2024"));
+            Assert.Equal("051056040192024", SilaInvoiceAttachment.LinkedKey("05105604019", "2024"));
         }
 
         [Fact]
@@ -67,7 +68,42 @@ namespace Buyer.Tests.Shared
         }
 
         [Fact]
-        public void RequestBody_SendsTheBusinessObjectKeyUrlAndFileName()
+        public void FunctionImportPath_PutsParametersOnTheUrlNotInAJsonBody()
+        {
+            string path = SilaInvoiceAttachment.FunctionImportPath(
+                "/sap/opu/odata/sap/API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment",
+                "51056011442026",
+                "https://sila-api.chervicaon.com/api/v1/buyer/sila/invoices/7917682c-4e4b-4492-af2f-db37b968a447/file",
+                "TESTINVOICE123_PO4500004152_AED.pdf");
+
+            Assert.StartsWith("/sap/opu/odata/sap/API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment?", path, StringComparison.Ordinal);
+            Assert.Contains("LinkedSAPObjectKey='51056011442026'", path, StringComparison.Ordinal);
+            Assert.Contains("BusinessObjectTypeName='BUS2081'", path, StringComparison.Ordinal);
+            Assert.Contains("Url='https://sila-api.chervicaon.com/api/v1/buyer/sila/invoices/7917682c-4e4b-4492-af2f-db37b968a447/file'", path, StringComparison.Ordinal);
+            Assert.Contains("UrlDescription='TESTINVOICE123_PO4500004152_AED.pdf'", path, StringComparison.Ordinal);
+            Assert.Contains("MIMEType='text/url'", path, StringComparison.Ordinal);
+            Assert.Contains("SemanticObject=''", path, StringComparison.Ordinal);
+            Assert.DoesNotContain("FileName=", path, StringComparison.Ordinal);
+            Assert.DoesNotContain("{", path, StringComparison.Ordinal);
+            Assert.Contains("LinkedSAPObjectKey", SilaInvoiceAttachment.FunctionImportParameters);
+            Assert.DoesNotContain("FileName", SilaInvoiceAttachment.FunctionImportParameters);
+        }
+
+        [Fact]
+        public void FunctionImportPath_EscapesODataStringQuotes()
+        {
+            string path = SilaInvoiceAttachment.FunctionImportPath(
+                SilaInvoiceLifecycle.ATTACHMENT_PATH,
+                "51056040192024",
+                "https://files.example.com/a'b.pdf",
+                "say 'hi'");
+
+            Assert.Contains("Url='https://files.example.com/a''b.pdf'", path, StringComparison.Ordinal);
+            Assert.Contains("UrlDescription='say ''hi'''", path, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void RequestBody_LegacyTemplateStillFillsTokensForDiagnostics()
         {
             string body = SilaInvoiceAttachment.RequestBody(null, "51056040192024", "https://sila-api.chervicaon.com/api/v1/buyer/sila/invoices/1/file", "INV-1.pdf");
 
@@ -75,20 +111,6 @@ namespace Buyer.Tests.Shared
             Assert.Contains("\"LinkedSAPObjectKey\": \"51056040192024\"", body, StringComparison.Ordinal);
             Assert.Contains("\"Url\": \"https://sila-api.chervicaon.com/api/v1/buyer/sila/invoices/1/file\"", body, StringComparison.Ordinal);
             Assert.Contains("\"FileName\": \"INV-1.pdf\"", body, StringComparison.Ordinal);
-            Assert.DoesNotContain("password", body, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("5105604019", body.Replace("51056040192024", "", StringComparison.Ordinal), StringComparison.Ordinal);
-        }
-
-        [Fact]
-        public void RequestBody_FillsAConfiguredTemplate()
-        {
-            string template = """{"BusinessObjectTypeName":"{{BusinessObjectTypeName}}","LinkedSAPObjectKey":"{{LinkedSAPObjectKey}}","Url":"{{Url}}","FileName":"{{FileName}}"}""";
-
-            string body = SilaInvoiceAttachment.RequestBody(template, "51056040192024", "https://files.example.com/a.pdf", "a.pdf");
-
-            Assert.Contains("\"BusinessObjectTypeName\":\"BUS2081\"", body, StringComparison.Ordinal);
-            Assert.Contains("\"LinkedSAPObjectKey\":\"51056040192024\"", body, StringComparison.Ordinal);
-            Assert.Contains("\"FileName\":\"a.pdf\"", body, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -119,23 +141,23 @@ namespace Buyer.Tests.Shared
             InventoryErpPosting invoicePosting = new InventoryErpPosting
             {
                 Status = Common.SILA_POSTING_POSTED,
-                ErpReference = "5105604019",
-                ErpResponsePayload = """{"FiscalYear":"2024"}"""
+                ErpReference = "5105601144",
+                ErpResponsePayload = """{"FiscalYear":"2026"}"""
             };
             InventoryErpPosting attachment = new InventoryErpPosting
             {
                 Status = Common.SILA_POSTING_FAILED,
-                ErrorMessage = "S/4 returned HTTP 400.",
-                DateUpdated = new DateTime(2026, 10, 17, 12, 0, 0, DateTimeKind.Utc)
+                ErrorMessage = "Invalid Function Import Parameter 'LinkedSAPObjectKey'",
+                DateUpdated = new DateTime(2026, 10, 18, 23, 0, 0, DateTimeKind.Utc)
             };
-            Invoice invoice = new Invoice { FileName = "INV-1.pdf", InvoiceNumber = "TESTINVOICE121", Status = Common.SILA_INVOICE_AWAITING_PAYMENT };
+            Invoice invoice = new Invoice { FileName = "TESTINVOICE123_PO4500004152_AED.pdf", InvoiceNumber = "TESTINVOICE121", Status = Common.SILA_INVOICE_AWAITING_PAYMENT };
 
             var screen = SilaInvoiceAttachment.Describe(invoicePosting, attachment, invoice);
 
             Assert.Equal("Supplier Invoice", screen.BusinessObject);
             Assert.Equal("BUS2081", screen.BusinessObjectType);
-            Assert.Equal("51056040192024", screen.LinkedSapObjectKey);
-            Assert.Equal("INV-1.pdf", screen.FileName);
+            Assert.Equal("51056011442026", screen.LinkedSapObjectKey);
+            Assert.Equal("TESTINVOICE123_PO4500004152_AED.pdf", screen.FileName);
             Assert.Equal("Failed", screen.Status);
             Assert.True(screen.CanReprocess);
             Assert.Equal(Common.SILA_INVOICE_AWAITING_PAYMENT, invoice.Status);

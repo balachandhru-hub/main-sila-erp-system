@@ -23,8 +23,10 @@ namespace Buyer.Application.Features.Shared
         public const string PUBLIC_BASE = "Sila:PublicDocumentBaseUrl";
 
         /// <summary>
-        /// CreateUrlAsAttachment is an OData function import: parameters go on the URL, not in a JSON body.
-        /// Sending LinkedSAPObjectKey in the body yields SAP error "Invalid Function Import Parameter".
+        /// Legacy JSON body template — INVALID for CreateUrlAsAttachment.
+        /// Runtime $metadata defines a FunctionImport; parameters must be on the URL.
+        /// Sending LinkedSAPObjectKey in a JSON body yields SAP error
+        /// "Invalid Function Import Parameter 'LinkedSAPObjectKey'".
         /// </summary>
         public const string DefaultRequest =
             """
@@ -36,7 +38,25 @@ namespace Buyer.Application.Features.Shared
             }
             """;
 
-        /// <summary>SAP invoice number and fiscal year, with no space and no separator. 5105604019 + 2024 = 51056040192024.</summary>
+        /// <summary>
+        /// Exact FunctionImport parameter names from runtime
+        /// /sap/opu/odata/sap/API_CV_ATTACHMENT_SRV/$metadata CreateUrlAsAttachment.
+        /// There is no FileName parameter on this FunctionImport.
+        /// </summary>
+        public static readonly string[] FunctionImportParameters =
+        {
+            "HarmonizedDocumentType",
+            "SAPObjectType",
+            "SAPObjectNodeType",
+            "SemanticObject",
+            "LinkedSAPObjectKey",
+            "BusinessObjectTypeName",
+            "Url",
+            "UrlDescription",
+            "MIMEType"
+        };
+
+        /// <summary>SAP invoice number and fiscal year as strings, no separator. Preserves leading zeros.</summary>
         public static string? LinkedKey(string? sapInvoiceNumber, string? fiscalYear)
         {
             string number = Compact(sapInvoiceNumber);
@@ -50,19 +70,22 @@ namespace Buyer.Application.Features.Shared
         }
 
         /// <summary>
-        /// Builds API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment?... with quoted OData string parameters.
+        /// Builds CreateUrlAsAttachment FunctionImport URL from runtime $metadata.
+        /// POST with empty body; Edm.String parameters as quoted OData query values.
+        /// Required (non-nullable in metadata): LinkedSAPObjectKey, Url, UrlDescription, MIMEType.
         /// </summary>
-        public static string FunctionImportPath(string? configuredPath, string linkedKey, string url, string fileName)
+        public static string FunctionImportPath(string? configuredPath, string linkedKey, string url, string urlDescription)
         {
             string path = string.IsNullOrWhiteSpace(configuredPath)
                 ? SilaInvoiceLifecycle.ATTACHMENT_PATH.TrimStart('/')
-                : configuredPath.Trim().TrimEnd('?', '&');
+                : configuredPath.Trim();
             int queryAt = path.IndexOf('?', StringComparison.Ordinal);
             if (queryAt >= 0)
             {
                 path = path[..queryAt];
             }
 
+            path = path.TrimEnd('/');
             if (!path.Contains("CreateUrlAsAttachment", StringComparison.OrdinalIgnoreCase))
             {
                 int srv = path.IndexOf("API_CV_ATTACHMENT_SRV", StringComparison.OrdinalIgnoreCase);
@@ -71,18 +94,25 @@ namespace Buyer.Application.Features.Shared
                     : SilaInvoiceLifecycle.ATTACHMENT_PATH.TrimStart('/');
             }
 
+            string description = string.IsNullOrWhiteSpace(urlDescription) ? "Invoice" : urlDescription.Trim();
+            if (description.Length > 255)
+            {
+                description = description[..255];
+            }
+
+            // Parameter order matches runtime FunctionImport definition.
             return path
-                + "?BusinessObjectTypeName='" + ODataString(SilaInvoiceLifecycle.BUSINESS_OBJECT) + "'"
+                + "?SemanticObject=''"
                 + "&LinkedSAPObjectKey='" + ODataString(linkedKey) + "'"
-                + "&SemanticObject=''"
-                + "&FileName='" + ODataString(fileName) + "'"
+                + "&BusinessObjectTypeName='" + ODataString(SilaInvoiceLifecycle.BUSINESS_OBJECT) + "'"
                 + "&Url='" + ODataString(url) + "'"
-                + "&UrlDescription='" + ODataString("Invoice") + "'"
+                + "&UrlDescription='" + ODataString(description) + "'"
                 + "&MIMEType='" + ODataString("text/url") + "'";
         }
 
         private static string ODataString(string value)
         {
+            // OData V2 Edm.String FunctionImport values: single-quoted; escape ' as ''.
             return (value ?? string.Empty).Replace("'", "''", StringComparison.Ordinal);
         }
 
@@ -297,6 +327,15 @@ namespace Buyer.Application.Features.Shared
                 return;
             }
 
+            // Keep a terminal failed attempt. Start a new InventoryErpPosting row for Attempt N+1.
+            if (attachment != null && attachment.Status is Common.SILA_POSTING_FAILED
+                or Common.SILA_POSTING_SKIPPED or Common.SILA_POSTING_FAILED_LOCAL)
+            {
+                InventoryErpPosting next = await CreateAsync(repository, invoice, invoicePosting, userId, cancellationToken, forceNew: true);
+                await SendAsync(repository, logger, mediator, publicBase, invoice, invoicePosting, next, userId, cancellationToken);
+                return;
+            }
+
             if (attachment != null)
             {
                 attachment.Status = Common.SILA_POSTING_PENDING;
@@ -446,8 +485,9 @@ namespace Buyer.Application.Features.Shared
         }
 
         /// <summary>
-        /// Uses the attachment API the organization already saved. A missing API is not created:
-        /// inserting SUPPLIER_INVOICE_ATTACHMENT stops the live integrations list from loading.
+        /// Uses the attachment API the organization already saved. A missing row is not inserted.
+        /// When only FIVE S4-INVOICE POSTING exists, that S/4 connection is reused with
+        /// ResourcePathOverride set to CreateUrlAsAttachment (no second API configuration).
         /// </summary>
         private static async Task<ApiIntegrationConfiguration?> ResolveAsync(
             IRepositoryWrapper repository,
@@ -464,7 +504,19 @@ namespace Buyer.Application.Features.Shared
                         || (x.ResourcePath != null && x.ResourcePath.Contains(SilaInvoiceLifecycle.ATTACHMENT_SERVICE))))
                 .ToListAsync(cancellationToken);
             ApiIntegrationConfiguration? match = Match(existing, companyCode);
-            return match != null && match.Status == IntegrationConfigurationStatus.ACTIVE ? match : null;
+            if (match != null && match.Status == IntegrationConfigurationStatus.ACTIVE)
+            {
+                return match;
+            }
+
+            // Same S/4 host and credentials as invoice posting; FunctionImport path is applied per call.
+            string invoiceProcess = IntegrationProcessType.POST_INVOICE.ToString();
+            List<ApiIntegrationConfiguration> invoiceApis = await repository.ApiIntegrationConfiguration
+                .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive
+                    && (x.ProcessType == invoiceProcess || x.Name == SilaInvoiceLifecycle.API_INVOICE))
+                .ToListAsync(cancellationToken);
+            ApiIntegrationConfiguration? invoice = Match(invoiceApis, companyCode);
+            return invoice != null && invoice.Status == IntegrationConfigurationStatus.ACTIVE ? invoice : null;
         }
 
         private static ApiIntegrationConfiguration? Match(List<ApiIntegrationConfiguration> configurations, string? companyCode)
@@ -492,12 +544,20 @@ namespace Buyer.Application.Features.Shared
         }
 
         private static async Task<InventoryErpPosting> CreateAsync(
-            IRepositoryWrapper repository, Invoice invoice, InventoryErpPosting invoicePosting, Guid userId, CancellationToken cancellationToken)
+            IRepositoryWrapper repository,
+            Invoice invoice,
+            InventoryErpPosting invoicePosting,
+            Guid userId,
+            CancellationToken cancellationToken,
+            bool forceNew = false)
         {
-            InventoryErpPosting? existing = await FindAsync(repository, invoice, cancellationToken);
-            if (existing != null)
+            if (!forceNew)
             {
-                return existing;
+                InventoryErpPosting? existing = await FindAsync(repository, invoice, cancellationToken);
+                if (existing != null)
+                {
+                    return existing;
+                }
             }
 
             DateTime now = DateTime.UtcNow;
