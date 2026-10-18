@@ -545,7 +545,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
 
 const ResultCell: React.FC<{ row: SilaTrackerRow }> = ({ row }) => {
   const result = resultSummary(row);
-  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
   if (result.label === "—") {
     return <span className="strk-result-label">—</span>;
   }
@@ -553,26 +553,24 @@ const ResultCell: React.FC<{ row: SilaTrackerRow }> = ({ row }) => {
     <span className={`strk-result-chip${result.ok ? " strk-result-chip--ok" : " strk-result-chip--bad"}`}>
       <span className="strk-result-label">{result.label}</span>
       {result.detail && (
-        <span className="strk-result-info-wrap">
+        <span className={`strk-result-info-wrap${pinned ? " strk-result-info-wrap--open" : ""}`}>
           <button
             type="button"
             className="strk-result-info"
             aria-label="Result details"
-            aria-expanded={open}
+            aria-expanded={pinned}
             title={result.detail}
             onClick={(event) => {
               event.stopPropagation();
-              setOpen((current) => !current);
+              setPinned((current) => !current);
             }}
-            onBlur={() => setOpen(false)}
+            onBlur={() => setPinned(false)}
           >
             i
           </button>
-          {open && (
-            <span className="strk-result-tip" role="tooltip">
-              {result.detail}
-            </span>
-          )}
+          <span className="strk-result-tip" role="tooltip">
+            {result.detail}
+          </span>
         </span>
       )}
     </span>
