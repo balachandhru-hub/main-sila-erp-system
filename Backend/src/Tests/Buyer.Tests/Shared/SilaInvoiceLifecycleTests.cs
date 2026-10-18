@@ -66,7 +66,7 @@ namespace Buyer.Tests.Shared
         [Fact]
         public void Timeline_DoesNotMarkPostingSuccessBeforeErp()
         {
-            var steps = SilaInvoiceLifecycle.Timeline(Common.SILA_INVOICE_READY, true, true, true, true, true, true, null);
+            var steps = SilaInvoiceLifecycle.Timeline(Common.SILA_INVOICE_READY, true, true, true, true, true, null);
             Assert.Equal("SUCCESS", steps.Single(x => x.Step == "GRN POSTED").Status);
             Assert.Equal("NOT_STARTED", steps.Single(x => x.Step == "S/4 INVOICE POSTING").Status);
             Assert.Equal("NOT_STARTED", steps.Single(x => x.Step == "PAYMENT").Status);
@@ -75,7 +75,7 @@ namespace Buyer.Tests.Shared
         [Fact]
         public void Timeline_LocalFailureStaysFailedAndKeepsErpSuccess()
         {
-            var steps = SilaInvoiceLifecycle.Timeline(Common.SILA_INVOICE_LOCAL_FAILED, true, true, true, true, true, true, Common.SILA_POSTING_FAILED_LOCAL);
+            var steps = SilaInvoiceLifecycle.Timeline(Common.SILA_INVOICE_LOCAL_FAILED, true, true, true, true, true, Common.SILA_POSTING_FAILED_LOCAL);
             Assert.Equal("SUCCESS", steps.Single(x => x.Step == "S/4 INVOICE POSTING").Status);
             Assert.Equal("FAILED", steps.Single(x => x.Step == "LOCAL FINALIZATION").Status);
         }

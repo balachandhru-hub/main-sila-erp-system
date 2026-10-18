@@ -95,7 +95,7 @@ namespace Buyer.Tests.Shared
         public void Timeline_AttachmentFailureLeavesInvoicePostingSuccessful()
         {
             var steps = SilaInvoiceLifecycle.Timeline(
-                Common.SILA_INVOICE_AWAITING_PAYMENT, true, true, true, true, true, true, Common.SILA_POSTING_POSTED, Common.SILA_POSTING_FAILED);
+                Common.SILA_INVOICE_AWAITING_PAYMENT, true, true, true, true, true, Common.SILA_POSTING_POSTED, Common.SILA_POSTING_FAILED);
 
             Assert.Equal("SUCCESS", steps.Single(x => x.Step == "S/4 INVOICE POSTING").Status);
             Assert.Equal("SUCCESS", steps.Single(x => x.Step == "LOCAL FINALIZATION").Status);
@@ -107,7 +107,7 @@ namespace Buyer.Tests.Shared
         public void Timeline_UnknownAttachmentDoesNotResendTheInvoice()
         {
             var steps = SilaInvoiceLifecycle.Timeline(
-                Common.SILA_INVOICE_AWAITING_PAYMENT, true, true, true, true, true, true, Common.SILA_POSTING_POSTED, Common.SILA_POSTING_UNKNOWN);
+                Common.SILA_INVOICE_AWAITING_PAYMENT, true, true, true, true, true, Common.SILA_POSTING_POSTED, Common.SILA_POSTING_UNKNOWN);
 
             Assert.Equal("SUCCESS", steps.Single(x => x.Step == "S/4 INVOICE POSTING").Status);
             Assert.Equal("UNKNOWN", steps.Single(x => x.Step == "S/4 INVOICE ATTACHMENT").Status);

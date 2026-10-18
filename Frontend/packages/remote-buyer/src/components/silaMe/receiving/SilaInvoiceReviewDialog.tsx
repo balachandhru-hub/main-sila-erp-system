@@ -7,7 +7,6 @@ import {
   getGoodsReceipts,
   getInvoice,
   getInvoiceFile,
-  getInvoiceGrnPdf,
   getOpenPurchaseOrders,
   getPurchaseOrder,
   linkInvoiceGoodsReceipts,
@@ -56,7 +55,7 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
 ];
 
 type Tab = "review" | "matching" | "posting" | "history";
-type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "pdf" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment";
+type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
@@ -165,13 +164,6 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     && !erpAccepted
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
   );
-  const canRetry = Boolean(
-    canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
-    && retry && postedGrns.length >= 1 && !erpAccepted
-    && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
-  );
-  const canSubmit = Boolean(invoice?.canSubmitInvoice) || readyToSubmit || canRetry;
-  const askSubmit = Boolean(canSubmit && !retry && grn && !invoice?.goodsReceiptNote);
   const posted = erpAccepted || invoice?.status === "AWAITING_PAYMENT" || invoice?.status === "POSTED" || invoice?.status === "PAID" || invoice?.status === "PARTIALLY_PAID" || invoice?.status === "OVERDUE";
   const sealed = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED" || invoice?.status === "GRN_IN_PROGRESS";
   const grnLocked = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED";
@@ -179,6 +171,14 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const canEdit = Boolean(canPost && invoice && pastReceipt && !sealed);
   const fieldsLocked = !canPost || sealed || (pastReceipt && !editing);
   const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
+  const failedPosting = retry || postingFailed;
+  const showSubmit = !failedPosting && (readyToSubmit || Boolean(invoice?.canSubmitInvoice));
+  const showResubmit = Boolean(
+    failedPosting && canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
+    && !erpAccepted
+    && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
+  );
+  const askSubmit = Boolean(showSubmit && grn && !invoice?.goodsReceiptNote);
   const submitLabel = busy === "submit" ? "Submitting..." : "Submit";
   const resubmitLabel = busy === "submit" ? "Resubmitting..." : "Resubmit";
   const linkedIds = (invoice?.goodsReceipts ?? []).map((receipt) => receipt.id);
@@ -254,21 +254,6 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   };
 
   const handleFile = () => run("file", async () => showBlob(await getInvoiceFile(invoiceId), invoice?.fileName || "Invoice file"));
-
-  const openGrnPdf = (goodsReceiptId: string, downloadName?: string) => run("pdf", async () => {
-    const blob = await getInvoiceGrnPdf(invoiceId, goodsReceiptId);
-    if (downloadName) {
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = downloadName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
-    const receipt = invoice?.goodsReceipts.find((row) => row.id === goodsReceiptId);
-    showBlob(blob, receipt ? `GRN ${receipt.grnNumber}` : "Goods receipt");
-  });
 
   const hideFile = () => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
@@ -492,12 +477,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Edit
                 </button>
               )}
-              {canSubmit && (
+              {showSubmit && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                   {submitLabel}
                 </button>
               )}
-              {canSubmit && (
+              {showResubmit && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                   {resubmitLabel}
                 </button>
@@ -508,13 +493,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p><strong>GRN Posted Successfully</strong></p>
                 <p>GRN: {grn.grnNumber}{grn.erpReference ? ` (${grn.erpReference})` : ""}</p>
                 <div className="srcv-actions">
-                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => openGrnPdf(grn.id)}>View GRN PDF</button>
                   <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => setDeferred(true)}>Not now</button>
                   <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                     {submitLabel}
-                  </button>
-                  <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
-                    {resubmitLabel}
                   </button>
                 </div>
                 <p>Would you like to submit the invoice?</p>
@@ -538,10 +519,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   {canEdit && !editing && (
                     <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>Edit</button>
                   )}
-                  {canSubmit && (
-                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{submitLabel}</button>
-                  )}
-                  {canSubmit && (
+                  {showResubmit && (
                     <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{resubmitLabel}</button>
                   )}
                 </div>
@@ -833,7 +811,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <div>
                     <h3 className="sila-section-title">Lifecycle</h3>
                     <ul>
-                      {invoice.timeline?.map((step) => (
+                      {invoice.timeline?.filter((step) => step.step !== "GRN PDF").map((step) => (
                         <li key={step.step}>
                           {step.status === "SUCCESS" ? "✓" : step.status === "FAILED" ? "✕" : "○"} {step.step}
                         </li>
@@ -843,23 +821,16 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 )}
                 <div>
                   <h3 className="sila-section-title">Attachments</h3>
-                  {(invoice.documents ?? []).length === 0 ? <p className="srcv-sub">No documents stored.</p> : (
+                  {(invoice.documents ?? []).filter((document) => document.documentType !== "GRN PDF").length === 0 ? <p className="srcv-sub">No documents stored.</p> : (
                     <ul>
-                      {invoice.documents?.map((document) => (
-                        <li key={`${document.documentType}-${document.fileName}-${document.goodsReceiptId ?? ""}`}>
+                      {invoice.documents?.filter((document) => document.documentType !== "GRN PDF").map((document) => (
+                        <li key={`${document.documentType}-${document.fileName}`}>
                           <span>{document.documentType}</span>
-                          {document.grnNumber ? <span> · GRN {document.grnNumber}</span> : null}
                           {document.poNumber ? <span> · PO {document.poNumber}</span> : null}
                           {document.generatedOn ? <span> · {document.generatedOn.slice(0, 10)}</span> : null}
                           <span> · {document.fileName}</span>
                           {document.documentType === "Original Supplier Invoice" && (
                             <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={handleFile}>View</button>
-                          )}
-                          {document.goodsReceiptId && (
-                            <>
-                              <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => openGrnPdf(document.goodsReceiptId!)}>View</button>
-                              <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => openGrnPdf(document.goodsReceiptId!, document.fileName)}>Download</button>
-                            </>
                           )}
                         </li>
                       ))}

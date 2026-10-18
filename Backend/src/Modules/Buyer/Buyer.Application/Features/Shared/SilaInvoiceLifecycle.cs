@@ -149,7 +149,6 @@ namespace Buyer.Application.Features.Shared
             bool grnApplicable,
             bool grnExists,
             bool grnPosted,
-            bool grnPdf,
             string? erpStatus,
             string? attachmentStatus = null)
         {
@@ -176,7 +175,6 @@ namespace Buyer.Application.Features.Shared
                 new() { Step = "PO MATCH", Status = Step(poMatched, false) },
                 new() { Step = "GRN", Status = grnApplicable ? Step(grnExists, false) : "NOT_STARTED" },
                 new() { Step = "GRN POSTED", Status = grnApplicable ? Step(grnPosted, status == Common.SILA_INVOICE_GRN_FAILED) : "NOT_STARTED" },
-                new() { Step = "GRN PDF", Status = grnApplicable ? Step(grnPdf, false) : "NOT_STARTED" },
                 new() { Step = "INVOICE SUBMITTED", Status = Step(submitted, status == Common.SILA_INVOICE_VALIDATION_FAILED) },
                 new() { Step = "APPROVAL", Status = Step(approved, status == Common.SILA_INVOICE_APPROVAL_REJECTED) },
                 new() { Step = "S/4 INVOICE POSTING", Status = Step(erpSuccess, status == Common.SILA_INVOICE_POSTING_FAILED || status == Common.SILA_INVOICE_GET_PO_FAILED || erpStatus == Common.SILA_POSTING_FAILED) },

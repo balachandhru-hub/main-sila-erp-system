@@ -326,11 +326,6 @@ namespace Buyer.Application.Features.Shared
             bool postingOpen = posting != null && (posting.Status is Common.SILA_POSTING_PENDING or Common.SILA_POSTING_UNKNOWN
                 or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_POSTED or Common.SILA_POSTING_FAILED_LOCAL
                 || !string.IsNullOrWhiteSpace(posting.ErpReference));
-            List<InventoryWorkflowEvent> pdfs = await repository.InventoryWorkflowEvent
-                .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.IsActive && x.Action == SilaGrnDocument.ACTION
-                    && x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == invoice.Id)
-                .OrderBy(x => x.DateCreated)
-                .ToListAsync(cancellationToken);
             List<SilaInvoiceDocumentDto> documents = new List<SilaInvoiceDocumentDto>();
             if (!string.IsNullOrWhiteSpace(invoice.FileName))
             {
@@ -340,20 +335,6 @@ namespace Buyer.Application.Features.Shared
                     PoNumber = invoice.PoNumber,
                     FileName = invoice.FileName,
                     GeneratedOn = invoice.DateCreated
-                });
-            }
-
-            foreach (InventoryWorkflowEvent pdf in pdfs)
-            {
-                GoodsReceipt? receipt = receipts.FirstOrDefault(x => pdf.Comment != null && pdf.Comment.Contains(x.Id.ToString("N"), StringComparison.OrdinalIgnoreCase));
-                documents.Add(new SilaInvoiceDocumentDto
-                {
-                    DocumentType = "GRN PDF",
-                    GrnNumber = receipt?.GrnNumber,
-                    PoNumber = receipt?.PoNumber ?? invoice.PoNumber,
-                    GeneratedOn = pdf.DateCreated,
-                    FileName = string.IsNullOrWhiteSpace(pdf.Comment) ? "grn.pdf" : Path.GetFileName(pdf.Comment.Replace('/', Path.DirectorySeparatorChar)),
-                    GoodsReceiptId = receipt?.Id
                 });
             }
 
@@ -465,7 +446,6 @@ namespace Buyer.Application.Features.Shared
                     !service,
                     receipts.Count > 0,
                     grnConfirmed,
-                    pdfs.Count > 0,
                     posting?.Status,
                     attachment?.Status)
             };
