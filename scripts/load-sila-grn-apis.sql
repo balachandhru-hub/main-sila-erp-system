@@ -71,6 +71,22 @@ BEGIN
       );
 END;
 
+-- Never keep a sample Material Document body on FIVE S4-GRN POSTING.
+-- SapGrnBody builds the request from the prepared GRN; a filled request_body was
+-- incorrectly posted as-is (wrong PO + invalid DocumentHeaderText).
+UPDATE buyersystem.api_integration_configuration
+SET request_body = NULL,
+    date_updated = @Now,
+    updated_by = @Actor
+WHERE name IN (N'FIVE S4-GRN POSTING', N'FIVE S4 - POST GRN')
+  AND is_active = 1
+  AND request_body IS NOT NULL
+  AND (
+        request_body LIKE N'%DocumentHeaderText%'
+     OR request_body LIKE N'%4500001234%'
+     OR request_body LIKE N'%MAT1001%'
+  );
+
 -- FIVETEST-GRNPOSTING-ARIBA (DRAFT, company 1020 — previous SOAP URL + realm defaults)
 IF NOT EXISTS (
     SELECT 1 FROM buyersystem.api_integration_configuration

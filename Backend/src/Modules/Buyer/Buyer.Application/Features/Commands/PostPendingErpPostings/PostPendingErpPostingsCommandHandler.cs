@@ -255,8 +255,9 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .FindByCondition(x => x.ConfigurationId == api.ConfigurationId.Value && x.IsActive)
                 .ToListAsync(cancellationToken);
             string area = isGrn ? AREA_GRN : isInvoice ? AREA_INVOICE : AREA_GOODS_MOVEMENT;
+            // FIVE S4-GRN POSTING / API_MATERIAL_DOCUMENT_SRV always use SapGrnBody from the prepared GRN.
+            // A sample request_body on the integration row must not replace authoritative GRN values.
             bool sapGrn = isGrn
-                && string.IsNullOrWhiteSpace(api.RequestBody)
                 && (SilaGrnSap.IsConfiguredName(api.Name)
                     || (api.ResourcePath ?? string.Empty).Contains("API_MATERIAL_DOCUMENT_SRV", StringComparison.OrdinalIgnoreCase));
             bool sapShape = stockCount
@@ -296,6 +297,15 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     : string.IsNullOrWhiteSpace(api.RequestBody)
                         ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
                         : ApplyTemplate(api.RequestBody, area, document, mappings));
+
+            if (sapGrn)
+            {
+                string? mismatch = ValidateSapGrnBody(document, body);
+                if (mismatch != null)
+                {
+                    return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, mismatch, cancellationToken);
+                }
+            }
 
             // Keep the body even when the send throws before it can be recorded on the answer.
             posting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
@@ -919,7 +929,6 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     ("Uom", item.Uom),
                     ("Material", item.MaterialCode),
                     ("Plant", plant),
-                    ("StorageLocation", location?.StorageLocationCode),
                     ("GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE),
                     ("PurchaseOrder", receipt.PoNumber),
                     ("PurchaseOrderItem", purchaseOrderItem),
@@ -1412,6 +1421,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         }
 
         // SAP material document for a goods receipt (previous SILAME S4HanaPostGrnAdapter shape).
+        // Working field for the GRN number is MaterialDocumentHeaderText (not DocumentHeaderText).
         private static string SapGrnBody(ErpDocument document)
         {
             string? Header(string name)
@@ -1419,7 +1429,6 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return document.Header.FirstOrDefault(x => x.Name == name).Value?.ToString();
             }
 
-            string? storage = Header("StorageLocation");
             var items = document.Items.Select(item =>
             {
                 object? Value(string name)
@@ -1427,41 +1436,130 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     return item.FirstOrDefault(x => x.Name == name).Value;
                 }
 
-                Dictionary<string, object?> row = new Dictionary<string, object?>
+                return new
                 {
-                    ["Material"] = Value("Material"),
-                    ["Plant"] = Value("Plant"),
-                    ["GoodsMovementType"] = Value("GoodsMovementType"),
-                    ["PurchaseOrder"] = Value("PurchaseOrder"),
-                    ["PurchaseOrderItem"] = Value("PurchaseOrderItem"),
-                    ["GoodsMovementRefDocType"] = Value("GoodsMovementRefDocType"),
-                    ["EntryUnit"] = Value("EntryUnit"),
-                    ["QuantityInEntryUnit"] = Value("QuantityInEntryUnit")
+                    Material = Value("Material"),
+                    Plant = Value("Plant"),
+                    GoodsMovementType = Value("GoodsMovementType"),
+                    PurchaseOrder = Value("PurchaseOrder"),
+                    PurchaseOrderItem = Value("PurchaseOrderItem"),
+                    GoodsMovementRefDocType = Value("GoodsMovementRefDocType"),
+                    EntryUnit = Value("EntryUnit"),
+                    QuantityInEntryUnit = Value("QuantityInEntryUnit")
                 };
-                string? lineStorage = Value("StorageLocation")?.ToString() ?? storage;
-                if (!string.IsNullOrWhiteSpace(lineStorage))
-                {
-                    row["StorageLocation"] = lineStorage;
-                }
-
-                return row;
             }).ToList();
 
-            Dictionary<string, object?> body = new Dictionary<string, object?>
+            return JsonSerializer.Serialize(new
             {
-                ["DocumentDate"] = Header("DocumentDate"),
-                ["PostingDate"] = Header("ODataPostingDate") ?? Header("DocumentDate"),
-                ["GoodsMovementCode"] = Header("GoodsMovementCode") ?? SilaGrnSap.GOODS_MOVEMENT_CODE,
-                ["MaterialDocumentHeaderText"] = Header("GrnNumber"),
-                ["to_MaterialDocumentItem"] = items
-            };
-            string? deliveryNote = Header("DeliveryNote");
-            if (!string.IsNullOrWhiteSpace(deliveryNote))
+                DocumentDate = Header("DocumentDate"),
+                PostingDate = Header("ODataPostingDate") ?? Header("DocumentDate"),
+                GoodsMovementCode = Header("GoodsMovementCode") ?? SilaGrnSap.GOODS_MOVEMENT_CODE,
+                MaterialDocumentHeaderText = Header("GrnNumber"),
+                to_MaterialDocumentItem = items
+            });
+        }
+
+        /// <summary>
+        /// Ensures the outbound Material Document matches the prepared GRN (PO / PO item / qty / plant / UOM).
+        /// </summary>
+        private static string? ValidateSapGrnBody(ErpDocument document, string body)
+        {
+            string? Header(string name) => document.Header.FirstOrDefault(x => x.Name == name).Value?.ToString();
+            string? preparedPo = Header("PoNumber")?.Trim();
+            string? headerText = Header("GrnNumber")?.Trim();
+            if (string.IsNullOrWhiteSpace(preparedPo))
             {
-                body["DeliveryDocumentBySupplier"] = deliveryNote.Trim();
+                return "GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN is missing PurchaseOrder.";
             }
 
-            return JsonSerializer.Serialize(body);
+            if (string.IsNullOrWhiteSpace(headerText))
+            {
+                return "GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN is missing MaterialDocumentHeaderText (GrnNumber).";
+            }
+
+            if (document.Items.Count == 0)
+            {
+                return "GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN has no lines.";
+            }
+
+            using JsonDocument json = JsonDocument.Parse(body);
+            JsonElement root = json.RootElement;
+            if (root.TryGetProperty("DocumentHeaderText", out _))
+            {
+                return "GRN_REQUEST_MAPPING_MISMATCH. DocumentHeaderText must not be sent; use MaterialDocumentHeaderText.";
+            }
+
+            string? sentHeader = root.TryGetProperty("MaterialDocumentHeaderText", out JsonElement headerEl)
+                ? headerEl.GetString()?.Trim()
+                : null;
+            if (!string.Equals(sentHeader, headerText, StringComparison.Ordinal))
+            {
+                return $"GRN_REQUEST_MAPPING_MISMATCH. MaterialDocumentHeaderText '{sentHeader}' does not match prepared GrnNumber '{headerText}'.";
+            }
+
+            if (!root.TryGetProperty("to_MaterialDocumentItem", out JsonElement lines) || lines.ValueKind != JsonValueKind.Array)
+            {
+                return "GRN_REQUEST_MAPPING_MISMATCH. to_MaterialDocumentItem is missing.";
+            }
+
+            if (lines.GetArrayLength() != document.Items.Count)
+            {
+                return $"GRN_REQUEST_MAPPING_MISMATCH. Line count {lines.GetArrayLength()} does not match prepared GRN ({document.Items.Count}).";
+            }
+
+            int index = 0;
+            foreach (JsonElement line in lines.EnumerateArray())
+            {
+                List<(string Name, object? Value)> prepared = document.Items[index];
+                string? Value(string name) => prepared.FirstOrDefault(x => x.Name == name).Value?.ToString();
+                string? preparedItem = Value("PurchaseOrderItem")?.Trim();
+                string? preparedMaterial = Value("Material")?.Trim();
+                string? preparedPlant = Value("Plant")?.Trim();
+                string? preparedQty = Value("QuantityInEntryUnit")?.Trim();
+                string? preparedUom = Value("EntryUnit")?.Trim();
+                string? sentPo = line.TryGetProperty("PurchaseOrder", out JsonElement poEl) ? poEl.GetString()?.Trim() : null;
+                string? sentItem = line.TryGetProperty("PurchaseOrderItem", out JsonElement itemEl) ? itemEl.GetString()?.Trim() : null;
+                string? sentMaterial = line.TryGetProperty("Material", out JsonElement matEl) ? matEl.GetString()?.Trim() : null;
+                string? sentPlant = line.TryGetProperty("Plant", out JsonElement plantEl) ? plantEl.GetString()?.Trim() : null;
+                string? sentQty = line.TryGetProperty("QuantityInEntryUnit", out JsonElement qtyEl) ? qtyEl.ToString()?.Trim() : null;
+                string? sentUom = line.TryGetProperty("EntryUnit", out JsonElement uomEl) ? uomEl.GetString()?.Trim() : null;
+
+                if (string.IsNullOrWhiteSpace(preparedItem) || string.IsNullOrWhiteSpace(preparedMaterial)
+                    || string.IsNullOrWhiteSpace(preparedPlant) || string.IsNullOrWhiteSpace(preparedQty)
+                    || string.IsNullOrWhiteSpace(preparedUom))
+                {
+                    return $"GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN line {index + 1} is missing PO item, material, plant, quantity or UOM.";
+                }
+
+                if (!string.Equals(sentPo, preparedPo, StringComparison.Ordinal))
+                {
+                    return $"GRN_REQUEST_MAPPING_MISMATCH. PurchaseOrder '{sentPo}' does not match prepared '{preparedPo}'.";
+                }
+
+                if (!string.Equals(sentItem, preparedItem, StringComparison.Ordinal))
+                {
+                    return $"GRN_REQUEST_MAPPING_MISMATCH. PurchaseOrderItem '{sentItem}' does not match prepared '{preparedItem}'.";
+                }
+
+                if (!string.Equals(sentMaterial, preparedMaterial, StringComparison.Ordinal)
+                    || !string.Equals(sentPlant, preparedPlant, StringComparison.Ordinal)
+                    || !string.Equals(sentUom, preparedUom, StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"GRN_REQUEST_MAPPING_MISMATCH. Line {index + 1} material/plant/UOM does not match the prepared GRN.";
+                }
+
+                if (!decimal.TryParse(preparedQty, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal preparedAmount)
+                    || !decimal.TryParse(sentQty, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sentAmount)
+                    || preparedAmount <= 0
+                    || preparedAmount != sentAmount)
+                {
+                    return $"GRN_REQUEST_MAPPING_MISMATCH. Line {index + 1} quantity '{sentQty}' does not match prepared receiving qty '{preparedQty}'.";
+                }
+
+                index++;
+            }
+
+            return null;
         }
 
         // The header fields and lines of one document, in payload order.

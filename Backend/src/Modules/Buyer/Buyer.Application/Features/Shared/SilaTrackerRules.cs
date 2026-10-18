@@ -324,6 +324,30 @@ namespace Buyer.Application.Features.Shared
                 : DATA_TRANSACTION;
         }
 
+        /// <summary>
+        /// Invoice / attachment tracker rows stay hidden in SILA ME until the invoice leaves the
+        /// scan / GRN receiving phase (receiver or batch has processed it into approval / posting).
+        /// </summary>
+        public static bool InvoiceVisibleInSilaMeTracker(string? invoiceStatus)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceStatus))
+            {
+                return false;
+            }
+
+            return invoiceStatus is not (
+                Common.SILA_INVOICE_UPLOADED
+                or Common.SILA_INVOICE_EXTRACTED
+                or Common.SILA_INVOICE_OCR_FAILED
+                or Common.SILA_INVOICE_REVIEWED
+                or Common.SILA_INVOICE_GRN_POSTED
+                or Common.SILA_INVOICE_GRN_IN_PROGRESS
+                or Common.SILA_INVOICE_GRN_FAILED
+                or Common.SILA_INVOICE_READY
+                or Common.SILA_INVOICE_GET_PO_FAILED
+                or Common.SILA_INVOICE_VALIDATION_FAILED);
+        }
+
         public static string TransactionTypeOfPosting(string referenceType, string movementType)
         {
             if (referenceType == Common.SILA_REF_ITO && movementType == "301")

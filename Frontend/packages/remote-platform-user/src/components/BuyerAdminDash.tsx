@@ -328,6 +328,7 @@ const BuyerAdminDash: React.FC = () => {
       ? buildSilaMeModuleNav("admin")
       : withContractPurchaseOrderNav(buildBuyerNavItems({
           isAdmin: true,
+          showPurchasingTracker: true,
           rfqListKey: "activeRFQs",
         })),
     [inSilaModule],

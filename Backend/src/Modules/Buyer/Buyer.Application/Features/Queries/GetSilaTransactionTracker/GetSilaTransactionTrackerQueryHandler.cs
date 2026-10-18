@@ -34,7 +34,8 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             int index = request.Index < 0 ? 0 : Math.Min(request.Index, MAX_INDEX);
             int limit = SilaInputRules.Limit(request.Limit, 25);
-            DateTime from = request.From?.Date ?? (string.IsNullOrWhiteSpace(request.Search) ? DateTime.UtcNow.Date.AddDays(-30) : DateTime.MinValue);
+            // Default window is the current UTC day only (tracker UI also defaults From/To to today).
+            DateTime from = request.From?.Date ?? (string.IsNullOrWhiteSpace(request.Search) ? DateTime.UtcNow.Date : DateTime.MinValue);
             DateTime to = (request.To?.Date ?? DateTime.UtcNow.Date).AddDays(1);
             string? search = string.IsNullOrWhiteSpace(request.Search) ? null : request.Search.Trim();
             string? material = string.IsNullOrWhiteSpace(request.Material) ? null : request.Material.Trim();
@@ -405,6 +406,16 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
 
                 string transactionType = SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, movement);
                 invoices.TryGetValue(posting.ReferenceId, out Invoice? invoice);
+                // SILA ME: while the invoice is still in scan/GRN receiving, show the GRN only.
+                // Invoice / attachment rows appear after the receiver or batch has processed the invoice
+                // (approval / posting lifecycle), not at scan or GRN time.
+                if (excludePos
+                    && SilaInvoiceTracker.IsInvoiceFamily(posting.ReferenceType)
+                    && !SilaTrackerRules.InvoiceVisibleInSilaMeTracker(invoice?.Status))
+                {
+                    continue;
+                }
+
                 if (posting.ReferenceType == Common.SILA_REF_INVOICE && invoice != null)
                 {
                     transactionType = SilaInvoiceCreation.IsNonPo(invoice.CreationType) ? "NON_PO_INVOICE" : "PO_INVOICE";
