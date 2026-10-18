@@ -451,7 +451,7 @@ namespace Buyer.Application.Features.Shared
                 Name = SilaInvoiceLifecycle.API_ATTACHMENT,
                 ProcessType = IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT.ToString(),
                 Protocol = source.Protocol,
-                SystemName = string.IsNullOrWhiteSpace(source.SystemName) ? "S4" : source.SystemName,
+                SystemName = "S4",
                 BaseUrl = source.BaseUrl,
                 ResourcePath = SilaInvoiceLifecycle.ATTACHMENT_PATH,
                 AuthenticationType = source.AuthenticationType,

@@ -57,6 +57,8 @@ namespace Buyer.Tests.Shared
         {
             Assert.False(SilaInvoiceLifecycle.CanSubmit(Common.SILA_INVOICE_GRN_IN_PROGRESS, false, false, false, false));
             Assert.True(SilaInvoiceLifecycle.CanSubmit(Common.SILA_INVOICE_READY, false, true, false, false));
+            Assert.True(SilaInvoiceLifecycle.CanSubmit(Common.SILA_INVOICE_REVIEWED, false, true, false, false));
+            Assert.False(SilaInvoiceLifecycle.CanSubmit(Common.SILA_INVOICE_REVIEWED, false, false, false, false));
             Assert.False(SilaInvoiceLifecycle.CanSubmit(Common.SILA_INVOICE_READY, false, true, false, true));
             Assert.True(SilaInvoiceLifecycle.CanSubmit(Common.SILA_INVOICE_REVIEWED, true, false, false, false));
         }

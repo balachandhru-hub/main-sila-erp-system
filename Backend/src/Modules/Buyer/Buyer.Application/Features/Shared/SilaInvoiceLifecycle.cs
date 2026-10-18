@@ -127,7 +127,7 @@ namespace Buyer.Application.Features.Shared
                 return true;
             }
 
-            if (status == Common.SILA_INVOICE_GRN_POSTED && grnConfirmed)
+            if (grnConfirmed && status is Common.SILA_INVOICE_GRN_POSTED or Common.SILA_INVOICE_REVIEWED or Common.SILA_INVOICE_EXTRACTED or Common.SILA_INVOICE_READY)
             {
                 return true;
             }
