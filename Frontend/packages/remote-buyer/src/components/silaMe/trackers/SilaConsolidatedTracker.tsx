@@ -88,17 +88,22 @@ const isInvoiceTxn = (type?: string | null): boolean =>
   type === "INVOICE" || type === "INVOICE_POSTING" || type === "PO_INVOICE" || type === "NON_PO_INVOICE"
   || type === "INVOICE_ATTACHMENT" || type === "SUPPLIER_INVOICE_ATTACHMENT";
 
-const resultParts = (row: SilaTrackerRow): { main: string; sub?: string; ok: boolean } => {
-  const stored = row.lastError?.trim();
-  if (stored) {
-    const ok = stored.startsWith("Successful.");
-    const parts = stored.split(/(?<=\.)\s+/);
-    return { main: parts[0] || stored, sub: parts.slice(1).join(" ") || undefined, ok };
+const resultSummary = (row: SilaTrackerRow): { label: "SUCCESS" | "FAILURE" | "—"; detail: string; ok: boolean } => {
+  const detail = row.lastError?.trim()
+    || (isInvoiceTxn(row.transactionType) && row.erpReference && (row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS")
+      ? `Successful. SAP invoice ${row.erpReference}.`
+      : "");
+  if (!detail) {
+    if (row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS") {
+      return { label: "SUCCESS", detail: row.erpReference ? `SAP ${row.erpReference}` : "Successful.", ok: true };
+    }
+    if (row.overallStatus === "FAILED" || row.overallStatus === "FAILED_LOCAL" || row.erpStatus === "FAILED") {
+      return { label: "FAILURE", detail: "Failed.", ok: false };
+    }
+    return { label: "—", detail: "", ok: false };
   }
-  if (isInvoiceTxn(row.transactionType) && row.erpReference && (row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS")) {
-    return { main: `Successful. SAP invoice ${row.erpReference}.`, ok: true };
-  }
-  return { main: "—", ok: false };
+  const ok = detail.startsWith("Successful.") || row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS";
+  return { label: ok ? "SUCCESS" : "FAILURE", detail, ok };
 };
 
 const erpInvoiceId = (row: SilaTrackerRow): string =>
@@ -419,16 +424,8 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
                       <td><span className={badgeClass(row.localStatus)}>{labelOf(row.localStatus)}</span></td>
                       <td><span className={badgeClass(row.overallStatus)}>{labelOf(row.overallStatus)}</span></td>
                       <td>{row.retryCount}</td>
-                      <td className={resultParts(row).ok ? "strk-result strk-result--ok" : "strk-result"}>
-                        {(() => {
-                          const result = resultParts(row);
-                          return (
-                            <>
-                              <span className="strk-result-main">{result.main}</span>
-                              {result.sub && <span className="strk-result-sub">{result.sub}</span>}
-                            </>
-                          );
-                        })()}
+                      <td className="strk-result">
+                        <ResultCell row={row} />
                       </td>
                       <td>
                         {canReprocess && row.action === "REPROCESS" && (
@@ -543,6 +540,42 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
         </Modal>
       )}
     </div>
+  );
+};
+
+const ResultCell: React.FC<{ row: SilaTrackerRow }> = ({ row }) => {
+  const result = resultSummary(row);
+  const [open, setOpen] = useState(false);
+  if (result.label === "—") {
+    return <span className="strk-result-label">—</span>;
+  }
+  return (
+    <span className={`strk-result-chip${result.ok ? " strk-result-chip--ok" : " strk-result-chip--bad"}`}>
+      <span className="strk-result-label">{result.label}</span>
+      {result.detail && (
+        <span className="strk-result-info-wrap">
+          <button
+            type="button"
+            className="strk-result-info"
+            aria-label="Result details"
+            aria-expanded={open}
+            title={result.detail}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpen((current) => !current);
+            }}
+            onBlur={() => setOpen(false)}
+          >
+            i
+          </button>
+          {open && (
+            <span className="strk-result-tip" role="tooltip">
+              {result.detail}
+            </span>
+          )}
+        </span>
+      )}
+    </span>
   );
 };
 
