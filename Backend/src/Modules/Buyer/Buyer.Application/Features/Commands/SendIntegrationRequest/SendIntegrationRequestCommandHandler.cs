@@ -42,8 +42,13 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
         {
             _logger.LogInfo($"Sending document to integration. ConfigurationId: {request.ConfigurationId}, OrganizationId: {request.OrganizationId}");
             ApiIntegrationConfiguration configuration = await IntegrationLookup.GetTrackedAsync(_repository, _logger, request.ConfigurationId, request.OrganizationId);
+            // The attachment API is a POST. On a server whose API type is still an enum, its row is stored as a type that enum
+            // already contains, so the integrations list can load. The name and the attachment path still identify the call.
+            bool attachment = string.Equals(configuration.Name, SilaInvoiceLifecycle.API_ATTACHMENT, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(configuration.Name, SilaInvoiceLifecycle.API_ATTACHMENT_LEGACY, StringComparison.OrdinalIgnoreCase)
+                || (configuration.ResourcePath?.Contains(SilaInvoiceLifecycle.ATTACHMENT_SERVICE, StringComparison.OrdinalIgnoreCase) ?? false);
             if (configuration.Status != IntegrationConfigurationStatus.ACTIVE
-                || IntegrationProcessCatalog.Find(configuration.ProcessType)?.IsPush != true)
+                || (!attachment && IntegrationProcessCatalog.Find(configuration.ProcessType)?.IsPush != true))
             {
                 _logger.LogError($"Integration cannot be sent to. ConfigurationId: {configuration.Id}, Status: {configuration.Status}, ProcessType: {configuration.ProcessType}");
                 throw new BadRequestCustomException("API is not active.", "Activate this API before documents are sent to it.");
