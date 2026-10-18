@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { SilaDocumentTrack } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import StatusBadge from '../../components/StatusBadge';
 import { useGo } from '../../navigation';
@@ -10,6 +10,9 @@ interface DocumentTrackCardProps {
 /** PO → GRN → Invoice → Attachment → Payment → SOA on mobile detail screens. */
 const DocumentTrackCard: React.FC<DocumentTrackCardProps> = ({ track }) => {
   const go = useGo();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+
   if (!track || track.nodes.length === 0) return null;
 
   const open = (kind: string, id?: string | null) => {
@@ -42,7 +45,19 @@ const DocumentTrackCard: React.FC<DocumentTrackCardProps> = ({ track }) => {
           );
         })}
       </ol>
-      {track.attachments.length > 0 && (
+      <div className="sm-actions sm-grid-2">
+        {track.attachments.length > 0 && (
+          <button type="button" className="sm-btn" onClick={() => setAttachmentsOpen((open) => !open)}>
+            {attachmentsOpen ? 'Hide attachments' : `Attachments (${track.attachments.length})`}
+          </button>
+        )}
+        {track.history.length > 0 && (
+          <button type="button" className="sm-btn" onClick={() => setHistoryOpen((open) => !open)}>
+            {historyOpen ? 'Hide history' : `History (${track.history.length})`}
+          </button>
+        )}
+      </div>
+      {attachmentsOpen && track.attachments.length > 0 && (
         <>
           <h3 className="sm-subtitle">Attachments</h3>
           <ul className="sm-list">
@@ -55,11 +70,11 @@ const DocumentTrackCard: React.FC<DocumentTrackCardProps> = ({ track }) => {
           </ul>
         </>
       )}
-      {track.history.length > 0 && (
+      {historyOpen && track.history.length > 0 && (
         <>
           <h3 className="sm-subtitle">History</h3>
           <ul className="sm-list">
-            {track.history.slice(0, 12).map((event, index) => (
+            {track.history.slice(0, 20).map((event, index) => (
               <li key={`${event.action}-${index}`} className="sm-meta">
                 {event.action}
                 {event.comment ? ` · ${event.comment}` : ''}

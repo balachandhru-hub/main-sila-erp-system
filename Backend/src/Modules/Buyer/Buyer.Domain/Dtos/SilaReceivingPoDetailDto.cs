@@ -23,6 +23,14 @@ namespace Buyer.Domain.Dtos
         public decimal TotalOrderedQuantity { get; set; }
         /// <summary>ERP or system the purchase order came from.</summary>
         public string? SourceSystem { get; set; }
+        public string? SourceType { get; set; }
+        public string? ErpPurchaseOrderId { get; set; }
+        public string? SupplierErpSalesOrderNumber { get; set; }
+        public string? BucketCode { get; set; }
+        public decimal TotalReceivedQuantity { get; set; }
+        public decimal TotalOpenQuantity { get; set; }
+        public int LineCount { get; set; }
+        public int OpenLineCount { get; set; }
         public List<SilaReceivingPoLineDto> Lines { get; set; } = new();
         /// <summary>PO → GRN → Invoice → Attachment → Payment → SOA.</summary>
         public SilaDocumentTrackDto? DocumentTrack { get; set; }

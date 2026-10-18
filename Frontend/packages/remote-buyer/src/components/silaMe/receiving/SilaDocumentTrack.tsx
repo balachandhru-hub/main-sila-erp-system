@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { SilaDocumentTrack as Track } from "../../../api/silaMe/silaReceivingApi";
 import { receivingBadgeClass, receivingLabel } from "./receivingFormat";
 
@@ -6,12 +6,17 @@ interface SilaDocumentTrackProps {
   track?: Track | null;
   /** Optional navigation when a PO / GRN / Invoice node is clicked. */
   onOpen?: (kind: string, id: string) => void;
+  /** When true, history starts collapsed and opens as a panel on click. */
+  historyAsPanel?: boolean;
 }
 
 const KIND_ORDER = ["PO", "GRN", "INVOICE", "ATTACHMENT", "PAYMENT", "SOA"];
 
 /** PO → GRN → Invoice → Attachment → Payment → SOA with history and attachments. */
-const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpen }) => {
+const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpen, historyAsPanel = true }) => {
+  const [historyOpen, setHistoryOpen] = useState(!historyAsPanel);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+
   if (!track || (track.nodes?.length ?? 0) === 0) return null;
 
   const nodes = [...(track.nodes ?? [])].sort((a, b) => {
@@ -46,8 +51,31 @@ const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpe
         })}
       </ol>
 
-      {(track.attachments?.length ?? 0) > 0 && (
-        <div className="srcv-track-block">
+      <div className="srcv-actions">
+        {(track.attachments?.length ?? 0) > 0 && (
+          <button
+            type="button"
+            className="sila-btn sila-btn--secondary sila-btn--sm"
+            aria-expanded={attachmentsOpen}
+            onClick={() => setAttachmentsOpen((open) => !open)}
+          >
+            {attachmentsOpen ? "Hide attachments" : `Attachments (${track.attachments.length})`}
+          </button>
+        )}
+        {(track.history?.length ?? 0) > 0 && (
+          <button
+            type="button"
+            className="sila-btn sila-btn--secondary sila-btn--sm"
+            aria-expanded={historyOpen}
+            onClick={() => setHistoryOpen((open) => !open)}
+          >
+            {historyOpen ? "Hide history" : `History (${track.history.length})`}
+          </button>
+        )}
+      </div>
+
+      {attachmentsOpen && (track.attachments?.length ?? 0) > 0 && (
+        <div className="srcv-panel srcv-track-block" role="region" aria-label="Associated attachments">
           <h4 className="sila-section-title">Associated attachments</h4>
           <ul className="srcv-track-list">
             {track.attachments.map((file, index) => (
@@ -61,8 +89,8 @@ const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpe
         </div>
       )}
 
-      {(track.history?.length ?? 0) > 0 && (
-        <div className="srcv-track-block">
+      {historyOpen && (track.history?.length ?? 0) > 0 && (
+        <div className="srcv-panel srcv-track-block" role="region" aria-label="Document history">
           <h4 className="sila-section-title">History</h4>
           <ol className="srcv-track-list">
             {track.history.map((event, index) => (

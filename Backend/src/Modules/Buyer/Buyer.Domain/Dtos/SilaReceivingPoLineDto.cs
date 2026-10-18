@@ -28,5 +28,11 @@ namespace Buyer.Domain.Dtos
         /// <summary>The material needs an expiry date on receipt.</summary>
         public bool ExpiryManaged { get; set; }
         public int? ShelfLifeDays { get; set; }
+        public decimal? DiscountPercent { get; set; }
+        public decimal LineAmount { get; set; }
+        public string? Sku { get; set; }
+        public string? StorageLocation { get; set; }
+        public string? CostCenter { get; set; }
+        public string? MaterialGroup { get; set; }
     }
 }

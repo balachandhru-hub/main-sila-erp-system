@@ -141,6 +141,7 @@ const SilaGoodsReceipts: React.FC<SilaGoodsReceiptsProps> = ({ canPost, canRepro
         <SilaGoodsReceiptDialog
           goodsReceiptId={openId}
           canReprocess={canReprocess}
+          canReverse={canPost}
           onClose={closeDetail}
           onChanged={list.reload}
         />

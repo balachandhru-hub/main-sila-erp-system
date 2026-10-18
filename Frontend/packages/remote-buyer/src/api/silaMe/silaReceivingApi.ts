@@ -46,6 +46,12 @@ export interface SilaPurchaseOrderLine {
   batchManaged?: boolean;
   expiryManaged?: boolean;
   shelfLifeDays?: number | null;
+  discountPercent?: number | null;
+  lineAmount?: number;
+  sku?: string | null;
+  storageLocation?: string | null;
+  costCenter?: string | null;
+  materialGroup?: string | null;
 }
 
 export interface SilaDocumentTrackNode {
@@ -87,6 +93,14 @@ export interface SilaPurchaseOrderDetail extends Omit<SilaOpenPurchaseOrder, "li
   companyCode?: string | null;
   /** ERP or system the PO came from. */
   sourceSystem?: string | null;
+  sourceType?: string | null;
+  erpPurchaseOrderId?: string | null;
+  supplierErpSalesOrderNumber?: string | null;
+  bucketCode?: string | null;
+  totalReceivedQuantity?: number;
+  totalOpenQuantity?: number;
+  lineCount?: number;
+  openLineCount?: number;
   lines: SilaPurchaseOrderLine[];
   documentTrack?: SilaDocumentTrack | null;
 }

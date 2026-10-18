@@ -53,7 +53,15 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                 EntityCode = purchaseOrder.CompanyCode,
                 DeliveryDate = purchaseOrder.DeliveryDate,
                 TotalOrderedQuantity = items.Sum(x => x.Quantity),
+                TotalReceivedQuantity = items.Sum(x => x.ReceivedQuantity),
+                TotalOpenQuantity = items.Sum(x => SilaReceivingRules.OpenQuantity(x)),
+                LineCount = items.Count,
+                OpenLineCount = items.Count(x => SilaReceivingRules.OpenQuantity(x) > 0),
                 SourceSystem = purchaseOrder.SourceSystem ?? purchaseOrder.SourceType,
+                SourceType = purchaseOrder.SourceType,
+                ErpPurchaseOrderId = purchaseOrder.ErpPurchaseOrderId,
+                SupplierErpSalesOrderNumber = purchaseOrder.SupplierErpSalesOrderNumber,
+                BucketCode = purchaseOrder.BucketCode,
                 Lines = items.Select(item => new SilaReceivingPoLineDto
                 {
                     Id = item.Id,
@@ -72,7 +80,13 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                     ItemNumber = SilaReceivingRules.ItemNumber(item),
                     BatchManaged = MaterialOf(item)?.BatchManaged ?? false,
                     ExpiryManaged = MaterialOf(item)?.ExpiryManaged ?? false,
-                    ShelfLifeDays = MaterialOf(item)?.ShelfLifeDays
+                    ShelfLifeDays = MaterialOf(item)?.ShelfLifeDays,
+                    DiscountPercent = item.DiscountPercent,
+                    LineAmount = item.LineAmount,
+                    Sku = item.Sku,
+                    StorageLocation = item.StorageLocation,
+                    CostCenter = item.CostCenter,
+                    MaterialGroup = item.MaterialGroup
                 }).ToList()
             };
 

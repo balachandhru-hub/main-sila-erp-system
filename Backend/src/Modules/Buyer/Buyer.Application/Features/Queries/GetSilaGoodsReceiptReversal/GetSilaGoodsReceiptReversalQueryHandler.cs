@@ -6,6 +6,7 @@ using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.ExceptionHandler;
+using SharedKernel.Integration.Entities;
 using SharedKernel.Integration.Enums;
 using SharedKernel.LoggerServices;
 
@@ -61,12 +62,15 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
             bool needsLocal = SilaReceivingReversal.NeedsLocalFinalization(
                 receipt.Status, receipt.ReversalStatus, receipt.ReversalMaterialDocument);
 
-            bool apiConfigured = await _repository.ApiIntegrationConfiguration
-                .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive && x.Status == IntegrationConfigurationStatus.ACTIVE
-                    && x.ProcessType == IntegrationProcessType.POST_GRN.ToString()
-                    && (SilaGrnSap.IsConfiguredName(x.Name)
-                        || (x.ResourcePath != null && x.ResourcePath.Contains("API_MATERIAL_DOCUMENT_SRV", StringComparison.OrdinalIgnoreCase))))
-                .AnyAsync(cancellationToken);
+            // Load then filter in memory — IsConfiguredName / OrdinalIgnoreCase are not EF-translatable.
+            string postGrn = IntegrationProcessType.POST_GRN.ToString();
+            List<ApiIntegrationConfiguration> postGrnApis = await _repository.ApiIntegrationConfiguration
+                .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive
+                    && x.Status == IntegrationConfigurationStatus.ACTIVE
+                    && x.ProcessType == postGrn)
+                .ToListAsync(cancellationToken);
+            bool apiConfigured = postGrnApis.Any(x => SilaGrnSap.IsConfiguredName(x.Name)
+                || (x.ResourcePath != null && x.ResourcePath.Contains("API_MATERIAL_DOCUMENT_SRV", StringComparison.OrdinalIgnoreCase)));
 
             string decision = SilaReceivingReversal.Decide(
                 grnPosted,
@@ -81,10 +85,12 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive && x.AcceptedQty > TOLERANCE)
                 .OrderBy(x => x.DateCreated)
                 .ToListAsync(cancellationToken);
-            List<Guid> poItemIds = items.Select(x => x.PurchaseOrderItemId).ToList();
-            Dictionary<Guid, int> lineNumbers = await _repository.PurchaseOrderItem
-                .FindByCondition(x => poItemIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, x => x.LineNumber, cancellationToken);
+            List<Guid> poItemIds = items.Select(x => x.PurchaseOrderItemId).Distinct().ToList();
+            Dictionary<Guid, int> lineNumbers = poItemIds.Count == 0
+                ? new Dictionary<Guid, int>()
+                : await _repository.PurchaseOrderItem
+                    .FindByCondition(x => poItemIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, x => x.LineNumber, cancellationToken);
 
             SilaReceivingGrnListItemDto header = (await SilaReceivingRules.ToGrnListAsync(_repository, new List<GoodsReceipt> { receipt }, cancellationToken))[0];
 

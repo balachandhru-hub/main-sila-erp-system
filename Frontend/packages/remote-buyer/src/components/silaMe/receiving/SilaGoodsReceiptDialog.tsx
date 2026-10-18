@@ -4,19 +4,29 @@ import { getGoodsReceipt, reprocessErpPosting, type SilaGoodsReceiptDetail } fro
 import { formatDateTime } from "../../cart/lineFormat";
 import { formatQtyUom, receivingBadgeClass, receivingLabel } from "./receivingFormat";
 import SilaDocumentTrackPanel from "./SilaDocumentTrack";
+import SilaGoodsReceiptReverseDialog from "./SilaGoodsReceiptReverseDialog";
 
 interface SilaGoodsReceiptDialogProps {
   goodsReceiptId: string;
   canReprocess?: boolean;
+  /** POST_SILA_GRN: may reverse a posted GRN. */
+  canReverse?: boolean;
   onClose: () => void;
   onChanged?: () => void;
 }
 
 /** A goods receipt with its lines, step 1 stock / step 2 S4 status, and reprocess for failed ERP posts. */
-const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsReceiptId, canReprocess = false, onClose, onChanged }) => {
+const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({
+  goodsReceiptId,
+  canReprocess = false,
+  canReverse = false,
+  onClose,
+  onChanged,
+}) => {
   const [receipt, setReceipt] = useState<SilaGoodsReceiptDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
+  const [reversing, setReversing] = useState(false);
 
   const load = () => {
     setError(null);
@@ -44,6 +54,12 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
   const posting = receipt?.erpPosting;
   const stockedLines = receipt?.items.filter((item) => item.stocked && item.acceptedQty > 0).length ?? 0;
   const canSendAgain = canReprocess && posting != null && (posting.status === "FAILED" || posting.status === "SKIPPED");
+  const status = (receipt?.status || "").toUpperCase();
+  const reversalStatus = (receipt?.reversalStatus || "").toUpperCase();
+  const showReverse =
+    canReverse &&
+    status !== "REVERSED" &&
+    (status === "POSTED" || reversalStatus === "FAILED" || reversalStatus === "FAILED_LOCAL" || reversalStatus === "ERP_ACCEPTED");
 
   const handleReprocess = async () => {
     if (!posting) return;
@@ -60,6 +76,19 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
     }
   };
 
+  if (reversing) {
+    return (
+      <SilaGoodsReceiptReverseDialog
+        goodsReceiptId={goodsReceiptId}
+        onClose={() => setReversing(false)}
+        onChanged={() => {
+          load();
+          onChanged?.();
+        }}
+      />
+    );
+  }
+
   return (
     <Modal
       isOpen
@@ -70,7 +99,9 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
         secondaryButton: { text: "Close", onClick: onClose },
         primaryButton: canSendAgain
           ? { text: "Reprocess S4", onClick: handleReprocess, loading: reprocessing, disabled: reprocessing }
-          : undefined,
+          : showReverse
+            ? { text: "Reverse GRN", onClick: () => setReversing(true), disabled: reprocessing }
+            : undefined,
       }}
     >
       <div className="sila-root sila-me srcv-dialog">
@@ -110,8 +141,33 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
               <div><dt>Received at</dt><dd>{formatDateTime(receipt.receivedOn)}</dd></div>
               <div><dt>Delivery note</dt><dd>{receipt.deliveryNote || "—"}</dd></div>
               <div><dt>Status</dt><dd><span className={receivingBadgeClass(receipt.status)}>{receivingLabel(receipt.status)}</span></dd></div>
+              {(receipt.materialDocument || posting?.erpReference) && (
+                <div>
+                  <dt>SAP Material Document</dt>
+                  <dd>
+                    {receipt.materialDocument ?? posting?.erpReference}
+                    {receipt.materialDocumentYear ? ` / ${receipt.materialDocumentYear}` : ""}
+                  </dd>
+                </div>
+              )}
+              {receipt.reversalMaterialDocument && (
+                <div>
+                  <dt>Reversal Material Document</dt>
+                  <dd>
+                    {receipt.reversalMaterialDocument}
+                    {receipt.reversalMaterialDocumentYear ? ` / ${receipt.reversalMaterialDocumentYear}` : ""}
+                  </dd>
+                </div>
+              )}
             </dl>
-            <SilaDocumentTrackPanel track={receipt.documentTrack} />
+            {showReverse && (
+              <div className="srcv-actions">
+                <button type="button" className="sila-btn sila-btn--secondary" disabled={reprocessing} onClick={() => setReversing(true)}>
+                  Reverse GRN
+                </button>
+              </div>
+            )}
+            <SilaDocumentTrackPanel track={receipt.documentTrack} historyAsPanel />
             <h3 className="sila-section-title">Received lines</h3>
             <p className="srcv-sub">Receipt quantities are never inferred from invoice quantities. Inventory lines update stock and post to S4.</p>
             {receipt.items.length === 0 ? (
