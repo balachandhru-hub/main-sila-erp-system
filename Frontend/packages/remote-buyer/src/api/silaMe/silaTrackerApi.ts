@@ -107,7 +107,8 @@ export interface SilaTrackerReprocessResult {
 }
 
 const trackerParams = (query: SilaTrackerQuery) => ({
-  transactionType: query.transactionType || undefined,
+  // Invoice posting rows are stored as reference type INVOICE. The connected tracker matches that value.
+  transactionType: query.transactionType === "INVOICE_POSTING" ? "INVOICE" : query.transactionType || undefined,
   direction: query.direction || undefined,
   from: query.from || undefined,
   to: query.to || undefined,

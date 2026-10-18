@@ -291,7 +291,9 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     || (type == "PHYSICAL_COUNT_SHORTAGE" && x.ReferenceType == Common.SILA_REF_STOCK_COUNT && x.MovementType == "Z02")
                     || (type == "PHYSICAL_COUNT_SURPLUS" && x.ReferenceType == Common.SILA_REF_STOCK_COUNT && x.MovementType == "Z01")
                     || (type == "NEGATIVE_STOCK_ADJUSTMENT" && x.ReferenceType == Common.SILA_REF_ADJUSTMENT && x.MovementType == "Z02")
-                    || (type == "POSITIVE_STOCK_ADJUSTMENT" && x.ReferenceType == Common.SILA_REF_ADJUSTMENT && x.MovementType == "Z01"));
+                    || (type == "POSITIVE_STOCK_ADJUSTMENT" && x.ReferenceType == Common.SILA_REF_ADJUSTMENT && x.MovementType == "Z01")
+                    || (type == "INVOICE_POSTING" && (x.ReferenceType == Common.SILA_REF_INVOICE || x.MovementType == Common.SILA_MOVEMENT_INVOICE))
+                    || (type == Common.SILA_MOVEMENT_INVOICE_ATTACHMENT && (x.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT || x.MovementType == Common.SILA_MOVEMENT_INVOICE_ATTACHMENT)));
             }
 
             if (search != null || material != null)

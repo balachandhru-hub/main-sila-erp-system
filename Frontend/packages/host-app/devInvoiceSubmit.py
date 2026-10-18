@@ -227,18 +227,22 @@ def ensure_api(cur, buyer_id, body: dict) -> None:
             authentication_type, username, protected_password, protected_client_id, protected_client_secret,
             protected_bearer_token, token_endpoint, token_scope, token_headers_json, token_body_json,
             api_key_header, protected_api_key, http_method, payload_format, request_body, headers_json,
-            timeout_seconds, retry_count, page_size, status, date_created, date_updated, created_by, updated_by, is_active
+            timeout_seconds, retry_count, page_size, is_running, status, date_created, date_updated, created_by, updated_by, is_active
         )
         SELECT NEWID(), buyer_id, entity_code, %s, %s, protocol, 'SAP S/4', base_url, %s,
                authentication_type, username, protected_password, protected_client_id, protected_client_secret,
                protected_bearer_token, token_endpoint, token_scope, token_headers_json, token_body_json,
                api_key_header, protected_api_key, 'POST', payload_format, %s, headers_json,
-               timeout_seconds, retry_count, page_size, 'ACTIVE', GETUTCDATE(), GETUTCDATE(), created_by, updated_by, 1
+               timeout_seconds, retry_count, page_size, 0, 'ACTIVE', GETUTCDATE(), GETUTCDATE(), created_by, updated_by, 1
         FROM buyersystem.api_integration_configuration
         WHERE id=%s
         """,
         (API_NAME, PROCESS_TYPE, RESOURCE_PATH, payload, str(source[0])),
     )
+
+
+def payload_of(built: dict) -> str:
+    return json.dumps(built["body"], separators=(",", ":"))
 
 
 def prepare(cur, invoice_id: uuid.UUID) -> str:
@@ -262,10 +266,10 @@ def prepare(cur, invoice_id: uuid.UUID) -> str:
             """
             INSERT INTO buyersystem.inventory_erp_posting (
                 id, buyer_id, reference_type, reference_id, reference_number, movement_type, status, attempts,
-                company_code, integration_system, date_created, date_updated, created_by, updated_by, is_active
-            ) VALUES (%s, %s, 'INVOICE', %s, %s, 'INVOICE', 'FAILED', 0, %s, %s, GETUTCDATE(), GETUTCDATE(), %s, %s, 1)
+                company_code, integration_system, erp_request_payload, date_created, date_updated, created_by, updated_by, is_active
+            ) VALUES (%s, %s, 'INVOICE', %s, %s, 'INVOICE', 'FAILED', 0, %s, %s, %s, GETUTCDATE(), GETUTCDATE(), %s, %s, 1)
             """,
-            (str(posting_id), str(built["buyer_id"]), str(invoice_id), built["number"], built["company"], API_NAME, str(actor), str(actor)),
+            (str(posting_id), str(built["buyer_id"]), str(invoice_id), built["number"], built["company"], API_NAME, payload_of(built), str(actor), str(actor)),
         )
         cur.execute(
             "UPDATE buyersystem.invoice SET erp_posting_id=%s, status='ERP_POSTING_FAILED', date_updated=GETUTCDATE() WHERE id=%s",
@@ -274,10 +278,11 @@ def prepare(cur, invoice_id: uuid.UUID) -> str:
     cur.execute(
         """
         UPDATE buyersystem.inventory_erp_posting
-        SET status='FAILED', error_message=%s, company_code=%s, integration_system=%s, date_updated=GETUTCDATE()
+        SET status='FAILED', error_message=%s, company_code=%s, integration_system=%s,
+            erp_request_payload=%s, date_updated=GETUTCDATE()
         WHERE id=%s
         """,
-        ("Queued for S/4 supplier invoice posting.", built["company"], API_NAME, str(posting_id)),
+        ("Queued for S/4 supplier invoice posting.", built["company"], API_NAME, payload_of(built), str(posting_id)),
     )
     return str(posting_id)
 
@@ -306,6 +311,23 @@ def finish(cur, invoice_id: uuid.UUID, posting_id: uuid.UUID, transport_error: s
         "UPDATE buyersystem.invoice SET status=%s, erp_posting_id=%s, date_updated=GETUTCDATE() WHERE id=%s",
         (invoice_status, str(posting_id), str(invoice_id)),
     )
+    # The connected posting stores the body only after SAP answers. Keep the submitted JSON when that never happens.
+    try:
+        submitted = payload_of(document(cur, invoice_id))
+    except SubmitError:
+        submitted = ""
+    if submitted:
+        cur.execute(
+            """
+            UPDATE buyersystem.inventory_erp_posting
+            SET erp_request_payload = CASE
+                    WHEN erp_request_payload IS NULL OR LTRIM(RTRIM(erp_request_payload)) = '' THEN %s
+                    ELSE erp_request_payload
+                END
+            WHERE id=%s
+            """,
+            (submitted, str(posting_id)),
+        )
 
 
 def main() -> None:

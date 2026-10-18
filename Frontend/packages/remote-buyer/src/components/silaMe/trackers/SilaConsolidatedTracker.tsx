@@ -20,7 +20,7 @@ const PAGE_SIZE = 25;
 const TYPES = [
   "POS_SALE", "POS_POSITIVE_CORRECTION", "INTERNAL_TRANSFER_311", "PLANT_TRANSFER_301",
   "NEGATIVE_STOCK_ADJUSTMENT", "POSITIVE_STOCK_ADJUSTMENT", "PHYSICAL_COUNT_SHORTAGE", "PHYSICAL_COUNT_SURPLUS",
-  "GOODS_ISSUE", "GRN", "INVOICE", "INVOICE_POSTING", "PO_CREATE", "SUPPLIER_SALES_ORDER_CREATE", "CONTRACT_CREATE",
+  "GOODS_ISSUE", "GRN", "INVOICE_POSTING", "SUPPLIER_INVOICE_ATTACHMENT", "PO_CREATE", "SUPPLIER_SALES_ORDER_CREATE", "CONTRACT_CREATE",
   "GET_SUPPLIER", "GET_MATERIAL", "GET_PO", "GET_POS_SALE", "POST_SUPPLIER",
 ];
 
@@ -46,10 +46,30 @@ const labelOf = (value?: string | null): string => {
     LOCAL: "Local finalization",
     ERP: "ERP processing",
     RECEIVE: "Receive",
+    INVOICE: "Invoice posting",
     INVOICE_POSTING: "Invoice posting",
+    SUPPLIER_INVOICE_ATTACHMENT: "Invoice attachment",
   };
   return known[value] ?? value.split("_").join(" ");
 };
+
+const prettyPayload = (value?: string | null): string => {
+  const text = value?.trim();
+  if (!text) return "";
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+};
+
+const showsSubmittedPayload = (detail: SilaTrackerDetail): boolean =>
+  Boolean(detail.technicalDetail?.trim())
+  || detail.transactionType === "INVOICE"
+  || detail.transactionType === "INVOICE_POSTING"
+  || detail.movementType === "INVOICE"
+  || detail.transactionType === "SUPPLIER_INVOICE_ATTACHMENT"
+  || detail.movementType === "SUPPLIER_INVOICE_ATTACHMENT";
 
 const badgeClass = (status?: string | null): string => {
   switch (status) {
@@ -214,7 +234,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
       <section className="sila-card">
         <div className="srcv-filters">
           <Field id="strk-search" label="Search">
-            <input id="strk-search" className="sila-input" type="search" placeholder="Inventory transaction, reference, PO, GRN, transfer, POS" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <input id="strk-search" className="sila-input" type="search" placeholder="Invoice, reference, PO, GRN, transfer, POS" value={search} onChange={(event) => setSearch(event.target.value)} />
           </Field>
           <Field id="strk-type" label="Transaction type">
             <select id="strk-type" className="sila-select" value={transactionType} onChange={(event) => { setTransactionType(event.target.value); setPage(1); }}>
@@ -389,7 +409,9 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
             <Fact label="Storage location" value={detail.storageLocation} />
             <Fact label="User" value={detail.userId} />
             <Fact label="Business reference" value={detail.businessReference} />
-            {detail.transactionType === "INVOICE_POSTING" && <Fact label="Supplier, PO, GRN" value={detail.localReference} />}
+            {(detail.transactionType === "INVOICE_POSTING" || (detail.localReference ?? "").includes("PO ")) && (
+              <Fact label="Supplier, PO, GRN" value={detail.localReference} />
+            )}
             <Fact label="Source" value={detail.sourceSystem} />
             <Fact label="Target" value={detail.targetSystem} />
             <Fact label="API" value={detail.integrationName} />
@@ -410,13 +432,22 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
           )}
           {detail.lastError && <p className="srcv-error">{detail.lastError}</p>}
           {detail.localError && detail.localError !== detail.lastError && <p className="srcv-error">{detail.localError}</p>}
+          {showsSubmittedPayload(detail) && (
+            <div>
+              <h3 className="sila-section-title">Submitted payload</h3>
+              {detail.technicalDetail?.trim() ? (
+                <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
+              ) : (
+                <p>No submitted payload was stored for this transaction.</p>
+              )}
+            </div>
+          )}
           <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setTechnical((current) => !current)}>
-            {technical ? "Hide technical detail" : "Show technical detail"}
+            {technical ? "Hide ERP message" : "Show ERP message"}
           </button>
           {technical && (
             <div className="strk-tech">
               <p>{detail.erpMessage || "No ERP message stored."}</p>
-              {detail.technicalDetail && <p>{detail.technicalDetail}</p>}
             </div>
           )}
           <h3 className="sila-section-title">Retry history</h3>

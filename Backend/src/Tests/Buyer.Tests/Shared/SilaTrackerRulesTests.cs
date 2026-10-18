@@ -143,6 +143,8 @@ namespace Buyer.Tests.Shared
             Assert.Equal("PLANT_TRANSFER_301", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_ITO, "301"));
             Assert.Equal("PHYSICAL_COUNT_SHORTAGE", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_STOCK_COUNT, "Z02"));
             Assert.Equal("POSITIVE_STOCK_ADJUSTMENT", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_ADJUSTMENT, "Z01"));
+            Assert.Equal("INVOICE_POSTING", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_INVOICE, Common.SILA_MOVEMENT_INVOICE));
+            Assert.Equal(Common.SILA_MOVEMENT_INVOICE_ATTACHMENT, SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_INVOICE_ATTACHMENT, Common.SILA_MOVEMENT_INVOICE_ATTACHMENT));
             Assert.Equal(SilaTrackerRules.DATA_MASTER, SilaTrackerRules.DataClassOfProcess("GET_MATERIAL"));
             Assert.Equal(SilaTrackerRules.DIRECTION_INBOUND, SilaTrackerRules.DirectionOfProcess("GET_SUPPLIER"));
             Assert.Equal(SilaTrackerRules.DIRECTION_OUTBOUND, SilaTrackerRules.DirectionOfProcess("POST_PO"));
