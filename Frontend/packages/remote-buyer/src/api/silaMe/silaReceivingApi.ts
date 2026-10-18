@@ -278,6 +278,9 @@ export interface SilaInvoiceAttachment {
   businessObjectType: string;
   linkedSapObjectKey?: string | null;
   fileName?: string | null;
+  /** External document address prepared before CreateUrlAsAttachment is called. */
+  url?: string | null;
+  httpStatus?: number | null;
   /** Not started | Pending | Processing | Success | Failed | Unknown */
   status: string;
   lastAttempt?: string | null;

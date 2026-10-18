@@ -795,21 +795,30 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <p className="srcv-sub">Business Object Type: {invoice.attachment?.businessObjectType || "BUS2081"}</p>
                   <p className="srcv-sub">Linked SAP Object Key: {linkedSapObjectKey(invoice)}</p>
                   <p className="srcv-sub">Document: {invoice.attachment?.fileName || invoice.fileName || "—"}</p>
+                  <p className="srcv-sub">Attachment path: {invoice.attachment?.url || "—"}</p>
                   <p className="srcv-sub">Attachment Status: {attachmentStatus(invoice)}</p>
+                  {invoice.attachment?.httpStatus != null && <p className="srcv-sub">HTTP status: {invoice.attachment.httpStatus}</p>}
                   <p className="srcv-sub">Last Attempt: {invoice.attachment?.lastAttempt ? invoice.attachment.lastAttempt.replace("T", " ").slice(0, 19) : "—"}</p>
-                  {invoice.attachment?.message && <p className="srcv-sub">{invoice.attachment.message}</p>}
+                  {invoice.attachment?.message && <p className={attachmentStatus(invoice) === "Failed" ? "srcv-error" : "srcv-sub"}>{invoice.attachment.message}</p>}
                   {invoice.attachment?.canReprocess && (
                     <button
                       type="button"
                       className="sila-btn sila-btn--secondary sila-btn--sm"
                       disabled={busy !== null}
                       onClick={() => run("attachment", async () => {
-                        show(await reprocessInvoiceAttachment(invoiceId));
+                        const updated = await reprocessInvoiceAttachment(invoiceId);
+                        show(updated);
                         onChanged();
-                        toastService.success("Attachment reprocessed. The invoice posting was not sent again.");
+                        const failed = attachmentStatus(updated) === "Failed";
+                        if (failed) toastService.error(updated.attachment?.message || "The attachment was not accepted. The invoice was not posted again.");
+                        else toastService.success(updated.attachment?.message || "Attachment updated. The invoice posting was not sent again.");
                       })}
                     >
-                      {busy === "attachment" ? "Reprocessing..." : "Reprocess Attachment"}
+                      {busy === "attachment"
+                        ? "Sending..."
+                        : attachmentStatus(invoice) === "Failed"
+                          ? "Reprocess Attachment"
+                          : "Send attachment"}
                     </button>
                   )}
                 </div>

@@ -1087,8 +1087,37 @@ def retarget_posting_data(raw: str, invoice_number: str) -> str:
     return json.dumps(document, separators=(",", ":"))
 
 
+PUBLIC_DOCUMENT = "https://sila-api.chervicaon.com"
+
+
+def document_url(invoice_id) -> str:
+    return f"{PUBLIC_DOCUMENT}/api/v1/buyer/sila/invoices/{invoice_id}/file"
+
+
+def url_from_request(body: str) -> str:
+    try:
+        parsed = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(parsed, dict):
+        return ""
+    return text(parsed.get("Url") or parsed.get("url"))
+
+
+def attachment_body(key: str, url: str, file_name: str) -> str:
+    return json.dumps(
+        {
+            "BusinessObjectTypeName": "BUS2081",
+            "LinkedSAPObjectKey": key,
+            "Url": url,
+            "FileName": file_name,
+        },
+        separators=(",", ":"),
+    )
+
+
 def attachment_view(cur, invoice_id: uuid.UUID) -> dict:
-    """The linked key is the stored SAP invoice number plus the stored fiscal year. It does not wait for the attachment call."""
+    """The document path is known as soon as the SAP invoice and fiscal year are stored. The attachment API is a later call."""
     invoice = fetchone(
         cur,
         "SELECT file_name, invoice_number FROM buyersystem.invoice WHERE id=%s AND is_active=1",
@@ -1109,7 +1138,7 @@ def attachment_view(cur, invoice_id: uuid.UUID) -> dict:
     attachment = fetchone(
         cur,
         """
-        SELECT TOP 1 status, error_message
+        SELECT TOP 1 status, error_message, erp_http_status, erp_request_payload
         FROM buyersystem.inventory_erp_posting
         WHERE reference_id=%s AND reference_type='INVOICE_ATTACHMENT' AND is_active=1
         ORDER BY date_updated DESC
@@ -1122,17 +1151,20 @@ def attachment_view(cur, invoice_id: uuid.UUID) -> dict:
     key = linked_key(reference, year)
     posted = status in {"POSTED", "ERP_ACCEPTED"} and bool(reference)
     file_name = text(invoice[0]) or text(invoice[1])
+    stored_url = url_from_request(text(attachment[3]) if attachment else "")
+    url = stored_url or (document_url(invoice_id) if posted and key else "")
+    http_status = attachment[2] if attachment else None
     if not posted or not key:
         label = "Not started"
         message = "The linked key is the SAP invoice number plus the fiscal year. Both are stored when FIVE S4-INVOICE POSTING succeeds."
         if posted and not year:
             message = "The SAP invoice number is stored, but the fiscal year was not in the posting response, so the linked key cannot be built."
-    elif attachment is None:
+    elif attachment is None or text(attachment[0]) in {"PENDING", ""}:
         label = "Pending"
-        message = "The attachment API has not been called. Linked SAP Object Key is the SAP invoice number and fiscal year with no separator."
+        message = "Attachment path updated. The attachment API has not been called."
     elif text(attachment[0]) == "POSTED":
         label = "Success"
-        message = "Attached to S/4."
+        message = f"Updated successfully. HTTP {http_status}." if http_status else "Updated successfully."
     elif text(attachment[0]) in {"FAILED", "SKIPPED", "FAILED_LOCAL"}:
         label = "Failed"
         message = text(attachment[1]) or "The attachment was not accepted."
@@ -1141,7 +1173,7 @@ def attachment_view(cur, invoice_id: uuid.UUID) -> dict:
         message = text(attachment[1]) or "S/4 gave no clear answer. Reconcile the attachment before it is sent again."
     else:
         label = "Pending"
-        message = text(attachment[1]) or "The attachment has not been confirmed."
+        message = "Attachment path updated. The attachment API has not been called."
     return {
         "ok": True,
         "erpReference": reference or None,
@@ -1151,11 +1183,230 @@ def attachment_view(cur, invoice_id: uuid.UUID) -> dict:
             "businessObjectType": "BUS2081",
             "linkedSapObjectKey": key or None,
             "fileName": file_name or None,
+            "url": url or None,
+            "httpStatus": http_status,
             "status": label,
             "message": message,
-            "canReprocess": label == "Failed",
+            "canReprocess": label in {"Failed", "Pending"},
         },
     }
+
+
+def service_document(resource: str) -> str:
+    path = resource.lstrip("/")
+    marker = "API_CV_ATTACHMENT_SRV"
+    index = path.find(marker)
+    if index >= 0:
+        return path[: index + len(marker)] + "/"
+    return path
+
+
+def post_action(base_url: str, resource: str, username: str, password: str, body: str, timeout: int) -> tuple[int | None, str, str]:
+    """CSRF from the attachment service document, then one POST to CreateUrlAsAttachment. The action is not called with $top."""
+    token_url = f"{base_url.rstrip('/')}/{service_document(resource).lstrip('/')}"
+    post_url = f"{base_url.rstrip('/')}/{resource.lstrip('/')}"
+    auth = base64.b64encode(f"{username}:{password}".encode()).decode()
+    common = {"Authorization": f"Basic {auth}", "Accept": "application/json"}
+    fetch = urllib.request.Request(token_url, method="GET", headers={**common, "x-csrf-token": "Fetch"})
+    try:
+        with urllib.request.urlopen(fetch, timeout=timeout) as response:
+            token = text(response.headers.get("x-csrf-token"))
+            getter = getattr(response.headers, "get_all", None)
+            cookies = getter("Set-Cookie") if getter else [response.headers.get("Set-Cookie")]
+            cookies = [item for item in (cookies or []) if item]
+            if response.status >= 400 or not token or token.lower() == "required":
+                return response.status, response.read().decode("utf-8", "replace"), "csrf"
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", "replace"), "csrf"
+    except (TimeoutError, urllib.error.URLError) as error:
+        return None, text(error), "timeout"
+    cookie = "; ".join(
+        part.split(";", 1)[0].strip()
+        for part in cookies
+        if "=" in part.split(";", 1)[0]
+    )
+    headers = {**common, "Content-Type": "application/json", "x-csrf-token": token}
+    if cookie:
+        headers["Cookie"] = cookie
+    post = urllib.request.Request(post_url, data=body.encode("utf-8"), method="POST", headers=headers)
+    try:
+        with urllib.request.urlopen(post, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8", "replace"), "post"
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", "replace"), "post"
+    except (TimeoutError, urllib.error.URLError) as error:
+        return None, text(error), "timeout"
+
+
+def attachment_endpoint(cur, buyer_id) -> tuple[str, str, str, str, int]:
+    row = fetchone(
+        cur,
+        """
+        SELECT TOP 1 base_url, resource_path, username, timeout_seconds
+        FROM buyersystem.api_integration_configuration
+        WHERE buyer_id=%s AND is_active=1 AND status='ACTIVE'
+          AND (resource_path LIKE %s OR name IN ('API_CV_ATTACHMENT_SRV', 'FIVE S4 - INVOICE ATTACHMENT', 'POST_API_CV_ATTACHMENT_SRV'))
+        """,
+        (str(buyer_id), "%API_CV_ATTACHMENT_SRV%"),
+    )
+    if row and text(row[0]) and text(row[1]) and text(row[2]):
+        return text(row[0]), text(row[1]), text(row[2]), sap_password(text(row[2]), text(row[0])), int(row[3] or 30)
+    path = Path(__file__).resolve().parents[2] / ".data" / "custom-integrations.json"
+    if not path.exists():
+        raise SubmitError(400, "Attachment was not sent.", "No active API_CV_ATTACHMENT_SRV API is configured. The invoice was not posted again.")
+    try:
+        saved = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        raise SubmitError(400, "Attachment was not sent.", "No active API_CV_ATTACHMENT_SRV API is configured. The invoice was not posted again.")
+    for side in ("buyer", "supplier"):
+        for item in saved.get(side) or []:
+            public = item.get("public") or {}
+            resource = text(public.get("resourcePath"))
+            if "API_CV_ATTACHMENT_SRV" not in resource and text(public.get("name")) not in {
+                "API_CV_ATTACHMENT_SRV",
+                "FIVE S4 - INVOICE ATTACHMENT",
+                "POST_API_CV_ATTACHMENT_SRV",
+            }:
+                continue
+            if text(public.get("status")).upper() not in {"ACTIVE", "TESTED"}:
+                continue
+            username = text(public.get("username"))
+            base = text(public.get("baseUrl"))
+            if not username or not base or not resource:
+                continue
+            return base, resource, username, sap_password(username, base), int(public.get("timeoutSeconds") or 30)
+    raise SubmitError(400, "Attachment was not sent.", "No active API_CV_ATTACHMENT_SRV API is configured. The invoice was not posted again.")
+
+
+def send_attachment(cur, invoice_id: uuid.UUID) -> dict:
+    """Calls only CreateUrlAsAttachment. The supplier invoice posting is not sent again."""
+    invoice = fetchone(
+        cur,
+        "SELECT buyer_id, file_name, invoice_number FROM buyersystem.invoice WHERE id=%s AND is_active=1",
+        (str(invoice_id),),
+    )
+    if invoice is None:
+        raise SubmitError(404, "Invoice not found.", "Choose an invoice from the list.")
+    posting = fetchone(
+        cur,
+        """
+        SELECT TOP 1 status, erp_reference, erp_response_payload, company_code, location_id
+        FROM buyersystem.inventory_erp_posting
+        WHERE reference_id=%s AND reference_type='INVOICE' AND is_active=1
+        ORDER BY CASE WHEN status='POSTED' THEN 0 ELSE 1 END, date_updated DESC
+        """,
+        (str(invoice_id),),
+    )
+    status = text(posting[0]) if posting else ""
+    reference = text(posting[1]) if posting else ""
+    year = fiscal_year_of(text(posting[2]) if posting else "")
+    key = linked_key(reference, year)
+    if status not in {"POSTED", "ERP_ACCEPTED"} or not reference or not key:
+        raise SubmitError(
+            400,
+            "Attachment was not sent.",
+            "The SAP invoice number and fiscal year must both be stored. The invoice was not posted again.",
+        )
+    existing = fetchone(
+        cur,
+        """
+        SELECT TOP 1 id, status, attempts
+        FROM buyersystem.inventory_erp_posting
+        WHERE reference_id=%s AND reference_type='INVOICE_ATTACHMENT' AND is_active=1
+        ORDER BY date_updated DESC
+        """,
+        (str(invoice_id),),
+    )
+    if existing and text(existing[1]) == "POSTED":
+        return {"ok": True, "called": False}
+    if existing and text(existing[1]) == "UNKNOWN":
+        raise SubmitError(
+            409,
+            "Reconcile the attachment.",
+            "S/4 did not confirm whether the link was created. The invoice was not posted again.",
+        )
+    file_name = text(invoice[1]) or text(invoice[2]) or "InvoiceReferenceLink"
+    url = document_url(invoice_id)
+    body = attachment_body(key, url, file_name)
+    actor = "00000000-0000-0000-0000-000000000000"
+    if existing is None:
+        attachment_id = uuid.uuid4()
+        cur.execute(
+            """
+            INSERT INTO buyersystem.inventory_erp_posting (
+                id, buyer_id, reference_type, reference_id, reference_number, location_id, movement_type,
+                status, attempts, error_message, date_created, date_updated, created_by, updated_by, is_active,
+                company_code, erp_request_payload, integration_system
+            ) VALUES (
+                %s, %s, 'INVOICE_ATTACHMENT', %s, %s, %s, 'SUPPLIER_INVOICE_ATTACHMENT',
+                'PENDING', 0, %s, GETUTCDATE(), GETUTCDATE(), %s, %s, 1,
+                %s, %s, 'POST_API_CV_ATTACHMENT_SRV'
+            )
+            """,
+            (
+                str(attachment_id),
+                str(invoice[0]),
+                str(invoice_id),
+                text(invoice[2]) or file_name,
+                posting[4],
+                "Attachment path updated. The attachment API has not been called.",
+                actor,
+                actor,
+                posting[3],
+                body,
+            ),
+        )
+        attempts = 0
+    else:
+        attachment_id = existing[0]
+        attempts = int(existing[2] or 0)
+        cur.execute(
+            """
+            UPDATE buyersystem.inventory_erp_posting
+            SET status='PENDING', error_message=%s, erp_request_payload=%s, erp_http_status=NULL,
+                erp_response_payload=NULL, date_updated=GETUTCDATE()
+            WHERE id=%s
+            """,
+            ("Attachment path updated. The attachment API has not been called.", body, str(attachment_id)),
+        )
+    base_url, resource, username, password, timeout = attachment_endpoint(cur, invoice[0])
+    http_status, response, phase = post_action(base_url, resource, username, password, body, timeout)
+    detail = sap_detail(response) if response else ""
+    if phase == "timeout" or http_status is None:
+        cur.execute(
+            """
+            UPDATE buyersystem.inventory_erp_posting
+            SET status='UNKNOWN', attempts=attempts+1, error_message=%s, date_updated=GETUTCDATE()
+            WHERE id=%s
+            """,
+            ((detail or "S/4 gave no clear answer.")[:2000], str(attachment_id)),
+        )
+        return {"ok": True, "called": True, "httpStatus": None}
+    success = 200 <= int(http_status) < 300 and phase == "post"
+    if success:
+        cur.execute(
+            """
+            UPDATE buyersystem.inventory_erp_posting
+            SET status='POSTED', attempts=attempts+1, erp_reference=%s, erp_http_status=%s,
+                erp_response_payload=%s, error_message=NULL, posted_on=GETUTCDATE(), date_updated=GETUTCDATE()
+            WHERE id=%s
+            """,
+            (key, int(http_status), response[:4000], str(attachment_id)),
+        )
+    else:
+        message = detail or f"HTTP {http_status}"
+        if phase == "csrf":
+            message = f"The attachment token request failed. HTTP {http_status}. {detail}".strip()
+        cur.execute(
+            """
+            UPDATE buyersystem.inventory_erp_posting
+            SET status='FAILED', attempts=attempts+1, erp_http_status=%s, erp_response_payload=%s,
+                error_message=%s, date_updated=GETUTCDATE()
+            WHERE id=%s
+            """,
+            (int(http_status), (response or "")[:4000], message[:2000], str(attachment_id)),
+        )
+    return {"ok": True, "called": True, "httpStatus": int(http_status), "success": success}
 
 
 def invoice_family(cur, posting_id: uuid.UUID):
@@ -1465,6 +1716,11 @@ def main() -> None:
         if action == "attachment-view":
             print(json.dumps(attachment_view(cursor, invoice_id)))
             return
+        if action == "attach":
+            sent = send_attachment(cursor, invoice_id)
+            connection.commit()
+            print(json.dumps(sent))
+            return
         if action == "posting":
             stored = read_posting(cursor, invoice_id)
             connection.commit()
@@ -1486,7 +1742,8 @@ def main() -> None:
         print(json.dumps({"ok": False, "status": error.status, "message": error.message, "description": error.description}))
     except Exception as error:
         connection.rollback()
-        print(json.dumps({"ok": False, "status": 500, "message": "Invoice was not submitted.", "description": text(error) or "Invoice was not submitted."}))
+        fallback = "The attachment was not sent. The invoice was not posted again." if action == "attach" else "Invoice was not submitted."
+        print(json.dumps({"ok": False, "status": 500, "message": fallback, "description": text(error) or fallback}))
     finally:
         connection.close()
 

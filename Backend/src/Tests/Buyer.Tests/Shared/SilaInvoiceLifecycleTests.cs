@@ -664,5 +664,48 @@ namespace Buyer.Tests.Shared
             Assert.Equal("TESTINVOICE121-COPY", value);
             Assert.Null(SilaInvoiceTracker.RetargetPostingData("not-json", "COPY"));
         }
+
+        [Fact]
+        public void AttachmentScreen_ShowsThePathBeforeTheCallAndKeepsReprocessOnTheAttachment()
+        {
+            Invoice invoice = new Invoice
+            {
+                Id = Guid.Parse("7917682c-4e4b-4492-af2f-db37b968a447"),
+                FileName = "TESTINVOICE123_PO4500004152_AED.pdf",
+                InvoiceNumber = "TESTINVOICE121"
+            };
+            InventoryErpPosting posting = new InventoryErpPosting
+            {
+                Status = Common.SILA_POSTING_POSTED,
+                ErpReference = "5105601144",
+                ErpResponsePayload = """{"d":{"SupplierInvoice":"5105601144","FiscalYear":"2026"}}"""
+            };
+            string url = "https://sila-api.chervicaon.com/api/v1/buyer/sila/invoices/7917682c-4e4b-4492-af2f-db37b968a447/file";
+            SilaInvoiceAttachmentDto ready = SilaInvoiceAttachment.Describe(posting, null, invoice, url);
+
+            Assert.Equal("Pending", ready.Status);
+            Assert.Equal("51056011442026", ready.LinkedSapObjectKey);
+            Assert.Equal(url, ready.Url);
+            Assert.Equal("Attachment path updated. The attachment API has not been called.", ready.Message);
+            Assert.True(ready.CanReprocess);
+
+            SilaInvoiceAttachmentDto failed = SilaInvoiceAttachment.Describe(
+                posting,
+                new InventoryErpPosting { Status = Common.SILA_POSTING_FAILED, ErrorMessage = "HTTP 400", ErpHttpStatus = 400 },
+                invoice,
+                url);
+            Assert.Equal("Failed", failed.Status);
+            Assert.Equal("HTTP 400", failed.Message);
+            Assert.True(failed.CanReprocess);
+
+            SilaInvoiceAttachmentDto posted = SilaInvoiceAttachment.Describe(
+                posting,
+                new InventoryErpPosting { Status = Common.SILA_POSTING_POSTED, ErpHttpStatus = 201 },
+                invoice,
+                url);
+            Assert.Equal("Success", posted.Status);
+            Assert.Equal("Updated successfully. HTTP 201.", posted.Message);
+            Assert.False(posted.CanReprocess);
+        }
     }
 }

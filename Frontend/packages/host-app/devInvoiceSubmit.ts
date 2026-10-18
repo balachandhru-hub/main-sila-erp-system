@@ -79,6 +79,8 @@ interface DevResult {
     businessObjectType?: string;
     linkedSapObjectKey?: string | null;
     fileName?: string | null;
+    url?: string | null;
+    httpStatus?: number | null;
     status?: string;
     message?: string | null;
     canReprocess?: boolean;
@@ -157,6 +159,15 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
         });
         return;
       }
+      const attachmentMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/attachment\/reprocess(?:\?|$)/);
+      if (attachmentMatch && req.method === "POST") {
+        void handleAttachment(target, settingsPath, attachmentMatch[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not reprocess the attachment.", "The invoice was not posted again."));
+          }
+        });
+        return;
+      }
       const copyMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/copy(?:\?|$)/);
       if (copyMatch && req.method === "POST") {
         void handleCopy(target, settingsPath, copyMatch[1], req, res).catch(() => {
@@ -189,6 +200,58 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
     });
   },
 });
+
+const handleAttachment = async (
+  target: string,
+  settingsPath: string,
+  invoiceId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  await readRequestBody(req);
+  const route = `/api/v1/buyer/sila/invoices/${invoiceId}/attachment/reprocess`;
+  const upstream = await forward(target, req, "POST", route, "{}");
+  if (upstream.status !== 404 || upstream.body.trim()) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+  const existing = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
+  if (existing.status !== 200) {
+    send(res, existing.status, existing.contentType, existing.body);
+    return;
+  }
+  const sent = await run(settingsPath, { action: "attach", invoiceId });
+  if (!sent.ok) {
+    const status = sent.status || 500;
+    send(res, status, "application/json; charset=utf-8", described(
+      status,
+      sent.message || "Could not reprocess the attachment.",
+      sent.description || "The invoice was not posted again.",
+    ));
+    return;
+  }
+  const fresh = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
+  if (fresh.status !== 200) {
+    send(res, fresh.status, fresh.contentType, fresh.body);
+    return;
+  }
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    parsed = JSON.parse(fresh.body) as Record<string, unknown>;
+  } catch {
+    send(res, fresh.status, fresh.contentType, fresh.body);
+    return;
+  }
+  const nested = parsed["data"];
+  const invoice = nested && typeof nested === "object" ? nested as Record<string, unknown> : parsed;
+  const view = await run(settingsPath, { action: "attachment-view", invoiceId });
+  if (view.ok && view.attachment) {
+    if (view.erpReference) invoice["erpReference"] = view.erpReference;
+    if (view.fiscalYear) invoice["fiscalYear"] = view.fiscalYear;
+    invoice["attachment"] = view.attachment;
+  }
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify(parsed));
+};
 
 const handleInvoiceRead = async (
   target: string,
@@ -232,6 +295,8 @@ const handleInvoiceRead = async (
       linkedSapObjectKey: blank(current["linkedSapObjectKey"]) ? view.attachment.linkedSapObjectKey : current["linkedSapObjectKey"],
       status: blank(current["status"]) ? view.attachment.status : current["status"],
       fileName: blank(current["fileName"]) ? view.attachment.fileName : current["fileName"],
+      url: blank(current["url"]) ? view.attachment.url : current["url"],
+      httpStatus: current["httpStatus"] == null ? view.attachment.httpStatus : current["httpStatus"],
       message: blank(current["message"]) ? view.attachment.message : current["message"],
       businessObject: current["businessObject"] || view.attachment.businessObject,
       businessObjectType: current["businessObjectType"] || view.attachment.businessObjectType,

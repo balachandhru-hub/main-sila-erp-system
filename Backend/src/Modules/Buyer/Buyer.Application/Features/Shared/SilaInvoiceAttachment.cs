@@ -130,22 +130,25 @@ namespace Buyer.Application.Features.Shared
             return attachment?.Status == Common.SILA_POSTING_UNKNOWN;
         }
 
-        public static SilaInvoiceAttachmentDto Describe(InventoryErpPosting? invoicePosting, InventoryErpPosting? attachment, Invoice invoice)
+        public static SilaInvoiceAttachmentDto Describe(InventoryErpPosting? invoicePosting, InventoryErpPosting? attachment, Invoice invoice, string? documentUrl = null)
         {
             bool posted = invoicePosting?.Status == Common.SILA_POSTING_POSTED && !string.IsNullOrWhiteSpace(invoicePosting.ErpReference);
             string? fiscalYear = SilaInvoicePosting.ReadFiscalYear(invoicePosting?.ErpResponsePayload);
             string? key = LinkedKey(invoicePosting?.ErpReference, fiscalYear);
             string fileName = FileNameOf(invoice.FileName, invoice.InvoiceNumber);
             string status = ScreenStatus(posted, attachment);
+            string? url = Suitable(documentUrl) ? documentUrl!.Trim() : null;
             return new SilaInvoiceAttachmentDto
             {
                 BusinessObject = SilaInvoiceLifecycle.BUSINESS_OBJECT_LABEL,
                 BusinessObjectType = SilaInvoiceLifecycle.BUSINESS_OBJECT,
                 LinkedSapObjectKey = key,
                 FileName = fileName,
+                Url = url,
+                HttpStatus = attachment?.ErpHttpStatus,
                 Status = status,
                 LastAttempt = attachment == null ? null : attachment.PostedOn ?? attachment.DateUpdated,
-                Message = MessageOf(status, attachment),
+                Message = ScreenMessage(status, attachment, url),
                 CanReprocess = posted && status is "Failed" or "Pending"
             };
         }
@@ -539,11 +542,29 @@ namespace Buyer.Application.Features.Shared
             };
         }
 
+        private static string? ScreenMessage(string status, InventoryErpPosting? attachment, string? url)
+        {
+            if (status == "Pending" && !string.IsNullOrWhiteSpace(url))
+            {
+                return "Attachment path updated. The attachment API has not been called.";
+            }
+
+            if (status == "Success")
+            {
+                int? http = attachment?.ErpHttpStatus;
+                return http is >= 200 and < 300
+                    ? "Updated successfully. HTTP " + http.Value + "."
+                    : "Updated successfully.";
+            }
+
+            return MessageOf(status, attachment);
+        }
+
         private static string? MessageOf(string status, InventoryErpPosting? attachment)
         {
             if (status == "Success")
             {
-                return "Attached to S/4";
+                return "Updated successfully.";
             }
 
             if (status == "Unknown")

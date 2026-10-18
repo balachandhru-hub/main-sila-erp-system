@@ -367,7 +367,17 @@ namespace Buyer.Application.Features.Shared
                     && x.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT && x.ReferenceId == invoice.Id)
                 .OrderByDescending(x => x.DateCreated)
                 .FirstOrDefaultAsync(cancellationToken);
-            SilaInvoiceAttachmentDto attachmentScreen = SilaInvoiceAttachment.Describe(posting, attachment, invoice);
+            string attachmentFile = SilaInvoiceAttachment.FileNameOf(invoice.FileName, invoice.InvoiceNumber);
+            string? attachmentUrl = SilaInvoiceAttachment.DocumentUrl(
+                SilaOcrPolicy.AttachmentStorage(settings),
+                settings.SharePointSiteUrl,
+                settings.SharePointLibrary,
+                settings.SharePointFolder,
+                settings.AttachmentPath,
+                "https://sila-api.chervicaon.com",
+                invoice.Id,
+                attachmentFile);
+            SilaInvoiceAttachmentDto attachmentScreen = SilaInvoiceAttachment.Describe(posting, attachment, invoice, attachmentUrl);
 
             return new SilaInvoiceDetailDto
             {

@@ -119,6 +119,9 @@ namespace Buyer.Domain.Dtos
         public string BusinessObjectType { get; set; } = "BUS2081";
         public string? LinkedSapObjectKey { get; set; }
         public string? FileName { get; set; }
+        /// <summary>The external document address prepared for CreateUrlAsAttachment. Shown before that API is called.</summary>
+        public string? Url { get; set; }
+        public int? HttpStatus { get; set; }
         /// <summary>Not started, Pending, Processing, Success, Failed, or Unknown.</summary>
         public string Status { get; set; } = "Not started";
         public DateTime? LastAttempt { get; set; }
