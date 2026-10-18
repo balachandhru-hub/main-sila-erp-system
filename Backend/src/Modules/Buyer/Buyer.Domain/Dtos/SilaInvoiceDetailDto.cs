@@ -27,6 +27,10 @@ namespace Buyer.Domain.Dtos
         public DateTime UploadedOn { get; set; }
         /// <summary>MATERIAL | SERVICE | MIXED; null when unknown.</summary>
         public string? InvoiceType { get; set; }
+        /// <summary>PO or NON_PO. How the invoice was created.</summary>
+        public string? CreationType { get; set; }
+        public string? CompanyCode { get; set; }
+        public Guid? PropertyId { get; set; }
         public decimal? NetAmount { get; set; }
         public decimal? TaxAmount { get; set; }
         public string? SupplierTaxNumber { get; set; }
@@ -79,6 +83,8 @@ namespace Buyer.Domain.Dtos
         public int Version { get; set; }
         public string? PurchaseOrder { get; set; }
         public string? SourceApi { get; set; }
+        /// <summary>PO or NON_PO. Selects the Supplier Invoice item navigation.</summary>
+        public string? InvoiceMode { get; set; }
         public bool Stale { get; set; }
         public List<SilaInvoicePostingFieldDto> Header { get; set; } = new();
         public List<SilaInvoicePostingLineDto> Lines { get; set; } = new();

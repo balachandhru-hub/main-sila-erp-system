@@ -321,6 +321,10 @@ namespace Buyer.Domain.Common
                 public static readonly string SCHEDULER_PHYSICAL_INVENTORY_CRON = "Scheduler:PhysicalInventoryCron";
                 public const string HTTP_CLIENT_OCR = "ocr";
                 public const string SILA_INVOICE_FOLDER = "sila/invoices";
+                /// <summary>Create Invoice mode: purchase-order and goods-receipt based.</summary>
+                public const string SILA_INVOICE_CREATION_PO = "PO";
+                /// <summary>Create Invoice mode: expense / GL account assignment, no PO or GRN.</summary>
+                public const string SILA_INVOICE_CREATION_NON_PO = "NON_PO";
                 public static readonly string OCR_SERVICE_URL = "InterCallService:OcrUrl";
                 public static readonly string SCHEDULER_ERP_POSTING_CRON = "Scheduler:InventoryErpPostingCron";
                 public static readonly string SCHEDULER_ALERT_CRON = "Scheduler:InventoryAlertCron";

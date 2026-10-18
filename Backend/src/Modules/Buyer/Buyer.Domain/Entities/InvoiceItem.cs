@@ -43,5 +43,30 @@ namespace Buyer.Domain.Entities
         public decimal? TaxRate { get; set; }
 
         public string? MatchStatus { get; set; }
+
+        /// <summary>Tax code on the invoice line. For PO invoices the PO item tax code is preferred when this is empty.</summary>
+        public string? TaxCode { get; set; }
+
+        /// <summary>Non-PO GL / account-assignment fields for to_SupplierInvoiceItemGLAcct. Unused on PO invoices.</summary>
+        public string? GlAccount { get; set; }
+
+        public string? CostCenter { get; set; }
+
+        public string? ProfitCenter { get; set; }
+
+        public string? InternalOrder { get; set; }
+
+        public string? WbsElement { get; set; }
+
+        public string? BusinessArea { get; set; }
+
+        public string? AssignmentReference { get; set; }
+
+        public string? DebitCreditCode { get; set; }
+
+        public string? LineText { get; set; }
+
+        /// <summary>Goods receipt line this invoice quantity is taken from. Null for Non-PO and for OCR lines not yet linked.</summary>
+        public Guid? GoodsReceiptItemId { get; set; }
     }
 }

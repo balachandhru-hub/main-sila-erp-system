@@ -49,7 +49,8 @@ namespace Buyer.Application.Features.Shared
                 missing.Add("Supplier, from the SILA invoice");
             }
 
-            if (invoice.PurchaseOrderId == null || string.IsNullOrWhiteSpace(invoice.PoNumber))
+            bool nonPo = SilaInvoiceCreation.IsNonPo(invoice.CreationType);
+            if (!nonPo && (invoice.PurchaseOrderId == null || string.IsNullOrWhiteSpace(invoice.PoNumber)))
             {
                 missing.Add("Matched purchase order, from the SILA invoice");
             }
@@ -64,17 +65,24 @@ namespace Buyer.Application.Features.Shared
                 missing.Add("Currency, from the SILA invoice");
             }
 
-            if (string.IsNullOrWhiteSpace(companyCode))
+            if (string.IsNullOrWhiteSpace(companyCode) && string.IsNullOrWhiteSpace(invoice.CompanyCode))
             {
-                missing.Add("Company code, from the purchase order");
+                missing.Add(nonPo ? "Company code, from Create Invoice" : "Company code, from the purchase order");
             }
 
-            if (items.Count == 0 || items.All(x => x.Quantity == null || x.Quantity <= 0))
+            if (nonPo)
+            {
+                if (items.Count == 0 || items.Any(x => string.IsNullOrWhiteSpace(x.GlAccount) || string.IsNullOrWhiteSpace(x.TaxCode) || x.Amount == null || x.Amount <= 0))
+                {
+                    missing.Add("Non-PO lines with GL account, tax code, and amount");
+                }
+            }
+            else if (items.Count == 0 || items.All(x => x.Quantity == null || x.Quantity <= 0))
             {
                 missing.Add("Invoice quantity, from the SILA invoice lines");
             }
 
-            if (grnRequired && !grnPosted)
+            if (!nonPo && grnRequired && !grnPosted)
             {
                 missing.Add("Posted goods receipt, from the GRN");
             }
@@ -123,7 +131,7 @@ namespace Buyer.Application.Features.Shared
                 return true;
             }
 
-            if (serviceInvoice && status == Common.SILA_INVOICE_REVIEWED)
+            if (serviceInvoice && status is Common.SILA_INVOICE_REVIEWED or Common.SILA_INVOICE_READY)
             {
                 return true;
             }

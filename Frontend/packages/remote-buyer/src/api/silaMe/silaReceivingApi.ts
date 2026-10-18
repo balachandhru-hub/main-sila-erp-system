@@ -168,6 +168,10 @@ export interface SilaInvoice {
   uploadedOn: string;
   /** MATERIAL | SERVICE | MIXED */
   invoiceType?: string | null;
+  /** PO | NON_PO */
+  creationType?: string | null;
+  companyCode?: string | null;
+  propertyId?: string | null;
   netAmount?: number | null;
   taxAmount?: number | null;
   supplierTaxNumber?: string | null;
@@ -191,6 +195,17 @@ export interface SilaInvoiceItem {
   taxRate?: number | null;
   /** MATCHED | SUGGESTED | UNMATCHED (read only). */
   matchStatus?: string | null;
+  taxCode?: string | null;
+  glAccount?: string | null;
+  costCenter?: string | null;
+  profitCenter?: string | null;
+  internalOrder?: string | null;
+  wbsElement?: string | null;
+  businessArea?: string | null;
+  assignmentReference?: string | null;
+  debitCreditCode?: string | null;
+  lineText?: string | null;
+  goodsReceiptItemId?: string | null;
 }
 
 export interface SilaInvoiceDetail extends SilaInvoice {
@@ -253,6 +268,8 @@ export interface SilaInvoicePostingData {
   version: number;
   purchaseOrder?: string | null;
   sourceApi?: string | null;
+  /** PO | NON_PO */
+  invoiceMode?: string | null;
   stale: boolean;
   header: SilaInvoicePostingField[];
   lines: SilaInvoicePostingLine[];
@@ -379,6 +396,105 @@ export const postGoodsReceipt = async (request: SilaGrnWrite): Promise<string> =
   return data.id;
 };
 
+export interface SilaCreateInvoiceLine {
+  lineNumber: number;
+  description: string;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  amount?: number | null;
+  uom?: string | null;
+  taxCode?: string | null;
+  taxRate?: number | null;
+  purchaseOrderItemId?: string | null;
+  goodsReceiptItemId?: string | null;
+  glAccount?: string | null;
+  costCenter?: string | null;
+  profitCenter?: string | null;
+  internalOrder?: string | null;
+  wbsElement?: string | null;
+  businessArea?: string | null;
+  assignmentReference?: string | null;
+  debitCreditCode?: string | null;
+  lineText?: string | null;
+}
+
+export interface SilaCreateInvoiceRequest {
+  creationType: "PO" | "NON_PO";
+  propertyId?: string | null;
+  companyCode?: string | null;
+  silaSupplierId?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
+  postingDate?: string | null;
+  taxDeterminationDate?: string | null;
+  currency?: string | null;
+  grossAmount?: number | null;
+  netAmount?: number | null;
+  taxAmount?: number | null;
+  reference?: string | null;
+  purchaseOrderId?: string | null;
+  goodsReceiptIds?: string[];
+  lines?: SilaCreateInvoiceLine[];
+  fileName?: string | null;
+  contentType?: string | null;
+  /** Base64 file bytes when a document is attached on create. */
+  content?: string | null;
+}
+
+export interface SilaCreateInvoiceMasters {
+  properties: { id: string; propertyName: string; companyCode: string; plantCode?: string | null }[];
+  companyCodes: { id: string; code: string; name?: string | null }[];
+  glAccounts: string[];
+  costCenters: string[];
+  profitCenters: string[];
+  taxCodes: string[];
+}
+
+export interface SilaEligiblePurchaseOrder {
+  id: string;
+  poNumber: string;
+  orderDate?: string | null;
+  companyCode?: string | null;
+  currency?: string | null;
+  totalAmount?: number | null;
+  receivedQuantity?: number | null;
+  orderedQuantity?: number | null;
+  grnCount: number;
+  status: string;
+  supplierName?: string | null;
+}
+
+export interface SilaEligibleGoodsReceiptLine {
+  id: string;
+  purchaseOrderItemId: string;
+  purchaseOrderItemNumber?: number | null;
+  description: string;
+  materialCode?: string | null;
+  uom?: string | null;
+  receivedQuantity: number;
+  invoicedQuantity: number;
+  remainingQuantity: number;
+  unitPrice?: number | null;
+  taxCode?: string | null;
+}
+
+export interface SilaEligibleGoodsReceipt {
+  id: string;
+  grnNumber: string;
+  erpReference?: string | null;
+  receivedOn: string;
+  poNumber: string;
+  supplierName?: string | null;
+  receivedQuantity: number;
+  invoicedQuantity: number;
+  remainingQuantity: number;
+  status: string;
+  invoiceStatus?: string | null;
+  lines: SilaEligibleGoodsReceiptLine[];
+}
+
 export const getInvoices = async (search: string, status: string, page: SilaPage): Promise<SilaInvoice[]> =>
   list(await call(() => axiosInstance.get<SilaInvoice[]>(`${BASE}/invoices`, {
     params: { search: search.trim() || undefined, status: status || undefined, ...page },
@@ -386,6 +502,45 @@ export const getInvoices = async (search: string, status: string, page: SilaPage
 
 export const getInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.get<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}`), "Could not load the invoice."));
+
+export const getCreateInvoiceMasters = async (): Promise<SilaCreateInvoiceMasters> => {
+  const data = await call(() => axiosInstance.get<SilaCreateInvoiceMasters>(`${BASE}/invoices/create/masters`), "Could not load Create Invoice masters.");
+  return {
+    properties: list(data.properties),
+    companyCodes: list(data.companyCodes),
+    glAccounts: list(data.glAccounts),
+    costCenters: list(data.costCenters),
+    profitCenters: list(data.profitCenters),
+    taxCodes: list(data.taxCodes),
+  };
+};
+
+export const getEligiblePurchaseOrders = async (params: {
+  silaSupplierId?: string | null;
+  supplierId?: string | null;
+  companyCode?: string | null;
+  propertyId?: string | null;
+}): Promise<SilaEligiblePurchaseOrder[]> =>
+  list(await call(() => axiosInstance.get<SilaEligiblePurchaseOrder[]>(`${BASE}/invoices/create/purchase-orders`, {
+    params: {
+      silaSupplierId: params.silaSupplierId || undefined,
+      supplierId: params.supplierId || undefined,
+      companyCode: params.companyCode || undefined,
+      propertyId: params.propertyId || undefined,
+    },
+  }), "Could not load purchase orders."));
+
+export const getEligibleGoodsReceipts = async (purchaseOrderId: string): Promise<SilaEligibleGoodsReceipt[]> =>
+  list(await call(() => axiosInstance.get<SilaEligibleGoodsReceipt[]>(`${BASE}/invoices/create/purchase-orders/${purchaseOrderId}/goods-receipts`), "Could not load goods receipts."))
+    .map((row) => ({ ...row, lines: list(row.lines) }));
+
+export const createInvoiceDraft = async (request: SilaCreateInvoiceRequest): Promise<string> => {
+  const data = await call(() => axiosInstance.post<{ id: string }>(`${BASE}/invoices/create`, request), "Could not create the invoice.");
+  return data.id;
+};
+
+export const prepareCreateInvoice = async (invoiceId: string, request: SilaCreateInvoiceRequest): Promise<SilaInvoiceDetail> =>
+  normalizeInvoice(await call(() => axiosInstance.post<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/prepare-create`, request), "Could not prepare the invoice."));
 
 /** A new local invoice with the same file and lines. The copy is not posted and does not keep the SAP invoice id. */
 export const copyInvoice = async (invoiceId: string): Promise<string> => {

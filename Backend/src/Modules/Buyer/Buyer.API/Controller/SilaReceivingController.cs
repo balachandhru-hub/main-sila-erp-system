@@ -1,5 +1,7 @@
 using Buyer.Application.Features.Commands.CopySilaInvoice;
+using Buyer.Application.Features.Commands.CreateSilaInvoice;
 using Buyer.Application.Features.Commands.DecideSilaInvoice;
+using Buyer.Application.Features.Commands.PrepareSilaCreateInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
 using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
 using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
@@ -8,6 +10,9 @@ using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
+using Buyer.Application.Features.Queries.GetSilaCreateInvoiceMasters;
+using Buyer.Application.Features.Queries.GetSilaEligibleGoodsReceipts;
+using Buyer.Application.Features.Queries.GetSilaEligiblePurchaseOrders;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceipt;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceipts;
 using Buyer.Application.Features.Queries.GetSilaInvoice;
@@ -192,6 +197,90 @@ namespace Buyer.API.Controllers
                 Limit = limit
             });
             _logger.LogDebug($"Invoices fetched. Count: {result.Count}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/create/masters")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaCreateInvoiceMasters")]
+        [SwaggerResponse(200, type: typeof(SilaCreateInvoiceMastersDto))]
+        public async Task<IActionResult> CreateMasters()
+        {
+            return Ok(await _mediator.Send(new GetSilaCreateInvoiceMastersQuery { OrganizationId = GetOrganizationId() }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/create/purchase-orders")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaEligiblePurchaseOrders")]
+        [SwaggerResponse(200, type: typeof(List<SilaEligiblePurchaseOrderDto>))]
+        public async Task<IActionResult> EligiblePurchaseOrders(
+            [FromQuery] Guid? silaSupplierId,
+            [FromQuery] Guid? supplierId,
+            [FromQuery] string? companyCode,
+            [FromQuery] Guid? propertyId)
+        {
+            return Ok(await _mediator.Send(new GetSilaEligiblePurchaseOrdersQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                SilaSupplierId = silaSupplierId,
+                SupplierId = supplierId,
+                CompanyCode = companyCode,
+                PropertyId = propertyId
+            }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/create/purchase-orders/{purchaseOrderId}/goods-receipts")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaEligibleGoodsReceipts")]
+        [SwaggerResponse(200, type: typeof(List<SilaEligibleGoodsReceiptDto>))]
+        public async Task<IActionResult> EligibleGoodsReceipts([FromRoute] Guid purchaseOrderId)
+        {
+            return Ok(await _mediator.Send(new GetSilaEligibleGoodsReceiptsQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                PurchaseOrderId = purchaseOrderId
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/create")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("CreateSilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
+        public async Task<IActionResult> CreateInvoice([FromBody] SilaCreateInvoiceRequestDto request)
+        {
+            Guid result = await _mediator.Send(new CreateSilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                Request = request
+            });
+            return Ok(new SuccessResponseDto
+            {
+                Id = result.ToString(),
+                StatusCode = 200,
+                Message = "Success",
+                Description = "Invoice draft created."
+            });
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/prepare-create")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("PrepareSilaCreateInvoice")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> PrepareCreate([FromRoute] Guid invoiceId, [FromBody] SilaCreateInvoiceRequestDto request)
+        {
+            SilaInvoiceDetailDto result = await _mediator.Send(new PrepareSilaCreateInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId,
+                Request = request
+            });
             return Ok(result);
         }
 

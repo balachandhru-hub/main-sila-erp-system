@@ -49,7 +49,9 @@ namespace Buyer.Application.Features.Commands.SubmitSilaInvoice
             bool service = SilaReceivingRules.IsServiceInvoice(invoice);
             bool grnPosted = current.GoodsReceipts.Count > 0 && current.GoodsReceipts.All(x =>
                 x.ErpPostingId == null || x.ErpStatus is Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_FAILED_LOCAL);
-            List<string> missing = SilaInvoiceLifecycle.Missing(invoice, items, !service, grnPosted, order?.CompanyCode);
+            string? companyCode = invoice.CompanyCode ?? order?.CompanyCode;
+            bool nonPo = SilaInvoiceCreation.IsNonPo(invoice.CreationType);
+            List<string> missing = SilaInvoiceLifecycle.Missing(invoice, items, !service && !nonPo, grnPosted, companyCode);
             if (missing.Count > 0)
             {
                 string message = SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missing);
@@ -60,7 +62,7 @@ namespace Buyer.Application.Features.Commands.SubmitSilaInvoice
                 throw new BadRequestCustomException("Invoice cannot be submitted.", message);
             }
 
-            string? duplicate = await SilaInvoicePosting.DuplicateMessageAsync(_repository, invoice, order?.CompanyCode, cancellationToken);
+            string? duplicate = await SilaInvoicePosting.DuplicateMessageAsync(_repository, invoice, companyCode, cancellationToken);
             if (duplicate != null)
             {
                 _logger.LogError($"Duplicate supplier invoice. InvoiceId: {invoice.Id}");
@@ -94,7 +96,7 @@ namespace Buyer.Application.Features.Commands.SubmitSilaInvoice
                 await SilaApprovals.StartAsync(
                     _repository, _logger, invoice.BuyerId, Common.SILA_APPROVAL_TYPE_INVOICE, Common.SILA_REF_INVOICE, invoice.Id,
                     versions.Count == 0 ? 1 : versions.Max() + 1,
-                    new ApprovalScope { LocationId = receipt?.LocationId, PropertyId = location?.PropertyId, CompanyCode = order?.CompanyCode },
+                    new ApprovalScope { LocationId = receipt?.LocationId, PropertyId = location?.PropertyId ?? invoice.PropertyId, CompanyCode = companyCode },
                     cancellationToken);
                 invoice.Status = Common.SILA_INVOICE_PENDING_APPROVAL;
                 _repository.Invoice.Update(invoice);

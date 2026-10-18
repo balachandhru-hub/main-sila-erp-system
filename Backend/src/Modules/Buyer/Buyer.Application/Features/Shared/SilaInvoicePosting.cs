@@ -38,6 +38,8 @@ namespace Buyer.Application.Features.Shared
         public sealed class Document
         {
             public string? CompanyCode { get; set; }
+            /// <summary>PO uses to_SuplrInvcItemPurOrdRef. NON_PO uses to_SupplierInvoiceItemGLAcct.</summary>
+            public string Mode { get; set; } = Common.SILA_INVOICE_CREATION_PO;
             public List<(string Name, object? Value)> Header { get; } = new();
             public List<List<(string Name, object? Value)>> Items { get; } = new();
         }
@@ -304,7 +306,7 @@ namespace Buyer.Application.Features.Shared
             return (sapOrder, null);
         }
 
-        /// <summary>Reads the S/4 purchase order, maps the invoice, then posts through the existing invoice API. Approval has already finished.</summary>
+        /// <summary>Reads the S/4 purchase order when needed, maps the invoice, then posts through the existing invoice API. Approval has already finished.</summary>
         public static async Task ContinueAsync(
             IRepositoryWrapper repository,
             ILoggerManager logger,
@@ -315,17 +317,22 @@ namespace Buyer.Application.Features.Shared
             Guid userId,
             CancellationToken cancellationToken)
         {
-            string? readError = await RefreshPurchaseOrderAsync(repository, logger, executor, buyer.OrganizationId, invoice, userId, cancellationToken);
-            if (readError != null)
+            bool nonPo = SilaInvoiceCreation.IsNonPo(invoice.CreationType);
+            if (!nonPo)
             {
-                invoice.Status = Common.SILA_INVOICE_GET_PO_FAILED;
-                Block(repository, invoice, userId, readError);
-                repository.Invoice.Update(invoice);
+                string? readError = await RefreshPurchaseOrderAsync(repository, logger, executor, buyer.OrganizationId, invoice, userId, cancellationToken);
+                if (readError != null)
+                {
+                    invoice.Status = Common.SILA_INVOICE_GET_PO_FAILED;
+                    Block(repository, invoice, userId, readError);
+                    repository.Invoice.Update(invoice);
+                    await repository.SaveAsync();
+                    throw new BadRequestCustomException("Purchase order could not be read.", readError);
+                }
+
                 await repository.SaveAsync();
-                throw new BadRequestCustomException("Purchase order could not be read.", readError);
             }
 
-            await repository.SaveAsync();
             PurchaseOrder? order = invoice.PurchaseOrderId == null
                 ? null
                 : await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId);
@@ -376,7 +383,7 @@ namespace Buyer.Application.Features.Shared
                 SilaPostingRecovery.Record(repository, posting, userId, SilaTrackerRules.FROM_ERP, previous, true, false, "ERP processing queued again. Receive is not repeated.");
             }
 
-            posting.CompanyCode = described.CompanyCode ?? order?.CompanyCode;
+            posting.CompanyCode = described.CompanyCode ?? invoice.CompanyCode ?? order?.CompanyCode;
             posting.IntegrationSystem = SilaInvoiceLifecycle.API_INVOICE;
             invoice.Status = Common.SILA_INVOICE_POSTING;
             repository.Invoice.Update(invoice);
@@ -510,17 +517,32 @@ namespace Buyer.Application.Features.Shared
 
         public static async Task<string?> DuplicateMessageAsync(IRepositoryWrapper repository, Invoice invoice, string? companyCode, CancellationToken cancellationToken)
         {
-            _ = companyCode;
             if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber) || SupplierIds(invoice).Count == 0)
             {
                 return null;
             }
 
             string number = invoice.InvoiceNumber.Trim();
+            string? company = string.IsNullOrWhiteSpace(companyCode) ? invoice.CompanyCode?.Trim() : companyCode.Trim();
             List<Invoice> others = await repository.Invoice
                 .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.Id != invoice.Id && x.IsActive && x.InvoiceNumber == number)
                 .ToListAsync(cancellationToken);
-            List<Invoice> sameSupplier = others.Where(other => SameSupplier(invoice, other)).ToList();
+            List<Invoice> sameSupplier = others.Where(other =>
+            {
+                if (!SameSupplier(invoice, other))
+                {
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(company))
+                {
+                    return true;
+                }
+
+                string? otherCompany = other.CompanyCode?.Trim();
+                return string.IsNullOrWhiteSpace(otherCompany)
+                    || string.Equals(otherCompany, company, StringComparison.OrdinalIgnoreCase);
+            }).ToList();
             if (sameSupplier.Count == 0)
             {
                 return null;
@@ -535,7 +557,9 @@ namespace Buyer.Application.Features.Shared
                 InventoryErpPosting? posting = other.ErpPostingId != null && postings.TryGetValue(other.ErpPostingId.Value, out InventoryErpPosting? row) ? row : null;
                 if (SilaInvoiceLifecycle.AlreadyPosted(other.Status, posting?.ErpReference))
                 {
-                    return "Supplier invoice " + number + " for this supplier is already posted"
+                    return "Supplier invoice " + number + " for this supplier"
+                        + (string.IsNullOrWhiteSpace(company) ? "" : " / company " + company)
+                        + " is already posted"
                         + (string.IsNullOrWhiteSpace(posting?.ErpReference) ? "." : " (SAP " + posting.ErpReference + ").");
                 }
             }
@@ -884,7 +908,7 @@ namespace Buyer.Application.Features.Shared
             string? gross = Money(Value("GrossAmount"));
             string? documentType = Value("AccountingDocumentType");
             string? taxAutomatic = Value("TaxIsCalculatedAutomatically");
-            Require(company, "Company code, from the purchase order", missing);
+            Require(company, SilaInvoiceCreation.IsNonPo(document.Mode) ? "Company code, from Create Invoice" : "Company code, from the purchase order", missing);
             Require(date, "Document date, from the SILA invoice", missing);
             Require(postingDate, "Posting date, from the stored posting data", missing);
             Require(dueDate, "Due calculation base date, from the stored posting data", missing);
@@ -892,7 +916,7 @@ namespace Buyer.Application.Features.Shared
             {
                 Require(taxDate, SilaFiveInvoicePosting.TAX_DATE_MISSING, missing);
             }
-            Require(supplier, "Invoicing party, from the purchase order", missing);
+            Require(supplier, SilaInvoiceCreation.IsNonPo(document.Mode) ? "Invoicing party, from the supplier master" : "Invoicing party, from the purchase order", missing);
             Require(currency, "Currency, from the SILA invoice", missing);
             Require(gross, "Gross amount, from the SILA invoice", missing);
             Require(number, "Supplier invoice reference, from the SILA invoice", missing);
@@ -900,6 +924,7 @@ namespace Buyer.Application.Features.Shared
             Require(taxAutomatic, "Automatic tax calculation, from the invoice posting configuration", missing);
 
             bool automatic = taxAutomatic != null && taxAutomatic.Equals("true", StringComparison.OrdinalIgnoreCase);
+            bool nonPo = SilaInvoiceCreation.IsNonPo(document.Mode);
             JsonArray results = new JsonArray();
             int sequence = 0;
             HashSet<string> taxCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -912,11 +937,7 @@ namespace Buyer.Application.Features.Shared
                     return found.Name == null ? null : Text(found.Field);
                 }
 
-                string? po = ItemValue("PurchaseOrder") ?? Value("PurchaseOrder");
-                string? poItem = ItemValue("PurchaseOrderItem");
-                string? quantity = QuantityText(ItemValue("Quantity"));
                 string? amount = Money(ItemValue("Amount"));
-                string? uom = ItemValue("Uom");
                 string? tax = ItemValue("TaxCode");
                 string? itemCurrency = ItemValue("DocumentCurrency") ?? currency;
                 string? itemNumber = ItemValue("SupplierInvoiceItem");
@@ -925,6 +946,45 @@ namespace Buyer.Application.Features.Shared
                     itemNumber = sequence.ToString("00000", CultureInfo.InvariantCulture);
                 }
 
+                if (nonPo)
+                {
+                    string? gl = ItemValue("GLAccount");
+                    Require(gl, "GL account, from the Non-PO invoice line", missing);
+                    Require(amount, "Invoice amount, from the SILA invoice lines", missing);
+                    if (string.IsNullOrWhiteSpace(tax))
+                    {
+                        missing.Add("Field: TaxCode. GL Account: " + (gl ?? ""));
+                    }
+                    else
+                    {
+                        taxCodes.Add(tax);
+                    }
+
+                    JsonObject glItem = new JsonObject
+                    {
+                        ["SupplierInvoiceItem"] = itemNumber,
+                        ["CompanyCode"] = ItemValue("CompanyCode") ?? company,
+                        ["GLAccount"] = gl,
+                        ["DocumentCurrency"] = itemCurrency,
+                        ["SupplierInvoiceItemAmount"] = amount,
+                        ["TaxCode"] = tax,
+                        ["DebitCreditCode"] = ItemValue("DebitCreditCode") ?? "S"
+                    };
+                    Put(glItem, "CostCenter", ItemValue("CostCenter"));
+                    Put(glItem, "ProfitCenter", ItemValue("ProfitCenter"));
+                    Put(glItem, "InternalOrder", ItemValue("InternalOrder"));
+                    Put(glItem, "WBSElement", ItemValue("WBSElement"));
+                    Put(glItem, "BusinessArea", ItemValue("BusinessArea"));
+                    Put(glItem, "AssignmentReference", ItemValue("AssignmentReference"));
+                    Put(glItem, "SupplierInvoiceItemText", ItemValue("SupplierInvoiceItemText"));
+                    results.Add(glItem);
+                    continue;
+                }
+
+                string? po = ItemValue("PurchaseOrder") ?? Value("PurchaseOrder");
+                string? poItem = ItemValue("PurchaseOrderItem");
+                string? quantity = QuantityText(ItemValue("Quantity"));
+                string? uom = ItemValue("Uom");
                 Require(po, "Purchase order, from the purchase order", missing);
                 Require(poItem, "Purchase order item, from the purchase order", missing);
                 Require(quantity, "Invoice quantity, from the SILA invoice lines", missing);
@@ -990,7 +1050,14 @@ namespace Buyer.Application.Features.Shared
             body["AccountingDocumentType"] = documentType;
             body["SupplierInvoiceIDByInvcgParty"] = number;
             body["TaxIsCalculatedAutomatically"] = automatic;
-            body["to_SuplrInvcItemPurOrdRef"] = new JsonObject { ["results"] = results };
+            if (nonPo)
+            {
+                body["to_SupplierInvoiceItemGLAcct"] = new JsonObject { ["results"] = results };
+            }
+            else
+            {
+                body["to_SuplrInvcItemPurOrdRef"] = new JsonObject { ["results"] = results };
+            }
 
             if (!automatic)
             {
@@ -1009,6 +1076,14 @@ namespace Buyer.Application.Features.Shared
             }
 
             return (body.ToJsonString(), missing);
+        }
+
+        private static void Put(JsonObject target, string name, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                target[name] = value;
+            }
         }
 
         private static string? SapDate(string? value)

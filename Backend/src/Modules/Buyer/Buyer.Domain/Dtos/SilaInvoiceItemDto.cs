@@ -21,5 +21,16 @@ namespace Buyer.Domain.Dtos
         public decimal? TaxRate { get; set; }
         /// <summary>MATCHED (set or confirmed by a user) | SUGGESTED (proposed by the automatic match) | UNMATCHED. Read only.</summary>
         public string? MatchStatus { get; set; }
+        public string? TaxCode { get; set; }
+        public string? GlAccount { get; set; }
+        public string? CostCenter { get; set; }
+        public string? ProfitCenter { get; set; }
+        public string? InternalOrder { get; set; }
+        public string? WbsElement { get; set; }
+        public string? BusinessArea { get; set; }
+        public string? AssignmentReference { get; set; }
+        public string? DebitCreditCode { get; set; }
+        public string? LineText { get; set; }
+        public Guid? GoodsReceiptItemId { get; set; }
     }
 }

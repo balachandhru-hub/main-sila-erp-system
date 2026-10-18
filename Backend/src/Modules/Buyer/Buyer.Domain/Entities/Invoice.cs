@@ -73,5 +73,14 @@ namespace Buyer.Domain.Entities
 
         /// <summary>The business values prepared for FIVE S4-INVOICE POSTING. The request body is built from this, not from a fresh purchase-order read.</summary>
         public string? PostingData { get; set; }
+
+        /// <summary>PO or NON_PO. How the invoice was created. Independent of MATERIAL | SERVICE | MIXED.</summary>
+        public string? CreationType { get; set; }
+
+        /// <summary>ERP company code selected on Create Invoice, or taken from the purchase order.</summary>
+        public string? CompanyCode { get; set; }
+
+        /// <summary>Optional property that resolves to CompanyCode through the buyer property master.</summary>
+        public Guid? PropertyId { get; set; }
     }
 }

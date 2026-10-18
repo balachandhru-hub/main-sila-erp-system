@@ -418,7 +418,18 @@ namespace Buyer.Application.Features.Shared
                     Uom = item.Uom,
                     SupplierMaterialCode = item.SupplierMaterialCode,
                     TaxRate = item.TaxRate,
-                    MatchStatus = item.MatchStatus ?? (item.PurchaseOrderItemId == null ? MATCH_UNMATCHED : MATCH_MATCHED)
+                    MatchStatus = item.MatchStatus ?? (item.PurchaseOrderItemId == null ? MATCH_UNMATCHED : MATCH_MATCHED),
+                    TaxCode = item.TaxCode,
+                    GlAccount = item.GlAccount,
+                    CostCenter = item.CostCenter,
+                    ProfitCenter = item.ProfitCenter,
+                    InternalOrder = item.InternalOrder,
+                    WbsElement = item.WbsElement,
+                    BusinessArea = item.BusinessArea,
+                    AssignmentReference = item.AssignmentReference,
+                    DebitCreditCode = item.DebitCreditCode,
+                    LineText = item.LineText,
+                    GoodsReceiptItemId = item.GoodsReceiptItemId
                 }).ToList(),
                 GoodsReceipts = await ToGrnListAsync(repository, receipts, cancellationToken),
                 SilaSupplierId = invoice.SilaSupplierId,
@@ -431,6 +442,11 @@ namespace Buyer.Application.Features.Shared
                 Attachment = attachmentScreen,
                 NeedsReview = invoice.Status == SilaOcrSettings.INVOICE_REVIEW_REQUIRED,
                 InvoiceType = invoice.InvoiceType,
+                CreationType = string.IsNullOrWhiteSpace(invoice.CreationType)
+                    ? (invoice.PurchaseOrderId == null && !string.IsNullOrWhiteSpace(invoice.CompanyCode) ? Common.SILA_INVOICE_CREATION_NON_PO : Common.SILA_INVOICE_CREATION_PO)
+                    : invoice.CreationType,
+                CompanyCode = invoice.CompanyCode ?? posting?.CompanyCode,
+                PropertyId = invoice.PropertyId,
                 NetAmount = invoice.NetAmount,
                 TaxAmount = invoice.TaxAmount,
                 SupplierTaxNumber = invoice.SupplierTaxNumber,

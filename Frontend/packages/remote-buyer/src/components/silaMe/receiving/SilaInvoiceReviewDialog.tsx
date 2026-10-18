@@ -458,6 +458,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
           <>
             <div className="srcv-actions">
               <span className={receivingBadgeClass(invoice.status)}>{receivingLabel(invoice.status)}</span>
+              {invoice.creationType && <span className="sila-badge sila-badge--info">{receivingLabel(invoice.creationType)}</span>}
+              {invoice.companyCode && <span className="srcv-sub">Company {invoice.companyCode}</span>}
               <span className="srcv-sub">OCR confidence {formatConfidence(invoice.ocrConfidence)}</span>
               <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={handleFile}>
                 {busy === "file" ? "Opening..." : "View file"}
@@ -661,7 +663,11 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
             {tab === "matching" && (
               <div id="srcv-panel-matching" role="tabpanel" aria-labelledby="srcv-tab-matching" className="srcv-stack">
                 <SilaInvoiceSupplierMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
-                <SilaInvoicePoMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
+                {invoice.creationType === "NON_PO" ? (
+                  <p className="srcv-sub">Non-PO invoice — purchase order matching is not used. Expense lines and account assignments are on the Review tab and S/4 posting data.</p>
+                ) : (
+                  <SilaInvoicePoMatch invoice={invoice} disabled={fieldsLocked || busy !== null} onUpdated={handleMatched} />
+                )}
               </div>
             )}
             {tab === "posting" && (

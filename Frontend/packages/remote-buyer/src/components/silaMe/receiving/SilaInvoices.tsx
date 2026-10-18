@@ -3,6 +3,7 @@ import { PageHeader, toastService } from "@vosox/shared-ui";
 import { copyInvoice, extractInvoice, getInvoice, getInvoices, uploadInvoice, type SilaPage } from "../../../api/silaMe/silaReceivingApi";
 import { formatDate } from "../../cart/lineFormat";
 import PagedListBody from "./PagedListBody";
+import SilaCreateInvoiceDialog from "./SilaCreateInvoiceDialog";
 import SilaInvoiceReviewDialog from "./SilaInvoiceReviewDialog";
 import SilaReceiveGoodsDialog, { type ReceivePrefill } from "./SilaReceiveGoodsDialog";
 import { formatAmount, formatConfidence, receivingBadgeClass, receivingLabel } from "./receivingFormat";
@@ -27,6 +28,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
   const [status, setStatus] = useState("");
   const term = useDebounced(search);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [receive, setReceive] = useState<ReceivePrefill | null>(null);
   const [uploading, setUploading] = useState(false);
   const [copying, setCopying] = useState<string | null>(null);
@@ -35,6 +37,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
   const list = usePagedList(load, "Could not load the invoices.");
   const closeReview = useCallback(() => setOpenId(null), []);
   const closeReceive = useCallback(() => setReceive(null), []);
+  const closeCreate = useCallback(() => setCreating(false), []);
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -102,7 +105,10 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
         actions={canPost ? (
           <>
             <input ref={fileInput} type="file" accept={ACCEPT} hidden aria-label="Invoice file" onChange={handleFile} />
-            <button type="button" className="sila-btn sila-btn--primary" disabled={uploading} onClick={() => fileInput.current?.click()}>
+            <button type="button" className="sila-btn sila-btn--primary" onClick={() => setCreating(true)}>
+              Create Invoice
+            </button>
+            <button type="button" className="sila-btn sila-btn--secondary" disabled={uploading} onClick={() => fileInput.current?.click()}>
               {uploading ? "Uploading..." : "Upload invoice"}
             </button>
           </>
@@ -154,7 +160,8 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
                       )}
                     </td>
                     <td>
-                      {row.invoiceType ? receivingLabel(row.invoiceType) : "—"}
+                      {row.creationType ? receivingLabel(row.creationType) : (row.invoiceType ? receivingLabel(row.invoiceType) : "—")}
+                      {row.companyCode && <span className="srcv-sub">{row.companyCode}</span>}
                       {row.goodsReceiptApplicable === false && <span className="srcv-sub">No goods receipt</span>}
                     </td>
                     <td>
@@ -190,6 +197,16 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
           </div>
         </PagedListBody>
       </section>
+      {creating && (
+        <SilaCreateInvoiceDialog
+          onClose={closeCreate}
+          onCreated={(invoiceId) => {
+            setCreating(false);
+            list.reload();
+            setOpenId(invoiceId);
+          }}
+        />
+      )}
       {openId && (
         <SilaInvoiceReviewDialog invoiceId={openId} canPost={canPost} onClose={closeReview} onChanged={list.reload} onReceive={handleReceive} onCopied={setOpenId} />
       )}

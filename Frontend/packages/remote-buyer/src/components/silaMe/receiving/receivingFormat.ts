@@ -52,6 +52,10 @@ const LABELS: Record<string, string> = {
   SERVICE: "Service",
   MIXED: "Mixed",
   BLOCKED: "Blocked",
+  PO: "PO Invoice",
+  NON_PO: "Non-PO Invoice",
+  PO_INVOICE: "PO Invoice",
+  NON_PO_INVOICE: "Non-PO Invoice",
 };
 
 // Tones of the prototype: good, bad and warn; everything else is blue (info).

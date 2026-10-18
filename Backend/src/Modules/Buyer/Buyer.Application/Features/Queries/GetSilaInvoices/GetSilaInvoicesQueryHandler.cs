@@ -67,6 +67,8 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoices
                     OcrConfidence = x.OcrConfidence,
                     UploadedOn = x.DateCreated,
                     InvoiceType = x.InvoiceType,
+                    CreationType = x.CreationType,
+                    CompanyCode = x.CompanyCode,
                     NetAmount = x.NetAmount,
                     TaxAmount = x.TaxAmount,
                     SupplierTaxNumber = x.SupplierTaxNumber,

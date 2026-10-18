@@ -328,6 +328,7 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     || (type == "NEGATIVE_STOCK_ADJUSTMENT" && x.ReferenceType == Common.SILA_REF_ADJUSTMENT && x.MovementType == "Z02")
                     || (type == "POSITIVE_STOCK_ADJUSTMENT" && x.ReferenceType == Common.SILA_REF_ADJUSTMENT && x.MovementType == "Z01")
                     || (type == "INVOICE_POSTING" && (x.ReferenceType == Common.SILA_REF_INVOICE || x.MovementType == Common.SILA_MOVEMENT_INVOICE))
+                    || ((type == "PO_INVOICE" || type == "NON_PO_INVOICE" || type == "PO" || type == "NON_PO") && x.ReferenceType == Common.SILA_REF_INVOICE)
                     || (type == Common.SILA_MOVEMENT_INVOICE_ATTACHMENT && (x.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT || x.MovementType == Common.SILA_MOVEMENT_INVOICE_ATTACHMENT)));
             }
 
@@ -361,6 +362,15 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                 .Distinct()
                 .ToList();
             Dictionary<Guid, (string? Property, string? Plant, string? Storage, string? Company)> places = await PlacesAsync(placeIds, cancellationToken);
+            List<Guid> invoiceIds = postings
+                .Where(x => x.ReferenceType == Common.SILA_REF_INVOICE || x.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT)
+                .Select(x => x.ReferenceId)
+                .Distinct()
+                .ToList();
+            Dictionary<Guid, Invoice> invoices = invoiceIds.Count == 0
+                ? new Dictionary<Guid, Invoice>()
+                : await _repository.Invoice.FindByCondition(x => x.BuyerId == buyerId && invoiceIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            string? creationFilter = request.TransactionType?.Trim();
             foreach (InventoryErpPosting posting in postings)
             {
                 string movement = posting.MovementType;
@@ -393,22 +403,38 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                     continue;
                 }
 
+                string transactionType = SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, movement);
+                invoices.TryGetValue(posting.ReferenceId, out Invoice? invoice);
+                if (posting.ReferenceType == Common.SILA_REF_INVOICE && invoice != null)
+                {
+                    transactionType = SilaInvoiceCreation.IsNonPo(invoice.CreationType) ? "NON_PO_INVOICE" : "PO_INVOICE";
+                    if ((creationFilter is "PO_INVOICE" or "PO") && SilaInvoiceCreation.IsNonPo(invoice.CreationType))
+                    {
+                        continue;
+                    }
+
+                    if ((creationFilter is "NON_PO_INVOICE" or "NON_PO") && !SilaInvoiceCreation.IsNonPo(invoice.CreationType))
+                    {
+                        continue;
+                    }
+                }
+
                 places.TryGetValue(posting.LocationId ?? Guid.Empty, out (string? Property, string? Plant, string? Storage, string? Company) place);
                 Add(rows, summary, new SilaTrackerRowDto
                 {
                     Id = SilaTrackerRules.Key(SilaTrackerRules.SOURCE_ERP, posting.Id),
                     Source = SilaTrackerRules.SOURCE_ERP,
                     OccurredOn = posting.DateCreated,
-                    TransactionType = SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, movement),
+                    TransactionType = transactionType,
                     DataClass = SilaTrackerRules.DATA_TRANSACTION,
                     Direction = SilaTrackerRules.DIRECTION_OUTBOUND,
-                    CompanyCode = posting.CompanyCode ?? place.Company,
+                    CompanyCode = posting.CompanyCode ?? invoice?.CompanyCode ?? place.Company,
                     PropertyName = place.Property,
                     Plant = place.Plant,
                     StorageLocation = place.Storage,
                     SourceSystem = "SILA",
                     TargetSystem = posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT ? "S4" : integration ?? "SAP",
-                    BusinessReference = posting.ReferenceNumber,
+                    BusinessReference = invoice?.InvoiceNumber ?? posting.ReferenceNumber,
                     UserId = posting.CreatedBy == Guid.Empty ? null : posting.CreatedBy,
                     ReceiveStatus = stages.Receive,
                     ErpStatus = stages.Erp,

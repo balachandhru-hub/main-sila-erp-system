@@ -25,6 +25,8 @@ namespace Buyer.Application.Features.Shared
         public const string SOURCE_CONFIGURATION = "CONFIGURATION";
         public const string SOURCE_CURRENT_DATE = "CURRENT_DATE";
         public const string SOURCE_DERIVED = "DERIVED";
+        public const string SOURCE_MASTER = "MASTER";
+        public const string SOURCE_LOCATION = "LOCATION";
 
         /// <summary>
         /// A_SupplierInvoice on API_SUPPLIERINVOICE_PROCESS_SRV. PO invoices send item TaxCode and
@@ -47,6 +49,8 @@ namespace Buyer.Application.Features.Shared
             public string PreparationStatus { get; set; } = INVALID;
             public DateTime PreparedAt { get; set; }
             public Guid PreparedBy { get; set; }
+            /// <summary>PO or NON_PO. Selects the Supplier Invoice item navigation.</summary>
+            public string InvoiceMode { get; set; } = Common.SILA_INVOICE_CREATION_PO;
             public string? PurchaseOrder { get; set; }
             public string? SourceApi { get; set; }
             public string? Fingerprint { get; set; }
@@ -396,7 +400,8 @@ namespace Buyer.Application.Features.Shared
         {
             SilaInvoicePosting.Document document = new SilaInvoicePosting.Document
             {
-                CompanyCode = Value(prepared.Header, "CompanyCode")
+                CompanyCode = Value(prepared.Header, "CompanyCode"),
+                Mode = string.IsNullOrWhiteSpace(prepared.InvoiceMode) ? Common.SILA_INVOICE_CREATION_PO : prepared.InvoiceMode
             };
             Add(document.Header, "CompanyCode", Value(prepared.Header, "CompanyCode"));
             Add(document.Header, "DocumentDate", Value(prepared.Header, "DocumentDate"));
@@ -411,21 +416,201 @@ namespace Buyer.Application.Features.Shared
             Add(document.Header, "AccountingDocumentType", Value(prepared.Header, "AccountingDocumentType"));
             Add(document.Header, "TaxIsCalculatedAutomatically", Value(prepared.Header, "TaxIsCalculatedAutomatically"));
             Add(document.Header, "TaxAmount", Value(prepared.Header, "TaxAmount"));
+            bool nonPo = SilaInvoiceCreation.IsNonPo(prepared.InvoiceMode);
             foreach (Line line in prepared.Lines)
             {
                 List<(string Name, object? Value)> row = new List<(string Name, object? Value)>();
                 Add(row, "SupplierInvoiceItem", Value(line.Fields, "SupplierInvoiceItem"));
-                Add(row, "PurchaseOrder", Value(line.Fields, "PurchaseOrder"));
-                Add(row, "PurchaseOrderItem", Value(line.Fields, "PurchaseOrderItem"));
                 Add(row, "DocumentCurrency", Value(line.Fields, "DocumentCurrency"));
-                Add(row, "Quantity", Value(line.Fields, "QuantityInPurchaseOrderUnit"));
                 Add(row, "Amount", Value(line.Fields, "SupplierInvoiceItemAmount"));
-                Add(row, "Uom", Value(line.Fields, "PurchaseOrderQuantityUnit"));
                 Add(row, "TaxCode", Value(line.Fields, "TaxCode"));
+                if (nonPo)
+                {
+                    Add(row, "CompanyCode", Value(line.Fields, "CompanyCode") ?? Value(prepared.Header, "CompanyCode"));
+                    Add(row, "GLAccount", Value(line.Fields, "GLAccount"));
+                    Add(row, "CostCenter", Value(line.Fields, "CostCenter"));
+                    Add(row, "ProfitCenter", Value(line.Fields, "ProfitCenter"));
+                    Add(row, "InternalOrder", Value(line.Fields, "InternalOrder"));
+                    Add(row, "WBSElement", Value(line.Fields, "WBSElement"));
+                    Add(row, "BusinessArea", Value(line.Fields, "BusinessArea"));
+                    Add(row, "AssignmentReference", Value(line.Fields, "AssignmentReference"));
+                    Add(row, "DebitCreditCode", Value(line.Fields, "DebitCreditCode"));
+                    Add(row, "SupplierInvoiceItemText", Value(line.Fields, "SupplierInvoiceItemText"));
+                }
+                else
+                {
+                    Add(row, "PurchaseOrder", Value(line.Fields, "PurchaseOrder"));
+                    Add(row, "PurchaseOrderItem", Value(line.Fields, "PurchaseOrderItem"));
+                    Add(row, "Quantity", Value(line.Fields, "QuantityInPurchaseOrderUnit"));
+                    Add(row, "Uom", Value(line.Fields, "PurchaseOrderQuantityUnit"));
+                }
+
                 document.Items.Add(row);
             }
 
             return document;
+        }
+
+        /// <summary>Persists Non-PO GL posting values from the invoice lines. Does not call FIVE S4 - GET PO.</summary>
+        public static void StoreNonPo(
+            Invoice invoice,
+            IReadOnlyList<InvoiceItem> items,
+            Guid userId,
+            string? supplierCode,
+            DateTime? postingDate = null,
+            DateTime? taxDeterminationDate = null)
+        {
+            string? documentDate = invoice.InvoiceDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00";
+            string? posted = (postingDate ?? invoice.InvoiceDate)?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00";
+            string? taxDate = (taxDeterminationDate ?? invoice.InvoiceDate)?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00";
+            Prepared prepared = new Prepared
+            {
+                Version = SilaInvoiceLifecycle.VERSION,
+                PreparationStatus = READY,
+                PreparedAt = DateTime.UtcNow,
+                PreparedBy = userId,
+                InvoiceMode = Common.SILA_INVOICE_CREATION_NON_PO,
+                SourceApi = SilaInvoiceLifecycle.API_INVOICE,
+                Fingerprint = Fingerprint(invoice, items)
+            };
+            prepared.Header.Add(FieldOf("CompanyCode", "Company code", invoice.CompanyCode, SOURCE_INVOICE, "CompanyCode", true));
+            prepared.Header.Add(FieldOf("DocumentDate", "Document date", documentDate, SOURCE_INVOICE, "InvoiceDate", true));
+            prepared.Header.Add(FieldOf("PostingDate", "Posting date", posted, SOURCE_INVOICE, "PostingDate", true));
+            prepared.Header.Add(FieldOf("TaxDeterminationDate", "Tax determination date", taxDate, SOURCE_INVOICE, "TaxDeterminationDate", true));
+            prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", documentDate, SOURCE_INVOICE, "InvoiceDate", true));
+            prepared.Header.Add(FieldOf("InvoicingParty", "Invoicing party", supplierCode, SOURCE_MASTER, "SupplierCode", true));
+            prepared.Header.Add(FieldOf("DocumentCurrency", "Currency", invoice.Currency, SOURCE_INVOICE, "Currency", true));
+            prepared.Header.Add(FieldOf("InvoiceGrossAmount", "Gross amount", Money(invoice.GrossAmount), SOURCE_INVOICE, "GrossAmount", true));
+            prepared.Header.Add(FieldOf("AccountingDocumentType", "Accounting document type", DOCUMENT_TYPE, SOURCE_CONFIGURATION, "AccountingDocumentType", true));
+            prepared.Header.Add(FieldOf("TaxIsCalculatedAutomatically", "Automatic tax calculation", TAX_AUTOMATIC, SOURCE_CONFIGURATION, "TaxIsCalculatedAutomatically", true));
+            prepared.Header.Add(FieldOf("SupplierInvoiceIDByInvcgParty", "Supplier invoice reference", invoice.InvoiceNumber?.Trim(), SOURCE_INVOICE, "InvoiceNumber", true));
+            prepared.Header.Add(FieldOf("NetAmount", "Net amount", Money(invoice.NetAmount), SOURCE_INVOICE, "NetAmount", false));
+            prepared.Header.Add(FieldOf("TaxAmount", "Tax amount", Money(invoice.TaxAmount), SOURCE_INVOICE, "TaxAmount", false));
+            int sequence = 0;
+            foreach (InvoiceItem item in items.OrderBy(x => x.LineNumber))
+            {
+                sequence++;
+                Line line = new Line
+                {
+                    InvoiceLine = item.LineNumber,
+                    InvoiceItemId = item.Id
+                };
+                line.Fields.Add(FieldOf("SupplierInvoiceItem", "Item", sequence.ToString("00000", CultureInfo.InvariantCulture), SOURCE_DERIVED, "LineNumber", true));
+                line.Fields.Add(FieldOf("CompanyCode", "Company code", invoice.CompanyCode, SOURCE_INVOICE, "CompanyCode", true));
+                line.Fields.Add(FieldOf("GLAccount", "GL account", item.GlAccount, SOURCE_LINE, "GlAccount", true));
+                line.Fields.Add(FieldOf("DocumentCurrency", "Currency", invoice.Currency, SOURCE_INVOICE, "Currency", true));
+                line.Fields.Add(FieldOf("SupplierInvoiceItemAmount", "Amount", Money(item.Amount), SOURCE_LINE, "Amount", true));
+                line.Fields.Add(FieldOf("TaxCode", "Tax code", item.TaxCode, SOURCE_LINE, "TaxCode", true));
+                line.Fields.Add(FieldOf("DebitCreditCode", "Debit/credit", item.DebitCreditCode ?? "S", SOURCE_LINE, "DebitCreditCode", true));
+                line.Fields.Add(FieldOf("CostCenter", "Cost center", item.CostCenter, SOURCE_LINE, "CostCenter", false));
+                line.Fields.Add(FieldOf("ProfitCenter", "Profit center", item.ProfitCenter, SOURCE_LINE, "ProfitCenter", false));
+                line.Fields.Add(FieldOf("InternalOrder", "Internal order", item.InternalOrder, SOURCE_LINE, "InternalOrder", false));
+                line.Fields.Add(FieldOf("WBSElement", "WBS element", item.WbsElement, SOURCE_LINE, "WbsElement", false));
+                line.Fields.Add(FieldOf("BusinessArea", "Business area", item.BusinessArea, SOURCE_LINE, "BusinessArea", false));
+                line.Fields.Add(FieldOf("AssignmentReference", "Assignment", item.AssignmentReference, SOURCE_LINE, "AssignmentReference", false));
+                line.Fields.Add(FieldOf("SupplierInvoiceItemText", "Item text", item.LineText ?? item.Description, SOURCE_LINE, "LineText", false));
+                prepared.Lines.Add(line);
+            }
+
+            EnsureFiveHeader(prepared, invoice.InvoiceDate);
+            prepared.PreparationStatus = Missing(prepared).Count == 0 ? READY : INVALID;
+            invoice.PostingData = Write(prepared);
+        }
+
+        /// <summary>Stores PO invoice posting values from local PO/GRN masters when Create Invoice has already selected them.</summary>
+        public static async Task StoreFromLocalAsync(
+            IRepositoryWrapper repository,
+            Invoice invoice,
+            IReadOnlyList<InvoiceItem> items,
+            Guid userId,
+            string? supplierCode,
+            CancellationToken cancellationToken,
+            DateTime? postingDate = null,
+            DateTime? taxDeterminationDate = null)
+        {
+            PurchaseOrder? order = invoice.PurchaseOrderId == null
+                ? null
+                : await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId && x.BuyerId == invoice.BuyerId);
+            List<Guid> poItemIds = items.Where(x => x.PurchaseOrderItemId != null).Select(x => x.PurchaseOrderItemId!.Value).Distinct().ToList();
+            List<PurchaseOrderItem> poItems = poItemIds.Count == 0
+                ? new List<PurchaseOrderItem>()
+                : await repository.PurchaseOrderItem.FindByCondition(x => poItemIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            List<GoodsReceipt> receipts = await repository.GoodsReceipt
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.BuyerId == invoice.BuyerId && x.IsActive)
+                .ToListAsync(cancellationToken);
+            List<Guid> postingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            string? documentDate = invoice.InvoiceDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00";
+            string? posted = (postingDate ?? invoice.InvoiceDate)?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00";
+            string? taxDate = (taxDeterminationDate ?? invoice.InvoiceDate)?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T00:00:00";
+            string company = invoice.CompanyCode ?? order?.CompanyCode;
+            string currency = invoice.Currency ?? order?.Currency;
+            Prepared prepared = new Prepared
+            {
+                Version = SilaInvoiceLifecycle.VERSION,
+                PreparationStatus = READY,
+                PreparedAt = DateTime.UtcNow,
+                PreparedBy = userId,
+                InvoiceMode = Common.SILA_INVOICE_CREATION_PO,
+                PurchaseOrder = invoice.PoNumber ?? order?.PoNumber,
+                SourceApi = "LOCAL_PO_GRN",
+                Fingerprint = Fingerprint(invoice, items)
+            };
+            prepared.Header.Add(FieldOf("CompanyCode", "Company code", company, SOURCE_PO, "CompanyCode", true));
+            prepared.Header.Add(FieldOf("DocumentDate", "Document date", documentDate, SOURCE_INVOICE, "InvoiceDate", true));
+            prepared.Header.Add(FieldOf("PostingDate", "Posting date", posted, SOURCE_INVOICE, "PostingDate", true));
+            prepared.Header.Add(FieldOf("TaxDeterminationDate", "Tax determination date", taxDate, SOURCE_INVOICE, "TaxDeterminationDate", true));
+            prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", documentDate, SOURCE_INVOICE, "InvoiceDate", true));
+            prepared.Header.Add(FieldOf("InvoicingParty", "Invoicing party", supplierCode, SOURCE_PO, "Supplier", true));
+            prepared.Header.Add(FieldOf("DocumentCurrency", "Currency", currency, SOURCE_INVOICE, "Currency", true));
+            prepared.Header.Add(FieldOf("InvoiceGrossAmount", "Gross amount", Money(invoice.GrossAmount), SOURCE_INVOICE, "GrossAmount", true));
+            prepared.Header.Add(FieldOf("AccountingDocumentType", "Accounting document type", DOCUMENT_TYPE, SOURCE_CONFIGURATION, "AccountingDocumentType", true));
+            prepared.Header.Add(FieldOf("TaxIsCalculatedAutomatically", "Automatic tax calculation", TAX_AUTOMATIC, SOURCE_CONFIGURATION, "TaxIsCalculatedAutomatically", true));
+            prepared.Header.Add(FieldOf("SupplierInvoiceIDByInvcgParty", "Supplier invoice reference", invoice.InvoiceNumber?.Trim(), SOURCE_INVOICE, "InvoiceNumber", true));
+            prepared.Header.Add(FieldOf("PurchaseOrder", "Purchase order", invoice.PoNumber ?? order?.PoNumber, SOURCE_PO, "PurchaseOrder", false));
+            int sequence = 0;
+            foreach (InvoiceItem item in items.OrderBy(x => x.LineNumber))
+            {
+                sequence++;
+                PurchaseOrderItem? poItem = item.PurchaseOrderItemId == null ? null : poItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId);
+                GoodsReceipt? receipt = receipts.FirstOrDefault(x => item.GoodsReceiptItemId != null);
+                if (item.GoodsReceiptItemId != null)
+                {
+                    GoodsReceiptItem? grnLine = await repository.GoodsReceiptItem.FindFirstByConditionAsync(x => x.Id == item.GoodsReceiptItemId);
+                    receipt = grnLine == null ? null : receipts.FirstOrDefault(x => x.Id == grnLine.GoodsReceiptId) ?? await repository.GoodsReceipt.FindFirstByConditionAsync(x => x.Id == grnLine.GoodsReceiptId);
+                }
+
+                string? materialDocument = receipt?.ErpPostingId != null && postings.TryGetValue(receipt.ErpPostingId.Value, out InventoryErpPosting? posting)
+                    ? posting.ErpReference
+                    : null;
+                string? tax = item.TaxCode ?? poItem?.TaxCode;
+                string? uom = item.Uom ?? poItem?.UnitOfMeasure;
+                string? poItemNumber = poItem == null ? null : poItem.LineNumber.ToString("00000", CultureInfo.InvariantCulture);
+                Line line = new Line
+                {
+                    InvoiceLine = item.LineNumber,
+                    InvoiceItemId = item.Id,
+                    GrnNumber = receipt?.GrnNumber,
+                    MaterialDocument = materialDocument
+                };
+                line.Fields.Add(FieldOf("SupplierInvoiceItem", "Item", sequence.ToString("00000", CultureInfo.InvariantCulture), SOURCE_DERIVED, "LineNumber", true));
+                line.Fields.Add(FieldOf("PurchaseOrder", "PO", invoice.PoNumber ?? order?.PoNumber, SOURCE_PO, "PurchaseOrder", true));
+                line.Fields.Add(FieldOf("PurchaseOrderItem", "PO item", poItemNumber, SOURCE_PO_ITEM, "PurchaseOrderItem", true));
+                line.Fields.Add(FieldOf("DocumentCurrency", "Currency", currency, SOURCE_INVOICE, "Currency", true));
+                line.Fields.Add(FieldOf("SupplierInvoiceItemAmount", "Amount", Money(item.Amount), SOURCE_LINE, "Amount", true));
+                line.Fields.Add(FieldOf("QuantityInPurchaseOrderUnit", "Quantity", Quantity(item.Quantity), SOURCE_LINE, "Quantity", true));
+                line.Fields.Add(FieldOf("PurchaseOrderQuantityUnit", "PO UOM", uom, SOURCE_PO_ITEM, "PurchaseOrderQuantityUnit", true));
+                line.Fields.Add(FieldOf("TaxCode", "Tax code", tax, SOURCE_PO_ITEM, "TaxCode", true));
+                line.Fields.Add(FieldOf("GrnNumber", "Goods receipt", materialDocument ?? receipt?.GrnNumber, SOURCE_GRN, "ErpReference", false));
+                line.Fields.Add(FieldOf("MaterialDocument", "SAP material document", materialDocument, SOURCE_GRN, "ErpReference", false));
+                prepared.Lines.Add(line);
+            }
+
+            EnsureFiveHeader(prepared, invoice.InvoiceDate);
+            prepared.PreparationStatus = Missing(prepared).Count == 0 ? READY : INVALID;
+            invoice.PostingData = Write(prepared);
         }
 
         public static SilaInvoicePostingDataDto? ForScreen(Invoice invoice, IReadOnlyList<InvoiceItem> items)
@@ -445,14 +630,14 @@ namespace Buyer.Application.Features.Shared
                 Version = prepared.Version,
                 PurchaseOrder = prepared.PurchaseOrder,
                 SourceApi = prepared.SourceApi,
+                InvoiceMode = prepared.InvoiceMode,
                 Stale = stale,
                 Header = prepared.Header.Select(ToField).ToList(),
                 Lines = prepared.Lines.Select(line => new SilaInvoicePostingLineDto
                 {
                     InvoiceLine = line.InvoiceLine,
                     GrnNumber = line.GrnNumber,
-                    MaterialDocument = line.MaterialDocument,
-                    Fields = line.Fields.Select(ToField).ToList()
+                    MaterialDocument = line.MaterialDocument,                    Fields = line.Fields.Select(ToField).ToList()
                 }).ToList()
             };
         }

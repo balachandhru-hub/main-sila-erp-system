@@ -85,8 +85,21 @@ const SilaInvoicePostingPanel: React.FC<{
   const supplierName = order?.supplierName || invoice.supplierName || "";
   const supplierText = supplierCode ? (supplierName ? `${supplierCode} · ${supplierName}` : supplierCode) : (supplierName || "—");
   const taxCodes = [...new Set((order?.lines ?? []).map((line) => line.taxCode?.trim()).filter((code): code is string => Boolean(code)))];
+  const nonPo = invoice.creationType === "NON_PO" || posting?.invoiceMode === "NON_PO";
   return (
     <div className="srcv-stack">
+      {nonPo ? (
+        <>
+          <h3 className="sila-section-title">Non-PO invoice</h3>
+          <dl className="srcv-facts">
+            <Fact label="Invoice type" value="Non-PO Invoice" />
+            <Fact label="Company code" value={invoice.companyCode || storedValue(posting?.header, "CompanyCode") || "—"} />
+            <Fact label="Supplier" value={supplierText} />
+            <Fact label="Currency" value={invoice.currency || storedValue(posting?.header, "DocumentCurrency") || "—"} />
+          </dl>
+        </>
+      ) : (
+      <>
       <h3 className="sila-section-title">Purchase order extracted</h3>
       {!invoice.purchaseOrderId ? (
         <p className="srcv-sub">Match a purchase order to see the company, supplier, currency and lines that posting uses.</p>
@@ -133,11 +146,18 @@ const SilaInvoicePostingPanel: React.FC<{
           </div>
         </>
       )}
+      </>
+      )}
 
       <h3 className="sila-section-title">S/4 POSTING DATA</h3>
       {posting ? (
         <>
-          <p className="srcv-sub">These values are stored on the invoice. Opening this screen does not read the purchase order from S/4.</p>
+          <p className="srcv-sub">
+            {nonPo
+              ? "These Non-PO GL values are stored on the invoice and map to to_SupplierInvoiceItemGLAcct."
+              : "These values are stored on the invoice. Opening this screen does not read the purchase order from S/4."}
+          </p>
+          <p className="srcv-sub">Mode: {receivingLabel(posting.invoiceMode || invoice.creationType || "PO")}</p>
           <p className="srcv-sub">Preparation: {receivingLabel(posting.preparationStatus || "")}</p>
           <p className="srcv-sub">Prepared: {prepared}</p>
           <p className="srcv-sub">Version: {posting.version}</p>
@@ -158,24 +178,48 @@ const SilaInvoicePostingPanel: React.FC<{
               <thead>
                 <tr>
                   <th scope="col">Item</th>
-                  <th scope="col">PO</th>
-                  <th scope="col">PO Item</th>
-                  <th scope="col">Amount</th>
-                  <th scope="col">Quantity</th>
-                  <th scope="col">PO UOM</th>
-                  <th scope="col">Tax Code</th>
+                  {nonPo ? (
+                    <>
+                      <th scope="col">GL Account</th>
+                      <th scope="col">Amount</th>
+                      <th scope="col">Tax Code</th>
+                      <th scope="col">Cost Center</th>
+                      <th scope="col">Profit Center</th>
+                    </>
+                  ) : (
+                    <>
+                      <th scope="col">PO</th>
+                      <th scope="col">PO Item</th>
+                      <th scope="col">Amount</th>
+                      <th scope="col">Quantity</th>
+                      <th scope="col">PO UOM</th>
+                      <th scope="col">Tax Code</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {posting.lines.map((line) => (
                   <tr key={line.invoiceLine}>
                     <td>{storedValue(line.fields, "SupplierInvoiceItem") || "—"}</td>
-                    <td>{storedValue(line.fields, "PurchaseOrder") || "—"}</td>
-                    <td>{storedValue(line.fields, "PurchaseOrderItem") || "—"}</td>
-                    <td>{storedValue(line.fields, "SupplierInvoiceItemAmount") || "—"}</td>
-                    <td>{storedValue(line.fields, "QuantityInPurchaseOrderUnit") || "—"}</td>
-                    <td>{storedValue(line.fields, "PurchaseOrderQuantityUnit") || "—"}</td>
-                    <td>{storedValue(line.fields, "TaxCode") || "Missing"}</td>
+                    {nonPo ? (
+                      <>
+                        <td>{storedValue(line.fields, "GLAccount") || "—"}</td>
+                        <td>{storedValue(line.fields, "SupplierInvoiceItemAmount") || "—"}</td>
+                        <td>{storedValue(line.fields, "TaxCode") || "Missing"}</td>
+                        <td>{storedValue(line.fields, "CostCenter") || "—"}</td>
+                        <td>{storedValue(line.fields, "ProfitCenter") || "—"}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{storedValue(line.fields, "PurchaseOrder") || "—"}</td>
+                        <td>{storedValue(line.fields, "PurchaseOrderItem") || "—"}</td>
+                        <td>{storedValue(line.fields, "SupplierInvoiceItemAmount") || "—"}</td>
+                        <td>{storedValue(line.fields, "QuantityInPurchaseOrderUnit") || "—"}</td>
+                        <td>{storedValue(line.fields, "PurchaseOrderQuantityUnit") || "—"}</td>
+                        <td>{storedValue(line.fields, "TaxCode") || "Missing"}</td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>

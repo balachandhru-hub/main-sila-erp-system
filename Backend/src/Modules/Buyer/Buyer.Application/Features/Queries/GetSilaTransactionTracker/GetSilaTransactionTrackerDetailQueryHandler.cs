@@ -90,8 +90,15 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
                         .OrderBy(x => x.DateCreated)
                         .Select(x => x.GrnNumber)
                         .ToListAsync(cancellationToken);
+                    string creationType = SilaInvoiceCreation.IsNonPo(invoice.CreationType)
+                        ? Common.SILA_INVOICE_CREATION_NON_PO
+                        : Common.SILA_INVOICE_CREATION_PO;
+                    detail.TransactionType = creationType == Common.SILA_INVOICE_CREATION_NON_PO ? "NON_PO_INVOICE" : "PO_INVOICE";
+                    detail.CompanyCode ??= invoice.CompanyCode;
                     detail.BusinessReference = invoice.InvoiceNumber ?? posting.ReferenceNumber;
-                    detail.LocalReference = "Supplier " + (invoice.SupplierName ?? "—")
+                    detail.LocalReference = "Type " + creationType
+                        + "; Supplier " + (invoice.SupplierName ?? "—")
+                        + "; Company " + (invoice.CompanyCode ?? "—")
                         + "; PO " + (invoice.PoNumber ?? "—")
                         + "; GRN " + (grnNumbers.Count == 0 ? "—" : string.Join(", ", grnNumbers));
                 }
