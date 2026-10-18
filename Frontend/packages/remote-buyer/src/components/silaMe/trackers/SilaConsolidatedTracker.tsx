@@ -78,14 +78,6 @@ const downloadPayload = (detail: SilaTrackerDetail) => {
   URL.revokeObjectURL(url);
 };
 
-const showsSubmittedPayload = (detail: SilaTrackerDetail): boolean =>
-  Boolean(detail.technicalDetail?.trim())
-  || detail.transactionType === "INVOICE"
-  || detail.transactionType === "INVOICE_POSTING"
-  || detail.movementType === "INVOICE"
-  || detail.transactionType === "SUPPLIER_INVOICE_ATTACHMENT"
-  || detail.movementType === "SUPPLIER_INVOICE_ATTACHMENT";
-
 const badgeClass = (status?: string | null): string => {
   switch (status) {
     case "SUCCESS":
@@ -145,7 +137,6 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
   const [detailError, setDetailError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<SilaTrackerRow[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const [technical, setTechnical] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -197,7 +188,6 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
 
   const open = async (row: SilaTrackerRow) => {
     setDetailError(null);
-    setTechnical(false);
     try {
       const loaded = await getTrackerDetail(tracker, row.id);
       setDetail(loaded ?? { ...row, attempts: [] });
@@ -332,7 +322,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
                   <tr>
                     <th scope="col"><span className="sila-visually-hidden">Select</span></th>
                     <th scope="col">Date / time</th>
-                    <th scope="col">Transaction</th>
+                    <th scope="col">Transaction ID</th>
                     <th scope="col">Data</th>
                     <th scope="col">Direction</th>
                     <th scope="col">Company / plant</th>
@@ -360,8 +350,8 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
                       </td>
                       <td>{formatDateTime(row.occurredOn)}</td>
                       <td>
-                        <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => open(row)}>{labelOf(row.transactionType)}</button>
-                        <span className="srcv-sub">{row.id}</span>
+                        <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => open(row)}>{row.id}</button>
+                        <span className="srcv-sub">{labelOf(row.transactionType)}</span>
                       </td>
                       <td>{labelOf(row.dataClass)}</td>
                       <td>{labelOf(row.direction)}</td>
@@ -409,80 +399,55 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
           <div className="strk-actions">
             <button type="button" className="sila-btn sila-btn--secondary" onClick={() => setDetail(null)}>Back to list</button>
             <h2 className="sila-section-title">{labelOf(detail.transactionType)}</h2>
+            {canReprocess && detail.action === "REPROCESS" && (
+              <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy} onClick={() => setConfirming([detail])}>
+                Reprocess
+              </button>
+            )}
           </div>
           {detailError && <p className="srcv-error">{detailError}</p>}
           <dl className="srcv-facts">
             <Fact label="Transaction ID" value={detail.id} />
             <Fact label="Type" value={labelOf(detail.transactionType)} />
-            <Fact label="Data" value={labelOf(detail.dataClass)} />
-            <Fact label="Direction" value={labelOf(detail.direction)} />
             <Fact label="Created" value={formatDateTime(detail.occurredOn)} />
-            <Fact label="Business date" value={detail.businessDate ? formatDateTime(detail.businessDate) : "—"} />
+            <Fact label="Reference" value={detail.businessReference} />
             <Fact label="Company code" value={detail.companyCode} />
-            <Fact label="Property" value={detail.propertyName} />
-            <Fact label="Plant" value={detail.plant} />
-            <Fact label="Storage location" value={detail.storageLocation} />
-            <Fact label="User" value={detail.userId} />
-            <Fact label="Business reference" value={detail.businessReference} />
-            {(detail.transactionType === "INVOICE_POSTING" || (detail.localReference ?? "").includes("PO ")) && (
-              <Fact label="Supplier, PO, GRN" value={detail.localReference} />
-            )}
+            <Fact label="Direction" value={labelOf(detail.direction)} />
             <Fact label="Source" value={detail.sourceSystem} />
             <Fact label="Target" value={detail.targetSystem} />
             <Fact label="API" value={detail.integrationName} />
-            <Fact label="Receive" value={labelOf(detail.receiveStatus)} />
+            <Fact label="Status" value={labelOf(detail.overallStatus)} />
             <Fact label="ERP" value={labelOf(detail.erpStatus)} />
-            <Fact label="Local" value={labelOf(detail.localStatus)} />
-            <Fact label="Overall" value={labelOf(detail.overallStatus)} />
-            <Fact label="HTTP status" value={detail.erpHttpStatus?.toString()} />
-            <Fact label="ERP reference" value={detail.erpReference} />
-            <Fact label="POS item" value={detail.posCode} />
-            <Fact label="Outlet" value={detail.outletCode} />
-            <Fact label="Quantity" value={detail.quantity != null ? `${detail.quantity} ${detail.uom || ""}`.trim() : null} />
-            <Fact label="Recipe version" value={detail.recipeVersion?.toString()} />
-            <Fact label="Retries" value={String(detail.retryCount)} />
+            {detail.erpReference ? <Fact label="ERP reference" value={detail.erpReference} /> : null}
+            {detail.erpHttpStatus != null ? <Fact label="HTTP status" value={String(detail.erpHttpStatus)} /> : null}
+            {detail.retryCount > 0 ? <Fact label="Retries" value={String(detail.retryCount)} /> : null}
+            {(detail.localReference ?? "").includes("PO ") ? <Fact label="Supplier, PO, GRN" value={detail.localReference} /> : null}
           </dl>
           {detail.overallStatus === "FAILED_LOCAL" && (
             <p>SAP already created {detail.erpReference || "the material document"}. Reprocessing resumes from local finalization and will not call SAP again.</p>
           )}
           {detail.lastError && <p className="srcv-error">{detail.lastError}</p>}
           {detail.localError && detail.localError !== detail.lastError && <p className="srcv-error">{detail.localError}</p>}
-          {showsSubmittedPayload(detail) && (
-            <div>
-              <div className="strk-actions">
-                <h3 className="sila-section-title">Submitted payload</h3>
-                {detail.technicalDetail?.trim() && (
-                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadPayload(detail)}>
-                    Download payload
-                  </button>
-                )}
-              </div>
-              {detail.technicalDetail?.trim() ? (
-                <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
-              ) : (
-                <p>No submitted payload was stored for this transaction.</p>
+          <div>
+            <div className="strk-actions">
+              <h3 className="sila-section-title">Submitted payload</h3>
+              {detail.technicalDetail?.trim() && (
+                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadPayload(detail)}>
+                  Download payload
+                </button>
               )}
             </div>
-          )}
-          <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setTechnical((current) => !current)}>
-            {technical ? "Hide ERP message" : "Show ERP message"}
-          </button>
-          {technical && (
-            <div className="strk-tech">
-              <p>{detail.erpMessage || "No ERP message stored."}</p>
+            {detail.technicalDetail?.trim() ? (
+              <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
+            ) : (
+              <p>No submitted payload was stored for this transaction.</p>
+            )}
+          </div>
+          {detail.erpMessage?.trim() && (
+            <div>
+              <h3 className="sila-section-title">ERP message</h3>
+              <pre className="strk-tech">{detail.erpMessage}</pre>
             </div>
-          )}
-          <h3 className="sila-section-title">Retry history</h3>
-          {(detail.attempts ?? []).length === 0 ? <p>No retry has been recorded.</p> : (
-            <ul>
-              {detail.attempts.map((attempt) => (
-                <li key={attempt.id}>
-                  {formatDateTime(attempt.at)} · {labelOf(attempt.stage)} · ERP called {attempt.erpCalled ? "yes" : "no"} · local called {attempt.localCalled ? "yes" : "no"}
-                  {attempt.previousError ? ` · previous: ${attempt.previousError}` : ""}
-                  {attempt.result ? ` · ${attempt.result}` : ""}
-                </li>
-              ))}
-            </ul>
           )}
         </section>
       )}

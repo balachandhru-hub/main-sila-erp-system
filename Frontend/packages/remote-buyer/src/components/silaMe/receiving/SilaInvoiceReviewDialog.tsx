@@ -467,6 +467,16 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Edit
                 </button>
               )}
+              {postingFailed && invoice.erpPostingId && (
+                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("refresh", async () => {
+                  show(await refreshInvoicePosting(invoiceId));
+                  onChanged();
+                  setTab("posting");
+                  toastService.success("Posting data refreshed from S/4. The invoice was not posted.");
+                })}>
+                  {busy === "refresh" ? "Refreshing..." : "Refresh from S/4"}
+                </button>
+              )}
               {showSubmit && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                   {submitLabel}
@@ -505,51 +515,13 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               <div className="sila-alert sila-alert--warning" role="status">
                 <p><strong>Purchase order read failed</strong></p>
                 <p>{invoice.erpMessage && !/POST_INVOICE/i.test(invoice.erpMessage) ? invoice.erpMessage : "The purchase order could not be read for invoice posting. The purchase order API has to return the company code, supplier, currency, purchase order item and unit of measure."}</p>
-                <div className="srcv-actions">
-                  {canEdit && !editing && (
-                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>Edit</button>
-                  )}
-                  {showResubmit && (
-                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{resubmitLabel}</button>
-                  )}
-                </div>
               </div>
             )}
             {postingFailed && (
               <div className="sila-alert sila-alert--warning" role="status">
-                <p><strong>INVOICE POSTING FAILED</strong></p>
-                <p>Reason: {invoice.erpMessage || "The ERP did not accept the invoice."}</p>
-                <p>Open the invoice, correct it, and resubmit. SAP is called again with the corrected document.</p>
-                <div className="srcv-actions">
-                  {canEdit && !editing && (
-                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>
-                      Edit
-                    </button>
-                  )}
-                  {showResubmit && (
-                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{resubmitLabel}</button>
-                  )}
-                </div>
-                {invoice.erpPostingId && (
-                  <div className="srcv-actions">
-                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("reprocess", async () => {
-                      await reprocessErpPosting(invoice.erpPostingId!);
-                      show(await getInvoice(invoiceId));
-                      onChanged();
-                      toastService.success("Invoice posting reprocessed from the stored posting data.");
-                    })}>
-                      Reprocess
-                    </button>
-                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("refresh", async () => {
-                      show(await refreshInvoicePosting(invoiceId));
-                      onChanged();
-                      setTab("posting");
-                      toastService.success("Posting data refreshed from S/4. The invoice was not posted.");
-                    })}>
-                      Refresh from S/4
-                    </button>
-                  </div>
-                )}
+                <p><strong>Invoice posting failed</strong></p>
+                <p>{invoice.erpMessage || "The ERP did not accept the invoice."}</p>
+                <p>Edit the invoice if a value is wrong, refresh the purchase order from S/4 if that data is stale, then resubmit. Resubmit sends this document to SAP again.</p>
               </div>
             )}
             {invoice.status === "LOCAL_FINALIZATION_FAILED" && (
@@ -665,7 +637,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   posting={invoice.postingData}
                   invoice={invoice}
                   order={order}
-                  canRefresh={canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
+                  canRefresh={!postingFailed && canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
                   busy={busy !== null}
                   onRefresh={() => run("refresh", async () => {
                     show(await refreshInvoicePosting(invoiceId));
