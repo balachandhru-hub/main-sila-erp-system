@@ -301,6 +301,9 @@ def finish(cur, invoice_id: uuid.UUID, posting_id: uuid.UUID, transport_error: s
             "UPDATE buyersystem.inventory_erp_posting SET error_message=%s, date_updated=GETUTCDATE() WHERE id=%s",
             (error, str(posting_id)),
         )
+    # A pending posting that already has an error is not still running. Leaving the invoice on POSTING hides Edit and Resubmit.
+    if status == "PENDING" and error and error != "Queued for S/4 supplier invoice posting.":
+        status = "FAILED"
     invoice_status = {
         "POSTED": "AWAITING_PAYMENT",
         "ERP_ACCEPTED": "AWAITING_PAYMENT",

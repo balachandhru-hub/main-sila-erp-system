@@ -29,9 +29,10 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             Invoice invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
             if (SilaInvoiceLifecycle.AlreadyPosted(invoice.Status, null)
-                || invoice.Status is Common.SILA_INVOICE_POSTING or Common.SILA_INVOICE_PENDING_APPROVAL
+                || invoice.Status is Common.SILA_INVOICE_PENDING_APPROVAL
                     or Common.SILA_INVOICE_POSTING_UNKNOWN or Common.SILA_INVOICE_LOCAL_FAILED
-                    or Common.SILA_INVOICE_GRN_IN_PROGRESS)
+                    or Common.SILA_INVOICE_GRN_IN_PROGRESS
+                || (invoice.Status == Common.SILA_INVOICE_POSTING && !await PostingFailedAsync(invoice, cancellationToken)))
             {
                 _logger.LogError($"Invoice cannot be edited. InvoiceId: {invoice.Id}, Status: {invoice.Status}");
                 throw new BadRequestCustomException("Invoice cannot be changed.", "This invoice is already posted or waiting on SAP. It cannot be edited.");
@@ -161,6 +162,19 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             SilaInvoiceDetailDto detail = await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
             _logger.LogInfo($"Invoice reviewed. InvoiceId: {invoice.Id}, Lines: {detail.Items.Count}");
             return detail;
+        }
+
+        // A Posting invoice whose ERP call already failed can be corrected and sent again.
+        private async Task<bool> PostingFailedAsync(Invoice invoice, CancellationToken cancellationToken)
+        {
+            if (invoice.ErpPostingId == null)
+            {
+                return false;
+            }
+
+            InventoryErpPosting? posting = await _repository.InventoryErpPosting.FindFirstByConditionAsync(
+                x => x.Id == invoice.ErpPostingId && x.BuyerId == invoice.BuyerId && x.IsActive);
+            return posting != null && posting.Status is Common.SILA_POSTING_FAILED or Common.SILA_POSTING_SKIPPED;
         }
 
         // Lengths, ranges and the invoice date of the reviewed invoice.

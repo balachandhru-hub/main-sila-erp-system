@@ -165,12 +165,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
   );
   const posted = erpAccepted || invoice?.status === "AWAITING_PAYMENT" || invoice?.status === "POSTED" || invoice?.status === "PAID" || invoice?.status === "PARTIALLY_PAID" || invoice?.status === "OVERDUE";
-  const sealed = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED" || invoice?.status === "GRN_IN_PROGRESS";
+  const postingFailed = !posted && (invoice?.status === "ERP_POSTING_FAILED" || invoice?.erpStatus === "FAILED");
+  const sealed = !postingFailed && (posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED" || invoice?.status === "GRN_IN_PROGRESS");
   const grnLocked = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED";
   const prefill = invoice && !grnLocked && invoice.goodsReceiptApplicable !== false ? toReceivePrefill(invoice) : null;
   const canEdit = Boolean(canPost && invoice && pastReceipt && !sealed);
   const fieldsLocked = !canPost || sealed || (pastReceipt && !editing);
-  const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
   const failedPosting = retry || postingFailed;
   const showSubmit = !failedPosting && (readyToSubmit || Boolean(invoice?.canSubmitInvoice));
   const showResubmit = Boolean(
@@ -386,30 +386,20 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   });
 
   const handleSubmit = () => {
-    if (!postingReviewed) {
+    if (!postingReviewed && !postingFailed) {
       setPostingReviewed(true);
       setTab("posting");
       toastService.success("Review the purchase order and the invoice values. Submit to S/4 when they are right.");
       return;
     }
     run("submit", async () => {
-    // A posting that already failed is sent again through the existing reprocess route.
-    // Submit would start the purchase-order read again, and this server may not have that action.
-    if (invoice?.erpPostingId && (invoice.status === "ERP_POSTING_FAILED" || (invoice.erpStatus === "FAILED" && !posted))) {
-      await reprocessErpPosting(invoice.erpPostingId);
-      show(await getInvoice(invoiceId));
+      const data = await submitInvoice(invoiceId);
+      show(data);
       setDeferred(false);
       onChanged();
-      toastService.success("Invoice posting resubmitted from the stored posting data.");
-      return;
-    }
-    const data = await submitInvoice(invoiceId);
-    show(data);
-    setDeferred(false);
-    onChanged();
-    if (data.status === "PENDING_APPROVAL") toastService.success("Invoice submitted for approval.");
-    else if (data.paymentStatus || data.status === "AWAITING_PAYMENT" || data.status === "POSTED") toastService.success("Invoice posted successfully.");
-    else toastService.success("Invoice submitted.");
+      if (data.status === "PENDING_APPROVAL") toastService.success("Invoice submitted for approval.");
+      else if (data.paymentStatus || data.status === "AWAITING_PAYMENT" || data.status === "POSTED") toastService.success("Invoice posted successfully.");
+      else toastService.success(postingFailed ? "Invoice resubmitted." : "Invoice submitted.");
     });
   };
 
@@ -529,6 +519,17 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               <div className="sila-alert sila-alert--warning" role="status">
                 <p><strong>INVOICE POSTING FAILED</strong></p>
                 <p>Reason: {invoice.erpMessage || "The ERP did not accept the invoice."}</p>
+                <p>Open the invoice, correct it, and resubmit. SAP is called again with the corrected document.</p>
+                <div className="srcv-actions">
+                  {canEdit && !editing && (
+                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>
+                      Edit
+                    </button>
+                  )}
+                  {showResubmit && (
+                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{resubmitLabel}</button>
+                  )}
+                </div>
                 {invoice.erpPostingId && (
                   <div className="srcv-actions">
                     <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("reprocess", async () => {

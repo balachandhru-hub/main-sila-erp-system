@@ -149,9 +149,9 @@ namespace Buyer.Application.Features.Commands.SubmitSilaInvoice
                     "Reprocessing will update SILA only. SAP will not be called again.");
             }
 
-            if (status == Common.SILA_INVOICE_POSTING_FAILED)
+            if (status == Common.SILA_INVOICE_POSTING_FAILED || status == Common.SILA_INVOICE_POSTING)
             {
-                return new BadRequestCustomException("Invoice posting failed.", "Reprocess the invoice posting. The goods receipt and the approval are not repeated.");
+                return new BadRequestCustomException("Invoice posting failed.", "Edit the invoice and resubmit it. SAP is called again with the corrected document.");
             }
 
             return new BadRequestCustomException("Invoice is not ready to submit.", "Submit the invoice after the goods receipt has been confirmed.");

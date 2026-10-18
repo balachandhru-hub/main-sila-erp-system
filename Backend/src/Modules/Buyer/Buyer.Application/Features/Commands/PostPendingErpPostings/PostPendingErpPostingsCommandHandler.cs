@@ -92,7 +92,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     _logger.LogError($"ERP posting failed unexpectedly. PostingId: {postingId}, Error: {SilaLogText.Short(exception.Message)}");
-                    status = await RecordUnexpectedFailureAsync(postingId);
+                    status = await RecordUnexpectedFailureAsync(postingId, exception.Message);
                 }
 
                 result.Processed++;
@@ -726,7 +726,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         }
 
         // An exception left the context in an unknown state: drop it and count the attempt on a fresh copy.
-        private async Task<string> RecordUnexpectedFailureAsync(Guid postingId)
+        private async Task<string> RecordUnexpectedFailureAsync(Guid postingId, string? reason)
         {
             try
             {
@@ -741,8 +741,23 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 }
 
                 posting.Attempts++;
-                posting.Status = posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
-                posting.ErrorMessage = "The posting could not be prepared or sent. Check the document and the ERP API.";
+                // An invoice is not retried in the dark: the same preparation error would only lock the document.
+                bool invoice = posting.ReferenceType == Common.SILA_REF_INVOICE;
+                posting.Status = invoice || posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
+                string detail = SilaLogText.Short(reason);
+                posting.ErrorMessage = string.IsNullOrWhiteSpace(detail)
+                    ? "The posting could not be prepared or sent. Check the document and the ERP API."
+                    : "The posting could not be prepared or sent. " + detail;
+                if (invoice)
+                {
+                    Invoice? invoiceRow = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive);
+                    if (invoiceRow != null && invoiceRow.Status == Common.SILA_INVOICE_POSTING)
+                    {
+                        invoiceRow.Status = Common.SILA_INVOICE_POSTING_FAILED;
+                        _repository.Invoice.Update(invoiceRow);
+                    }
+                }
+
                 await _repository.SaveAsync();
                 return posting.Status;
             }

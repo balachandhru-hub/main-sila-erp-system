@@ -128,14 +128,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
             ...leaf(can.manageMasterData, "silaQuickTransferPolicy", "Quick Transfer Policy"),
             ...leaf(can.manageMasterData, "silaOcrSettings", "Invoice OCR Settings"),
             { key: "silaApprovalFlows", label: "Approval flow" },
-            ...(!can.manageErpPosting
-              ? []
-              : [{
-                  label: "Transaction Trackers",
-                  items: [
-                    { key: "silaMeTracker" as const, label: "SILA ME Transactions" },
-                  ],
-                }]),
+            ...leaf(can.manageErpPosting, "silaMeTracker", "SILA ME Transactions"),
           ]
         : [],
     },

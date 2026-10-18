@@ -63,6 +63,21 @@ const prettyPayload = (value?: string | null): string => {
   }
 };
 
+const downloadPayload = (detail: SilaTrackerDetail) => {
+  const text = prettyPayload(detail.technicalDetail);
+  if (!text) return;
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const name = (detail.businessReference || detail.id).replace(/[^\w.-]+/g, "_");
+  link.href = url;
+  link.download = `${name}-payload.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 const showsSubmittedPayload = (detail: SilaTrackerDetail): boolean =>
   Boolean(detail.technicalDetail?.trim())
   || detail.transactionType === "INVOICE"
@@ -434,7 +449,14 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
           {detail.localError && detail.localError !== detail.lastError && <p className="srcv-error">{detail.localError}</p>}
           {showsSubmittedPayload(detail) && (
             <div>
-              <h3 className="sila-section-title">Submitted payload</h3>
+              <div className="strk-actions">
+                <h3 className="sila-section-title">Submitted payload</h3>
+                {detail.technicalDetail?.trim() && (
+                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadPayload(detail)}>
+                    Download payload
+                  </button>
+                )}
+              </div>
               {detail.technicalDetail?.trim() ? (
                 <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
               ) : (

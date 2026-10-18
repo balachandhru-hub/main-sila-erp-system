@@ -134,7 +134,8 @@ namespace Buyer.Application.Features.Shared
             }
 
             return status is Common.SILA_INVOICE_VALIDATION_FAILED or Common.SILA_INVOICE_GET_PO_FAILED
-                or Common.SILA_INVOICE_APPROVAL_REJECTED or Common.SILA_INVOICE_APPROVED or Common.SILA_INVOICE_READY_TO_POST;
+                or Common.SILA_INVOICE_APPROVAL_REJECTED or Common.SILA_INVOICE_APPROVED or Common.SILA_INVOICE_READY_TO_POST
+                or Common.SILA_INVOICE_POSTING_FAILED or Common.SILA_INVOICE_POSTING;
         }
 
         public static bool AlreadyPosted(string? status, string? erpReference)
