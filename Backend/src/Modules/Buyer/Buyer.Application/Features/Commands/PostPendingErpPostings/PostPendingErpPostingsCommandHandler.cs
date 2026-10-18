@@ -293,6 +293,11 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                         ? JsonSerializer.Serialize(ToPayload(area, document, mappings))
                         : ApplyTemplate(api.RequestBody, area, document, mappings));
 
+            // Keep the body even when the send throws before it can be recorded on the answer.
+            posting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            posting.IntegrationSystem = isInvoice ? api.Name : api.SystemName ?? api.Name;
+            await _repository.SaveAsync();
+
             IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, api.ConfigurationId.Value, posting, body, cancellationToken);
             // The last call, sanitised, for the transaction tracker. Invoice postings keep the API configuration name.
             posting.IntegrationSystem = isInvoice ? api.Name : api.SystemName ?? api.Name;
@@ -659,6 +664,16 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     StatusCode = exception.Code,
                     ErrorCode = "INTEGRATION_REFUSED",
                     ErrorMessage = "The API is not active. Activate it under Integrations."
+                };
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                _logger.LogError($"ERP posting was not sent. PostingId: {posting.Id}, ConfigurationId: {configurationId}, Error: {SilaLogText.Short(exception.Message)}");
+                return new IntegrationSendResultDto
+                {
+                    Answered = false,
+                    ErrorCode = "INTEGRATION_SEND_FAILED",
+                    ErrorMessage = "The posting could not be sent. " + SilaLogText.Short(exception.Message)
                 };
             }
         }

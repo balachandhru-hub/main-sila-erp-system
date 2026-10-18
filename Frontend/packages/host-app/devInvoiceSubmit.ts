@@ -47,7 +47,7 @@ const forward = async (
   };
 };
 
-const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string }> =>
+const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string; reference?: string; technicalDetail?: string | null }> =>
   new Promise((resolve, reject) => {
     const child = spawn("python3", [scriptPath]);
     const timer = setTimeout(() => child.kill(), 25000);
@@ -74,6 +74,15 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
   apply: "serve",
   configureServer(server) {
     server.middlewares.use((req, res, next) => {
+      const payloadMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/erp-postings\/([0-9a-fA-F-]{36})\/payload(?:\?|$)/);
+      if (payloadMatch && req.method === "GET") {
+        void handlePayload(target, settingsPath, payloadMatch[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not open the transaction.", "Could not open the transaction."));
+          }
+        });
+        return;
+      }
       const match = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/submit(?:\?|$)/);
       if (!match || req.method !== "POST") {
         next();
@@ -128,4 +137,65 @@ const handle = async (
   await run(settingsPath, { action: "finish", invoiceId, postingId: prepared.postingId, transportError });
   const fresh = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
   send(res, fresh.status, fresh.contentType, fresh.body);
+};
+
+const handlePayload = async (
+  target: string,
+  settingsPath: string,
+  postingId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const route = `/api/v1/buyer/sila/erp-postings/${postingId}/payload`;
+  const upstream = await forward(target, req, "GET", route, null);
+  if (upstream.status !== 404 || upstream.body.trim()) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+
+  const allowed = await forward(target, req, "GET", "/api/v1/buyer/sila/erp-postings?limit=1", null);
+  if (allowed.status !== 200) {
+    send(res, allowed.status, allowed.contentType, allowed.body);
+    return;
+  }
+
+  const looked = await run(settingsPath, { action: "payload", postingId });
+  const reference = (looked.reference || "").trim();
+  if (!looked.ok || !reference) {
+    const status = looked.status || 404;
+    send(res, status, "application/json; charset=utf-8", described(
+      status,
+      looked.message || "Transaction not found.",
+      looked.description || "Select a transaction from this tracker.",
+    ));
+    return;
+  }
+
+  const listed = await forward(
+    target,
+    req,
+    "GET",
+    `/api/v1/buyer/sila/erp-postings?search=${encodeURIComponent(reference)}&limit=50`,
+    null,
+  );
+  if (listed.status !== 200) {
+    send(res, listed.status, listed.contentType, listed.body);
+    return;
+  }
+
+  let rows: Array<{ id?: string }> = [];
+  try {
+    const parsed = JSON.parse(listed.body) as unknown;
+    if (Array.isArray(parsed)) rows = parsed as Array<{ id?: string }>;
+  } catch {
+    send(res, 502, "application/json; charset=utf-8", described(502, "Could not open the transaction.", "Could not open the transaction."));
+    return;
+  }
+  const visible = rows.some((row) => (row.id || "").toLowerCase() === postingId.toLowerCase());
+  if (!visible) {
+    send(res, 404, "application/json; charset=utf-8", described(404, "Transaction not found.", "Select a transaction from this tracker."));
+    return;
+  }
+
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify({ technicalDetail: looked.technicalDetail || "" }));
 };

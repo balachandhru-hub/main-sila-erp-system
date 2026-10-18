@@ -1,5 +1,6 @@
 using Buyer.Application.Features.Commands.ReconcileSilaErpPosting;
 using Buyer.Application.Features.Commands.ReprocessSilaErpPosting;
+using Buyer.Application.Features.Queries.GetSilaErpPostingPayload;
 using Buyer.Application.Features.Queries.GetSilaErpPostings;
 using Buyer.Domain.Dtos;
 using MediatR;
@@ -44,6 +45,22 @@ namespace Buyer.API.Controllers
                 Limit = limit
             });
             _logger.LogDebug($"ERP postings fetched. Count: {result.Count}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/erp-postings/{postingId}/payload")]
+        [ApiAuthorization(Name = "MANAGE_SILA_ERP_POSTING")]
+        [SwaggerOperation("GetSilaErpPostingPayload")]
+        [SwaggerResponse(200, type: typeof(SilaErpPostingPayloadDto))]
+        public async Task<IActionResult> Payload([FromRoute] Guid postingId)
+        {
+            _logger.LogDebug($"Reading ERP posting payload. PostingId: {postingId}");
+            SilaErpPostingPayloadDto result = await _mediator.Send(new GetSilaErpPostingPayloadQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                PostingId = postingId
+            });
             return Ok(result);
         }
 

@@ -482,6 +482,17 @@ export const getErpPostings = async (status: string, search: string, page: SilaP
     params: { status: status || undefined, search: search.trim() || undefined, ...page },
   }), "Could not load the ERP postings."));
 
+/** The JSON stored on the posting. Empty when the send never kept a body. */
+export const getErpPostingPayload = async (postingId: string): Promise<string | null> => {
+  try {
+    const response = await axiosInstance.get<{ technicalDetail?: string | null }>(`${BASE}/erp-postings/${postingId}/payload`);
+    const text = response.data?.technicalDetail;
+    return text?.trim() ? text : null;
+  } catch {
+    return null;
+  }
+};
+
 /** FAILED or SKIPPED → send to S4 again immediately (stock was already updated on the GRN). */
 export const reprocessErpPosting = async (postingId: string): Promise<void> => {
   await call(() => axiosInstance.post(`${BASE}/erp-postings/${postingId}/reprocess`), "Could not reprocess the posting.");

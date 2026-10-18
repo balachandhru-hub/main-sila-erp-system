@@ -333,14 +333,38 @@ def finish(cur, invoice_id: uuid.UUID, posting_id: uuid.UUID, transport_error: s
         )
 
 
+def posting_payload(cur, posting_id: uuid.UUID) -> dict:
+    row = fetchone(
+        cur,
+        """
+        SELECT reference_number, erp_request_payload
+        FROM buyersystem.inventory_erp_posting
+        WHERE id=%s AND is_active=1
+        """,
+        (str(posting_id),),
+    )
+    if row is None:
+        raise SubmitError(404, "Transaction not found.", "Select a transaction from this tracker.")
+    body = row[1]
+    if isinstance(body, bytes):
+        body = body.decode("utf-8", "replace")
+    stored = text(body)
+    if len(stored) > 4000:
+        stored = stored[:4000]
+    return {"ok": True, "reference": text(row[0]), "technicalDetail": stored}
+
+
 def main() -> None:
     payload = json.loads(sys.stdin.read() or "{}")
     action = payload.get("action")
     settings = Path(payload.get("settings") or "")
-    invoice_id = uuid.UUID(str(payload.get("invoiceId")))
     connection = connect(settings)
     try:
         cursor = connection.cursor()
+        if action == "payload":
+            print(json.dumps(posting_payload(cursor, uuid.UUID(str(payload.get("postingId"))))))
+            return
+        invoice_id = uuid.UUID(str(payload.get("invoiceId")))
         if action == "prepare":
             posting_id = prepare(cursor, invoice_id)
             connection.commit()

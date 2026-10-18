@@ -9,7 +9,7 @@ import {
   type SilaTrackerRow,
   type SilaTrackerSummary,
 } from "../../../api/silaMe/silaTrackerApi";
-import { reconcileErpPosting } from "../../../api/silaMe/silaReceivingApi";
+import { getErpPostingPayload, reconcileErpPosting } from "../../../api/silaMe/silaReceivingApi";
 import { formatDateTime } from "../../cart/lineFormat";
 import "../silaMeTheme.css";
 import "../receiving/SilaReceiving.css";
@@ -188,12 +188,17 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
 
   const open = async (row: SilaTrackerRow) => {
     setDetailError(null);
+    const withPayload = async (detail: SilaTrackerDetail): Promise<SilaTrackerDetail> => {
+      if (detail.technicalDetail?.trim() || !row.erpPostingId) return detail;
+      const payload = await getErpPostingPayload(row.erpPostingId);
+      return payload ? { ...detail, technicalDetail: payload } : detail;
+    };
     try {
       const loaded = await getTrackerDetail(tracker, row.id);
-      setDetail(loaded ?? { ...row, attempts: [] });
+      setDetail(await withPayload(loaded ?? { ...row, attempts: [] }));
     } catch (err: unknown) {
       setDetailError(err instanceof Error ? err.message : "Could not open the transaction.");
-      setDetail({ ...row, attempts: [] });
+      setDetail(await withPayload({ ...row, attempts: [] }));
     }
   };
 
