@@ -3,6 +3,7 @@ import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import { getGoodsReceipt, reprocessErpPosting, type SilaGoodsReceiptDetail } from "../../../api/silaMe/silaReceivingApi";
 import { formatDateTime } from "../../cart/lineFormat";
 import { formatQtyUom, receivingBadgeClass, receivingLabel } from "./receivingFormat";
+import SilaDocumentTrackPanel from "./SilaDocumentTrack";
 
 interface SilaGoodsReceiptDialogProps {
   goodsReceiptId: string;
@@ -110,6 +111,7 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
               <div><dt>Delivery note</dt><dd>{receipt.deliveryNote || "—"}</dd></div>
               <div><dt>Status</dt><dd><span className={receivingBadgeClass(receipt.status)}>{receivingLabel(receipt.status)}</span></dd></div>
             </dl>
+            <SilaDocumentTrackPanel track={receipt.documentTrack} />
             <h3 className="sila-section-title">Received lines</h3>
             <p className="srcv-sub">Receipt quantities are never inferred from invoice quantities. Inventory lines update stock and post to S4.</p>
             {receipt.items.length === 0 ? (

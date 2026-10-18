@@ -230,6 +230,10 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, Invoice> held = heldInvoiceIds.Count == 0
                 ? new Dictionary<Guid, Invoice>()
                 : await repository.Invoice.FindByCondition(x => heldInvoiceIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> heldPostingIds = held.Values.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).Distinct().ToList();
+            Dictionary<Guid, InventoryErpPosting> heldInvoicePostings = heldPostingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => heldPostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
 
             List<SilaEligibleGoodsReceiptDto> result = new List<SilaEligibleGoodsReceiptDto>();
             foreach (GoodsReceipt receipt in receipts)
@@ -239,12 +243,17 @@ namespace Buyer.Application.Features.Shared
                     continue;
                 }
 
-                if (receipt.InvoiceId != null
-                    && held.TryGetValue(receipt.InvoiceId.Value, out Invoice? invoice)
-                    && BlockingInvoiceStatuses.Contains(invoice.Status)
-                    && !string.Equals(invoice.Status, Common.SILA_INVOICE_POSTING_FAILED, StringComparison.OrdinalIgnoreCase))
+                // GRN locked to an in-flight / posted invoice is not open for another invoice.
+                if (receipt.InvoiceId != null && held.TryGetValue(receipt.InvoiceId.Value, out Invoice? lockedInvoice))
                 {
-                    // Still show if remaining qty exists on lines; a partial invoice may leave room.
+                    string? lockedErp = lockedInvoice.ErpPostingId != null
+                        && heldInvoicePostings.TryGetValue(lockedInvoice.ErpPostingId.Value, out InventoryErpPosting? lockedPosting)
+                        ? lockedPosting.Status
+                        : null;
+                    if (SilaGoodsReceiptSelection.Holds(lockedInvoice.Status, lockedErp))
+                    {
+                        continue;
+                    }
                 }
 
                 List<GoodsReceiptItem> receiptLines = lines.Where(x => x.GoodsReceiptId == receipt.Id).ToList();

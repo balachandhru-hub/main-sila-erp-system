@@ -24,5 +24,7 @@ namespace Buyer.Domain.Dtos
         /// <summary>ERP or system the purchase order came from.</summary>
         public string? SourceSystem { get; set; }
         public List<SilaReceivingPoLineDto> Lines { get; set; } = new();
+        /// <summary>PO → GRN → Invoice → Attachment → Payment → SOA.</summary>
+        public SilaDocumentTrackDto? DocumentTrack { get; set; }
     }
 }

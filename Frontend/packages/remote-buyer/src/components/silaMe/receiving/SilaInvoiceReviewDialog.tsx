@@ -32,6 +32,7 @@ import SilaInvoiceSupplierMatch from "./SilaInvoiceSupplierMatch";
 import { INVOICE_TYPES, toInvoiceForm, toInvoiceWrite, toReceivePrefill, validateInvoiceForm, type InvoiceForm } from "./invoiceForm";
 import { billableQuantity, invoiceHoldsGoodsReceipt, selectGoodsReceipts } from "./goodsReceiptMatch";
 import { formatAmount, formatConfidence, receivingBadgeClass, receivingLabel } from "./receivingFormat";
+import SilaDocumentTrackPanel from "./SilaDocumentTrack";
 import type { ReceivePrefill } from "./SilaReceiveGoodsDialog";
 
 interface SilaInvoiceReviewDialogProps {
@@ -348,8 +349,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
       statusOf.forEach((value, id) => { known[id] = value; });
       setHeldStatus(known);
       const choice = selectGoodsReceipts(demand, candidates.map((row, index) => {
-        const held = row.invoiceId && row.invoiceId !== invoiceId ? statusOf.get(row.invoiceId) : undefined;
-        const available = !row.invoiceId || row.invoiceId === invoiceId || !invoiceHoldsGoodsReceipt(held?.status ?? row.invoiceStatus, held?.erp ?? row.invoiceErpStatus);
+        const other = Boolean(row.invoiceId && row.invoiceId !== invoiceId);
+        const held = other
+          ? (statusOf.get(row.invoiceId!) ?? { status: row.invoiceStatus, erp: row.invoiceErpStatus })
+          : undefined;
+        // Fail closed: unknown hold on another invoice = not available for auto-match.
+        const available = !other || (Boolean(held) && !invoiceHoldsGoodsReceipt(held?.status, held?.erp));
         return {
           id: row.id,
           grnNumber: row.grnNumber,
@@ -752,11 +757,13 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                       <ul className="srcv-grn-list">
                         {candidates.map((receipt) => {
                           const otherInvoice = Boolean(receipt.invoiceId && receipt.invoiceId !== invoice.id);
-                          const known = receipt.invoiceStatus
+                          const known = receipt.invoiceStatus || receipt.invoiceErpStatus
                             ? { status: receipt.invoiceStatus, erp: receipt.invoiceErpStatus }
                             : receipt.invoiceId ? heldStatus[receipt.invoiceId] : undefined;
-                          const held = otherInvoice && Boolean(known) && invoiceHoldsGoodsReceipt(known?.status, known?.erp);
-                          const reusable = otherInvoice && Boolean(known?.status) && !held;
+                          // Fail closed: a GRN on another invoice stays locked until hold status is known and proven free.
+                          const pendingHold = otherInvoice && !known;
+                          const held = otherInvoice && (pendingHold || invoiceHoldsGoodsReceipt(known?.status, known?.erp));
+                          const reusable = otherInvoice && Boolean(known) && !held;
                           return (
                             <li key={receipt.id}>
                               <label>
@@ -770,9 +777,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                                   {receipt.erpReference?.trim() || receipt.grnNumber} · {receivingLabel(receipt.status)}
                                   {receipt.poNumber ? ` · ${receipt.poNumber}` : ""}
                                   {receipt.erpReference ? ` · ${receipt.grnNumber}` : ""}
-                                  {held ? ` · already posted on invoice ${receipt.invoiceNumber || "another invoice"}` : ""}
-                                  {reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"}, not posted — available` : ""}
-                                  {otherInvoice && !held && !reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"} — available if that invoice was not posted` : ""}
+                                  {held ? ` · locked on invoice ${receipt.invoiceNumber || "another invoice"}${known?.status ? ` (${receivingLabel(known.status)})` : ""}` : ""}
+                                  {reusable ? ` · on invoice ${receipt.invoiceNumber || "another invoice"}, released — available` : ""}
                                   {!receipt.invoiceId ? " · no invoice" : ""}
                                 </span>
                               </label>
@@ -828,6 +834,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                     </button>
                   )}
                 </div>
+                <SilaDocumentTrackPanel track={invoice.documentTrack} />
                 {(invoice.timeline ?? []).length > 0 && (
                   <div>
                     <h3 className="sila-section-title">Lifecycle</h3>

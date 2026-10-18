@@ -26,5 +26,7 @@ namespace Buyer.Domain.Dtos
         public string? InvoiceStatus { get; set; }
         public SilaErpPostingListItemDto? ErpPosting { get; set; }
         public List<SilaReceivingGrnItemDto> Items { get; set; } = new();
+        /// <summary>PO → GRN → Invoice track for this goods receipt.</summary>
+        public SilaDocumentTrackDto? DocumentTrack { get; set; }
     }
 }

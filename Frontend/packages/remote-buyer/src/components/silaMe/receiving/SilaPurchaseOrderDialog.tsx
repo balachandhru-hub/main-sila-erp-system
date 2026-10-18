@@ -3,6 +3,7 @@ import { EmptyState, Loader, Modal } from "@vosox/shared-ui";
 import { getPurchaseOrder, type SilaPurchaseOrderDetail } from "../../../api/silaMe/silaReceivingApi";
 import { formatDate } from "../../cart/lineFormat";
 import { formatAmount, formatQtyUom, receivingBadgeClass, receivingLabel } from "./receivingFormat";
+import SilaDocumentTrackPanel from "./SilaDocumentTrack";
 
 interface SilaPurchaseOrderDialogProps {
   purchaseOrderId: string;
@@ -61,6 +62,7 @@ const SilaPurchaseOrderDialog: React.FC<SilaPurchaseOrderDialogProps> = ({ purch
               <div><dt>Source</dt><dd>{order.sourceSystem || "—"}</dd></div>
               <div><dt>Status</dt><dd><span className={receivingBadgeClass(order.status)}>{receivingLabel(order.status)}</span></dd></div>
             </dl>
+            <SilaDocumentTrackPanel track={order.documentTrack} />
             <div className="sila-table-wrap">
               <table className="sila-table">
                 <thead>

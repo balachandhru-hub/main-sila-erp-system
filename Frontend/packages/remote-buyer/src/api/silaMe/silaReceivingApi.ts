@@ -48,11 +48,47 @@ export interface SilaPurchaseOrderLine {
   shelfLifeDays?: number | null;
 }
 
+export interface SilaDocumentTrackNode {
+  kind: string;
+  id?: string | null;
+  label: string;
+  number?: string | null;
+  status?: string | null;
+  erpReference?: string | null;
+  current: boolean;
+}
+
+export interface SilaDocumentTrackEvent {
+  action: string;
+  comment?: string | null;
+  occurredOn: string;
+  referenceType?: string | null;
+  referenceId?: string | null;
+}
+
+export interface SilaDocumentTrackAttachment {
+  documentType: string;
+  fileName: string;
+  status?: string | null;
+  invoiceId?: string | null;
+  goodsReceiptId?: string | null;
+  url?: string | null;
+}
+
+export interface SilaDocumentTrack {
+  rootKind: string;
+  rootId: string;
+  nodes: SilaDocumentTrackNode[];
+  history: SilaDocumentTrackEvent[];
+  attachments: SilaDocumentTrackAttachment[];
+}
+
 export interface SilaPurchaseOrderDetail extends Omit<SilaOpenPurchaseOrder, "lineCount" | "openLineCount"> {
   companyCode?: string | null;
   /** ERP or system the PO came from. */
   sourceSystem?: string | null;
   lines: SilaPurchaseOrderLine[];
+  documentTrack?: SilaDocumentTrack | null;
 }
 
 export interface SilaGrnLineWrite {
@@ -149,6 +185,7 @@ export interface SilaGoodsReceiptDetail extends Omit<SilaGoodsReceipt, "lineCoun
   reversalStatus?: string | null;
   erpPosting?: SilaErpPosting | null;
   items: SilaGoodsReceiptItem[];
+  documentTrack?: SilaDocumentTrack | null;
 }
 
 export interface SilaGrnReversalLine {
@@ -303,6 +340,7 @@ export interface SilaInvoiceDetail extends SilaInvoice {
   outstandingAmount?: number | null;
   documents?: SilaInvoiceDocument[];
   timeline?: SilaInvoiceStep[];
+  documentTrack?: SilaDocumentTrack | null;
   /** Stored business values for FIVE S4-INVOICE POSTING. Null until the purchase order is read. */
   postingData?: SilaInvoicePostingData | null;
 }

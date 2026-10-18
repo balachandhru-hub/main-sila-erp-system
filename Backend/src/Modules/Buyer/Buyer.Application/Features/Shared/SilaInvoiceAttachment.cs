@@ -22,6 +22,10 @@ namespace Buyer.Application.Features.Shared
         public const int MAX_ATTEMPTS = 3;
         public const string PUBLIC_BASE = "Sila:PublicDocumentBaseUrl";
 
+        /// <summary>
+        /// CreateUrlAsAttachment is an OData function import: parameters go on the URL, not in a JSON body.
+        /// Sending LinkedSAPObjectKey in the body yields SAP error "Invalid Function Import Parameter".
+        /// </summary>
         public const string DefaultRequest =
             """
             {
@@ -43,6 +47,43 @@ namespace Buyer.Application.Features.Shared
             }
 
             return number + year;
+        }
+
+        /// <summary>
+        /// Builds API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment?... with quoted OData string parameters.
+        /// </summary>
+        public static string FunctionImportPath(string? configuredPath, string linkedKey, string url, string fileName)
+        {
+            string path = string.IsNullOrWhiteSpace(configuredPath)
+                ? SilaInvoiceLifecycle.ATTACHMENT_PATH.TrimStart('/')
+                : configuredPath.Trim().TrimEnd('?', '&');
+            int queryAt = path.IndexOf('?', StringComparison.Ordinal);
+            if (queryAt >= 0)
+            {
+                path = path[..queryAt];
+            }
+
+            if (!path.Contains("CreateUrlAsAttachment", StringComparison.OrdinalIgnoreCase))
+            {
+                int srv = path.IndexOf("API_CV_ATTACHMENT_SRV", StringComparison.OrdinalIgnoreCase);
+                path = srv >= 0
+                    ? path[..srv] + "API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment"
+                    : SilaInvoiceLifecycle.ATTACHMENT_PATH.TrimStart('/');
+            }
+
+            return path
+                + "?BusinessObjectTypeName='" + ODataString(SilaInvoiceLifecycle.BUSINESS_OBJECT) + "'"
+                + "&LinkedSAPObjectKey='" + ODataString(linkedKey) + "'"
+                + "&SemanticObject=''"
+                + "&FileName='" + ODataString(fileName) + "'"
+                + "&Url='" + ODataString(url) + "'"
+                + "&UrlDescription='" + ODataString("Invoice") + "'"
+                + "&MIMEType='" + ODataString("text/url") + "'";
+        }
+
+        private static string ODataString(string value)
+        {
+            return (value ?? string.Empty).Replace("'", "''", StringComparison.Ordinal);
         }
 
         /// <summary>An address SAP can open. Localhost, file paths and blob addresses are refused.</summary>
@@ -329,9 +370,10 @@ namespace Buyer.Application.Features.Shared
                 return;
             }
 
-            string body = RequestBody(configuration.RequestBody, linkedKey, url!, fileName);
+            // Function import: params on the URL; empty body (JSON body causes Invalid Function Import Parameter).
+            string functionPath = FunctionImportPath(configuration.ResourcePath, linkedKey, url!, fileName);
             attachment.IntegrationSystem = configuration.Name;
-            attachment.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            attachment.ErpRequestPayload = SilaErpPayload.Sanitise(functionPath);
             attachment.CompanyCode = invoicePosting.CompanyCode;
             attachment.Status = Common.SILA_POSTING_PENDING;
             repository.InventoryErpPosting.Update(attachment);
@@ -344,7 +386,8 @@ namespace Buyer.Application.Features.Shared
                 {
                     OrganizationId = buyer.OrganizationId,
                     ConfigurationId = configuration.Id,
-                    Body = body,
+                    Body = string.Empty,
+                    ResourcePathOverride = functionPath,
                     Headers = new Dictionary<string, string>
                     {
                         [Common.IDEMPOTENCY_HEADER] = attachment.Id.ToString(),

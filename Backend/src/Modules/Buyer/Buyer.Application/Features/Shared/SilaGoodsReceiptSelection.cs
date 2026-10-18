@@ -32,7 +32,10 @@ namespace Buyer.Application.Features.Shared
             public string Reason { get; init; } = string.Empty;
         }
 
-        /// <summary>The invoice already posted, or may have posted, so its goods receipt stays with it.</summary>
+        /// <summary>
+        /// The invoice already posted, is posting, or is still in review — its goods receipt stays with it.
+        /// Failed / cancelled invoices do not hold the GRN.
+        /// </summary>
         public static bool Holds(string? status, string? erpStatus)
         {
             if (erpStatus is Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED)
@@ -40,7 +43,23 @@ namespace Buyer.Application.Features.Shared
                 return true;
             }
 
-            return status is Common.SILA_INVOICE_POSTING
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return false;
+            }
+
+            string normalized = status.Trim().ToUpperInvariant();
+            if (normalized is Common.SILA_INVOICE_POSTING_FAILED
+                or "CANCELLED"
+                or "CANCELED"
+                or "REJECTED"
+                or "VOID"
+                or "REVERSED")
+            {
+                return false;
+            }
+
+            return normalized is Common.SILA_INVOICE_POSTING
                 or Common.SILA_INVOICE_POSTED
                 or Common.SILA_INVOICE_PENDING_APPROVAL
                 or Common.SILA_INVOICE_POSTING_UNKNOWN
@@ -48,7 +67,16 @@ namespace Buyer.Application.Features.Shared
                 or Common.SILA_INVOICE_AWAITING_PAYMENT
                 or Common.SILA_INVOICE_PARTIALLY_PAID
                 or Common.SILA_INVOICE_PAID
-                or Common.SILA_INVOICE_OVERDUE;
+                or Common.SILA_INVOICE_OVERDUE
+                or Common.SILA_INVOICE_READY
+                or Common.SILA_INVOICE_READY_TO_POST
+                or Common.SILA_INVOICE_GRN_POSTED
+                or Common.SILA_INVOICE_GRN_IN_PROGRESS
+                or Common.SILA_INVOICE_REVIEWED
+                or Common.SILA_INVOICE_EXTRACTED
+                or Common.SILA_INVOICE_UPLOADED
+                or "APPROVED"
+                or "READY_FOR_INVOICE_SUBMISSION";
         }
 
         /// <summary>The smallest available set that equals the invoice. Empty when nothing matches exactly.</summary>

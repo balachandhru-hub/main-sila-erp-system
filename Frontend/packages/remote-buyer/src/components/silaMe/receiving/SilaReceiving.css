@@ -148,3 +148,66 @@
   gap: var(--sila-space-2);
   align-items: flex-start;
 }
+
+.srcv-track {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+  margin-top: var(--sila-space-3);
+}
+
+.srcv-track-chain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.srcv-track-node {
+  flex: 1 1 8rem;
+  min-width: 7rem;
+}
+
+.srcv-track-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: var(--sila-space-2);
+  border: 0.0625rem solid var(--sila-border);
+  border-radius: 0.5rem;
+  background: var(--sila-bg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.srcv-track-btn:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.srcv-track-node--current .srcv-track-btn {
+  border-color: var(--sila-accent, #0b6bcb);
+  box-shadow: inset 0 0 0 0.0625rem var(--sila-accent, #0b6bcb);
+}
+
+.srcv-track-kind {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sila-muted, #5b6b7c);
+}
+
+.srcv-track-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+}
+
+.srcv-track-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}

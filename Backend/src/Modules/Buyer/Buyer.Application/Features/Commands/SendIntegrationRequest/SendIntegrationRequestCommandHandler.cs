@@ -65,11 +65,13 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
 
             try
             {
+                // Empty body = no content (OData function imports such as CreateUrlAsAttachment).
+                string? requestBody = string.IsNullOrWhiteSpace(request.Body) ? null : request.Body;
                 using HttpResponseMessage response = await _executor.SendOnceAsync(
                     configuration,
                     _executor.ResourceUrl(configuration),
                     new HttpMethod(configuration.HttpMethod),
-                    request.Body,
+                    requestBody,
                     request.Headers,
                     cancellationToken);
                 string body = await response.Content.ReadAsStringAsync(cancellationToken);

@@ -12,6 +12,7 @@ import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../componen
 import { formatDateTime } from '../../format';
 import { useGo } from '../../navigation';
 import { errorText, useLoad } from '../../useLoad';
+import DocumentTrackCard from './DocumentTrackCard';
 import GrnErpCard from './GrnErpCard';
 
 const INVOICE_SUBMIT_OK = new Set([
@@ -113,6 +114,7 @@ const GrnDetailScreen: React.FC = () => {
             </Card>
 
             <GrnErpCard grn={data} onChanged={reload} />
+            <DocumentTrackCard track={data.documentTrack} />
 
             {(showReverse || canPostInvoice) && (
               <div className="sm-actions sm-grid-2">

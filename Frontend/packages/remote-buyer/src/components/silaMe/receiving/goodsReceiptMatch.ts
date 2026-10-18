@@ -1,6 +1,7 @@
 const SCALE = 10000;
 const TOLERANCE = 0.0001;
 
+/** Invoice statuses that keep a linked GRN locked (not reusable on another invoice). */
 const HOLDS = new Set([
   "POSTING",
   "POSTED",
@@ -11,11 +12,24 @@ const HOLDS = new Set([
   "PARTIALLY_PAID",
   "PAID",
   "OVERDUE",
+  "READY",
+  "READY_TO_POST",
+  "READY_FOR_INVOICE_SUBMISSION",
+  "GRN_POSTED",
+  "GRN_IN_PROGRESS",
+  "REVIEWED",
+  "APPROVED",
+  "EXTRACTED",
+  "UPLOADED",
 ]);
 
-/** The other invoice posted, or may have posted, so its goods receipt stays there. */
-export const invoiceHoldsGoodsReceipt = (status?: string | null, erpStatus?: string | null): boolean =>
-  erpStatus === "POSTED" || erpStatus === "ERP_ACCEPTED" || Boolean(status && HOLDS.has(status));
+/** The other invoice holds this GRN (posted, posting, or in review). Case-insensitive. */
+export const invoiceHoldsGoodsReceipt = (status?: string | null, erpStatus?: string | null): boolean => {
+  const erp = (erpStatus || "").trim().toUpperCase();
+  if (erp === "POSTED" || erp === "ERP_ACCEPTED") return true;
+  const normalized = (status || "").trim().toUpperCase();
+  return Boolean(normalized && HOLDS.has(normalized));
+};
 
 export interface MatchLine {
   purchaseOrderItemId?: string | null;

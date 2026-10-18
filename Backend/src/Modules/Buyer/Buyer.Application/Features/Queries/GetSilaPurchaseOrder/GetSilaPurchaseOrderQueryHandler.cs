@@ -76,6 +76,7 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                 }).ToList()
             };
 
+            result.DocumentTrack = await SilaDocumentTrack.ForPurchaseOrderAsync(_repository, buyer.Id, purchaseOrder, cancellationToken);
             _logger.LogInfo($"Purchase order for receiving fetched. PurchaseOrderId: {purchaseOrder.Id}, Lines: {result.Lines.Count}");
             return result;
         }

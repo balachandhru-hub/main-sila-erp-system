@@ -92,6 +92,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
                 }).ToList()
             };
 
+            result.DocumentTrack = await SilaDocumentTrack.ForGoodsReceiptAsync(_repository, buyer.Id, receipt, cancellationToken);
             _logger.LogInfo($"Goods receipt fetched. GoodsReceiptId: {receipt.Id}, Lines: {result.Items.Count}");
             return result;
         }

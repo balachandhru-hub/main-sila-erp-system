@@ -71,6 +71,8 @@ namespace Buyer.Domain.Dtos
         public decimal? OutstandingAmount { get; set; }
         public List<SilaInvoiceDocumentDto> Documents { get; set; } = new();
         public List<SilaInvoiceStepDto> Timeline { get; set; } = new();
+        /// <summary>PO → GRN → Invoice → Attachment → Payment → SOA.</summary>
+        public SilaDocumentTrackDto? DocumentTrack { get; set; }
 
         /// <summary>The stored S/4 posting values. Null until the purchase order has been read for this invoice.</summary>
         public SilaInvoicePostingDataDto? PostingData { get; set; }

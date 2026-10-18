@@ -473,7 +473,8 @@ namespace Buyer.Application.Features.Shared
                     receipts.Count > 0,
                     grnConfirmed,
                     posting?.Status,
-                    attachment?.Status)
+                    attachment?.Status),
+                DocumentTrack = await SilaDocumentTrack.ForInvoiceAsync(repository, invoice.BuyerId, invoice, cancellationToken)
             };
         }
 
