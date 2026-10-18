@@ -855,29 +855,14 @@ namespace Buyer.Application.Features.Shared
         }
 
         /// <summary>
-        /// Fills the configured supplier-invoice JSON from the invoice, the purchase order and the goods receipt.
-        /// A template that already has {{placeholders}} is left to the normal replacement. Sample values in a
-        /// literal body are not sent.
+        /// Builds A_SupplierInvoice from the stored posting document. A template with {{placeholders}} is left to
+        /// the normal replacement. A literal sample is not copied: TaxDeterminationDate and an empty GL navigation
+        /// are not sent for a PO-reference invoice.
         /// </summary>
         public static (string? Body, List<string> Missing) SupplierInvoiceRequest(string? template, Document document)
         {
             List<string> missing = new List<string>();
-            if (string.IsNullOrWhiteSpace(template) || template.Contains("{{", StringComparison.Ordinal))
-            {
-                return (null, missing);
-            }
-
-            JsonNode? root;
-            try
-            {
-                root = JsonNode.Parse(template);
-            }
-            catch (JsonException)
-            {
-                return (null, missing);
-            }
-
-            if (root is not JsonObject header)
+            if (!string.IsNullOrWhiteSpace(template) && template.Contains("{{", StringComparison.Ordinal))
             {
                 return (null, missing);
             }
@@ -888,94 +873,164 @@ namespace Buyer.Application.Features.Shared
                 return found.Name == null ? null : Text(found.Field);
             }
 
-            string? date = Value("DocumentDate") ?? Value("InvoiceDate");
-            if (!string.IsNullOrWhiteSpace(date) && date.Length == 10)
-            {
-                date += "T00:00";
-            }
-
+            string? date = SapDate(Value("DocumentDate") ?? Value("InvoiceDate"));
+            string? postingDate = SapDate(Value("PostingDate")) ?? date;
+            string? dueDate = SapDate(Value("DueCalculationBaseDate")) ?? date;
             string? supplier = BusinessCode(Value("SupplierCode"));
             string? currency = Value("Currency");
             string? company = Value("CompanyCode");
             string? number = Value("InvoiceNumber");
             string? gross = Money(Value("GrossAmount"));
-            Set(header, "CompanyCode", company, "CompanyCode, from the purchase order", missing);
-            Set(header, "DocumentDate", date, "Invoice date, from the SILA invoice", missing);
-            Set(header, "PostingDate", date, "Invoice date, from the SILA invoice", missing);
-            Set(header, "DueCalculationBaseDate", date, "Invoice date, from the SILA invoice", missing);
-            Set(header, "TaxDeterminationDate", date, "Invoice date, from the SILA invoice", missing);
-            Set(header, "InvoicingParty", supplier, "Supplier ERP reference, from the purchase order", missing);
-            Set(header, "DocumentCurrency", currency, "Currency, from the SILA invoice", missing);
-            Set(header, "InvoiceGrossAmount", gross, "Invoice amount, from the SILA invoice", missing);
-            Set(header, "SupplierInvoiceIDByInvcgParty", number, "Supplier invoice number, from the SILA invoice", missing);
             string? documentType = Value("AccountingDocumentType");
-            if (!string.IsNullOrWhiteSpace(documentType) && header.ContainsKey("AccountingDocumentType"))
-            {
-                header["AccountingDocumentType"] = documentType;
-            }
-
             string? taxAutomatic = Value("TaxIsCalculatedAutomatically");
-            if (!string.IsNullOrWhiteSpace(taxAutomatic) && header.ContainsKey("TaxIsCalculatedAutomatically"))
-            {
-                header["TaxIsCalculatedAutomatically"] = taxAutomatic.Equals("true", StringComparison.OrdinalIgnoreCase);
-            }
+            Require(company, "Company code, from the purchase order", missing);
+            Require(date, "Document date, from the SILA invoice", missing);
+            Require(postingDate, "Posting date, from the stored posting data", missing);
+            Require(dueDate, "Due calculation base date, from the stored posting data", missing);
+            Require(supplier, "Invoicing party, from the purchase order", missing);
+            Require(currency, "Currency, from the SILA invoice", missing);
+            Require(gross, "Gross amount, from the SILA invoice", missing);
+            Require(number, "Supplier invoice reference, from the SILA invoice", missing);
+            Require(documentType, "Accounting document type, from the invoice posting configuration", missing);
+            Require(taxAutomatic, "Automatic tax calculation, from the invoice posting configuration", missing);
 
-            if (header.ContainsKey("ReconciliationAccount"))
+            bool automatic = taxAutomatic != null && taxAutomatic.Equals("true", StringComparison.OrdinalIgnoreCase);
+            JsonArray results = new JsonArray();
+            int sequence = 0;
+            HashSet<string> taxCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (List<(string Name, object? Value)> item in document.Items)
             {
-                header.Remove("ReconciliationAccount");
-            }
-
-            if (header["to_SuplrInvcItemPurOrdRef"] is JsonObject poItems && poItems["results"] is JsonArray)
-            {
-                JsonArray results = new JsonArray();
-                int line = 0;
-                foreach (List<(string Name, object? Value)> item in document.Items)
+                sequence++;
+                string? ItemValue(string name)
                 {
-                    line++;
-                    string? ItemValue(string name)
-                    {
-                        (string Name, object? Field) found = item.LastOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-                        return found.Name == null ? null : Text(found.Field);
-                    }
-
-                    string? po = ItemValue("PurchaseOrder") ?? Value("PurchaseOrder");
-                    string? poItem = ItemValue("PurchaseOrderItem");
-                    string? quantity = ItemValue("Quantity");
-                    string? amount = Money(ItemValue("Amount"));
-                    string? uom = ItemValue("Uom");
-                    JsonObject row = new JsonObject
-                    {
-                        ["SupplierInvoiceItem"] = line.ToString("00000", CultureInfo.InvariantCulture),
-                        ["PurchaseOrder"] = po,
-                        ["PurchaseOrderItem"] = poItem,
-                        ["DocumentCurrency"] = currency,
-                        ["SupplierInvoiceItemAmount"] = amount,
-                        ["QuantityInPurchaseOrderUnit"] = quantity,
-                        ["PurchaseOrderQuantityUnit"] = uom
-                    };
-                    string? tax = ItemValue("TaxCode") ?? Value("TaxCode");
-                    if (!string.IsNullOrWhiteSpace(tax))
-                    {
-                        row["TaxCode"] = tax;
-                    }
-
-                    Require(po, "Purchase order, from the purchase order", missing);
-                    Require(poItem, "Purchase order item, from the purchase order", missing);
-                    Require(quantity, "Invoice quantity, from the SILA invoice lines", missing);
-                    Require(amount, "Invoice amount, from the SILA invoice lines", missing);
-                    Require(uom, "Unit of measure, from the purchase order", missing);
-                    results.Add(row);
+                    (string Name, object? Field) found = item.LastOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                    return found.Name == null ? null : Text(found.Field);
                 }
 
-                poItems["results"] = results;
+                string? po = ItemValue("PurchaseOrder") ?? Value("PurchaseOrder");
+                string? poItem = ItemValue("PurchaseOrderItem");
+                string? quantity = QuantityText(ItemValue("Quantity"));
+                string? amount = Money(ItemValue("Amount"));
+                string? uom = ItemValue("Uom");
+                string? tax = ItemValue("TaxCode");
+                string? itemCurrency = ItemValue("DocumentCurrency") ?? currency;
+                string? itemNumber = ItemValue("SupplierInvoiceItem");
+                if (string.IsNullOrWhiteSpace(itemNumber))
+                {
+                    itemNumber = sequence.ToString("00000", CultureInfo.InvariantCulture);
+                }
+
+                Require(po, "Purchase order, from the purchase order", missing);
+                Require(poItem, "Purchase order item, from the purchase order", missing);
+                Require(quantity, "Invoice quantity, from the SILA invoice lines", missing);
+                Require(amount, "Invoice amount, from the SILA invoice lines", missing);
+                Require(uom, "PO UOM, from the purchase order item", missing);
+                if (string.IsNullOrWhiteSpace(tax))
+                {
+                    missing.Add("Field: TaxCode. PO: " + (po ?? "") + ". PO Item: " + (poItem ?? ""));
+                }
+                else
+                {
+                    taxCodes.Add(tax);
+                }
+
+                results.Add(new JsonObject
+                {
+                    ["SupplierInvoiceItem"] = itemNumber,
+                    ["PurchaseOrder"] = po,
+                    ["PurchaseOrderItem"] = poItem,
+                    ["DocumentCurrency"] = itemCurrency,
+                    ["SupplierInvoiceItemAmount"] = amount,
+                    ["QuantityInPurchaseOrderUnit"] = quantity,
+                    ["PurchaseOrderQuantityUnit"] = uom,
+                    ["TaxCode"] = tax
+                });
             }
 
-            if (header["to_SupplierInvoiceItemGLAcct"] is JsonObject gl)
+            if (document.Items.Count == 0)
             {
-                gl["results"] = new JsonArray();
+                missing.Add("Invoice line, from the supplier invoice. At least one line is required.");
             }
 
-            return missing.Count == 0 ? (root.ToJsonString(), missing) : (null, missing.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+            string? taxAmount = Money(Value("TaxAmount"));
+            if (!automatic && !string.IsNullOrWhiteSpace(taxAutomatic))
+            {
+                Require(taxAmount, "Tax amount, from the SILA invoice", missing);
+                if (taxCodes.Count != 1)
+                {
+                    missing.Add("Tax amount, from the SILA invoice. One tax code is required when tax is supplied explicitly.");
+                }
+            }
+
+            if (missing.Count > 0)
+            {
+                return (null, missing.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+            }
+
+            JsonObject body = new JsonObject
+            {
+                ["CompanyCode"] = company,
+                ["DocumentDate"] = date,
+                ["PostingDate"] = postingDate,
+                ["DueCalculationBaseDate"] = dueDate,
+                ["InvoicingParty"] = supplier,
+                ["DocumentCurrency"] = currency,
+                ["InvoiceGrossAmount"] = gross,
+                ["AccountingDocumentType"] = documentType,
+                ["SupplierInvoiceIDByInvcgParty"] = number,
+                ["TaxIsCalculatedAutomatically"] = automatic,
+                ["to_SuplrInvcItemPurOrdRef"] = new JsonObject { ["results"] = results }
+            };
+            if (!automatic)
+            {
+                body["to_SupplierInvoiceTax"] = new JsonObject
+                {
+                    ["results"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["TaxCode"] = taxCodes.Single(),
+                            ["DocumentCurrency"] = currency,
+                            ["TaxAmount"] = taxAmount
+                        }
+                    }
+                };
+            }
+
+            return (body.ToJsonString(), missing);
+        }
+
+        private static string? SapDate(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            string text = value.Trim();
+            if (text.Length == 10)
+            {
+                return text + "T00:00:00";
+            }
+
+            if (text.Length == 16 && text[10] == 'T')
+            {
+                return text + ":00";
+            }
+
+            return text;
+        }
+
+        private static string? QuantityText(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amount)
+                ? amount.ToString("0.####", CultureInfo.InvariantCulture)
+                : value.Trim();
         }
 
         private static HashSet<Guid> SupplierIds(Invoice invoice)
@@ -1010,23 +1065,6 @@ namespace Buyer.Application.Features.Shared
         {
             string? text = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
             return text != null && Guid.TryParse(text, out _) ? null : text;
-        }
-
-        private static void Set(JsonObject header, string name, string? value, string missingText, List<string> missing)
-        {
-            if (!header.ContainsKey(name))
-            {
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                missing.Add(missingText);
-                header[name] = null;
-                return;
-            }
-
-            header[name] = value;
         }
 
         private static void Require(string? value, string missingText, List<string> missing)

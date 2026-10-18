@@ -965,24 +965,13 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .OrderBy(x => x.LineNumber)
                 .ToListAsync(cancellationToken);
             SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
-            SilaInvoicePosting.Document? described = prepared == null
-                ? await SilaInvoicePosting.DescribeAsync(_repository, posting.BuyerId, posting.ReferenceId, posting.CompanyCode, cancellationToken)
-                : null;
-            if (prepared != null)
+            string? blocked = SilaInvoicePostingData.BlockSend(prepared, invoice, items);
+            if (blocked != null)
             {
-                string? blocked = SilaInvoicePostingData.BlockSend(prepared, invoice, items);
-                if (blocked != null)
-                {
-                    return (null, blocked);
-                }
-
-                described = SilaInvoicePostingData.ToDocument(prepared);
+                return (null, blocked);
             }
 
-            if (described == null)
-            {
-                return (null, "The invoice has no lines to post.");
-            }
+            SilaInvoicePosting.Document described = SilaInvoicePostingData.ToDocument(prepared!);
             if (string.IsNullOrWhiteSpace(posting.CompanyCode) && !string.IsNullOrWhiteSpace(described.CompanyCode))
             {
                 posting.CompanyCode = described.CompanyCode;

@@ -47,7 +47,7 @@ const forward = async (
   };
 };
 
-const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string; reference?: string; technicalDetail?: string | null }> =>
+const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string; reference?: string; technicalDetail?: string | null; postingData?: unknown }> =>
   new Promise((resolve, reject) => {
     const child = spawn("python3", [scriptPath]);
     const timer = setTimeout(() => child.kill(), 25000);
@@ -92,6 +92,15 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
         });
         return;
       }
+      const invoiceRead = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/?(?:\?|$)/);
+      if (invoiceRead && req.method === "GET") {
+        void handleInvoiceRead(target, settingsPath, invoiceRead[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not load the invoice.", "Could not load the invoice."));
+          }
+        });
+        return;
+      }
       const match = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/submit(?:\?|$)/);
       if (!match || req.method !== "POST") {
         next();
@@ -106,6 +115,37 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
     });
   },
 });
+
+const handleInvoiceRead = async (
+  target: string,
+  settingsPath: string,
+  invoiceId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const upstream = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
+  if (upstream.status !== 200) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    parsed = JSON.parse(upstream.body) as Record<string, unknown>;
+  } catch {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+  const nested = parsed["data"];
+  const wrapped = nested && typeof nested === "object" ? nested as Record<string, unknown> : null;
+  const invoice = wrapped || parsed;
+  if (!invoice["postingData"]) {
+    const stored = await run(settingsPath, { action: "posting", invoiceId });
+    if (stored.postingData) {
+      invoice["postingData"] = stored.postingData;
+    }
+  }
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify(parsed));
+};
 
 const handle = async (
   target: string,

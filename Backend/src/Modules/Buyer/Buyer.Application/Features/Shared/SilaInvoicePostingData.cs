@@ -25,6 +25,14 @@ namespace Buyer.Application.Features.Shared
         public const string SOURCE_CONFIGURATION = "CONFIGURATION";
         public const string SOURCE_DERIVED = "DERIVED";
 
+        /// <summary>
+        /// A_SupplierInvoice on API_SUPPLIERINVOICE_PROCESS_SRV. PO invoices send item TaxCode and
+        /// TaxIsCalculatedAutomatically. to_SupplierInvoiceTax is the other tax shape and is not sent with it.
+        /// TaxDeterminationDate is optional on the contract and is not sent. RE is the document type configured for FIVE S4-INVOICE POSTING.
+        /// </summary>
+        public const string DOCUMENT_TYPE = "RE";
+        public const string TAX_AUTOMATIC = "true";
+
         private static readonly JsonSerializerOptions Json = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -121,8 +129,11 @@ namespace Buyer.Application.Features.Shared
             IReadOnlyDictionary<Guid, string>? poNumbers = null,
             string? erpSupplierCode = null)
         {
-            string? date = invoice.InvoiceDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            string? currency = First(invoice.Currency, sapOrder.Currency);
+            string? date = SapDate(invoice.InvoiceDate);
+            bool currencyMismatch = !string.IsNullOrWhiteSpace(invoice.Currency)
+                && !string.IsNullOrWhiteSpace(sapOrder.Currency)
+                && !invoice.Currency.Trim().Equals(sapOrder.Currency.Trim(), StringComparison.OrdinalIgnoreCase);
+            string? currency = currencyMismatch ? null : First(invoice.Currency, sapOrder.Currency);
             string? supplier = SilaReceivingRules.ErpCode(sapOrder.SupplierCode) ?? SilaReceivingRules.ErpCode(erpSupplierCode);
             Prepared prepared = new Prepared
             {
@@ -134,20 +145,28 @@ namespace Buyer.Application.Features.Shared
                 Fingerprint = Fingerprint(invoice, items)
             };
             prepared.Header.Add(FieldOf("CompanyCode", "Company code", sapOrder.CompanyCode, SOURCE_PO, "CompanyCode", true));
-            prepared.Header.Add(FieldOf("DocumentDate", "Invoice date", date, SOURCE_INVOICE, "InvoiceDate", true));
-            prepared.Header.Add(FieldOf("PostingDate", "Posting date", date, SOURCE_DERIVED, "InvoiceDate", true));
-            prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", date, SOURCE_DERIVED, "InvoiceDate", true));
-            prepared.Header.Add(FieldOf("TaxDeterminationDate", "Tax determination date", date, SOURCE_DERIVED, "InvoiceDate", true));
-            prepared.Header.Add(FieldOf("InvoicingParty", "Supplier", supplier, SOURCE_PO, "Supplier", true));
-            prepared.Header.Add(FieldOf("DocumentCurrency", "Currency", currency, SOURCE_INVOICE, "Currency", true));
+            prepared.Header.Add(FieldOf("DocumentDate", "Document date", date, SOURCE_INVOICE, "InvoiceDate", true));
+            // No separate approved posting date is stored. The invoice date is the posting date.
+            prepared.Header.Add(FieldOf("PostingDate", "Posting date", date, SOURCE_INVOICE, "InvoiceDate", true));
+            // No payment-term baseline date is stored. The invoice date is the due-calculation baseline.
+            prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", date, SOURCE_INVOICE, "InvoiceDate", true));
+            prepared.Header.Add(FieldOf("InvoicingParty", "Invoicing party", supplier, SOURCE_PO, "Supplier", true));
+            prepared.Header.Add(FieldOf(
+                "DocumentCurrency",
+                currencyMismatch ? "Currency does not match the purchase order" : "Currency",
+                currency,
+                SOURCE_INVOICE,
+                "Currency",
+                true));
             prepared.Header.Add(FieldOf("InvoiceGrossAmount", "Gross amount", Money(invoice.GrossAmount), SOURCE_INVOICE, "GrossAmount", true));
-            prepared.Header.Add(FieldOf("AccountingDocumentType", "Accounting document type", "RE", SOURCE_CONFIGURATION, "AccountingDocumentType", true));
-            prepared.Header.Add(FieldOf("TaxIsCalculatedAutomatically", "Tax calculated automatically", "true", SOURCE_CONFIGURATION, "TaxIsCalculatedAutomatically", true));
-            prepared.Header.Add(FieldOf("SupplierInvoiceIDByInvcgParty", "Supplier invoice number", invoice.InvoiceNumber?.Trim(), SOURCE_INVOICE, "InvoiceNumber", true));
-            prepared.Header.Add(FieldOf("PurchaseOrder", "Purchase order", invoice.PoNumber?.Trim(), SOURCE_PO, "PurchaseOrder", true));
+            prepared.Header.Add(FieldOf("AccountingDocumentType", "Accounting document type", DOCUMENT_TYPE, SOURCE_CONFIGURATION, "AccountingDocumentType", true));
+            prepared.Header.Add(FieldOf("TaxIsCalculatedAutomatically", "Automatic tax calculation", TAX_AUTOMATIC, SOURCE_CONFIGURATION, "TaxIsCalculatedAutomatically", true));
+            prepared.Header.Add(FieldOf("SupplierInvoiceIDByInvcgParty", "Supplier invoice reference", invoice.InvoiceNumber?.Trim(), SOURCE_INVOICE, "InvoiceNumber", true));
+            prepared.Header.Add(FieldOf("PurchaseOrder", "Purchase order", invoice.PoNumber?.Trim(), SOURCE_PO, "PurchaseOrder", false));
             prepared.Header.Add(FieldOf("NetAmount", "Net amount", Money(invoice.NetAmount), SOURCE_INVOICE, "NetAmount", false));
             prepared.Header.Add(FieldOf("TaxAmount", "Tax amount", Money(invoice.TaxAmount), SOURCE_INVOICE, "TaxAmount", false));
 
+            int sequence = 0;
             foreach (InvoiceItem item in items.OrderBy(x => x.LineNumber))
             {
                 PurchaseOrderItem? poItem = item.PurchaseOrderItemId == null
@@ -185,8 +204,10 @@ namespace Buyer.Application.Features.Shared
                     .ToList();
                 string? materialDocument = materialDocuments.Count == 0 ? null : string.Join(", ", materialDocuments);
                 string? goodsReceipt = materialDocument ?? (grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers));
+                sequence++;
                 string? taxCode = sapLine?.TaxCode ?? poItem?.TaxCode;
-                string? itemNumber = sapLine?.Item ?? (poItem == null ? null : poItem.LineNumber.ToString("00000", CultureInfo.InvariantCulture));
+                string? itemNumber = PoItem(sapLine?.Item, poItem?.LineNumber);
+                string? uom = First(sapLine?.Uom, poItem?.UnitOfMeasure);
                 Line line = new Line
                 {
                     InvoiceLine = item.LineNumber,
@@ -194,13 +215,13 @@ namespace Buyer.Application.Features.Shared
                     GrnNumber = grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers),
                     MaterialDocument = materialDocument
                 };
-                line.Fields.Add(FieldOf("SupplierInvoiceItem", "Invoice line", item.LineNumber.ToString("00000", CultureInfo.InvariantCulture), SOURCE_DERIVED, "LineNumber", true));
-                line.Fields.Add(FieldOf("PurchaseOrder", "Purchase order", linePo, SOURCE_PO, "PurchaseOrder", true));
-                line.Fields.Add(FieldOf("PurchaseOrderItem", "Purchase order item", itemNumber, sapLine == null ? SOURCE_LINE : SOURCE_PO_ITEM, "PurchaseOrderItem", true));
+                line.Fields.Add(FieldOf("SupplierInvoiceItem", "Item", sequence.ToString("00000", CultureInfo.InvariantCulture), SOURCE_DERIVED, "LineNumber", true));
+                line.Fields.Add(FieldOf("PurchaseOrder", "PO", linePo, SOURCE_PO, "PurchaseOrder", true));
+                line.Fields.Add(FieldOf("PurchaseOrderItem", "PO item", itemNumber, sapLine == null ? SOURCE_LINE : SOURCE_PO_ITEM, "PurchaseOrderItem", true));
                 line.Fields.Add(FieldOf("DocumentCurrency", "Currency", currency, SOURCE_INVOICE, "Currency", true));
                 line.Fields.Add(FieldOf("SupplierInvoiceItemAmount", "Amount", Money(item.Amount), SOURCE_LINE, "Amount", true));
-                line.Fields.Add(FieldOf("QuantityInPurchaseOrderUnit", "Quantity", Money(item.Quantity), SOURCE_LINE, "Quantity", true));
-                line.Fields.Add(FieldOf("PurchaseOrderQuantityUnit", "Unit of measure", sapLine?.Uom, SOURCE_PO_ITEM, "PurchaseOrderQuantityUnit", true));
+                line.Fields.Add(FieldOf("QuantityInPurchaseOrderUnit", "Quantity", Quantity(item.Quantity), SOURCE_LINE, "Quantity", true));
+                line.Fields.Add(FieldOf("PurchaseOrderQuantityUnit", "PO UOM", uom, SOURCE_PO_ITEM, "PurchaseOrderQuantityUnit", true));
                 line.Fields.Add(FieldOf("TaxCode", "Tax code", taxCode, SOURCE_PO_ITEM, "TaxCode", true));
                 line.Fields.Add(FieldOf("Material", "Material", sapLine?.Material ?? poItem?.MaterialCode, SOURCE_PO_ITEM, "Material", false));
                 line.Fields.Add(FieldOf("Plant", "Plant", sapLine?.Plant ?? lineOrder.Plant, SOURCE_PO_ITEM, "Plant", false));
@@ -315,6 +336,8 @@ namespace Buyer.Application.Features.Shared
             };
             Add(document.Header, "CompanyCode", Value(prepared.Header, "CompanyCode"));
             Add(document.Header, "DocumentDate", Value(prepared.Header, "DocumentDate"));
+            Add(document.Header, "PostingDate", Value(prepared.Header, "PostingDate"));
+            Add(document.Header, "DueCalculationBaseDate", Value(prepared.Header, "DueCalculationBaseDate"));
             Add(document.Header, "SupplierCode", Value(prepared.Header, "InvoicingParty"));
             Add(document.Header, "Currency", Value(prepared.Header, "DocumentCurrency"));
             Add(document.Header, "GrossAmount", Value(prepared.Header, "InvoiceGrossAmount"));
@@ -322,11 +345,14 @@ namespace Buyer.Application.Features.Shared
             Add(document.Header, "PurchaseOrder", Value(prepared.Header, "PurchaseOrder"));
             Add(document.Header, "AccountingDocumentType", Value(prepared.Header, "AccountingDocumentType"));
             Add(document.Header, "TaxIsCalculatedAutomatically", Value(prepared.Header, "TaxIsCalculatedAutomatically"));
+            Add(document.Header, "TaxAmount", Value(prepared.Header, "TaxAmount"));
             foreach (Line line in prepared.Lines)
             {
                 List<(string Name, object? Value)> row = new List<(string Name, object? Value)>();
+                Add(row, "SupplierInvoiceItem", Value(line.Fields, "SupplierInvoiceItem"));
                 Add(row, "PurchaseOrder", Value(line.Fields, "PurchaseOrder"));
                 Add(row, "PurchaseOrderItem", Value(line.Fields, "PurchaseOrderItem"));
+                Add(row, "DocumentCurrency", Value(line.Fields, "DocumentCurrency"));
                 Add(row, "Quantity", Value(line.Fields, "QuantityInPurchaseOrderUnit"));
                 Add(row, "Amount", Value(line.Fields, "SupplierInvoiceItemAmount"));
                 Add(row, "Uom", Value(line.Fields, "PurchaseOrderQuantityUnit"));
@@ -381,7 +407,7 @@ namespace Buyer.Application.Features.Shared
             {
                 parts.Add(string.Join(":",
                     item.LineNumber.ToString(CultureInfo.InvariantCulture),
-                    Money(item.Quantity) ?? string.Empty,
+                    Quantity(item.Quantity) ?? string.Empty,
                     Money(item.Amount) ?? string.Empty,
                     item.PurchaseOrderItemId?.ToString("N") ?? string.Empty));
             }
@@ -417,6 +443,11 @@ namespace Buyer.Application.Features.Shared
 
         private static string Gap(Field field, string? purchaseOrder, string? purchaseOrderItem)
         {
+            if (field.ApiField.Equals("TaxCode", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Field: TaxCode. PO: " + (purchaseOrder ?? "") + ". PO Item: " + (purchaseOrderItem ?? "");
+            }
+
             string text = field.Label + ", from " + SourceText(field.Source) + " (" + field.SourceField + ")";
             if (!string.IsNullOrWhiteSpace(purchaseOrder))
             {
@@ -461,7 +492,32 @@ namespace Buyer.Application.Features.Shared
 
         private static string? Money(decimal? amount)
         {
-            return amount?.ToString(CultureInfo.InvariantCulture);
+            return amount?.ToString("0.00", CultureInfo.InvariantCulture);
+        }
+
+        private static string? Quantity(decimal? amount)
+        {
+            return amount?.ToString("0.####", CultureInfo.InvariantCulture);
+        }
+
+        private static string? SapDate(DateTime? value)
+        {
+            return value?.ToString("yyyy-MM-dd'T'00:00:00", CultureInfo.InvariantCulture);
+        }
+
+        private static string? PoItem(string? item, int? lineNumber)
+        {
+            if (int.TryParse(item, NumberStyles.Integer, CultureInfo.InvariantCulture, out int number))
+            {
+                return number.ToString("00000", CultureInfo.InvariantCulture);
+            }
+
+            if (!string.IsNullOrWhiteSpace(item))
+            {
+                return item.Trim();
+            }
+
+            return lineNumber?.ToString("00000", CultureInfo.InvariantCulture);
         }
 
         private static string? First(params string?[] values)

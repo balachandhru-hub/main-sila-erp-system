@@ -5,6 +5,7 @@ The invoice is handed to the posting the server already runs. The request writte
 onto FIVE S4-INVOICE POSTING is the S/4 supplier-invoice document for this invoice.
 """
 
+import datetime
 import json
 import re
 import sys
@@ -68,11 +69,197 @@ def text(value) -> str:
     return str(value).strip()
 
 
-def amount(value) -> str:
-    rendered = text(value)
-    if not rendered:
-        raise SubmitError(400, "Invoice cannot be submitted.", "An invoice line is missing its amount.")
+MISSING = "INVOICE_POSTING_REQUIRED_FIELD_MISSING"
+DOCUMENT_TYPE = "RE"
+TAX_AUTOMATIC = "true"
+
+
+def money(value) -> str:
+    if value is None or text(value) == "":
+        return ""
+    return format(Decimal(str(value)).quantize(Decimal("0.01")), "f")
+
+
+def quantity(value) -> str:
+    if value is None or text(value) == "":
+        return ""
+    rendered = format(Decimal(str(value)), "f")
+    if "." in rendered:
+        rendered = rendered.rstrip("0").rstrip(".")
     return rendered
+
+
+def sap_date(value) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%dT00:00:00")
+    day = str(value).strip()[:10]
+    return day + "T00:00:00" if len(day) == 10 and day[4] == "-" else ""
+
+
+def ensure_storage(cur) -> None:
+    cur.execute(
+        """
+        IF COL_LENGTH('buyersystem.invoice', 'posting_data') IS NULL
+            ALTER TABLE buyersystem.invoice ADD posting_data nvarchar(max) NULL
+        """
+    )
+    cur.execute(
+        """
+        IF COL_LENGTH('buyersystem.purchase_order_item', 'tax_code') IS NULL
+            ALTER TABLE buyersystem.purchase_order_item ADD tax_code nvarchar(max) NULL
+        """
+    )
+    cur.execute(
+        """
+        IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = '20261017223000_InvoicePostingData')
+            INSERT INTO dbo.__EFMigrationsHistory (MigrationId, ProductVersion)
+            VALUES ('20261017223000_InvoicePostingData', '8.0.17')
+        """
+    )
+    cur.execute(
+        """
+        IF NOT EXISTS (SELECT 1 FROM dbo.__EFMigrationsHistory WHERE MigrationId = '20261017234500_PurchaseOrderItemTaxCode')
+            INSERT INTO dbo.__EFMigrationsHistory (MigrationId, ProductVersion)
+            VALUES ('20261017234500_PurchaseOrderItemTaxCode', '8.0.17')
+        """
+    )
+
+
+def field(api_field: str, label: str, value, source: str, source_field: str, required: bool) -> dict:
+    rendered = text(value)
+    return {
+        "apiField": api_field,
+        "label": label,
+        "value": rendered or None,
+        "source": source,
+        "sourceField": source_field,
+        "required": required,
+    }
+
+
+def fingerprint(number, invoice_date, currency, gross, net, tax, po_number, lines) -> str:
+    parts = [
+        text(number),
+        sap_date(invoice_date)[:10],
+        text(currency),
+        money(gross),
+        money(net),
+        money(tax),
+        text(po_number),
+    ]
+    for line in lines:
+        item_id = ""
+        if line["purchase_order_item_id"]:
+            item_id = uuid.UUID(str(line["purchase_order_item_id"])).hex
+        parts.append(":".join([
+            str(int(line["line_number"])),
+            quantity(line["quantity"]),
+            money(line["amount"]),
+            item_id,
+        ]))
+    return "|".join(parts)
+
+
+def values_of(fields) -> dict:
+    found = {}
+    for item in fields or []:
+        found[item.get("apiField")] = item.get("value")
+    return found
+
+
+def body_from_stored(prepared: dict) -> dict:
+    header = values_of(prepared.get("header"))
+    automatic_text = text(header.get("TaxIsCalculatedAutomatically"))
+    if automatic_text.lower() not in {"true", "false"}:
+        raise SubmitError(
+            400,
+            "Invoice cannot be submitted.",
+            f"{MISSING}. Automatic tax calculation, from the invoice posting configuration.",
+        )
+    automatic = automatic_text.lower() == "true"
+    required_header = (
+        ("CompanyCode", "Company code, from the purchase order"),
+        ("DocumentDate", "Document date, from the SILA invoice"),
+        ("PostingDate", "Posting date, from the stored posting data"),
+        ("DueCalculationBaseDate", "Due calculation base date, from the stored posting data"),
+        ("InvoicingParty", "Invoicing party, from the purchase order"),
+        ("DocumentCurrency", "Currency, from the SILA invoice"),
+        ("InvoiceGrossAmount", "Gross amount, from the SILA invoice"),
+        ("AccountingDocumentType", "Accounting document type, from the invoice posting configuration"),
+        ("SupplierInvoiceIDByInvcgParty", "Supplier invoice reference, from the SILA invoice"),
+    )
+    for name, message in required_header:
+        if not text(header.get(name)):
+            raise SubmitError(400, "Invoice cannot be submitted.", f"{MISSING}. {message}.")
+    results = []
+    tax_codes = []
+    for line in prepared.get("lines") or []:
+        item = values_of(line.get("fields"))
+        po = text(item.get("PurchaseOrder"))
+        po_item = text(item.get("PurchaseOrderItem"))
+        tax = text(item.get("TaxCode"))
+        if not tax:
+            raise SubmitError(
+                400,
+                "Invoice cannot be submitted.",
+                f"{MISSING}. Field: TaxCode. PO: {po}. PO Item: {po_item}.",
+            )
+        for name, message in (
+            ("SupplierInvoiceItem", "Invoice item, from the stored posting line"),
+            ("PurchaseOrder", "Purchase order, from the purchase order"),
+            ("PurchaseOrderItem", "Purchase order item, from the purchase order"),
+            ("DocumentCurrency", "Currency, from the stored posting line"),
+            ("SupplierInvoiceItemAmount", "Invoice amount, from the SILA invoice lines"),
+            ("QuantityInPurchaseOrderUnit", "Invoice quantity, from the SILA invoice lines"),
+            ("PurchaseOrderQuantityUnit", "PO UOM, from the purchase order item"),
+        ):
+            if not text(item.get(name)):
+                raise SubmitError(400, "Invoice cannot be submitted.", f"{MISSING}. {message}. PO: {po}. PO Item: {po_item}.")
+        tax_codes.append(tax)
+        results.append({
+            "SupplierInvoiceItem": text(item.get("SupplierInvoiceItem")),
+            "PurchaseOrder": po,
+            "PurchaseOrderItem": po_item,
+            "DocumentCurrency": text(item.get("DocumentCurrency")),
+            "SupplierInvoiceItemAmount": money(item.get("SupplierInvoiceItemAmount")),
+            "QuantityInPurchaseOrderUnit": quantity(item.get("QuantityInPurchaseOrderUnit")),
+            "PurchaseOrderQuantityUnit": text(item.get("PurchaseOrderQuantityUnit")),
+            "TaxCode": tax,
+        })
+    if not results:
+        raise SubmitError(400, "Invoice cannot be submitted.", f"{MISSING}. The invoice has no lines to post.")
+    body = {
+        "CompanyCode": text(header.get("CompanyCode")),
+        "DocumentDate": text(header.get("DocumentDate")),
+        "PostingDate": text(header.get("PostingDate")),
+        "DueCalculationBaseDate": text(header.get("DueCalculationBaseDate")),
+        "InvoicingParty": text(header.get("InvoicingParty")),
+        "DocumentCurrency": text(header.get("DocumentCurrency")),
+        "InvoiceGrossAmount": money(header.get("InvoiceGrossAmount")),
+        "AccountingDocumentType": text(header.get("AccountingDocumentType")),
+        "SupplierInvoiceIDByInvcgParty": text(header.get("SupplierInvoiceIDByInvcgParty")),
+        "TaxIsCalculatedAutomatically": automatic,
+        "to_SuplrInvcItemPurOrdRef": {"results": results},
+    }
+    if not automatic:
+        distinct = list(dict.fromkeys(tax_codes))
+        tax_amount = money(header.get("TaxAmount"))
+        if not tax_amount or len(distinct) != 1:
+            raise SubmitError(
+                400,
+                "Invoice cannot be submitted.",
+                f"{MISSING}. Tax amount, from the SILA invoice. One tax code is required when tax is supplied explicitly.",
+            )
+        body["to_SupplierInvoiceTax"] = {
+            "results": [{
+                "TaxCode": distinct[0],
+                "DocumentCurrency": text(header.get("DocumentCurrency")),
+                "TaxAmount": tax_amount,
+            }]
+        }
+    return body
 
 
 def supplier_code(cur, buyer_id, sila_supplier_id, supplier_name) -> str:
@@ -109,12 +296,96 @@ def supplier_code(cur, buyer_id, sila_supplier_id, supplier_name) -> str:
     )
 
 
-def document(cur, invoice_id: uuid.UUID) -> dict:
+def save_posting(cur, invoice_id: uuid.UUID, prepared: dict) -> None:
+    cur.execute(
+        "UPDATE buyersystem.invoice SET posting_data=%s, date_updated=GETUTCDATE() WHERE id=%s",
+        (json.dumps(prepared, separators=(",", ":")), str(invoice_id)),
+    )
+
+
+def compose_posting(cur, invoice, lines) -> dict:
+    order = fetchone(
+        cur,
+        "SELECT company_code, currency FROM buyersystem.purchase_order WHERE id=%s",
+        (str(invoice[7]),),
+    )
+    company = text(order[0]) if order else ""
+    po_currency = text(order[1]) if order else ""
+    invoice_currency = text(invoice[4])
+    currency_mismatch = bool(invoice_currency and po_currency and invoice_currency.upper() != po_currency.upper())
+    currency = "" if currency_mismatch else (invoice_currency or po_currency)
+    posted = sap_date(invoice[3])
+    supplier = supplier_code(cur, invoice[1], invoice[8], invoice[9])
+    prepared_lines = []
+    for index, line in enumerate(lines, start=1):
+        po_item = "" if line[4] is None else f"{int(line[4]):05d}"
+        prepared_lines.append({
+            "invoiceLine": int(line[0]),
+            "invoiceItemId": str(line[6]) if line[6] else "00000000-0000-0000-0000-000000000000",
+            "grnNumber": None,
+            "materialDocument": None,
+            "fields": [
+                field("SupplierInvoiceItem", "Item", f"{index:05d}", "DERIVED", "LineNumber", True),
+                field("PurchaseOrder", "PO", invoice[6], "S4_PO_HEADER", "PurchaseOrder", True),
+                field("PurchaseOrderItem", "PO item", po_item, "S4_PO_ITEM", "PurchaseOrderItem", True),
+                field("DocumentCurrency", "Currency", currency, "INVOICE", "Currency", True),
+                field("SupplierInvoiceItemAmount", "Amount", money(line[2]), "INVOICE_LINE", "Amount", True),
+                field("QuantityInPurchaseOrderUnit", "Quantity", quantity(line[1]), "INVOICE_LINE", "Quantity", True),
+                field("PurchaseOrderQuantityUnit", "PO UOM", line[5], "S4_PO_ITEM", "PurchaseOrderQuantityUnit", True),
+                field("TaxCode", "Tax code", line[7], "S4_PO_ITEM", "TaxCode", True),
+            ],
+        })
+    actor = str(invoice[12]) if invoice[12] else "00000000-0000-0000-0000-000000000000"
+    return {
+        "version": 1,
+        "preparationStatus": "VALIDATION_FAILED",
+        "preparedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "preparedBy": actor,
+        "purchaseOrder": text(invoice[6]) or None,
+        "sourceApi": "FIVE S4 - GET PO",
+        "stale": False,
+        "fingerprint": fingerprint(invoice[2], invoice[3], invoice[4], invoice[5], invoice[13], invoice[14], invoice[6], [
+            {
+                "line_number": line[0],
+                "quantity": line[1],
+                "amount": line[2],
+                "purchase_order_item_id": line[3],
+            }
+            for line in lines
+        ]),
+        "header": [
+            field("CompanyCode", "Company code", company, "S4_PO_HEADER", "CompanyCode", True),
+            field("DocumentDate", "Document date", posted, "INVOICE", "InvoiceDate", True),
+            field("PostingDate", "Posting date", posted, "INVOICE", "InvoiceDate", True),
+            field("DueCalculationBaseDate", "Due calculation base date", posted, "INVOICE", "InvoiceDate", True),
+            field("InvoicingParty", "Invoicing party", supplier, "S4_PO_HEADER", "Supplier", True),
+            field(
+                "DocumentCurrency",
+                "Currency does not match the purchase order" if currency_mismatch else "Currency",
+                currency,
+                "INVOICE",
+                "Currency",
+                True,
+            ),
+            field("InvoiceGrossAmount", "Gross amount", money(invoice[5]), "INVOICE", "GrossAmount", True),
+            field("AccountingDocumentType", "Accounting document type", DOCUMENT_TYPE, "CONFIGURATION", "AccountingDocumentType", True),
+            field("TaxIsCalculatedAutomatically", "Automatic tax calculation", TAX_AUTOMATIC, "CONFIGURATION", "TaxIsCalculatedAutomatically", True),
+            field("SupplierInvoiceIDByInvcgParty", "Supplier invoice reference", invoice[2], "INVOICE", "InvoiceNumber", True),
+            field("PurchaseOrder", "Purchase order", invoice[6], "S4_PO_HEADER", "PurchaseOrder", False),
+            field("NetAmount", "Net amount", money(invoice[13]), "INVOICE", "NetAmount", False),
+            field("TaxAmount", "Tax amount", money(invoice[14]), "INVOICE", "TaxAmount", False),
+        ],
+        "lines": prepared_lines,
+    }
+
+
+def load_invoice(cur, invoice_id: uuid.UUID):
     invoice = fetchone(
         cur,
         """
         SELECT id, buyer_id, invoice_number, invoice_date, currency, gross_amount, po_number,
-               purchase_order_id, sila_supplier_id, supplier_name, status, erp_posting_id, created_by
+               purchase_order_id, sila_supplier_id, supplier_name, status, erp_posting_id, created_by,
+               net_amount, tax_amount, posting_data
         FROM buyersystem.invoice
         WHERE id=%s AND is_active=1
         """,
@@ -122,22 +393,11 @@ def document(cur, invoice_id: uuid.UUID) -> dict:
     )
     if invoice is None:
         raise SubmitError(404, "Invoice not found.", "Open the invoice again.")
-    number = text(invoice[2])
-    if not number or not invoice[6] or invoice[7] is None:
-        raise SubmitError(400, "Invoice cannot be submitted.", "The invoice needs an invoice number and a purchase order.")
-    order = fetchone(
-        cur,
-        "SELECT company_code, currency FROM buyersystem.purchase_order WHERE id=%s",
-        (str(invoice[7]),),
-    )
-    company = text(order[0]) if order else ""
-    currency = text(invoice[4]) or (text(order[1]) if order else "")
-    if not company or not currency or invoice[5] is None or invoice[3] is None:
-        raise SubmitError(400, "Invoice cannot be submitted.", "The invoice needs a company code, currency, date and gross amount from the purchase order.")
     lines = fetchall(
         cur,
         """
-        SELECT ii.line_number, ii.quantity, ii.amount, poi.line_number, poi.unit_of_measure
+        SELECT ii.line_number, ii.quantity, ii.amount, ii.purchase_order_item_id,
+               poi.line_number, poi.unit_of_measure, ii.id, poi.tax_code
         FROM buyersystem.invoice_item ii
         LEFT JOIN buyersystem.purchase_order_item poi ON poi.id = ii.purchase_order_item_id
         WHERE ii.invoice_id=%s AND ii.is_active=1
@@ -145,40 +405,52 @@ def document(cur, invoice_id: uuid.UUID) -> dict:
         """,
         (str(invoice_id),),
     )
+    return invoice, lines
+
+
+def document(cur, invoice_id: uuid.UUID) -> dict:
+    """The SAP body is built from posting data stored on the invoice. This does not call GET PO."""
+    ensure_storage(cur)
+    invoice, lines = load_invoice(cur, invoice_id)
+    number = text(invoice[2])
+    if not number or not invoice[6] or invoice[7] is None:
+        raise SubmitError(400, "Invoice cannot be submitted.", "The invoice needs an invoice number and a purchase order.")
     if not lines:
         raise SubmitError(400, "Invoice cannot be submitted.", "The invoice has no lines to post.")
-    results = []
-    for index, line in enumerate(lines, start=1):
-        if line[3] is None or line[1] is None or line[2] is None or not text(line[4]):
-            raise SubmitError(
-                400,
-                "Invoice cannot be submitted.",
-                "Each invoice line needs a purchase order item, quantity, amount and unit of measure.",
-            )
-        results.append({
-            "SupplierInvoiceItem": f"{index:05d}",
-            "PurchaseOrder": text(invoice[6]),
-            "PurchaseOrderItem": f"{int(line[3]):05d}",
-            "DocumentCurrency": currency,
-            "SupplierInvoiceItemAmount": amount(line[2]),
-            "QuantityInPurchaseOrderUnit": text(line[1]),
-            "PurchaseOrderQuantityUnit": text(line[4]),
-        })
-    posted = text(invoice[3])[:10] + "T00:00"
-    body = {
-        "CompanyCode": company,
-        "DocumentDate": posted,
-        "PostingDate": posted,
-        "DueCalculationBaseDate": posted,
-        "TaxDeterminationDate": posted,
-        "InvoicingParty": supplier_code(cur, invoice[1], invoice[8], invoice[9]),
-        "DocumentCurrency": currency,
-        "InvoiceGrossAmount": amount(invoice[5]),
-        "AccountingDocumentType": "RE",
-        "SupplierInvoiceIDByInvcgParty": number,
-        "to_SuplrInvcItemPurOrdRef": {"results": results},
-        "to_SupplierInvoiceItemGLAcct": {"results": []},
-    }
+    current = fingerprint(invoice[2], invoice[3], invoice[4], invoice[5], invoice[13], invoice[14], invoice[6], [
+        {
+            "line_number": line[0],
+            "quantity": line[1],
+            "amount": line[2],
+            "purchase_order_item_id": line[3],
+        }
+        for line in lines
+    ])
+    raw = invoice[15]
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "replace")
+    prepared = None
+    if text(raw):
+        try:
+            prepared = json.loads(raw)
+        except json.JSONDecodeError:
+            prepared = None
+    if prepared is None:
+        prepared = compose_posting(cur, invoice, lines)
+        try:
+            body_from_stored(prepared)
+            prepared["preparationStatus"] = "READY_TO_POST"
+        except SubmitError:
+            prepared["preparationStatus"] = "VALIDATION_FAILED"
+        save_posting(cur, invoice_id, prepared)
+    elif prepared.get("fingerprint") != current or prepared.get("preparationStatus") == "POSTING_DATA_STALE":
+        raise SubmitError(
+            400,
+            "Invoice cannot be submitted.",
+            "Posting data is stale because the invoice changed after it was prepared. Refresh from S/4. The purchase order is not read again during reprocess.",
+        )
+    company = text(values_of(prepared.get("header")).get("CompanyCode"))
+    body = body_from_stored(prepared)
     return {
         "buyer_id": invoice[1],
         "number": number,
@@ -187,6 +459,22 @@ def document(cur, invoice_id: uuid.UUID) -> dict:
         "erp_posting_id": invoice[11],
         "body": body,
     }
+
+
+def read_posting(cur, invoice_id: uuid.UUID) -> dict:
+    ensure_storage(cur)
+    row = fetchone(
+        cur,
+        "SELECT posting_data FROM buyersystem.invoice WHERE id=%s AND is_active=1",
+        (str(invoice_id),),
+    )
+    if row is None or not text(row[0] if not isinstance(row[0], bytes) else row[0].decode("utf-8", "replace")):
+        return {"ok": True, "postingData": None}
+    raw = row[0].decode("utf-8", "replace") if isinstance(row[0], bytes) else row[0]
+    try:
+        return {"ok": True, "postingData": json.loads(raw)}
+    except json.JSONDecodeError:
+        return {"ok": True, "postingData": None}
 
 
 def ensure_api(cur, buyer_id, body: dict) -> None:
@@ -245,8 +533,11 @@ def payload_of(built: dict) -> str:
     return json.dumps(built["body"], separators=(",", ":"))
 
 
-def prepare(cur, invoice_id: uuid.UUID) -> str:
-    built = document(cur, invoice_id)
+def prepare(cur, invoice_id: uuid.UUID) -> dict:
+    try:
+        built = document(cur, invoice_id)
+    except SubmitError as error:
+        return {"ok": False, "status": error.status, "message": error.message, "description": error.description}
     ensure_api(cur, built["buyer_id"], built["body"])
     posting_id = built["erp_posting_id"]
     if posting_id:
@@ -284,7 +575,7 @@ def prepare(cur, invoice_id: uuid.UUID) -> str:
         """,
         ("Queued for S/4 supplier invoice posting.", built["company"], API_NAME, payload_of(built), str(posting_id)),
     )
-    return str(posting_id)
+    return {"ok": True, "postingId": str(posting_id)}
 
 
 def finish(cur, invoice_id: uuid.UUID, posting_id: uuid.UUID, transport_error: str) -> None:
@@ -397,10 +688,15 @@ def main() -> None:
             print(json.dumps(removed))
             return
         invoice_id = uuid.UUID(str(payload.get("invoiceId")))
-        if action == "prepare":
-            posting_id = prepare(cursor, invoice_id)
+        if action == "posting":
+            stored = read_posting(cursor, invoice_id)
             connection.commit()
-            print(json.dumps({"ok": True, "postingId": posting_id}))
+            print(json.dumps(stored))
+            return
+        if action == "prepare":
+            result = prepare(cursor, invoice_id)
+            connection.commit()
+            print(json.dumps(result))
             return
         if action == "finish":
             finish(cursor, invoice_id, uuid.UUID(str(payload.get("postingId"))), text(payload.get("transportError")))

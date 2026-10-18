@@ -121,13 +121,19 @@ namespace Buyer.Tests.Shared
             document.Header.Add(("CompanyCode", "1050"));
             document.Header.Add(("Currency", "AED"));
             document.Header.Add(("GrossAmount", 47200m));
+            document.Header.Add(("PostingDate", "2026-10-12"));
+            document.Header.Add(("DueCalculationBaseDate", "2026-10-12"));
+            document.Header.Add(("AccountingDocumentType", "RE"));
+            document.Header.Add(("TaxIsCalculatedAutomatically", "true"));
             document.Items.Add(new List<(string Name, object? Value)>
             {
+                ("SupplierInvoiceItem", "00001"),
                 ("PurchaseOrder", "4500004152"),
                 ("PurchaseOrderItem", "00010"),
                 ("Quantity", 10m),
                 ("Uom", "EA"),
-                ("Amount", 45700m)
+                ("Amount", 45700m),
+                ("TaxCode", "V1")
             });
             string template = """
                 {
@@ -158,6 +164,12 @@ namespace Buyer.Tests.Shared
             Assert.DoesNotContain("4000000000", body, StringComparison.Ordinal);
             Assert.DoesNotContain("6270000011", body, StringComparison.Ordinal);
             Assert.Contains("\"AccountingDocumentType\":\"RE\"", body, StringComparison.Ordinal);
+            Assert.Contains("\"TaxCode\":\"V1\"", body, StringComparison.Ordinal);
+            Assert.Contains("\"TaxIsCalculatedAutomatically\":true", body, StringComparison.Ordinal);
+            Assert.Contains("\"DocumentDate\":\"2026-10-12T00:00:00\"", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("TaxDeterminationDate", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("to_SupplierInvoiceItemGLAcct", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("to_SupplierInvoiceTax", body, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -304,8 +316,14 @@ namespace Buyer.Tests.Shared
             Assert.Contains("\"SupplierInvoiceIDByInvcgParty\":\"TESTINVOICE123\"", body, StringComparison.Ordinal);
             Assert.Contains("\"AccountingDocumentType\":\"RE\"", body, StringComparison.Ordinal);
             Assert.Contains("\"TaxIsCalculatedAutomatically\":true", body, StringComparison.Ordinal);
+            Assert.Contains("\"SupplierInvoiceItem\":\"00001\"", body, StringComparison.Ordinal);
+            Assert.Contains("\"PurchaseOrderQuantityUnit\":\"EA\"", body, StringComparison.Ordinal);
             Assert.DoesNotContain("\"QuantityInPurchaseOrderUnit\":\"100\"", body, StringComparison.Ordinal);
             Assert.DoesNotContain("6270000011", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("TaxDeterminationDate", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("to_SupplierInvoiceItemGLAcct", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("KR", body, StringComparison.Ordinal);
+            Assert.DoesNotContain(stored.Header, x => x.ApiField == "TaxDeterminationDate");
 
             invoice.GrossAmount = 90;
             invoice.PostingData = SilaInvoicePostingData.Write(stored);
@@ -340,7 +358,12 @@ namespace Buyer.Tests.Shared
                 new List<GoodsReceipt>(), new List<GoodsReceiptItem>(), new List<InventoryErpPosting>(), order, Guid.Empty, 1);
 
             Assert.Equal(SilaInvoicePostingData.INVALID, prepared.PreparationStatus);
-            Assert.Contains(SilaInvoicePostingData.Missing(prepared), x => x.Contains("Tax code", StringComparison.Ordinal) && x.Contains("S/4 purchase order item", StringComparison.Ordinal));
+            invoice.PostingData = SilaInvoicePostingData.Write(prepared);
+            string blocked = SilaInvoicePostingData.BlockSend(prepared, invoice, new[] { line })!;
+            Assert.Contains(SilaInvoiceLifecycle.MISSING, blocked, StringComparison.Ordinal);
+            Assert.Contains("Field: TaxCode", blocked, StringComparison.Ordinal);
+            Assert.Contains("PO: 4500001", blocked, StringComparison.Ordinal);
+            Assert.Contains("PO Item: 00010", blocked, StringComparison.Ordinal);
         }
 
         [Fact]
