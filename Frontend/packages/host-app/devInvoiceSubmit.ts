@@ -83,6 +83,15 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
         });
         return;
       }
+      const deleteMatch = (req.url || "").match(/^\/api\/v1\/buyer\/integrations\/([0-9a-fA-F-]{36})(?:\?|$)/);
+      if (deleteMatch && req.method === "DELETE") {
+        void handleDelete(target, settingsPath, deleteMatch[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not delete the integration.", "Could not delete the integration."));
+          }
+        });
+        return;
+      }
       const match = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/submit(?:\?|$)/);
       if (!match || req.method !== "POST") {
         next();
@@ -198,4 +207,39 @@ const handlePayload = async (
   }
 
   send(res, 200, "application/json; charset=utf-8", JSON.stringify({ technicalDetail: looked.technicalDetail || "" }));
+};
+
+const handleDelete = async (
+  target: string,
+  settingsPath: string,
+  configurationId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const route = `/api/v1/buyer/integrations/${configurationId}`;
+  const upstream = await forward(target, req, "DELETE", route, null);
+  const missing = upstream.status === 405 || (upstream.status === 404 && !upstream.body.trim());
+  if (!missing) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+
+  const allowed = await forward(target, req, "GET", route, null);
+  if (allowed.status !== 200) {
+    send(res, allowed.status, allowed.contentType, allowed.body);
+    return;
+  }
+
+  const removed = await run(settingsPath, { action: "delete", configurationId });
+  if (!removed.ok) {
+    const status = removed.status || 500;
+    send(res, status, "application/json; charset=utf-8", described(
+      status,
+      removed.message || "Could not delete the integration.",
+      removed.description || "Could not delete the integration.",
+    ));
+    return;
+  }
+
+  send(res, 200, "application/json; charset=utf-8", described(200, "Success", "Integration deleted."));
 };

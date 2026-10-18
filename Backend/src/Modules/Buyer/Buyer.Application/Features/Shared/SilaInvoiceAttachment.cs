@@ -302,7 +302,7 @@ namespace Buyer.Application.Features.Shared
                 return;
             }
 
-            ApiIntegrationConfiguration? configuration = await ResolveAsync(repository, logger, buyer, invoicePosting.CompanyCode, userId, cancellationToken);
+            ApiIntegrationConfiguration? configuration = await ResolveAsync(repository, buyer, invoicePosting.CompanyCode, cancellationToken);
             if (configuration == null)
             {
                 await FailAsync(repository, logger, attachment, "No active " + SilaInvoiceLifecycle.API_ATTACHMENT + " API is configured. Activate it under Integrations.");
@@ -399,12 +399,14 @@ namespace Buyer.Application.Features.Shared
             logger.LogError($"Invoice attachment was not accepted. InvoiceId: {invoice.Id}, Attempts: {attachment.Attempts}, StatusCode: {sent.StatusCode}");
         }
 
+        /// <summary>
+        /// Uses the attachment API the organization already saved. A missing API is not created:
+        /// inserting SUPPLIER_INVOICE_ATTACHMENT stops the live integrations list from loading.
+        /// </summary>
         private static async Task<ApiIntegrationConfiguration?> ResolveAsync(
             IRepositoryWrapper repository,
-            ILoggerManager logger,
             BuyerBusinessProfile buyer,
             string? companyCode,
-            Guid userId,
             CancellationToken cancellationToken)
         {
             string processType = IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT.ToString();
@@ -416,72 +418,7 @@ namespace Buyer.Application.Features.Shared
                         || (x.ResourcePath != null && x.ResourcePath.Contains(SilaInvoiceLifecycle.ATTACHMENT_SERVICE))))
                 .ToListAsync(cancellationToken);
             ApiIntegrationConfiguration? match = Match(existing, companyCode);
-            if (match != null)
-            {
-                return match.Status == IntegrationConfigurationStatus.ACTIVE ? match : null;
-            }
-
-            ApiIntegrationConfiguration? source = await SilaInvoicePosting.FindInvoiceApiAsync(repository, buyer.OrganizationId, companyCode, cancellationToken);
-            if (source == null || string.IsNullOrWhiteSpace(source.BaseUrl))
-            {
-                return null;
-            }
-
-            ApiIntegrationConfiguration created = Copy(source, userId);
-            repository.ApiIntegrationConfiguration.Create(created);
-            try
-            {
-                await repository.SaveAsync();
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                logger.LogError($"Invoice attachment API was not saved. BuyerId: {buyer.Id}, Error: {SilaLogText.Short(exception.Message)}");
-                return null;
-            }
-
-            logger.LogInfo($"Invoice attachment API created from the S/4 invoice connection. ConfigurationId: {created.Id}, BuyerId: {buyer.Id}");
-            return created;
-        }
-
-        private static ApiIntegrationConfiguration Copy(ApiIntegrationConfiguration source, Guid userId)
-        {
-            DateTime now = DateTime.UtcNow;
-            return new ApiIntegrationConfiguration
-            {
-                Id = Guid.NewGuid(),
-                BuyerId = source.BuyerId,
-                EntityCode = source.EntityCode,
-                Name = SilaInvoiceLifecycle.API_ATTACHMENT,
-                ProcessType = IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT.ToString(),
-                Protocol = source.Protocol,
-                SystemName = "SAP S/4",
-                BaseUrl = source.BaseUrl,
-                ResourcePath = SilaInvoiceLifecycle.ATTACHMENT_PATH,
-                AuthenticationType = source.AuthenticationType,
-                Username = source.Username,
-                ProtectedPassword = source.ProtectedPassword,
-                ProtectedClientId = source.ProtectedClientId,
-                ProtectedClientSecret = source.ProtectedClientSecret,
-                ProtectedBearerToken = source.ProtectedBearerToken,
-                TokenEndpoint = source.TokenEndpoint,
-                TokenScope = source.TokenScope,
-                TokenHeadersJson = source.TokenHeadersJson,
-                TokenBodyJson = source.TokenBodyJson,
-                ApiKeyHeader = source.ApiKeyHeader,
-                ProtectedApiKey = source.ProtectedApiKey,
-                HttpMethod = "POST",
-                PayloadFormat = "JSON",
-                RequestBody = DefaultRequest,
-                HeadersJson = source.HeadersJson,
-                TimeoutSeconds = source.TimeoutSeconds > 0 ? source.TimeoutSeconds : 30,
-                RetryCount = source.RetryCount,
-                Status = IntegrationConfigurationStatus.ACTIVE,
-                IsActive = true,
-                DateCreated = now,
-                DateUpdated = now,
-                CreatedBy = userId,
-                UpdatedBy = userId
-            };
+            return match != null && match.Status == IntegrationConfigurationStatus.ACTIVE ? match : null;
         }
 
         private static ApiIntegrationConfiguration? Match(List<ApiIntegrationConfiguration> configurations, string? companyCode)

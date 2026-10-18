@@ -333,6 +333,33 @@ def finish(cur, invoice_id: uuid.UUID, posting_id: uuid.UUID, transport_error: s
         )
 
 
+def delete_integration(cur, configuration_id: uuid.UUID) -> dict:
+    row = fetchone(
+        cur,
+        """
+        SELECT name, is_running
+        FROM buyersystem.api_integration_configuration
+        WHERE id=%s
+        """,
+        (str(configuration_id),),
+    )
+    if row is None:
+        raise SubmitError(404, "Integration not found.", "Select an integration from the list.")
+    if row[1]:
+        raise SubmitError(409, "Integration is running.", "Wait for the current run to finish, then delete the API.")
+    for table in (
+        "buyersystem.api_field_mapping",
+        "buyersystem.api_integration_execution",
+        "buyersystem.integration_schema_snapshot",
+    ):
+        cur.execute(f"DELETE FROM {table} WHERE configuration_id=%s", (str(configuration_id),))
+    cur.execute(
+        "DELETE FROM buyersystem.api_integration_configuration WHERE id=%s",
+        (str(configuration_id),),
+    )
+    return {"ok": True, "name": text(row[0])}
+
+
 def posting_payload(cur, posting_id: uuid.UUID) -> dict:
     row = fetchone(
         cur,
@@ -363,6 +390,11 @@ def main() -> None:
         cursor = connection.cursor()
         if action == "payload":
             print(json.dumps(posting_payload(cursor, uuid.UUID(str(payload.get("postingId"))))))
+            return
+        if action == "delete":
+            removed = delete_integration(cursor, uuid.UUID(str(payload.get("configurationId"))))
+            connection.commit()
+            print(json.dumps(removed))
             return
         invoice_id = uuid.UUID(str(payload.get("invoiceId")))
         if action == "prepare":
