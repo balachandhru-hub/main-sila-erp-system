@@ -8,6 +8,7 @@ using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
 using Buyer.Application.Features.Commands.ReprocessSilaInvoiceAttachment;
 using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
+using Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
 using Buyer.Application.Features.Queries.GetSilaCreateInvoiceMasters;
@@ -158,6 +159,30 @@ namespace Buyer.API.Controllers
                 StatusCode = 200,
                 Message = "Success",
                 Description = "Goods receipt posted."
+            });
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/grns/{goodsReceiptId}/reverse")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("ReverseSilaGoodsReceipt")]
+        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
+        public async Task<IActionResult> ReverseGoodsReceipt([FromRoute] Guid goodsReceiptId)
+        {
+            _logger.LogDebug($"Reversing goods receipt. GoodsReceiptId: {goodsReceiptId}");
+            string description = await _mediator.Send(new ReverseSilaGoodsReceiptCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                GoodsReceiptId = goodsReceiptId
+            });
+            return Ok(new SuccessResponseDto
+            {
+                Id = goodsReceiptId.ToString(),
+                StatusCode = 200,
+                Message = "Success",
+                Description = description
             });
         }
 

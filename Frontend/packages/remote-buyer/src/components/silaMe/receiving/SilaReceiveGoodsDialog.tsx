@@ -44,10 +44,15 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
   const [orderError, setOrderError] = useState<string | null>(null);
   const [stores, setStores] = useState<SilaLocation[]>([]);
   const [locationId, setLocationId] = useState("");
-  const [deliveryNote, setDeliveryNote] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState(() => prefill?.invoiceNumber?.trim() || "");
   const [inputs, setInputs] = useState<Record<string, ReceiveLineInput>>({});
   const [saving, setSaving] = useState(false);
   const [check, setCheck] = useState<{ key: string; result: SilaGrnValidation } | null>(null);
+
+  useEffect(() => {
+    const note = prefill?.invoiceNumber?.trim();
+    if (note) setDeliveryNote(note);
+  }, [prefill?.invoiceNumber]);
 
   useEffect(() => {
     let active = true;
@@ -120,11 +125,16 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
       if (batchProblem) return toastService.error(batchProblem);
     }
 
+    const note = deliveryNote.trim() || prefill?.invoiceNumber?.trim() || "";
+    if (!note || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(note)) {
+      return toastService.error("Delivery note must be the supplier invoice number.");
+    }
+
     const request: SilaGrnWrite = {
       purchaseOrderId: order.id,
       locationId,
       invoiceId: prefill?.invoiceId ?? null,
-      deliveryNote: deliveryNote.trim() || null,
+      deliveryNote: note,
       lines: lines.map(({ line, input }) => ({
         purchaseOrderItemId: line.id,
         receivedQty: parseNumber(input.received) ?? 0,
@@ -135,26 +145,20 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
         expiryDate: input.expiry || null,
       })),
     };
-    const key = JSON.stringify(request);
+
+    const partial = lines.some(({ line, input }) => acceptedOf(input) + 0.0001 < line.openQty);
 
     setSaving(true);
     try {
-      // Checked again whenever the entries changed since the last check; warnings already shown are accepted by posting.
-      if (!check || check.key !== key || !check.result.valid) {
-        const result = await validateGoodsReceipt(request);
-        setCheck({ key, result });
-        if (!result.valid) {
-          toastService.error("The goods receipt has errors; correct them and post again.");
-          return;
-        }
-        if (result.warnings.length > 0) {
-          toastService.warning("Check the warnings, then post anyway.");
-          return;
-        }
+      const result = await validateGoodsReceipt(request);
+      setCheck({ key: JSON.stringify(request), result });
+      if (!result.valid) {
+        toastService.error(result.errors[0] || "The goods receipt has errors; correct them and post again.");
+        return;
       }
-
+      // Partial (and other soft warnings) post in one click — button already says Partial GRN posting.
       const id = await postGoodsReceipt(request);
-      toastService.success("Goods receipt posted.");
+      toastService.success(partial ? "Partial goods receipt posted." : "Goods receipt posted.");
       onPosted(id);
     } catch (err: unknown) {
       toastService.error(err instanceof Error ? err.message : "Could not post the goods receipt.");
@@ -162,6 +166,15 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
       setSaving(false);
     }
   };
+
+  const isPartialPost = useMemo(() => {
+    if (!order) return false;
+    return openLines.some((line) => {
+      const input = inputs[line.id];
+      if (!input || (parseNumber(input.received) ?? 0) <= 0) return false;
+      return acceptedOf(input) + 0.0001 < line.openQty;
+    });
+  }, [order, openLines, inputs]);
 
   return (
     <Modal
@@ -171,7 +184,7 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
       headerProps={{ heading: order ? `Receive goods — ${order.poNumber}` : "Receive goods", subHeading: prefill?.invoiceNumber ? `Invoice ${prefill.invoiceNumber}` : undefined }}
       footerProps={{
         primaryButton: {
-          text: check?.result.valid && check.result.warnings.length > 0 ? "Post anyway" : "Post goods receipt",
+          text: isPartialPost ? "Partial GRN posting" : "Post goods receipt",
           onClick: handleSubmit,
           loading: saving,
           disabled: saving || !order,
@@ -208,8 +221,15 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
             onChange={setLocationId}
           />
           <div className="sila-field">
-            <label className="sila-label" htmlFor="srcv-rcv-note">Delivery note</label>
-            <input id="srcv-rcv-note" className="sila-input" value={deliveryNote} maxLength={100} disabled={saving} onChange={(event) => setDeliveryNote(event.target.value)} />
+            <label className="sila-label" htmlFor="srcv-rcv-note">Delivery note (invoice number)</label>
+            <input
+              id="srcv-rcv-note"
+              className="sila-input"
+              value={deliveryNote}
+              maxLength={100}
+              disabled={saving || !!prefill?.invoiceNumber}
+              onChange={(event) => setDeliveryNote(event.target.value)}
+            />
           </div>
         </div>
         {check && (check.result.errors.length > 0 || check.result.warnings.length > 0) && (

@@ -1,15 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { getGoodsReceipt } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
+import {
+  getGoodsReceipt,
+  reverseGoodsReceipt,
+  submitInvoice,
+} from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { formatQty } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import Card from '../../components/Card';
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
-import { ErrorNotice, Loading } from '../../components/StateViews';
+import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../components/StateViews';
 import { formatDateTime } from '../../format';
 import { useGo } from '../../navigation';
-import { useLoad } from '../../useLoad';
+import { errorText, useLoad } from '../../useLoad';
 import GrnErpCard from './GrnErpCard';
+
+const INVOICE_SUBMIT_OK = new Set([
+  'GRN_POSTED',
+  'READY_FOR_INVOICE_SUBMISSION',
+  'REVIEWED',
+  'EXTRACTED',
+  'APPROVED',
+]);
 
 /** A goods receipt; right after posting it is the result screen. */
 const GrnDetailScreen: React.FC = () => {
@@ -18,6 +30,43 @@ const GrnDetailScreen: React.FC = () => {
   const justPosted = params.get('posted') === '1';
   const go = useGo();
   const { data, loading, error, reload } = useLoad(() => getGoodsReceipt(grnId), grnId || null);
+  const [busy, setBusy] = useState<'reverse' | 'invoice' | null>(null);
+  const [notice, setNotice] = useState<NoticeMessage | null>(null);
+
+  const posted = (data?.status || '').toUpperCase() === 'POSTED';
+  const reversed = (data?.status || '').toUpperCase() === 'REVERSED';
+  const canPostInvoice = !!data?.invoiceId && INVOICE_SUBMIT_OK.has((data.invoiceStatus || '').toUpperCase());
+
+  const onReverse = async () => {
+    if (!data || !window.confirm(`Reverse goods receipt ${data.grnNumber}? Stock will be removed and PO open quantity restored.`)) {
+      return;
+    }
+    setBusy('reverse');
+    setNotice(null);
+    try {
+      const message = await reverseGoodsReceipt(data.id);
+      setNotice({ tone: 'success', text: message });
+      reload();
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not reverse the goods receipt.') });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onPostInvoice = async () => {
+    if (!data?.invoiceId) return;
+    setBusy('invoice');
+    setNotice(null);
+    try {
+      await submitInvoice(data.invoiceId);
+      setNotice({ tone: 'success', text: 'Invoice submitted for posting.' });
+      go(`receive/invoices/${data.invoiceId}`, { replace: false });
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not submit the invoice.') });
+      setBusy(null);
+    }
+  };
 
   return (
     <>
@@ -58,6 +107,22 @@ const GrnDetailScreen: React.FC = () => {
             </Card>
 
             <GrnErpCard grn={data} onChanged={reload} />
+
+            {(posted || canPostInvoice) && !reversed && (
+              <div className="sm-actions sm-grid-2">
+                {posted && (
+                  <button type="button" className="sm-btn" disabled={busy !== null} onClick={onReverse}>
+                    {busy === 'reverse' ? 'Reversing…' : 'Reverse GRN'}
+                  </button>
+                )}
+                {canPostInvoice && (
+                  <button type="button" className="sm-btn sm-btn--primary" disabled={busy !== null} onClick={onPostInvoice}>
+                    {busy === 'invoice' ? 'Submitting…' : 'Post invoice'}
+                  </button>
+                )}
+              </div>
+            )}
+            <Notice notice={notice} />
 
             <section className="sm-section" aria-labelledby="sm-grn-lines">
               <h2 id="sm-grn-lines">Lines ({data.items.length})</h2>

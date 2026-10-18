@@ -6,7 +6,6 @@ import {
   postGoodsReceipt,
   validateGoodsReceipt,
   type SilaGrnLineWrite,
-  type SilaGrnValidation,
   type SilaGrnWrite,
   type SilaPurchaseOrderLine,
 } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
@@ -22,6 +21,7 @@ import { errorText, useLoad } from '../../useLoad';
 import GrnLineCard, { type GrnLineEntry } from './GrnLineCard';
 
 const STORE = 'STORE';
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Prefer the beverage store of the PO property; fall back to the first store of that property. */
 const propertyStoreId = (stores: SilaLocation[], po?: { companyCode?: string | null; plantCode?: string | null } | null): string => {
@@ -40,7 +40,7 @@ const propertyStoreId = (stores: SilaLocation[], po?: { companyCode?: string | n
   return (beverage ?? pool[0])?.id ?? '';
 };
 
-/** Finalize GRN: received = accepted + rejected + damaged, accepted ≤ open. Checked by the server before posting. */
+/** Finalize GRN: compact header + dense lines; partial posts in one click. */
 const GrnFormScreen: React.FC = () => {
   const go = useGo();
   const [params] = useSearchParams();
@@ -53,12 +53,8 @@ const GrnFormScreen: React.FC = () => {
   const [chosenStoreId, setStoreId] = useState<string>('');
   const [entries, setEntries] = useState<Record<string, GrnLineEntry>>({});
   const [seededLines, setSeededLines] = useState(false);
-  const [deliveryNote, setDeliveryNote] = useState<string>('');
-  const [deliverySeeded, setDeliverySeeded] = useState(false);
   const [busy, setBusy] = useState<'check' | 'post' | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
-  /** Result of the last check; warnings must be confirmed before posting. */
-  const [check, setCheck] = useState<{ request: SilaGrnWrite; result: SilaGrnValidation } | null>(null);
 
   const stores = useMemo(() => {
     const fromAll = (allLocations.data ?? []).filter((location) => location.locationType === STORE);
@@ -68,20 +64,15 @@ const GrnFormScreen: React.FC = () => {
 
   const defaultStoreId = useMemo(() => propertyStoreId(stores, po), [stores, po]);
   const storeId = chosenStoreId || defaultStoreId;
+  const invoiceNumber = invoice.data?.invoiceNumber?.trim() || '';
+  /** Delivery note is always the supplier invoice number — never a GUID. */
+  const deliveryNote = invoiceNumber && !GUID.test(invoiceNumber) ? invoiceNumber : '';
 
   useEffect(() => {
     if (!chosenStoreId && defaultStoreId) {
       setStoreId(defaultStoreId);
     }
   }, [chosenStoreId, defaultStoreId]);
-
-  useEffect(() => {
-    if (deliverySeeded || !invoiceId) return;
-    const note = invoice.data?.invoiceNumber?.trim() || invoiceId;
-    if (!note) return;
-    setDeliveryNote(note);
-    setDeliverySeeded(true);
-  }, [deliverySeeded, invoiceId, invoice.data?.invoiceNumber]);
 
   const openLines = (po?.lines ?? []).filter((line) => line.openQty > 0);
   const invoiceQtyOf = (lineId: string): number | null => {
@@ -113,13 +104,24 @@ const GrnFormScreen: React.FC = () => {
     }
     return { accepted: String(line.openQty), rejected: '0', damaged: '0' };
   };
-  const messagesOf = (lineId: string): string[] =>
-    check?.result.lines.find((line) => line.purchaseOrderItemId === lineId)?.messages ?? [];
+
+  const isPartial = !!po && openLines.some((line) => {
+    const entry = entryOf(line);
+    const accepted = parseQty(entry.accepted) ?? 0;
+    const rejected = parseQty(entry.rejected || '0') ?? 0;
+    const damaged = parseQty(entry.damaged || '0') ?? 0;
+    if (accepted + rejected + damaged <= 0) return false;
+    return accepted + 0.0001 < line.openQty;
+  });
 
   const buildRequest = (): SilaGrnWrite | null => {
     if (!po) return null;
     if (!storeId) {
       setNotice({ tone: 'error', text: 'Choose the receiving store.' });
+      return null;
+    }
+    if (!deliveryNote) {
+      setNotice({ tone: 'error', text: 'Supplier invoice number is required as the delivery note.' });
       return null;
     }
     const lines: SilaGrnLineWrite[] = [];
@@ -147,7 +149,7 @@ const GrnFormScreen: React.FC = () => {
       purchaseOrderId: po.id,
       locationId: storeId,
       invoiceId: invoiceId || null,
-      deliveryNote: deliveryNote.trim() || invoice.data?.invoiceNumber?.trim() || invoiceId || null,
+      deliveryNote,
       lines,
     };
   };
@@ -163,21 +165,23 @@ const GrnFormScreen: React.FC = () => {
     }
   };
 
-  /** Checks with the server first: errors block, warnings need a confirmation, a clean check posts at once. */
+  /** Validate then post in one click — partial is intentional, no second confirm. */
   const checkAndPost = async () => {
     setNotice(null);
-    setCheck(null);
     const request = buildRequest();
     if (!request) return;
     setBusy('check');
     try {
       const result = await validateGoodsReceipt(request);
-      if (result.valid && result.warnings.length === 0) {
-        await post(request);
+      if (!result.valid) {
+        setNotice({
+          tone: 'error',
+          text: result.errors[0] ?? 'Fix the quantity errors before posting.',
+        });
+        setBusy(null);
         return;
       }
-      setCheck({ request, result });
-      setBusy(null);
+      await post(request);
     } catch (caught: unknown) {
       setNotice({ tone: 'error', text: errorText(caught) });
       setBusy(null);
@@ -185,99 +189,86 @@ const GrnFormScreen: React.FC = () => {
   };
 
   const change = (line: SilaPurchaseOrderLine, value: Partial<GrnLineEntry>) => {
-    setCheck(null);
     setEntries((current) => ({ ...current, [line.id]: { ...entryOf(line), ...value } }));
   };
 
   const locationsLoading = myLocationsLoading || allLocations.loading;
   const selectedStore = stores.find((store) => store.id === storeId);
+  const postLabel = busy === 'check'
+    ? 'Checking…'
+    : busy === 'post'
+      ? (isPartial ? 'POSTING PARTIAL GRN…' : 'POSTING GRN…')
+      : (isPartial ? 'PARTIAL GRN POSTING' : 'POST GRN');
+
+  const summary = po ? (
+    <>
+      <p>
+        <strong>{po.supplierName ?? '—'}</strong>
+        {' · '}
+        {invoiceNumber || (invoice.loading ? '…' : '—')}
+        {' · '}
+        PO {po.poNumber} · {formatMoney(po.totalAmount, po.currency)}
+      </p>
+      <p>
+        Company {po.companyCode ?? '—'}
+        {' · '}
+        {formatDate(todayIso())}
+        {' · '}
+        {selectedStore ? `${selectedStore.locationName} (${selectedStore.locationCode})` : 'Receiving store *'}
+      </p>
+    </>
+  ) : null;
 
   return (
     <>
-      <ScreenHeader title="Finalize GRN" eyebrow="Receive" back />
-      <div className="sm-screen">
+      <ScreenHeader title="Finalize GRN" eyebrow="Receive" back summary={summary} />
+      <div className="sm-screen sm-screen--dense">
         {!poId && <Empty text="No purchase order chosen." />}
         {loading && <Loading />}
         {error && <ErrorNotice message={error} onRetry={reload} />}
         {invoice.error && <ErrorNotice message={invoice.error} onRetry={invoice.reload} />}
         {po && (
           <>
-            <section className="sm-card" aria-label="Receipt">
-              <span className="sm-label">Supplier</span>
-              <strong className="sm-title">{po.supplierName ?? '—'}</strong>
-              <span className="sm-meta">Supplier Invoice Number {invoice.data?.invoiceNumber ?? (invoiceId ? '…' : '—')}</span>
-              <span className="sm-meta">Purchase Order {po.poNumber} · {formatMoney(po.totalAmount, po.currency)}</span>
-              <span className="sm-meta">Company Code {po.companyCode ?? '—'}</span>
-              <span className="sm-meta">Received Date {formatDate(todayIso())}</span>
-            </section>
             {locationsLoading ? null : stores.length === 0 ? (
               <p className="sm-notice sm-notice--warning">No store is available for this property; goods can only be received at a store.</p>
             ) : (
-              <>
+              <div className="sm-grn-store">
                 <LocationPicker
                   label="Receiving store"
                   locations={stores}
                   value={storeId}
-                  onChange={(id) => { setCheck(null); setStoreId(id); }}
+                  onChange={(id) => setStoreId(id)}
                 />
-                {selectedStore && (
-                  <p className="sm-meta">
-                    Default is the property store{selectedStore.storeCategory ? ` (${selectedStore.storeCategory})` : ''}: {selectedStore.locationCode}.
-                  </p>
-                )}
-              </>
+              </div>
             )}
-            <div className="sm-field">
-              <label htmlFor="sm-delivery-note">Delivery note</label>
-              <input id="sm-delivery-note" className="sm-input" value={deliveryNote} onChange={(event) => setDeliveryNote(event.target.value)} />
-              <span className="sm-meta">Defaults to the supplier invoice number.</span>
-            </div>
+            {deliveryNote ? (
+              <p className="sm-meta sm-grn-delivery">Delivery note (invoice): <strong>{deliveryNote}</strong></p>
+            ) : (
+              <p className="sm-notice sm-notice--warning">Waiting for supplier invoice number for the delivery note.</p>
+            )}
             {openLines.length === 0 && <Empty text="Every line of this purchase order is fully received." />}
-            {openLines.map((line) => (
-              <GrnLineCard
-                key={line.id}
-                line={line}
-                entry={entryOf(line)}
-                invoiceQty={invoiceQtyOf(line.id)}
-                messages={messagesOf(line.id)}
-                disabled={busy !== null}
-                onChange={(value) => change(line, value)}
-              />
-            ))}
-            {check && (
-              <section className={`sm-notice ${check.result.errors.length > 0 ? 'sm-notice--error' : 'sm-notice--warning'} sm-section`} role="alert">
-                {check.result.errors.length > 0 ? <strong>Fix these before posting</strong> : <strong>Check before posting</strong>}
-                <ul className="sm-section">
-                  {[...check.result.errors, ...check.result.warnings].map((message) => (
-                    <li key={message}>• {message}</li>
-                  ))}
-                </ul>
-                <span className="sm-meta">
-                  Received {formatQty(check.result.totalReceived)} · accepted {formatQty(check.result.totalAccepted)}
-                  {check.result.totalValue !== null && check.result.totalValue !== undefined ? ` · value ${formatMoney(check.result.totalValue, check.result.currency)}` : ''}
-                </span>
-                {check.result.errors.length === 0 ? (
-                  <button type="button" className="sm-btn sm-btn--primary" disabled={busy !== null} onClick={() => post(check.request)}>
-                    {busy === 'post' ? 'POSTING GRN…' : 'Post anyway'}
-                  </button>
-                ) : (
-                  <button type="button" className="sm-btn" disabled={busy !== null} onClick={checkAndPost}>
-                    Check again
-                  </button>
-                )}
-              </section>
-            )}
+            <div className="sm-grn-lines">
+              {openLines.map((line) => (
+                <GrnLineCard
+                  key={line.id}
+                  line={line}
+                  entry={entryOf(line)}
+                  invoiceQty={invoiceQtyOf(line.id)}
+                  messages={[]}
+                  disabled={busy !== null}
+                  onChange={(value) => change(line, value)}
+                />
+              ))}
+            </div>
             <Notice notice={notice} />
-            {!check && (
-              <button
-                type="button"
-                className="sm-btn sm-btn--success sm-btn--block"
-                disabled={busy !== null || openLines.length === 0 || stores.length === 0 || locationsLoading}
-                onClick={checkAndPost}
-              >
-                {busy === 'check' ? 'Checking…' : busy === 'post' ? 'POSTING GRN…' : 'POST GRN'}
-              </button>
-            )}
+            <button
+              type="button"
+              className="sm-btn sm-btn--success sm-btn--block"
+              disabled={busy !== null || openLines.length === 0 || stores.length === 0 || locationsLoading || !deliveryNote}
+              onClick={checkAndPost}
+            >
+              {postLabel}
+            </button>
           </>
         )}
       </div>

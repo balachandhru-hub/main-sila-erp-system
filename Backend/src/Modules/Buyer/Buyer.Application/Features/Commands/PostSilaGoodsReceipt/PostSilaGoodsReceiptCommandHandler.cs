@@ -122,7 +122,8 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
                 PoNumber = purchaseOrder.PoNumber,
                 LocationId = location.Id,
                 InvoiceId = invoice?.Id,
-                DeliveryNote = string.IsNullOrWhiteSpace(input.DeliveryNote) ? null : input.DeliveryNote.Trim(),
+                // Delivery note is the supplier invoice number — never a system GUID.
+                DeliveryNote = DeliveryNoteOf(input.DeliveryNote, invoice?.InvoiceNumber),
                 Status = Common.SILA_GRN_POSTED,
                 ReceivedBy = request.UserId,
                 IsActive = true
@@ -282,6 +283,19 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
             }
 
             return invoice;
+        }
+
+        /// <summary>Prefers the supplier invoice number; drops a GUID-shaped delivery note.</summary>
+        private static string? DeliveryNoteOf(string? deliveryNote, string? invoiceNumber)
+        {
+            string? invoice = string.IsNullOrWhiteSpace(invoiceNumber) ? null : invoiceNumber.Trim();
+            string? note = string.IsNullOrWhiteSpace(deliveryNote) ? null : deliveryNote.Trim();
+            if (note != null && Guid.TryParse(note, out _))
+            {
+                note = null;
+            }
+
+            return invoice ?? note;
         }
     }
 }

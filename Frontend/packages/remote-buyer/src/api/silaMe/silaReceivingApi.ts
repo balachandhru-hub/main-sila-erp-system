@@ -396,6 +396,15 @@ export const postGoodsReceipt = async (request: SilaGrnWrite): Promise<string> =
   return data.id;
 };
 
+/** Reverses a posted goods receipt in SILA stock (and restores PO open qty). */
+export const reverseGoodsReceipt = async (goodsReceiptId: string): Promise<string> => {
+  const data = await call(
+    () => axiosInstance.post<{ description?: string; Description?: string }>(`${BASE}/grns/${goodsReceiptId}/reverse`),
+    "Could not reverse the goods receipt.",
+  );
+  return data.description || data.Description || "Goods receipt reversed.";
+};
+
 export interface SilaCreateInvoiceLine {
   lineNumber: number;
   description: string;
