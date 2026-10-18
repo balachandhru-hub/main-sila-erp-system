@@ -93,8 +93,9 @@ const GrnFormScreen: React.FC = () => {
     if (seededLines || !po || !invoice.data) return;
     const next: Record<string, GrnLineEntry> = {};
     let any = false;
-    for (const line of openLines) {
-      const invoiceQty = invoiceQtyOf(line.id);
+    for (const line of (po.lines ?? []).filter((row) => row.openQty > 0)) {
+      const matches = (invoice.data.items ?? []).filter((item) => item.purchaseOrderItemId === line.id);
+      const invoiceQty = matches.length > 0 ? matches.reduce((sum, item) => sum + (item.quantity ?? 0), 0) : null;
       if (invoiceQty == null || invoiceQty <= 0) continue;
       const accepted = Math.min(invoiceQty, line.openQty);
       next[line.id] = { accepted: String(accepted), rejected: '0', damaged: '0' };
@@ -102,7 +103,7 @@ const GrnFormScreen: React.FC = () => {
     }
     if (any) setEntries((current) => ({ ...next, ...current }));
     setSeededLines(true);
-  }, [seededLines, po, invoice.data, openLines]);
+  }, [seededLines, po, invoice.data]);
 
   const entryOf = (line: SilaPurchaseOrderLine): GrnLineEntry => {
     if (entries[line.id]) return entries[line.id];
