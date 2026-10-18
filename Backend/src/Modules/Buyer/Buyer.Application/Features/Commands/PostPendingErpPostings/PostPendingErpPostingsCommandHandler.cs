@@ -934,6 +934,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     ("Uom", item.Uom),
                     ("Material", item.MaterialCode),
                     ("Plant", plant),
+                    ("StorageLocation", location?.StorageLocationCode),
                     ("GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE),
                     ("PurchaseOrder", receipt.PoNumber),
                     ("PurchaseOrderItem", purchaseOrderItem),
@@ -1441,17 +1442,25 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     return item.FirstOrDefault(x => x.Name == name).Value;
                 }
 
-                return new
+                string? storage = Value("StorageLocation")?.ToString()?.Trim();
+                Dictionary<string, object?> line = new Dictionary<string, object?>
                 {
-                    Material = Value("Material"),
-                    Plant = Value("Plant"),
-                    GoodsMovementType = Value("GoodsMovementType"),
-                    PurchaseOrder = Value("PurchaseOrder"),
-                    PurchaseOrderItem = Value("PurchaseOrderItem"),
-                    GoodsMovementRefDocType = Value("GoodsMovementRefDocType"),
-                    EntryUnit = Value("EntryUnit"),
-                    QuantityInEntryUnit = Value("QuantityInEntryUnit")
+                    ["Material"] = Value("Material"),
+                    ["Plant"] = Value("Plant"),
+                    ["GoodsMovementType"] = Value("GoodsMovementType"),
+                    ["PurchaseOrder"] = Value("PurchaseOrder"),
+                    ["PurchaseOrderItem"] = Value("PurchaseOrderItem"),
+                    ["GoodsMovementRefDocType"] = Value("GoodsMovementRefDocType"),
+                    ["EntryUnit"] = Value("EntryUnit"),
+                    ["QuantityInEntryUnit"] = Value("QuantityInEntryUnit")
                 };
+                // Receiving store / outlet SAP storage location (omit when blank).
+                if (!string.IsNullOrWhiteSpace(storage))
+                {
+                    line["StorageLocation"] = storage;
+                }
+
+                return line;
             }).ToList();
 
             return JsonSerializer.Serialize(new

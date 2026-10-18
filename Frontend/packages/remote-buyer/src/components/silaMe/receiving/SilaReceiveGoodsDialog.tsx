@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
-import { getMyLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
+import { getLocations, getMyLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import SilaSearchableSelect from "../SilaSearchableSelect";
 import {
   getOpenPurchaseOrders,
@@ -15,6 +15,18 @@ import {
 import SilaReceiveLinesTable, { acceptedOf, batchExpiryProblem, type ReceiveLineInput } from "./SilaReceiveLinesTable";
 import { parseNumber } from "./receivingFormat";
 import { useDebounced } from "./usePagedList";
+
+const ofPoPlant = (locations: SilaLocation[], po?: { companyCode?: string | null; plantCode?: string | null } | null): SilaLocation[] => {
+  if (!po) return locations;
+  const plant = (po.plantCode || po.companyCode || "").trim().toUpperCase();
+  const company = (po.companyCode || "").trim().toUpperCase();
+  if (!plant && !company) return locations;
+  return locations.filter((location) => {
+    const locationPlant = (location.plantCode || location.companyCode || "").trim().toUpperCase();
+    const locationCompany = (location.companyCode || "").trim().toUpperCase();
+    return (plant && locationPlant === plant) || (company && locationCompany === company);
+  });
+};
 
 export interface ReceivePrefill {
   purchaseOrderId: string;
@@ -56,18 +68,21 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
 
   useEffect(() => {
     let active = true;
-    getMyLocations()
-      .then((locations) => {
+    Promise.all([getLocations("ACTIVE"), getMyLocations().catch(() => [] as SilaLocation[])])
+      .then(([all, mine]) => {
         if (!active) return;
-        const list = locations.filter((location) => location.locationType === "STORE");
+        const base = (all.length > 0 ? all : mine).filter(
+          (location) => location.locationType === "STORE" || location.locationType === "OUTLET",
+        );
+        const list = ofPoPlant(base, order);
         setStores(list);
-        if (list.length === 1) setLocationId(list[0].id);
+        setLocationId((current) => (current && list.some((row) => row.id === current) ? current : list[0]?.id ?? ""));
       })
       .catch((err: unknown) => toastService.error(err instanceof Error ? err.message : "Could not load your stores."));
     return () => {
       active = false;
     };
-  }, []);
+  }, [order]);
 
   useEffect(() => {
     if (prefill) return undefined;
@@ -221,13 +236,13 @@ const SilaReceiveGoodsDialog: React.FC<SilaReceiveGoodsDialogProps> = ({ prefill
             onChange={setLocationId}
           />
           <div className="sila-field">
-            <label className="sila-label" htmlFor="srcv-rcv-note">Delivery note (invoice number)</label>
+            <label className="sila-label" htmlFor="srcv-rcv-note">Delivery note (invoice)</label>
             <input
               id="srcv-rcv-note"
               className="sila-input"
               value={deliveryNote}
               maxLength={100}
-              disabled={saving || !!prefill?.invoiceNumber}
+              disabled={saving}
               onChange={(event) => setDeliveryNote(event.target.value)}
             />
           </div>

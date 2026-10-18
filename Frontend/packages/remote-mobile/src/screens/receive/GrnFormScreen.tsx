@@ -20,21 +20,33 @@ import { useGo } from '../../navigation';
 import { errorText, useLoad } from '../../useLoad';
 import GrnLineCard, { type GrnLineEntry } from './GrnLineCard';
 
-const STORE = 'STORE';
+const STORE_OR_OUTLET = new Set(['STORE', 'OUTLET']);
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Prefer the beverage store of the PO property; fall back to the first store of that property. */
-const propertyStoreId = (stores: SilaLocation[], po?: { companyCode?: string | null; plantCode?: string | null } | null): string => {
-  if (!po || stores.length === 0) return '';
-  const company = po.companyCode?.trim().toUpperCase();
-  const plant = po.plantCode?.trim().toUpperCase();
-  const ofProperty = stores.filter((store) => {
-    const storeCompany = store.companyCode?.trim().toUpperCase();
-    if (company && storeCompany && storeCompany === company) return true;
-    if (plant && store.storageLocationCode?.toUpperCase().startsWith(plant.slice(0, 2))) return true;
+/** PO company / plant: only locations of that plant (or company when plant is blank). */
+const ofPoPlant = (
+  locations: SilaLocation[],
+  po?: { companyCode?: string | null; plantCode?: string | null } | null,
+): SilaLocation[] => {
+  if (!po) return locations;
+  const plant = (po.plantCode || po.companyCode || '').trim().toUpperCase();
+  const company = (po.companyCode || '').trim().toUpperCase();
+  if (!plant && !company) return locations;
+  const matched = locations.filter((location) => {
+    const locationPlant = (location.plantCode || location.companyCode || '').trim().toUpperCase();
+    const locationCompany = (location.companyCode || '').trim().toUpperCase();
+    if (plant && locationPlant === plant) return true;
+    if (company && locationCompany === company) return true;
     return false;
   });
-  const pool = ofProperty.length > 0 ? ofProperty : stores;
+  return matched;
+};
+
+/** Prefer the beverage store of the PO plant; else first store, else first outlet. */
+const defaultReceivingId = (stores: SilaLocation[]): string => {
+  if (stores.length === 0) return '';
+  const storeOnly = stores.filter((location) => location.locationType === 'STORE');
+  const pool = storeOnly.length > 0 ? storeOnly : stores;
   const beverage = pool.find((store) => (store.storeCategory || '').toUpperCase() === 'BEVERAGE')
     ?? pool.find((store) => /beverage/i.test(store.locationName || '') || /beverage/i.test(store.locationCode || ''));
   return (beverage ?? pool[0])?.id ?? '';
@@ -53,20 +65,38 @@ const GrnFormScreen: React.FC = () => {
   const [chosenStoreId, setStoreId] = useState<string>('');
   const [entries, setEntries] = useState<Record<string, GrnLineEntry>>({});
   const [seededLines, setSeededLines] = useState(false);
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [deliverySeeded, setDeliverySeeded] = useState(false);
   const [busy, setBusy] = useState<'check' | 'post' | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
 
   const stores = useMemo(() => {
-    const fromAll = (allLocations.data ?? []).filter((location) => location.locationType === STORE);
-    if (fromAll.length > 0) return fromAll;
-    return myLocations.filter((location) => location.locationType === STORE);
-  }, [allLocations.data, myLocations]);
+    const fromAll = (allLocations.data ?? []).filter((location) => STORE_OR_OUTLET.has(location.locationType));
+    const base = fromAll.length > 0
+      ? fromAll
+      : myLocations.filter((location) => STORE_OR_OUTLET.has(location.locationType));
+    return ofPoPlant(base, po);
+  }, [allLocations.data, myLocations, po]);
 
-  const defaultStoreId = useMemo(() => propertyStoreId(stores, po), [stores, po]);
-  const storeId = chosenStoreId || defaultStoreId;
+  const defaultStoreId = useMemo(() => defaultReceivingId(stores), [stores]);
+  const storeId = chosenStoreId && stores.some((store) => store.id === chosenStoreId)
+    ? chosenStoreId
+    : defaultStoreId;
   const invoiceNumber = invoice.data?.invoiceNumber?.trim() || '';
-  /** Delivery note is always the supplier invoice number — never a GUID. */
-  const deliveryNote = invoiceNumber && !GUID.test(invoiceNumber) ? invoiceNumber : '';
+
+  useEffect(() => {
+    if (deliverySeeded) return;
+    if (!invoiceNumber || GUID.test(invoiceNumber)) return;
+    setDeliveryNote(invoiceNumber);
+    setDeliverySeeded(true);
+  }, [deliverySeeded, invoiceNumber]);
+
+  useEffect(() => {
+    if (!chosenStoreId) return;
+    if (!stores.some((store) => store.id === chosenStoreId)) {
+      setStoreId(defaultStoreId);
+    }
+  }, [chosenStoreId, stores, defaultStoreId]);
 
   useEffect(() => {
     if (!chosenStoreId && defaultStoreId) {
@@ -120,8 +150,9 @@ const GrnFormScreen: React.FC = () => {
       setNotice({ tone: 'error', text: 'Choose the receiving store.' });
       return null;
     }
-    if (!deliveryNote) {
-      setNotice({ tone: 'error', text: 'Supplier invoice number is required as the delivery note.' });
+    const note = deliveryNote.trim();
+    if (!note || GUID.test(note)) {
+      setNotice({ tone: 'error', text: 'Enter the supplier invoice number as the delivery note.' });
       return null;
     }
     const lines: SilaGrnLineWrite[] = [];
@@ -149,7 +180,7 @@ const GrnFormScreen: React.FC = () => {
       purchaseOrderId: po.id,
       locationId: storeId,
       invoiceId: invoiceId || null,
-      deliveryNote,
+      deliveryNote: note,
       lines,
     };
   };
@@ -194,6 +225,7 @@ const GrnFormScreen: React.FC = () => {
 
   const locationsLoading = myLocationsLoading || allLocations.loading;
   const selectedStore = stores.find((store) => store.id === storeId);
+  const plantLabel = (po?.plantCode || po?.companyCode || '').trim() || '—';
   const postLabel = busy === 'check'
     ? 'Checking…'
     : busy === 'post'
@@ -214,7 +246,9 @@ const GrnFormScreen: React.FC = () => {
         {' · '}
         {formatDate(todayIso())}
         {' · '}
-        {selectedStore ? `${selectedStore.locationName} (${selectedStore.locationCode})` : 'Receiving store *'}
+        {selectedStore
+          ? `${selectedStore.locationName} (${selectedStore.storageLocationCode || selectedStore.locationCode})`
+          : 'Receiving store *'}
       </p>
     </>
   ) : null;
@@ -230,22 +264,32 @@ const GrnFormScreen: React.FC = () => {
         {po && (
           <>
             {locationsLoading ? null : stores.length === 0 ? (
-              <p className="sm-notice sm-notice--warning">No store is available for this property; goods can only be received at a store.</p>
+              <p className="sm-notice sm-notice--warning">
+                No store or outlet for plant {plantLabel}. Goods can only be received at a location of this PO&apos;s plant.
+              </p>
             ) : (
               <div className="sm-grn-store">
                 <LocationPicker
-                  label="Receiving store"
+                  label={`Receiving store / outlet (plant ${plantLabel})`}
                   locations={stores}
                   value={storeId}
                   onChange={(id) => setStoreId(id)}
                 />
+                {selectedStore?.storageLocationCode && (
+                  <p className="sm-meta">SAP storage location: {selectedStore.storageLocationCode}</p>
+                )}
               </div>
             )}
-            {deliveryNote ? (
-              <p className="sm-meta sm-grn-delivery">Delivery note (invoice): <strong>{deliveryNote}</strong></p>
-            ) : (
-              <p className="sm-notice sm-notice--warning">Waiting for supplier invoice number for the delivery note.</p>
-            )}
+            <div className="sm-field sm-grn-delivery">
+              <label htmlFor="sm-delivery-note">Delivery note (invoice)</label>
+              <input
+                id="sm-delivery-note"
+                className="sm-input"
+                value={deliveryNote}
+                disabled={busy !== null}
+                onChange={(event) => setDeliveryNote(event.target.value)}
+              />
+            </div>
             {openLines.length === 0 && <Empty text="Every line of this purchase order is fully received." />}
             <div className="sm-grn-lines">
               {openLines.map((line) => (
@@ -264,7 +308,7 @@ const GrnFormScreen: React.FC = () => {
             <button
               type="button"
               className="sm-btn sm-btn--success sm-btn--block"
-              disabled={busy !== null || openLines.length === 0 || stores.length === 0 || locationsLoading || !deliveryNote}
+              disabled={busy !== null || openLines.length === 0 || stores.length === 0 || locationsLoading || !deliveryNote.trim()}
               onClick={checkAndPost}
             >
               {postLabel}
