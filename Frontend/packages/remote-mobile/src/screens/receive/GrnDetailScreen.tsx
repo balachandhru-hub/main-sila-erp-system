@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   getGoodsReceipt,
-  reverseGoodsReceipt,
   submitInvoice,
 } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { formatQty } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
@@ -30,29 +29,18 @@ const GrnDetailScreen: React.FC = () => {
   const justPosted = params.get('posted') === '1';
   const go = useGo();
   const { data, loading, error, reload } = useLoad(() => getGoodsReceipt(grnId), grnId || null);
-  const [busy, setBusy] = useState<'reverse' | 'invoice' | null>(null);
+  const [busy, setBusy] = useState<'invoice' | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
 
   const posted = (data?.status || '').toUpperCase() === 'POSTED';
   const reversed = (data?.status || '').toUpperCase() === 'REVERSED';
   const canPostInvoice = !!data?.invoiceId && INVOICE_SUBMIT_OK.has((data.invoiceStatus || '').toUpperCase());
-
-  const onReverse = async () => {
-    if (!data || !window.confirm(`Reverse goods receipt ${data.grnNumber}? Stock will be removed and PO open quantity restored.`)) {
-      return;
-    }
-    setBusy('reverse');
-    setNotice(null);
-    try {
-      const message = await reverseGoodsReceipt(data.id);
-      setNotice({ tone: 'success', text: message });
-      reload();
-    } catch (caught: unknown) {
-      setNotice({ tone: 'error', text: errorText(caught, 'Could not reverse the goods receipt.') });
-    } finally {
-      setBusy(null);
-    }
-  };
+  const showReverse =
+    !reversed &&
+    (posted ||
+      (data?.reversalStatus || '').toUpperCase() === 'FAILED' ||
+      (data?.reversalStatus || '').toUpperCase() === 'FAILED_LOCAL' ||
+      (data?.reversalStatus || '').toUpperCase() === 'ERP_ACCEPTED');
 
   const onPostInvoice = async () => {
     if (!data?.invoiceId) return;
@@ -89,6 +77,24 @@ const GrnDetailScreen: React.FC = () => {
                 <dd>{data.supplierName ?? '—'}</dd>
                 <dt>Store</dt>
                 <dd>{data.locationName ?? '—'}</dd>
+                {(data.materialDocument || data.erpPosting?.erpReference) && (
+                  <>
+                    <dt>SAP Material Document</dt>
+                    <dd>
+                      {data.materialDocument ?? data.erpPosting?.erpReference}
+                      {data.materialDocumentYear ? ` / ${data.materialDocumentYear}` : ''}
+                    </dd>
+                  </>
+                )}
+                {data.reversalMaterialDocument && (
+                  <>
+                    <dt>Reversal Material Document</dt>
+                    <dd>
+                      {data.reversalMaterialDocument}
+                      {data.reversalMaterialDocumentYear ? ` / ${data.reversalMaterialDocumentYear}` : ''}
+                    </dd>
+                  </>
+                )}
                 {data.invoiceNumber && (
                   <>
                     <dt>Invoice</dt>
@@ -108,11 +114,16 @@ const GrnDetailScreen: React.FC = () => {
 
             <GrnErpCard grn={data} onChanged={reload} />
 
-            {(posted || canPostInvoice) && !reversed && (
+            {(showReverse || canPostInvoice) && (
               <div className="sm-actions sm-grid-2">
-                {posted && (
-                  <button type="button" className="sm-btn" disabled={busy !== null} onClick={onReverse}>
-                    {busy === 'reverse' ? 'Reversing…' : 'Reverse GRN'}
+                {showReverse && (
+                  <button
+                    type="button"
+                    className="sm-btn"
+                    disabled={busy !== null}
+                    onClick={() => go(`receive/grns/${data.id}/reverse`)}
+                  >
+                    Reverse GRN
                   </button>
                 )}
                 {canPostInvoice && (

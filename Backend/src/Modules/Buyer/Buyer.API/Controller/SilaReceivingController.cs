@@ -9,6 +9,7 @@ using Buyer.Application.Features.Commands.ReprocessSilaInvoiceAttachment;
 using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt;
+using Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
 using Buyer.Application.Features.Queries.GetSilaCreateInvoiceMasters;
@@ -162,28 +163,39 @@ namespace Buyer.API.Controllers
             });
         }
 
-        [HttpPost]
-        [Route("api/v1/buyer/sila/grns/{goodsReceiptId}/reverse")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
-        [SwaggerOperation("ReverseSilaGoodsReceipt")]
-        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
-        public async Task<IActionResult> ReverseGoodsReceipt([FromRoute] Guid goodsReceiptId)
+        [HttpGet]
+        [Route("api/v1/buyer/sila/grns/{goodsReceiptId}/reversal")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaGoodsReceiptReversal")]
+        [SwaggerResponse(200, type: typeof(SilaReceivingGrnReversalPreviewDto))]
+        public async Task<IActionResult> GetGoodsReceiptReversal([FromRoute] Guid goodsReceiptId)
         {
-            _logger.LogDebug($"Reversing goods receipt. GoodsReceiptId: {goodsReceiptId}");
-            string description = await _mediator.Send(new ReverseSilaGoodsReceiptCommand
+            return Ok(await _mediator.Send(new GetSilaGoodsReceiptReversalQuery
             {
                 OrganizationId = GetOrganizationId(),
                 UserId = GetUserId(),
                 RoleId = GetRoleId(),
                 GoodsReceiptId = goodsReceiptId
-            });
-            return Ok(new SuccessResponseDto
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/grns/{goodsReceiptId}/reverse")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("ReverseSilaGoodsReceipt")]
+        [SwaggerResponse(200, type: typeof(SilaReceivingGrnReversalResultDto))]
+        public async Task<IActionResult> ReverseGoodsReceipt([FromRoute] Guid goodsReceiptId, [FromBody] SilaReceivingGrnReversalWriteDto? request)
+        {
+            _logger.LogDebug($"Reversing goods receipt. GoodsReceiptId: {goodsReceiptId}");
+            SilaReceivingGrnReversalResultDto result = await _mediator.Send(new ReverseSilaGoodsReceiptCommand
             {
-                Id = goodsReceiptId.ToString(),
-                StatusCode = 200,
-                Message = "Success",
-                Description = description
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                GoodsReceiptId = goodsReceiptId,
+                Request = request ?? new SilaReceivingGrnReversalWriteDto()
             });
+            return Ok(result);
         }
 
         [HttpPost]

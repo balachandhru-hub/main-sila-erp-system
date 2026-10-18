@@ -169,6 +169,7 @@ namespace Buyer.Domain.Common
                 public const string SILA_REF_ENQUIRY = "ENQUIRY";
                 public const string SILA_REF_POS_SALE = "POS_SALE";
                 public const string SILA_REF_GRN = "GRN";
+                public const string SILA_REF_GRN_REVERSAL = "GRN_REVERSAL";
                 public const string SILA_REF_RECIPE = "RECIPE";
                 public const string SILA_POSTING_PENDING = "PENDING";
                 public const string SILA_POSTING_POSTED = "POSTED";
@@ -180,6 +181,7 @@ namespace Buyer.Domain.Common
                 public const string SILA_MOVEMENT_STOCK_COUNT = "STOCK_COUNT";
                 public const string SILA_MOVEMENT_CONSUMPTION = "CONSUMPTION";
                 public const string SILA_MOVEMENT_GRN = "GRN";
+                public const string SILA_MOVEMENT_GRN_REVERSAL = "102";
                 public const string SILA_ITO_STANDARD = "STANDARD";
                 public const string SILA_ITO_QUICK = "QUICK";
                 public const string SILA_ITO_PENDING_APPROVAL = "PENDING_APPROVAL";

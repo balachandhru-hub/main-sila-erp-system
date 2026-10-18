@@ -1864,6 +1864,16 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("location_id");
 
+                    b.Property<string>("MaterialDocument")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("material_document");
+
+                    b.Property<string>("MaterialDocumentYear")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)")
+                        .HasColumnName("material_document_year");
+
                     b.Property<string>("PoNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -1876,6 +1886,38 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<Guid>("ReceivedBy")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("received_by");
+
+                    b.Property<Guid?>("ReversalErpPostingId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("reversal_erp_posting_id");
+
+                    b.Property<string>("ReversalMaterialDocument")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("reversal_material_document");
+
+                    b.Property<string>("ReversalMaterialDocumentYear")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)")
+                        .HasColumnName("reversal_material_document_year");
+
+                    b.Property<string>("ReversalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("reversal_reason");
+
+                    b.Property<string>("ReversalStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)")
+                        .HasColumnName("reversal_status");
+
+                    b.Property<Guid?>("ReversedBy")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("reversed_by");
+
+                    b.Property<DateTime?>("ReversedOn")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("reversed_on");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1959,6 +2001,11 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("material_code");
 
+                    b.Property<string>("MaterialDocumentItem")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("material_document_item");
+
                     b.Property<Guid?>("MaterialId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("material_id");
@@ -1991,6 +2038,11 @@ namespace Buyer.Infrastructure.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("rejected_qty");
+
+                    b.Property<decimal>("ReversedQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)")
+                        .HasColumnName("reversed_qty");
 
                     b.Property<string>("Uom")
                         .HasColumnType("nvarchar(max)")

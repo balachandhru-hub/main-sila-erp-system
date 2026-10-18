@@ -37,6 +37,27 @@ namespace Buyer.Domain.Entities
 
         public Guid? ErpPostingId { get; set; }
 
+        /// <summary>Original SAP Material Document (101). Never overwritten by reversal.</summary>
+        public string? MaterialDocument { get; set; }
+
+        public string? MaterialDocumentYear { get; set; }
+
+        /// <summary>SAP Material Document created by Cancel (102).</summary>
+        public string? ReversalMaterialDocument { get; set; }
+
+        public string? ReversalMaterialDocumentYear { get; set; }
+
+        public Guid? ReversalErpPostingId { get; set; }
+
+        /// <summary>PENDING | POSTED | FAILED | UNKNOWN | FAILED_LOCAL | INVOICE_REQUIRED</summary>
+        public string? ReversalStatus { get; set; }
+
+        public string? ReversalReason { get; set; }
+
+        public DateTime? ReversedOn { get; set; }
+
+        public Guid? ReversedBy { get; set; }
+
         public ICollection<GoodsReceiptItem> Items { get; set; } = new List<GoodsReceiptItem>();
     }
 }

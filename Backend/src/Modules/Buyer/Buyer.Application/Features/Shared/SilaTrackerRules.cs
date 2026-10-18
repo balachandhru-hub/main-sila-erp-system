@@ -400,6 +400,16 @@ namespace Buyer.Application.Features.Shared
                 return Common.SILA_MOVEMENT_INVOICE_ATTACHMENT;
             }
 
+            if (referenceType == Common.SILA_REF_GRN_REVERSAL || movementType == Common.SILA_MOVEMENT_GRN_REVERSAL)
+            {
+                return "GRN_REVERSAL";
+            }
+
+            if (referenceType == Common.SILA_REF_GRN)
+            {
+                return "GRN";
+            }
+
             return string.IsNullOrWhiteSpace(referenceType) ? movementType : referenceType;
         }
 

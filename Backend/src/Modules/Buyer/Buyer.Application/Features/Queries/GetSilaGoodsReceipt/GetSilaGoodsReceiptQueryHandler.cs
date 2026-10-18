@@ -64,6 +64,12 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
                 Status = receipt.Status,
                 ReceivedBy = receipt.ReceivedBy,
                 ReceivedOn = receipt.DateCreated,
+                MaterialDocument = receipt.MaterialDocument ?? posting?.ErpReference,
+                MaterialDocumentYear = receipt.MaterialDocumentYear,
+                ReversalMaterialDocument = receipt.ReversalMaterialDocument,
+                ReversalMaterialDocumentYear = receipt.ReversalMaterialDocumentYear,
+                ReversalStatus = receipt.ReversalStatus,
+                InvoiceStatus = header.InvoiceStatus,
                 ErpPosting = posting == null ? null : SilaReceivingRules.ToPostingDto(posting, header.LocationName),
                 Items = items.Select(item => new SilaReceivingGrnItemDto
                 {

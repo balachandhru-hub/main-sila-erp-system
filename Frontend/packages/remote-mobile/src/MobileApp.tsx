@@ -11,6 +11,7 @@ import ScanInvoiceScreen from './screens/receive/ScanInvoiceScreen';
 import InvoiceReviewScreen from './screens/receive/InvoiceReviewScreen';
 import GrnFormScreen from './screens/receive/GrnFormScreen';
 import GrnDetailScreen from './screens/receive/GrnDetailScreen';
+import GrnReverseScreen from './screens/receive/GrnReverseScreen';
 import OpenPosScreen from './screens/receive/OpenPosScreen';
 import PoDetailScreen from './screens/receive/PoDetailScreen';
 import HistoryScreen from './screens/receive/HistoryScreen';
@@ -104,6 +105,7 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="receive/invoices/:invoiceId" element={<InvoiceReviewScreen />} />
                 <Route path="receive/grn/new" element={<GrnFormScreen />} />
                 <Route path="receive/grns/:grnId" element={<GrnDetailScreen />} />
+                <Route path="receive/grns/:grnId/reverse" element={<GrnReverseScreen />} />
                 <Route path="receive/pos" element={<OpenPosScreen />} />
                 <Route path="receive/pos/:poId" element={<PoDetailScreen />} />
                 <Route path="receive/history" element={<HistoryScreen />} />

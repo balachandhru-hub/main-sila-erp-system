@@ -57,6 +57,12 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
             IntegrationSendResultDto result = new IntegrationSendResultDto();
             Stopwatch watch = Stopwatch.StartNew();
             configuration.LastAttemptAt = DateTime.UtcNow;
+            string? savedPath = configuration.ResourcePath;
+            if (!string.IsNullOrWhiteSpace(request.ResourcePathOverride))
+            {
+                configuration.ResourcePath = request.ResourcePathOverride.Trim();
+            }
+
             try
             {
                 using HttpResponseMessage response = await _executor.SendOnceAsync(
@@ -105,6 +111,13 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
                 result.ErrorMessage = "The posting could not be sent. " + SilaLogText.Short(exception.Message);
                 configuration.LastErrorSafe = result.ErrorMessage;
                 _logger.LogError($"Document could not be sent to integration. ConfigurationId: {configuration.Id}, Error: {SilaLogText.Short(exception.Message)}");
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(request.ResourcePathOverride))
+                {
+                    configuration.ResourcePath = savedPath;
+                }
             }
 
             watch.Stop();

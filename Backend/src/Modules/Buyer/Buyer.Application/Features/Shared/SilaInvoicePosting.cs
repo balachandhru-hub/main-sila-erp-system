@@ -667,7 +667,43 @@ namespace Buyer.Application.Features.Shared
             IRepositoryWrapper repository, ILoggerManager logger, string? basePath, InventoryErpPosting posting, string status, CancellationToken cancellationToken)
         {
             GoodsReceipt? receipt = await repository.GoodsReceipt.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId);
-            if (receipt?.InvoiceId == null)
+            if (receipt == null)
+            {
+                return;
+            }
+
+            bool confirmed = status is Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_FAILED_LOCAL
+                || !string.IsNullOrWhiteSpace(posting.ErpReference);
+
+            // Persist original Material Document (never overwrite after set). Does not change SapGrnBody mapping.
+            if (confirmed)
+            {
+                (string? md, string? year) = SilaGrnSap.ReadMaterialDocument(posting.ErpResponsePayload, posting.ErpReference);
+                if (!string.IsNullOrWhiteSpace(md) && string.IsNullOrWhiteSpace(receipt.MaterialDocument))
+                {
+                    receipt.MaterialDocument = md;
+                    receipt.MaterialDocumentYear = year;
+                    List<GoodsReceiptItem> grnItems = await repository.GoodsReceiptItem
+                        .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive)
+                        .OrderBy(x => x.DateCreated)
+                        .ToListAsync(cancellationToken);
+                    int index = 1;
+                    foreach (GoodsReceiptItem line in grnItems)
+                    {
+                        if (string.IsNullOrWhiteSpace(line.MaterialDocumentItem))
+                        {
+                            line.MaterialDocumentItem = index.ToString("0000");
+                            repository.GoodsReceiptItem.Update(line);
+                        }
+
+                        index++;
+                    }
+
+                    repository.GoodsReceipt.Update(receipt);
+                }
+            }
+
+            if (receipt.InvoiceId == null)
             {
                 return;
             }
@@ -678,8 +714,6 @@ namespace Buyer.Application.Features.Shared
                 return;
             }
 
-            bool confirmed = status is Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_FAILED_LOCAL
-                || !string.IsNullOrWhiteSpace(posting.ErpReference);
             if (!confirmed)
             {
                 if (OpenForGrn(invoice.Status) && status is Common.SILA_POSTING_FAILED or Common.SILA_POSTING_SKIPPED or Common.SILA_POSTING_UNKNOWN)

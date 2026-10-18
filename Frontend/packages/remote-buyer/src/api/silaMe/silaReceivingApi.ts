@@ -142,8 +142,69 @@ export interface SilaGoodsReceiptItem {
 
 export interface SilaGoodsReceiptDetail extends Omit<SilaGoodsReceipt, "lineCount" | "erpStatus" | "erpReference"> {
   receivedBy: string;
+  materialDocument?: string | null;
+  materialDocumentYear?: string | null;
+  reversalMaterialDocument?: string | null;
+  reversalMaterialDocumentYear?: string | null;
+  reversalStatus?: string | null;
   erpPosting?: SilaErpPosting | null;
   items: SilaGoodsReceiptItem[];
+}
+
+export interface SilaGrnReversalLine {
+  goodsReceiptItemId: string;
+  materialCode?: string | null;
+  materialName: string;
+  poItem: number;
+  materialDocumentItem?: string | null;
+  originalReceivedQty: number;
+  previouslyReversedQty: number;
+  remainingReversibleQty: number;
+  reversalQty: number;
+  uom?: string | null;
+}
+
+export interface SilaGrnReversalPreview {
+  goodsReceiptId: string;
+  grnNumber: string;
+  status: string;
+  materialDocument?: string | null;
+  materialDocumentYear?: string | null;
+  reversalMaterialDocument?: string | null;
+  reversalMaterialDocumentYear?: string | null;
+  reversalStatus?: string | null;
+  poNumber: string;
+  supplierName?: string | null;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  invoiceStatus?: string | null;
+  invoiceGate: string;
+  decision: string;
+  canReverse: boolean;
+  invoiceMustReverseFirst: boolean;
+  localFinalizationNeeded: boolean;
+  fullDocumentCancelOnly: boolean;
+  message?: string | null;
+  lines: SilaGrnReversalLine[];
+}
+
+export interface SilaGrnReversalWrite {
+  reason: string;
+  remarks?: string | null;
+  reverseInvoiceAndGrn?: boolean;
+  localFinalizationOnly?: boolean;
+}
+
+export interface SilaGrnReversalResult {
+  goodsReceiptId: string;
+  grnNumber: string;
+  status: string;
+  reversalStatus?: string | null;
+  materialDocument?: string | null;
+  materialDocumentYear?: string | null;
+  reversalMaterialDocument?: string | null;
+  reversalMaterialDocumentYear?: string | null;
+  message: string;
 }
 
 /** UPLOADED | EXTRACTED | REVIEW_REQUIRED | OCR_FAILED | REVIEWED | GRN_POSTED */
@@ -396,13 +457,24 @@ export const postGoodsReceipt = async (request: SilaGrnWrite): Promise<string> =
   return data.id;
 };
 
-/** Reverses a posted goods receipt in SILA stock (and restores PO open qty). */
-export const reverseGoodsReceipt = async (goodsReceiptId: string): Promise<string> => {
+/** Preview for controlled 101 → 102 Cancel (original Material Document). */
+export const getGoodsReceiptReversal = async (goodsReceiptId: string): Promise<SilaGrnReversalPreview> => {
   const data = await call(
-    () => axiosInstance.post<{ description?: string; Description?: string }>(`${BASE}/grns/${goodsReceiptId}/reverse`),
+    () => axiosInstance.get<SilaGrnReversalPreview>(`${BASE}/grns/${goodsReceiptId}/reversal`),
+    "Could not load the goods receipt reversal.",
+  );
+  return { ...data, lines: list(data.lines) };
+};
+
+/** Cancels the original SAP Material Document (102), then reverses local stock. */
+export const reverseGoodsReceipt = async (
+  goodsReceiptId: string,
+  request: SilaGrnReversalWrite,
+): Promise<SilaGrnReversalResult> => {
+  return call(
+    () => axiosInstance.post<SilaGrnReversalResult>(`${BASE}/grns/${goodsReceiptId}/reverse`, request),
     "Could not reverse the goods receipt.",
   );
-  return data.description || data.Description || "Goods receipt reversed.";
 };
 
 export interface SilaCreateInvoiceLine {
