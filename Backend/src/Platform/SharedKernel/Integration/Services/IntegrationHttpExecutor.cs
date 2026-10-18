@@ -30,6 +30,13 @@ namespace SharedKernel.Integration.Services
 
         public string BuildUrl(ApiIntegrationConfiguration configuration, bool testOnly)
         {
+            if (configuration.Protocol == IntegrationProtocol.ODATA_V4 && IsODataAction(configuration.ResourcePath))
+            {
+                // An action (CreateUrlAsAttachment) rejects $top. A connection test reads the service document,
+                // which answers GET. A real call still uses the action path, with no query.
+                return testOnly ? ServiceDocumentUrl(configuration) : ResourceUrl(configuration);
+            }
+
             string url = Combine(configuration.BaseUrl, configuration.ResourcePath ?? string.Empty);
             if (configuration.Protocol == IntegrationProtocol.ODATA_V4)
             {
@@ -202,7 +209,9 @@ namespace SharedKernel.Integration.Services
             CancellationToken cancellationToken)
         {
             string fetchUrl = configuration.Protocol == IntegrationProtocol.ODATA_V4
-                ? url + (url.Contains('?') ? "&" : "?") + "$top=0"
+                ? (IsODataAction(configuration.ResourcePath)
+                    ? ServiceDocumentUrl(configuration)
+                    : url + (url.Contains('?') ? "&" : "?") + "$top=0")
                 : url;
             using HttpRequestMessage fetch = new HttpRequestMessage(HttpMethod.Get, fetchUrl);
             fetch.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -398,6 +407,31 @@ namespace SharedKernel.Integration.Services
                 IntegrationConstants.PAYLOAD_CXML => "application/xml",
                 _ => "application/json"
             };
+        }
+
+        /// <summary>CreateUrlAsAttachment is an action. A_MaterialDocumentHeader and AttachmentContentSet are entity sets.</summary>
+        private static bool IsODataAction(string? resourcePath)
+        {
+            string last = (resourcePath ?? "").Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
+            if (last.Length == 0 || last.StartsWith("A_", StringComparison.Ordinal) || last.EndsWith("Set", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return last.All(char.IsLetterOrDigit) && char.IsUpper(last[0]);
+        }
+
+        /// <summary>The OData service document (.../API_CV_ATTACHMENT_SRV/), which accepts GET.</summary>
+        private static string ServiceDocumentUrl(ApiIntegrationConfiguration configuration)
+        {
+            string combined = Combine(configuration.BaseUrl, configuration.ResourcePath ?? "");
+            int marker = combined.IndexOf("_SRV", StringComparison.OrdinalIgnoreCase);
+            if (marker < 0)
+            {
+                return Combine(configuration.BaseUrl, "");
+            }
+
+            return combined[..(marker + 4)].TrimEnd('/') + "/";
         }
 
         private static string Combine(string baseUrl, string path)

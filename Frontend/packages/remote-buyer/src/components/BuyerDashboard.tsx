@@ -125,7 +125,8 @@ const BuyersDashboard: React.FC = () => {
   // A Store Manager is a buyer user who reviews and freezes the weekly bucket of a property.
   const isStoreManager = buyerProfile?.roleName === STORE_MANAGER_ROLE;
   // The SILA ME (hospitality) add-on menu, for organizations that have the add-on.
-  const hasSilaMe = useSilaMeAddon();
+  const silaAddon = useSilaMeAddon();
+  const hasSilaMe = silaAddon.enabled;
   const silaMeRole: SilaMeRole = silaMeRoleOf(buyerProfile?.roleName ?? "", false);
   // How this user works with the weekly bucket, for the dashboards' suggested actions.
   const bucketRole: BucketRole = isStoreManager ? "freezer" : isOutletManager ? "requester" : null;
@@ -231,6 +232,7 @@ const BuyersDashboard: React.FC = () => {
               <PurchasingDashboard
                 currentUserId={currentUserId}
                 hasSilaMe={hasSilaMe}
+                attentionReady={silaAddon.ready}
                 bucketRole={bucketRole}
                 classPrefix="pud"
                 onNavigate={handleNavClick}
@@ -356,6 +358,7 @@ const BuyersDashboard: React.FC = () => {
                   <NeedsAttentionPanel
                     currentUserId={currentUserId}
                     hasSilaMe={hasSilaMe}
+                    ready={silaAddon.ready}
                     bucketRole={bucketRole}
                     onNavigate={handleNavClick}
                   />

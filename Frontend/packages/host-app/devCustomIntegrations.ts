@@ -388,9 +388,31 @@ const authorizationHeader = (saved: StoredIntegration): Record<string, string> =
   return {};
 };
 
+const lastSegment = (resourcePath: string): string => {
+  const parts = resourcePath.split("/").filter(Boolean);
+  return parts[parts.length - 1] || "";
+};
+
+/** CreateUrlAsAttachment is an action. A_MaterialDocumentHeader and AttachmentContentSet are entity sets. */
+const isODataAction = (resourcePath: string): boolean => {
+  const last = lastSegment(resourcePath);
+  if (!last || last.startsWith("A_") || last.endsWith("Set")) return false;
+  return /^[A-Z][A-Za-z0-9]+$/.test(last);
+};
+
+/** Service document of an OData service, which answers a GET. An action URL does not. */
+const serviceDocumentUrl = (baseUrl: string, resourcePath: string): URL => {
+  const combined = `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}`;
+  const match = combined.match(/^(.*\/[^/]+_SRV)(?:\/|$)/i);
+  return new URL(match ? `${match[1]}/` : `${baseUrl.replace(/\/+$/, "")}/`);
+};
+
 const probeUrl = (saved: StoredIntegration): URL => {
   const baseUrl = String(saved.public.baseUrl || "");
   const resourcePath = text(saved.public.resourcePath);
+  if (text(saved.public.protocol) === "ODATA_V4" && isODataAction(resourcePath)) {
+    return serviceDocumentUrl(baseUrl, resourcePath);
+  }
   const target = new URL(resourcePath ? `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}` : baseUrl);
   if (text(saved.public.protocol) === "ODATA_V4" && !target.searchParams.has("$top")) {
     target.searchParams.set("$top", "1");
@@ -401,6 +423,7 @@ const probeUrl = (saved: StoredIntegration): URL => {
 /**
  * Proves the endpoint and the sign-in. The probe is a GET, the same call Postman uses to fetch the SAP CSRF token
  * (x-csrf-token: Fetch plus Basic). It does not post the request body, so a stock transfer is not created.
+ * An OData action such as CreateUrlAsAttachment rejects $top, so that probe reads the service document instead.
  * A POST-only API that answers 405 is reachable and the credentials were accepted.
  */
 const testConnection = async (saved: StoredIntegration): Promise<{ success: boolean; message: string; httpStatus: number | null; testedAt: string }> => {
