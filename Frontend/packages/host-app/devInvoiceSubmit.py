@@ -89,6 +89,27 @@ def quantity(value) -> str:
     return rendered
 
 
+def current_posting_date() -> str:
+    return datetime.datetime.utcnow().strftime("%Y-%m-%dT00:00:00")
+
+
+def stamp_posting_date(prepared: dict) -> bool:
+    current = current_posting_date()
+    for item in prepared.get("header") or []:
+        if item.get("apiField") == "PostingDate":
+            changed = item.get("value") != current or item.get("source") != "CURRENT_DATE"
+            item["value"] = current
+            item["label"] = "Posting date"
+            item["source"] = "CURRENT_DATE"
+            item["sourceField"] = "UtcToday"
+            item["required"] = True
+            return changed
+    prepared.setdefault("header", []).append(
+        field("PostingDate", "Posting date", current, "CURRENT_DATE", "UtcToday", True)
+    )
+    return True
+
+
 def sap_date(value) -> str:
     if value is None:
         return ""
@@ -356,7 +377,7 @@ def compose_posting(cur, invoice, lines) -> dict:
         "header": [
             field("CompanyCode", "Company code", company, "S4_PO_HEADER", "CompanyCode", True),
             field("DocumentDate", "Document date", posted, "INVOICE", "InvoiceDate", True),
-            field("PostingDate", "Posting date", posted, "INVOICE", "InvoiceDate", True),
+            field("PostingDate", "Posting date", current_posting_date(), "CURRENT_DATE", "UtcToday", True),
             field("DueCalculationBaseDate", "Due calculation base date", posted, "INVOICE", "InvoiceDate", True),
             field("InvoicingParty", "Invoicing party", supplier, "S4_PO_HEADER", "Supplier", True),
             field(
@@ -449,6 +470,8 @@ def document(cur, invoice_id: uuid.UUID) -> dict:
             "Invoice cannot be submitted.",
             "Posting data is stale because the invoice changed after it was prepared. Refresh from S/4. The purchase order is not read again during reprocess.",
         )
+    if stamp_posting_date(prepared):
+        save_posting(cur, invoice_id, prepared)
     company = text(values_of(prepared.get("header")).get("CompanyCode"))
     body = body_from_stored(prepared)
     return {
@@ -472,9 +495,12 @@ def read_posting(cur, invoice_id: uuid.UUID) -> dict:
         return {"ok": True, "postingData": None}
     raw = row[0].decode("utf-8", "replace") if isinstance(row[0], bytes) else row[0]
     try:
-        return {"ok": True, "postingData": json.loads(raw)}
+        prepared = json.loads(raw)
     except json.JSONDecodeError:
         return {"ok": True, "postingData": None}
+    if isinstance(prepared, dict) and stamp_posting_date(prepared):
+        save_posting(cur, invoice_id, prepared)
+    return {"ok": True, "postingData": prepared}
 
 
 def ensure_api(cur, buyer_id, body: dict) -> None:

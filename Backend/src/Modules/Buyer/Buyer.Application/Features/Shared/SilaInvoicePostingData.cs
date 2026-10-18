@@ -23,6 +23,7 @@ namespace Buyer.Application.Features.Shared
         public const string SOURCE_PO_ITEM = "S4_PO_ITEM";
         public const string SOURCE_GRN = "GRN";
         public const string SOURCE_CONFIGURATION = "CONFIGURATION";
+        public const string SOURCE_CURRENT_DATE = "CURRENT_DATE";
         public const string SOURCE_DERIVED = "DERIVED";
 
         /// <summary>
@@ -146,8 +147,7 @@ namespace Buyer.Application.Features.Shared
             };
             prepared.Header.Add(FieldOf("CompanyCode", "Company code", sapOrder.CompanyCode, SOURCE_PO, "CompanyCode", true));
             prepared.Header.Add(FieldOf("DocumentDate", "Document date", date, SOURCE_INVOICE, "InvoiceDate", true));
-            // No separate approved posting date is stored. The invoice date is the posting date.
-            prepared.Header.Add(FieldOf("PostingDate", "Posting date", date, SOURCE_INVOICE, "InvoiceDate", true));
+            prepared.Header.Add(FieldOf("PostingDate", "Posting date", CurrentPostingDate(), SOURCE_CURRENT_DATE, "UtcToday", true));
             // No payment-term baseline date is stored. The invoice date is the due-calculation baseline.
             prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", date, SOURCE_INVOICE, "InvoiceDate", true));
             prepared.Header.Add(FieldOf("InvoicingParty", "Invoicing party", supplier, SOURCE_PO, "Supplier", true));
@@ -327,6 +327,33 @@ namespace Buyer.Application.Features.Shared
             }
         }
 
+        /// <summary>The posting date sent to S/4. It is the current UTC date, not the invoice date.</summary>
+        public static string CurrentPostingDate(DateTime? utcNow = null)
+        {
+            return (utcNow ?? DateTime.UtcNow).ToString("yyyy-MM-dd'T'00:00:00", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>Writes today's posting date onto the stored header before the body is built.</summary>
+        public static bool StampPostingDate(Prepared prepared, DateTime? utcNow = null)
+        {
+            string current = CurrentPostingDate(utcNow);
+            Field? field = prepared.Header.LastOrDefault(x => x.ApiField.Equals("PostingDate", StringComparison.OrdinalIgnoreCase));
+            if (field == null)
+            {
+                prepared.Header.Add(FieldOf("PostingDate", "Posting date", current, SOURCE_CURRENT_DATE, "UtcToday", true));
+                return true;
+            }
+
+            bool changed = !string.Equals(field.Value, current, StringComparison.Ordinal)
+                || !string.Equals(field.Source, SOURCE_CURRENT_DATE, StringComparison.Ordinal);
+            field.Value = current;
+            field.Label = "Posting date";
+            field.Source = SOURCE_CURRENT_DATE;
+            field.SourceField = "UtcToday";
+            field.Required = true;
+            return changed;
+        }
+
         /// <summary>The request mapper's names, filled only from the stored document.</summary>
         public static SilaInvoicePosting.Document ToDocument(Prepared prepared)
         {
@@ -372,6 +399,7 @@ namespace Buyer.Application.Features.Shared
             }
 
             bool stale = prepared.PreparationStatus == STALE || Stale(prepared, invoice, items);
+            StampPostingDate(prepared);
             return new SilaInvoicePostingDataDto
             {
                 PreparationStatus = stale ? STALE : prepared.PreparationStatus,
@@ -472,6 +500,7 @@ namespace Buyer.Application.Features.Shared
                 SOURCE_PO_ITEM => "S/4 purchase order item",
                 SOURCE_GRN => "the goods receipt",
                 SOURCE_CONFIGURATION => "the invoice posting configuration",
+                SOURCE_CURRENT_DATE => "the current date",
                 SOURCE_DERIVED => "the invoice date",
                 _ => source
             };

@@ -971,7 +971,13 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return (null, blocked);
             }
 
-            SilaInvoicePosting.Document described = SilaInvoicePostingData.ToDocument(prepared!);
+            if (SilaInvoicePostingData.StampPostingDate(prepared!))
+            {
+                invoice.PostingData = SilaInvoicePostingData.Write(prepared);
+                _repository.Invoice.Update(invoice);
+            }
+
+            SilaInvoicePosting.Document described = SilaInvoicePostingData.ToDocument(prepared);
             if (string.IsNullOrWhiteSpace(posting.CompanyCode) && !string.IsNullOrWhiteSpace(described.CompanyCode))
             {
                 posting.CompanyCode = described.CompanyCode;

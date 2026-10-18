@@ -288,6 +288,9 @@ namespace Buyer.Tests.Shared
             Assert.Equal(SilaInvoicePostingData.READY, stored!.PreparationStatus);
             Assert.Empty(SilaInvoicePostingData.Missing(stored));
             Assert.Equal("80", stored.Lines[0].Fields.Single(x => x.ApiField == "QuantityInPurchaseOrderUnit").Value);
+            Assert.Equal(SilaInvoicePostingData.CurrentPostingDate(), stored.Header.Single(x => x.ApiField == "PostingDate").Value);
+            Assert.Equal(SilaInvoicePostingData.SOURCE_CURRENT_DATE, stored.Header.Single(x => x.ApiField == "PostingDate").Source);
+            Assert.StartsWith("2026-10-12T00:00:00", stored.Header.Single(x => x.ApiField == "DocumentDate").Value, StringComparison.Ordinal);
             Assert.Equal(SilaInvoicePostingData.SOURCE_PO_ITEM, stored.Lines[0].Fields.Single(x => x.ApiField == "TaxCode").Source);
             Assert.Equal(SilaInvoicePostingData.SOURCE_INVOICE, stored.Header.Single(x => x.ApiField == "SupplierInvoiceIDByInvcgParty").Source);
 
@@ -316,6 +319,8 @@ namespace Buyer.Tests.Shared
             Assert.Contains("\"SupplierInvoiceIDByInvcgParty\":\"TESTINVOICE123\"", body, StringComparison.Ordinal);
             Assert.Contains("\"AccountingDocumentType\":\"RE\"", body, StringComparison.Ordinal);
             Assert.Contains("\"TaxIsCalculatedAutomatically\":true", body, StringComparison.Ordinal);
+            Assert.Contains("\"PostingDate\":\"" + SilaInvoicePostingData.CurrentPostingDate() + "\"", body, StringComparison.Ordinal);
+            Assert.Contains("\"DocumentDate\":\"2026-10-12T00:00:00\"", body, StringComparison.Ordinal);
             Assert.Contains("\"SupplierInvoiceItem\":\"00001\"", body, StringComparison.Ordinal);
             Assert.Contains("\"PurchaseOrderQuantityUnit\":\"EA\"", body, StringComparison.Ordinal);
             Assert.DoesNotContain("\"QuantityInPurchaseOrderUnit\":\"100\"", body, StringComparison.Ordinal);
