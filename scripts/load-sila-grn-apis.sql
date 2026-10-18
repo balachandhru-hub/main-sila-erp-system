@@ -28,10 +28,12 @@ BEGIN
     THROW 50001, 'Source S4 POST_PO integration c1f5e79c-1eb4-4d3d-9e6a-f07b7db57b12 not found; cannot copy credentials.', 1;
 END;
 
--- FIVE S4 - POST GRN (ACTIVE, ALL)
+-- FIVE S4-GRN POSTING (ACTIVE, ALL). Also accepts legacy name FIVE S4 - POST GRN.
 IF NOT EXISTS (
     SELECT 1 FROM buyersystem.api_integration_configuration
-    WHERE buyer_id = @Buyer AND name = N'FIVE S4 - POST GRN' AND is_active = 1
+    WHERE buyer_id = @Buyer
+      AND name IN (N'FIVE S4-GRN POSTING', N'FIVE S4 - POST GRN')
+      AND is_active = 1
 )
 BEGIN
     INSERT INTO buyersystem.api_integration_configuration
@@ -44,7 +46,7 @@ BEGIN
     )
     VALUES
     (
-        @S4Id, @Buyer, N'ALL', N'FIVE S4 - POST GRN', N'POST_GRN', N'REST', N'SAP S/4',
+        @S4Id, @Buyer, N'ALL', N'FIVE S4-GRN POSTING', N'POST_GRN', N'REST', N'SAP S/4',
         N'https://my419951-api.s4hana.cloud.sap',
         N'sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader',
         N'BASIC', @S4User, @S4Password,
@@ -53,6 +55,20 @@ BEGIN
         30, 2, 100, 0, N'ACTIVE',
         @Now, @Now, @Actor, @Actor, 1
     );
+END;
+ELSE
+BEGIN
+    UPDATE buyersystem.api_integration_configuration
+    SET name = N'FIVE S4-GRN POSTING',
+        date_updated = @Now,
+        updated_by = @Actor
+    WHERE buyer_id = @Buyer
+      AND name = N'FIVE S4 - POST GRN'
+      AND is_active = 1
+      AND NOT EXISTS (
+          SELECT 1 FROM buyersystem.api_integration_configuration
+          WHERE buyer_id = @Buyer AND name = N'FIVE S4-GRN POSTING' AND is_active = 1
+      );
 END;
 
 -- FIVETEST-GRNPOSTING-ARIBA (DRAFT, company 1020 — previous SOAP URL + realm defaults)

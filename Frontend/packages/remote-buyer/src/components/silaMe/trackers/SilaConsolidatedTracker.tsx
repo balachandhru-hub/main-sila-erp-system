@@ -23,7 +23,8 @@ const PAGE_SIZE = 25;
 const TYPES = [
   "POS_SALE", "POS_POSITIVE_CORRECTION", "INTERNAL_TRANSFER_311", "PLANT_TRANSFER_301",
   "NEGATIVE_STOCK_ADJUSTMENT", "POSITIVE_STOCK_ADJUSTMENT", "PHYSICAL_COUNT_SHORTAGE", "PHYSICAL_COUNT_SURPLUS",
-  "GOODS_ISSUE", "GRN", "INVOICE_POSTING", "SUPPLIER_INVOICE_ATTACHMENT", "PO_CREATE", "SUPPLIER_SALES_ORDER_CREATE", "CONTRACT_CREATE",
+  "GOODS_ISSUE", "GRN", "INVOICE_POSTING", "PO_INVOICE", "NON_PO_INVOICE", "SUPPLIER_INVOICE_ATTACHMENT",
+  "PO_CREATE", "SUPPLIER_SALES_ORDER_CREATE", "CONTRACT_CREATE",
   "GET_SUPPLIER", "GET_MATERIAL", "GET_PO", "GET_POS_SALE", "POST_SUPPLIER",
 ];
 
@@ -51,6 +52,8 @@ const labelOf = (value?: string | null): string => {
     RECEIVE: "Receive",
     INVOICE: "Invoice posting",
     INVOICE_POSTING: "Invoice posting",
+    PO_INVOICE: "PO Invoice",
+    NON_PO_INVOICE: "Non-PO Invoice",
     SUPPLIER_INVOICE_ATTACHMENT: "Invoice attachment",
   };
   return known[value] ?? value.split("_").join(" ");
@@ -82,15 +85,20 @@ const downloadPayload = (detail: SilaTrackerDetail) => {
 };
 
 const isInvoiceTxn = (type?: string | null): boolean =>
-  type === "INVOICE" || type === "INVOICE_POSTING" || type === "INVOICE_ATTACHMENT" || type === "SUPPLIER_INVOICE_ATTACHMENT";
+  type === "INVOICE" || type === "INVOICE_POSTING" || type === "PO_INVOICE" || type === "NON_PO_INVOICE"
+  || type === "INVOICE_ATTACHMENT" || type === "SUPPLIER_INVOICE_ATTACHMENT";
 
-const resultText = (row: SilaTrackerRow): string => {
+const resultParts = (row: SilaTrackerRow): { main: string; sub?: string; ok: boolean } => {
   const stored = row.lastError?.trim();
-  if (stored) return stored;
-  if (isInvoiceTxn(row.transactionType) && row.erpReference && (row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS")) {
-    return `Successful. SAP invoice ${row.erpReference}.`;
+  if (stored) {
+    const ok = stored.startsWith("Successful.");
+    const parts = stored.split(/(?<=\.)\s+/);
+    return { main: parts[0] || stored, sub: parts.slice(1).join(" ") || undefined, ok };
   }
-  return "—";
+  if (isInvoiceTxn(row.transactionType) && row.erpReference && (row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS")) {
+    return { main: `Successful. SAP invoice ${row.erpReference}.`, ok: true };
+  }
+  return { main: "—", ok: false };
 };
 
 const erpInvoiceId = (row: SilaTrackerRow): string =>
@@ -411,7 +419,17 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
                       <td><span className={badgeClass(row.localStatus)}>{labelOf(row.localStatus)}</span></td>
                       <td><span className={badgeClass(row.overallStatus)}>{labelOf(row.overallStatus)}</span></td>
                       <td>{row.retryCount}</td>
-                      <td className={resultText(row).startsWith("Successful.") ? "strk-result strk-result--ok" : "strk-result"}>{resultText(row)}</td>
+                      <td className={resultParts(row).ok ? "strk-result strk-result--ok" : "strk-result"}>
+                        {(() => {
+                          const result = resultParts(row);
+                          return (
+                            <>
+                              <span className="strk-result-main">{result.main}</span>
+                              {result.sub && <span className="strk-result-sub">{result.sub}</span>}
+                            </>
+                          );
+                        })()}
+                      </td>
                       <td>
                         {canReprocess && row.action === "REPROCESS" && (
                           <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setConfirming([row])}>Reprocess</button>
@@ -470,38 +488,26 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
             <p>SAP already created {detail.erpReference || "the material document"}. Reprocessing resumes from local finalization and will not call SAP again.</p>
           )}
           {detail.lastError && (
-            <p className={detail.lastError.startsWith("Successful.") ? "strk-result strk-result--ok" : "srcv-error"}>{detail.lastError}</p>
+            <div className={detail.lastError.startsWith("Successful.") ? "strk-result strk-result--ok" : "srcv-error"}>
+              {detail.lastError.startsWith("Successful.") ? (
+                <>
+                  <span className="strk-result-main">{detail.lastError.split(/(?<=\.)\s+/)[0]}</span>
+                  {detail.lastError.split(/(?<=\.)\s+/).slice(1).join(" ") && (
+                    <span className="strk-result-sub">{detail.lastError.split(/(?<=\.)\s+/).slice(1).join(" ")}</span>
+                  )}
+                </>
+              ) : detail.lastError}
+            </div>
           )}
           {detail.localError && detail.localError !== detail.lastError && <p className="srcv-error">{detail.localError}</p>}
-          {flow && flow.steps.length > 0 && (
-            <ol className="strk-flow">
-              {flow.steps.map((step, index) => (
-                <FlowStep key={`${step.name}-${index}`} step={step} index={index} />
-              ))}
-            </ol>
-          )}
-          {!flow && (
-            <div>
-              <div className="strk-actions">
-                <h3 className="sila-section-title">Submitted payload</h3>
-                {detail.technicalDetail?.trim() && (
-                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadPayload(detail)}>
-                    Download payload
-                  </button>
-                )}
-              </div>
-              {detail.technicalDetail?.trim() ? (
-                <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
-              ) : (
-                <p>No submitted payload was stored for this transaction.</p>
-              )}
-              {detail.erpMessage?.trim() && (
-                <div>
-                  <h3 className="sila-section-title">ERP message</h3>
-                  <pre className="strk-tech">{detail.erpMessage}</pre>
-                </div>
-              )}
-            </div>
+          {flow && flow.steps.length > 0 ? (
+            <FlowChain steps={flow.steps} />
+          ) : (
+            <PayloadIcons
+              request={detail.technicalDetail}
+              response={detail.erpMessage}
+              onDownloadRequest={detail.technicalDetail?.trim() ? () => downloadPayload(detail) : undefined}
+            />
           )}
         </section>
       )}
@@ -554,42 +560,185 @@ const Field: React.FC<{ id: string; label: string; children: React.ReactNode }> 
   </div>
 );
 
-const FlowStep: React.FC<{ step: SilaTrackerFlowStep; index: number }> = ({ step, index }) => {
-  const request = prettyPayload(step.request);
-  const response = prettyPayload(step.response);
-  const download = (text: string, suffix: string) => {
-    const blob = new Blob([text], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${step.name.replace(/[^\w.-]+/g, "_")}-${suffix}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
+const flowTone = (status?: string | null): string => {
+  switch (status) {
+    case "SUCCESS":
+      return "success";
+    case "FAILED":
+    case "FAILED_LOCAL":
+      return "failed";
+    case "POSTING_UNKNOWN":
+    case "UNKNOWN":
+    case "REPROCESSING":
+    case "PROCESSING":
+    case "PARTIAL":
+      return "processing";
+    case "NOT_STARTED":
+      return "pending";
+    default:
+      return "pending";
+  }
+};
+
+const flowGlyph = (status?: string | null): string => {
+  switch (flowTone(status)) {
+    case "success":
+      return "✓";
+    case "failed":
+      return "!";
+    case "processing":
+      return "…";
+    default:
+      return "○";
+  }
+};
+
+const downloadText = (text: string, fileName: string) => {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const FlowChain: React.FC<{ steps: SilaTrackerFlowStep[] }> = ({ steps }) => {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const open = openIndex == null ? null : steps[openIndex] ?? null;
+  const request = prettyPayload(open?.request);
+  const response = prettyPayload(open?.response);
   return (
-    <li className="strk-flow-step">
-      <div className="strk-actions">
-        <h3 className="sila-section-title">{index + 1}. {step.name}</h3>
-        <span className={badgeClass(step.status)}>{labelOf(step.status)}</span>
-        {request && <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => download(request, "request")}>Download request</button>}
-        {response && <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => download(response, "response")}>Download response</button>}
-      </div>
-      {step.detail && <p>{step.detail}</p>}
-      {request && (
-        <>
-          <h4 className="sila-section-title">Request</h4>
-          <pre className="strk-tech">{request}</pre>
-        </>
+    <div className="strk-flow-wrap">
+      <p className="strk-flow-hint">Process flow — click a step icon to show its payload.</p>
+      <ol className="strk-flow">
+        {steps.map((step, index) => {
+          const tone = flowTone(step.status);
+          const hasPayload = Boolean(step.request?.trim() || step.response?.trim());
+          return (
+            <li key={`${step.name}-${index}`} className="strk-flow-node">
+              {index > 0 && <span className={`strk-flow-connector strk-flow-connector--${tone === "failed" ? "bad" : tone === "success" ? "ok" : ""}`} aria-hidden />}
+              <button
+                type="button"
+                className={`strk-flow-step${openIndex === index ? " strk-flow-step--open" : ""}`}
+                disabled={!hasPayload && !step.detail}
+                aria-expanded={openIndex === index}
+                aria-label={`${step.name}, ${labelOf(step.status)}. ${hasPayload ? "Show payload" : "No payload"}`}
+                onClick={() => setOpenIndex((current) => (current === index ? null : index))}
+              >
+                <span className={`strk-flow-icon strk-flow-icon--${tone}`}>{flowGlyph(step.status)}</span>
+                <span className="strk-flow-name">{step.name}</span>
+                <span className={`strk-flow-status ${badgeClass(step.status)}`}>{labelOf(step.status)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {open && (
+        <div className="strk-flow-panel" role="region" aria-label={`${open.name} payload`}>
+          <div className="strk-actions">
+            <h3 className="sila-section-title">{open.name}</h3>
+            <span className={badgeClass(open.status)}>{labelOf(open.status)}</span>
+            {request && (
+              <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadText(request, `${open.name.replace(/[^\w.-]+/g, "_")}-request.json`)}>
+                Download request
+              </button>
+            )}
+            {response && (
+              <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadText(response, `${open.name.replace(/[^\w.-]+/g, "_")}-response.json`)}>
+                Download response
+              </button>
+            )}
+            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setOpenIndex(null)}>Hide</button>
+          </div>
+          {open.detail && <p>{open.detail}</p>}
+          {request ? (
+            <>
+              <h4 className="sila-section-title">Request</h4>
+              <pre className="strk-tech">{request}</pre>
+            </>
+          ) : (
+            <p className="strk-flow-hint">No request payload was stored for this step.</p>
+          )}
+          {response ? (
+            <>
+              <h4 className="sila-section-title">Response</h4>
+              <pre className="strk-tech">{response}</pre>
+            </>
+          ) : null}
+        </div>
       )}
-      {response && (
-        <>
-          <h4 className="sila-section-title">Response</h4>
-          <pre className="strk-tech">{response}</pre>
-        </>
+    </div>
+  );
+};
+
+const PayloadIcons: React.FC<{
+  request?: string | null;
+  response?: string | null;
+  onDownloadRequest?: () => void;
+}> = ({ request, response, onDownloadRequest }) => {
+  const [open, setOpen] = useState<"request" | "response" | null>(null);
+  const requestText = prettyPayload(request);
+  const responseText = prettyPayload(response);
+  if (!requestText && !responseText) {
+    return <p className="strk-flow-hint">No submitted payload was stored for this transaction.</p>;
+  }
+  return (
+    <div className="strk-flow-wrap">
+      <p className="strk-flow-hint">Process flow — click an icon to show the payload.</p>
+      <ol className="strk-flow">
+        {requestText && (
+          <li className="strk-flow-node">
+            <button
+              type="button"
+              className={`strk-flow-step${open === "request" ? " strk-flow-step--open" : ""}`}
+              aria-expanded={open === "request"}
+              onClick={() => setOpen((current) => (current === "request" ? null : "request"))}
+            >
+              <span className="strk-flow-icon strk-flow-icon--processing">↗</span>
+              <span className="strk-flow-name">Request</span>
+              <span className="strk-flow-status sila-badge sila-badge--info">Payload</span>
+            </button>
+          </li>
+        )}
+        {requestText && responseText && <span className="strk-flow-connector" aria-hidden />}
+        {responseText && (
+          <li className="strk-flow-node">
+            <button
+              type="button"
+              className={`strk-flow-step${open === "response" ? " strk-flow-step--open" : ""}`}
+              aria-expanded={open === "response"}
+              onClick={() => setOpen((current) => (current === "response" ? null : "response"))}
+            >
+              <span className="strk-flow-icon strk-flow-icon--success">↙</span>
+              <span className="strk-flow-name">Response</span>
+              <span className="strk-flow-status sila-badge sila-badge--info">Payload</span>
+            </button>
+          </li>
+        )}
+      </ol>
+      {open === "request" && requestText && (
+        <div className="strk-flow-panel">
+          <div className="strk-actions">
+            <h3 className="sila-section-title">Submitted payload</h3>
+            {onDownloadRequest && <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={onDownloadRequest}>Download payload</button>}
+            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setOpen(null)}>Hide</button>
+          </div>
+          <pre className="strk-tech">{requestText}</pre>
+        </div>
       )}
-    </li>
+      {open === "response" && responseText && (
+        <div className="strk-flow-panel">
+          <div className="strk-actions">
+            <h3 className="sila-section-title">ERP message</h3>
+            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setOpen(null)}>Hide</button>
+          </div>
+          <pre className="strk-tech">{responseText}</pre>
+        </div>
+      )}
+    </div>
   );
 };
 

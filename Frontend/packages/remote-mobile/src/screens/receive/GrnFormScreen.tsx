@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   getInvoice,
@@ -10,7 +10,7 @@ import {
   type SilaGrnWrite,
   type SilaPurchaseOrderLine,
 } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
-import { formatQty } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
+import { formatQty, getLocations, type SilaLocation } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import LocationPicker from '../../components/LocationPicker';
 import { parseQty } from '../../components/QtyInput';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -23,6 +23,23 @@ import GrnLineCard, { type GrnLineEntry } from './GrnLineCard';
 
 const STORE = 'STORE';
 
+/** Prefer the beverage store of the PO property; fall back to the first store of that property. */
+const propertyStoreId = (stores: SilaLocation[], po?: { companyCode?: string | null; plantCode?: string | null } | null): string => {
+  if (!po || stores.length === 0) return '';
+  const company = po.companyCode?.trim().toUpperCase();
+  const plant = po.plantCode?.trim().toUpperCase();
+  const ofProperty = stores.filter((store) => {
+    const storeCompany = store.companyCode?.trim().toUpperCase();
+    if (company && storeCompany && storeCompany === company) return true;
+    if (plant && store.storageLocationCode?.toUpperCase().startsWith(plant.slice(0, 2))) return true;
+    return false;
+  });
+  const pool = ofProperty.length > 0 ? ofProperty : stores;
+  const beverage = pool.find((store) => (store.storeCategory || '').toUpperCase() === 'BEVERAGE')
+    ?? pool.find((store) => /beverage/i.test(store.locationName || '') || /beverage/i.test(store.locationCode || ''));
+  return (beverage ?? pool[0])?.id ?? '';
+};
+
 /** Finalize GRN: received = accepted + rejected + damaged, accepted ≤ open. Checked by the server before posting. */
 const GrnFormScreen: React.FC = () => {
   const go = useGo();
@@ -31,22 +48,69 @@ const GrnFormScreen: React.FC = () => {
   const invoiceId = params.get('invoiceId');
   const { data: po, loading, error, reload } = useLoad(() => getPurchaseOrder(poId), poId || null);
   const invoice = useLoad(() => getInvoice(invoiceId ?? ''), invoiceId || null);
-  const { locations, location: myLocation, loading: locationsLoading } = useMyLocation();
-  const stores = locations.filter((location) => location.locationType === STORE);
+  const { locations: myLocations, loading: myLocationsLoading } = useMyLocation();
+  const allLocations = useLoad(() => getLocations('ACTIVE'), 'stores');
   const [chosenStoreId, setStoreId] = useState<string>('');
-  const storeId = chosenStoreId || (myLocation?.locationType === STORE ? myLocation.id : stores[0]?.id ?? '');
   const [entries, setEntries] = useState<Record<string, GrnLineEntry>>({});
+  const [seededLines, setSeededLines] = useState(false);
   const [deliveryNote, setDeliveryNote] = useState<string>('');
+  const [deliverySeeded, setDeliverySeeded] = useState(false);
   const [busy, setBusy] = useState<'check' | 'post' | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
   /** Result of the last check; warnings must be confirmed before posting. */
   const [check, setCheck] = useState<{ request: SilaGrnWrite; result: SilaGrnValidation } | null>(null);
 
+  const stores = useMemo(() => {
+    const fromAll = (allLocations.data ?? []).filter((location) => location.locationType === STORE);
+    if (fromAll.length > 0) return fromAll;
+    return myLocations.filter((location) => location.locationType === STORE);
+  }, [allLocations.data, myLocations]);
+
+  const defaultStoreId = useMemo(() => propertyStoreId(stores, po), [stores, po]);
+  const storeId = chosenStoreId || defaultStoreId;
+
+  useEffect(() => {
+    if (!chosenStoreId && defaultStoreId) {
+      setStoreId(defaultStoreId);
+    }
+  }, [chosenStoreId, defaultStoreId]);
+
+  useEffect(() => {
+    if (deliverySeeded || !invoiceId) return;
+    const note = invoice.data?.invoiceNumber?.trim() || invoiceId;
+    if (!note) return;
+    setDeliveryNote(note);
+    setDeliverySeeded(true);
+  }, [deliverySeeded, invoiceId, invoice.data?.invoiceNumber]);
+
   const openLines = (po?.lines ?? []).filter((line) => line.openQty > 0);
-  const entryOf = (line: SilaPurchaseOrderLine): GrnLineEntry => entries[line.id] ?? { accepted: String(line.openQty), rejected: '0', damaged: '0' };
   const invoiceQtyOf = (lineId: string): number | null => {
     const matches = (invoice.data?.items ?? []).filter((item) => item.purchaseOrderItemId === lineId);
     return matches.length > 0 ? matches.reduce((sum, item) => sum + (item.quantity ?? 0), 0) : null;
+  };
+
+  useEffect(() => {
+    if (seededLines || !po || !invoice.data) return;
+    const next: Record<string, GrnLineEntry> = {};
+    let any = false;
+    for (const line of openLines) {
+      const invoiceQty = invoiceQtyOf(line.id);
+      if (invoiceQty == null || invoiceQty <= 0) continue;
+      const accepted = Math.min(invoiceQty, line.openQty);
+      next[line.id] = { accepted: String(accepted), rejected: '0', damaged: '0' };
+      any = true;
+    }
+    if (any) setEntries((current) => ({ ...next, ...current }));
+    setSeededLines(true);
+  }, [seededLines, po, invoice.data, openLines]);
+
+  const entryOf = (line: SilaPurchaseOrderLine): GrnLineEntry => {
+    if (entries[line.id]) return entries[line.id];
+    const invoiceQty = invoiceQtyOf(line.id);
+    if (invoiceQty != null && invoiceQty > 0) {
+      return { accepted: String(Math.min(invoiceQty, line.openQty)), rejected: '0', damaged: '0' };
+    }
+    return { accepted: String(line.openQty), rejected: '0', damaged: '0' };
   };
   const messagesOf = (lineId: string): string[] =>
     check?.result.lines.find((line) => line.purchaseOrderItemId === lineId)?.messages ?? [];
@@ -78,7 +142,13 @@ const GrnFormScreen: React.FC = () => {
       setNotice({ tone: 'error', text: 'Enter the received quantity of at least one line.' });
       return null;
     }
-    return { purchaseOrderId: po.id, locationId: storeId, invoiceId: invoiceId || null, deliveryNote: deliveryNote.trim() || null, lines };
+    return {
+      purchaseOrderId: po.id,
+      locationId: storeId,
+      invoiceId: invoiceId || null,
+      deliveryNote: deliveryNote.trim() || invoice.data?.invoiceNumber?.trim() || invoiceId || null,
+      lines,
+    };
   };
 
   const post = async (request: SilaGrnWrite) => {
@@ -118,6 +188,9 @@ const GrnFormScreen: React.FC = () => {
     setEntries((current) => ({ ...current, [line.id]: { ...entryOf(line), ...value } }));
   };
 
+  const locationsLoading = myLocationsLoading || allLocations.loading;
+  const selectedStore = stores.find((store) => store.id === storeId);
+
   return (
     <>
       <ScreenHeader title="Finalize GRN" eyebrow="Receive" back />
@@ -137,13 +210,26 @@ const GrnFormScreen: React.FC = () => {
               <span className="sm-meta">Received Date {formatDate(todayIso())}</span>
             </section>
             {locationsLoading ? null : stores.length === 0 ? (
-              <p className="sm-notice sm-notice--warning">You are not assigned to a store; goods can only be received at a store.</p>
+              <p className="sm-notice sm-notice--warning">No store is available for this property; goods can only be received at a store.</p>
             ) : (
-              <LocationPicker label="Receiving store" locations={stores} value={storeId} onChange={(id) => { setCheck(null); setStoreId(id); }} />
+              <>
+                <LocationPicker
+                  label="Receiving store"
+                  locations={stores}
+                  value={storeId}
+                  onChange={(id) => { setCheck(null); setStoreId(id); }}
+                />
+                {selectedStore && (
+                  <p className="sm-meta">
+                    Default is the property store{selectedStore.storeCategory ? ` (${selectedStore.storeCategory})` : ''}: {selectedStore.locationCode}.
+                  </p>
+                )}
+              </>
             )}
             <div className="sm-field">
-              <label htmlFor="sm-delivery-note">Delivery note (optional)</label>
+              <label htmlFor="sm-delivery-note">Delivery note</label>
               <input id="sm-delivery-note" className="sm-input" value={deliveryNote} onChange={(event) => setDeliveryNote(event.target.value)} />
+              <span className="sm-meta">Defaults to the supplier invoice number.</span>
             </div>
             {openLines.length === 0 && <Empty text="Every line of this purchase order is fully received." />}
             {openLines.map((line) => (

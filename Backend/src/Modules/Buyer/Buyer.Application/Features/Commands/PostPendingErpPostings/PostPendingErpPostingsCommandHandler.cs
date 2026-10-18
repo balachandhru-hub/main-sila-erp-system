@@ -209,7 +209,9 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 string scope = posting.CompanyCode == null ? string.Empty : $" for company code {posting.CompanyCode} (or ALL)";
                 string expected = isInvoice
                     ? SilaInvoiceLifecycle.API_INVOICE
-                    : stockCount ? $"{IntegrationProcessType.UPDATE_STOCK} ({SilaStockCountSap.API_CONFIG_NAME}) or {processType}" : processType.ToString();
+                    : isGrn
+                        ? $"{SilaGrnSap.API_CONFIG_NAME} ({processType})"
+                        : stockCount ? $"{IntegrationProcessType.UPDATE_STOCK} ({SilaStockCountSap.API_CONFIG_NAME}) or {processType}" : processType.ToString();
                 return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, $"No active {expected} API is configured{scope}.", cancellationToken);
             }
 
@@ -255,7 +257,8 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             string area = isGrn ? AREA_GRN : isInvoice ? AREA_INVOICE : AREA_GOODS_MOVEMENT;
             bool sapGrn = isGrn
                 && string.IsNullOrWhiteSpace(api.RequestBody)
-                && string.Equals(api.Name, SilaGrnSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase);
+                && (SilaGrnSap.IsConfiguredName(api.Name)
+                    || (api.ResourcePath ?? string.Empty).Contains("API_MATERIAL_DOCUMENT_SRV", StringComparison.OrdinalIgnoreCase));
             bool sapShape = stockCount
                 && string.IsNullOrWhiteSpace(api.RequestBody)
                 && (string.Equals(api.Name, SilaStockCountSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
@@ -916,6 +919,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     ("Uom", item.Uom),
                     ("Material", item.MaterialCode),
                     ("Plant", plant),
+                    ("StorageLocation", location?.StorageLocationCode),
                     ("GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE),
                     ("PurchaseOrder", receipt.PoNumber),
                     ("PurchaseOrderItem", purchaseOrderItem),
@@ -1415,6 +1419,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return document.Header.FirstOrDefault(x => x.Name == name).Value?.ToString();
             }
 
+            string? storage = Header("StorageLocation");
             var items = document.Items.Select(item =>
             {
                 object? Value(string name)
@@ -1422,27 +1427,41 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     return item.FirstOrDefault(x => x.Name == name).Value;
                 }
 
-                return new
+                Dictionary<string, object?> row = new Dictionary<string, object?>
                 {
-                    Material = Value("Material"),
-                    Plant = Value("Plant"),
-                    GoodsMovementType = Value("GoodsMovementType"),
-                    PurchaseOrder = Value("PurchaseOrder"),
-                    PurchaseOrderItem = Value("PurchaseOrderItem"),
-                    GoodsMovementRefDocType = Value("GoodsMovementRefDocType"),
-                    EntryUnit = Value("EntryUnit"),
-                    QuantityInEntryUnit = Value("QuantityInEntryUnit")
+                    ["Material"] = Value("Material"),
+                    ["Plant"] = Value("Plant"),
+                    ["GoodsMovementType"] = Value("GoodsMovementType"),
+                    ["PurchaseOrder"] = Value("PurchaseOrder"),
+                    ["PurchaseOrderItem"] = Value("PurchaseOrderItem"),
+                    ["GoodsMovementRefDocType"] = Value("GoodsMovementRefDocType"),
+                    ["EntryUnit"] = Value("EntryUnit"),
+                    ["QuantityInEntryUnit"] = Value("QuantityInEntryUnit")
                 };
+                string? lineStorage = Value("StorageLocation")?.ToString() ?? storage;
+                if (!string.IsNullOrWhiteSpace(lineStorage))
+                {
+                    row["StorageLocation"] = lineStorage;
+                }
+
+                return row;
             }).ToList();
 
-            return JsonSerializer.Serialize(new
+            Dictionary<string, object?> body = new Dictionary<string, object?>
             {
-                DocumentDate = Header("DocumentDate"),
-                PostingDate = Header("ODataPostingDate") ?? Header("DocumentDate"),
-                GoodsMovementCode = Header("GoodsMovementCode") ?? SilaGrnSap.GOODS_MOVEMENT_CODE,
-                MaterialDocumentHeaderText = Header("GrnNumber"),
-                to_MaterialDocumentItem = items
-            });
+                ["DocumentDate"] = Header("DocumentDate"),
+                ["PostingDate"] = Header("ODataPostingDate") ?? Header("DocumentDate"),
+                ["GoodsMovementCode"] = Header("GoodsMovementCode") ?? SilaGrnSap.GOODS_MOVEMENT_CODE,
+                ["MaterialDocumentHeaderText"] = Header("GrnNumber"),
+                ["to_MaterialDocumentItem"] = items
+            };
+            string? deliveryNote = Header("DeliveryNote");
+            if (!string.IsNullOrWhiteSpace(deliveryNote))
+            {
+                body["DeliveryDocumentBySupplier"] = deliveryNote.Trim();
+            }
+
+            return JsonSerializer.Serialize(body);
         }
 
         // The header fields and lines of one document, in payload order.
