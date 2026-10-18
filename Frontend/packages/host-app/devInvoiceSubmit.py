@@ -5,10 +5,13 @@ The invoice is handed to the posting the server already runs. The request writte
 onto FIVE S4-INVOICE POSTING is the S/4 supplier-invoice document for this invoice.
 """
 
+import base64
 import datetime
 import json
 import re
 import sys
+import urllib.error
+import urllib.request
 import uuid
 from decimal import Decimal
 from pathlib import Path
@@ -89,25 +92,46 @@ def quantity(value) -> str:
     return rendered
 
 
-def current_posting_date() -> str:
-    return datetime.datetime.utcnow().strftime("%Y-%m-%dT00:00:00")
+TAX_DATE_MISSING = (
+    f"{MISSING}. Field: TaxDeterminationDate. "
+    "Tax Determination Date is required for FIVE S/4 invoice posting because time-dependent taxes are active."
+)
 
 
-def stamp_posting_date(prepared: dict) -> bool:
-    current = current_posting_date()
-    for item in prepared.get("header") or []:
-        if item.get("apiField") == "PostingDate":
-            changed = item.get("value") != current or item.get("source") != "CURRENT_DATE"
-            item["value"] = current
+def ensure_five_header(prepared: dict) -> bool:
+    """FIVE time-dependent taxes: store TaxDeterminationDate from the invoice date. Do not use today's date."""
+    header = prepared.setdefault("header", [])
+    document = ""
+    for item in header:
+        if item.get("apiField") == "DocumentDate":
+            document = text(item.get("value"))
+            break
+    changed = False
+    for item in header:
+        if item.get("apiField") == "PostingDate" and item.get("source") == "CURRENT_DATE" and document:
+            item["value"] = document
+            item["source"] = "INVOICE"
+            item["sourceField"] = "InvoiceDate"
             item["label"] = "Posting date"
-            item["source"] = "CURRENT_DATE"
-            item["sourceField"] = "UtcToday"
             item["required"] = True
-            return changed
-    prepared.setdefault("header", []).append(
-        field("PostingDate", "Posting date", current, "CURRENT_DATE", "UtcToday", True)
-    )
-    return True
+            changed = True
+    tax = next((item for item in header if item.get("apiField") == "TaxDeterminationDate"), None)
+    if tax is None:
+        insert_at = 0
+        for index, item in enumerate(header):
+            if item.get("apiField") == "PostingDate":
+                insert_at = index + 1
+                break
+        header.insert(insert_at, field("TaxDeterminationDate", "Tax determination date", document, "INVOICE", "InvoiceDate", True))
+        changed = True
+    elif document and not text(tax.get("value")):
+        tax["value"] = document
+        tax["source"] = "INVOICE"
+        tax["sourceField"] = "InvoiceDate"
+        tax["label"] = "Tax determination date"
+        tax["required"] = True
+        changed = True
+    return changed
 
 
 def sap_date(value) -> str:
@@ -205,6 +229,7 @@ def body_from_stored(prepared: dict) -> dict:
         ("DocumentDate", "Document date, from the SILA invoice"),
         ("PostingDate", "Posting date, from the stored posting data"),
         ("DueCalculationBaseDate", "Due calculation base date, from the stored posting data"),
+        ("TaxDeterminationDate", "Tax Determination Date is required for FIVE S/4 invoice posting because time-dependent taxes are active."),
         ("InvoicingParty", "Invoicing party, from the purchase order"),
         ("DocumentCurrency", "Currency, from the SILA invoice"),
         ("InvoiceGrossAmount", "Gross amount, from the SILA invoice"),
@@ -213,6 +238,8 @@ def body_from_stored(prepared: dict) -> dict:
     )
     for name, message in required_header:
         if not text(header.get(name)):
+            if name == "TaxDeterminationDate":
+                raise SubmitError(400, "Invoice cannot be submitted.", TAX_DATE_MISSING)
             raise SubmitError(400, "Invoice cannot be submitted.", f"{MISSING}. {message}.")
     results = []
     tax_codes = []
@@ -256,6 +283,7 @@ def body_from_stored(prepared: dict) -> dict:
         "DocumentDate": text(header.get("DocumentDate")),
         "PostingDate": text(header.get("PostingDate")),
         "DueCalculationBaseDate": text(header.get("DueCalculationBaseDate")),
+        "TaxDeterminationDate": text(header.get("TaxDeterminationDate")),
         "InvoicingParty": text(header.get("InvoicingParty")),
         "DocumentCurrency": text(header.get("DocumentCurrency")),
         "InvoiceGrossAmount": money(header.get("InvoiceGrossAmount")),
@@ -377,7 +405,8 @@ def compose_posting(cur, invoice, lines) -> dict:
         "header": [
             field("CompanyCode", "Company code", company, "S4_PO_HEADER", "CompanyCode", True),
             field("DocumentDate", "Document date", posted, "INVOICE", "InvoiceDate", True),
-            field("PostingDate", "Posting date", current_posting_date(), "CURRENT_DATE", "UtcToday", True),
+            field("PostingDate", "Posting date", posted, "INVOICE", "InvoiceDate", True),
+            field("TaxDeterminationDate", "Tax determination date", posted, "INVOICE", "InvoiceDate", True),
             field("DueCalculationBaseDate", "Due calculation base date", posted, "INVOICE", "InvoiceDate", True),
             field("InvoicingParty", "Invoicing party", supplier, "S4_PO_HEADER", "Supplier", True),
             field(
@@ -470,7 +499,7 @@ def document(cur, invoice_id: uuid.UUID) -> dict:
             "Invoice cannot be submitted.",
             "Posting data is stale because the invoice changed after it was prepared. Refresh from S/4. The purchase order is not read again during reprocess.",
         )
-    if stamp_posting_date(prepared):
+    if ensure_five_header(prepared):
         save_posting(cur, invoice_id, prepared)
     company = text(values_of(prepared.get("header")).get("CompanyCode"))
     body = body_from_stored(prepared)
@@ -498,7 +527,7 @@ def read_posting(cur, invoice_id: uuid.UUID) -> dict:
         prepared = json.loads(raw)
     except json.JSONDecodeError:
         return {"ok": True, "postingData": None}
-    if isinstance(prepared, dict) and stamp_posting_date(prepared):
+    if isinstance(prepared, dict) and ensure_five_header(prepared):
         save_posting(cur, invoice_id, prepared)
     return {"ok": True, "postingData": prepared}
 
@@ -681,7 +710,7 @@ def posting_payload(cur, posting_id: uuid.UUID) -> dict:
     row = fetchone(
         cur,
         """
-        SELECT reference_number, erp_request_payload
+        SELECT reference_number, erp_request_payload, erp_response_payload, erp_http_status, error_message
         FROM buyersystem.inventory_erp_posting
         WHERE id=%s AND is_active=1
         """,
@@ -689,13 +718,305 @@ def posting_payload(cur, posting_id: uuid.UUID) -> dict:
     )
     if row is None:
         raise SubmitError(404, "Transaction not found.", "Select a transaction from this tracker.")
-    body = row[1]
-    if isinstance(body, bytes):
-        body = body.decode("utf-8", "replace")
-    stored = text(body)
-    if len(stored) > 4000:
-        stored = stored[:4000]
-    return {"ok": True, "reference": text(row[0]), "technicalDetail": stored}
+    stored = clip(row[1], 4000)
+    response = clip(row[2], 4000)
+    message = text(row[4])
+    if response and response not in message:
+        message = (message + "\n" + response).strip() if message else response
+    return {
+        "ok": True,
+        "reference": text(row[0]),
+        "technicalDetail": stored,
+        "erpMessage": message,
+        "erpHttpStatus": row[3],
+    }
+
+
+def clip(value, limit: int) -> str:
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", "replace")
+    stored = text(value)
+    return stored[:limit] if len(stored) > limit else stored
+
+
+def attempt_text(value) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%dT%H:%M:%S.%f")
+    return text(value)
+
+
+def attempt(cur, posting_id: uuid.UUID) -> dict:
+    posting = fetchone(
+        cur,
+        "SELECT reference_type, buyer_id FROM buyersystem.inventory_erp_posting WHERE id=%s AND is_active=1",
+        (str(posting_id),),
+    )
+    if posting is None or text(posting[0]) != "INVOICE":
+        return {"ok": True, "invoice": False, "lastAttemptAt": ""}
+    row = fetchone(
+        cur,
+        """
+        SELECT last_attempt_at FROM buyersystem.api_integration_configuration
+        WHERE buyer_id=%s AND is_active=1 AND name=%s
+        """,
+        (str(posting[1]), API_NAME),
+    )
+    return {"ok": True, "invoice": True, "lastAttemptAt": attempt_text(row[0] if row else None)}
+
+
+def sap_password(username: str, base_url: str) -> str:
+    path = Path(__file__).resolve().parents[2] / ".data" / "custom-integrations.json"
+    if not path.exists():
+        raise SubmitError(400, "Invoice was not sent.", "FIVE S4-INVOICE POSTING was not called. The S/4 sign-in is not available on this machine.")
+    try:
+        saved = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        raise SubmitError(400, "Invoice was not sent.", "FIVE S4-INVOICE POSTING was not called. The S/4 sign-in is not available on this machine.")
+    host = base_url.rstrip("/").lower()
+    for side in ("buyer", "supplier"):
+        for row in saved.get(side) or []:
+            public = row.get("public") or {}
+            if text(public.get("username")) != username:
+                continue
+            if text(public.get("baseUrl")).rstrip("/").lower() != host:
+                continue
+            secret = text((row.get("secrets") or {}).get("password"))
+            if secret:
+                return secret
+    raise SubmitError(400, "Invoice was not sent.", "FIVE S4-INVOICE POSTING was not called. The S/4 sign-in is not available on this machine.")
+
+
+def sap_detail(body: str) -> str:
+    try:
+        parsed = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        parsed = {}
+    error = parsed.get("error") if isinstance(parsed, dict) else None
+    if isinstance(error, dict):
+        message = error.get("message")
+        detail = text(message.get("value")) if isinstance(message, dict) else text(message)
+        code = text(error.get("code"))
+        if code and detail:
+            return f"{code}: {detail}"
+        return detail or code
+    flat = " ".join((body or "").split())
+    return flat[:500]
+
+
+def read_sap_value(body: str, names: tuple[str, ...]) -> str:
+    try:
+        parsed = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        return ""
+    if isinstance(parsed, dict) and isinstance(parsed.get("d"), dict):
+        parsed = parsed["d"]
+    if not isinstance(parsed, dict):
+        return ""
+    for name in names:
+        found = text(parsed.get(name))
+        if found:
+            return found
+    return ""
+
+
+def post_sap(base_url: str, resource: str, username: str, password: str, body: str, timeout: int) -> tuple[int, str, str]:
+    """CSRF handshake, then one POST. Returns HTTP status, response text, and whether it was the token call or the invoice call."""
+    url = f"{base_url.rstrip('/')}/{resource.lstrip('/')}"
+    token_url = url + ("&" if "?" in url else "?") + "$top=0"
+    auth = base64.b64encode(f"{username}:{password}".encode()).decode()
+    common = {"Authorization": f"Basic {auth}", "Accept": "application/json"}
+    fetch = urllib.request.Request(token_url, method="GET", headers={**common, "x-csrf-token": "Fetch"})
+    try:
+        with urllib.request.urlopen(fetch, timeout=timeout) as response:
+            token = text(response.headers.get("x-csrf-token"))
+            getter = getattr(response.headers, "get_all", None)
+            cookies = getter("Set-Cookie") if getter else [response.headers.get("Set-Cookie")]
+            cookies = [item for item in (cookies or []) if item]
+            if response.status >= 400 or not token or token.lower() == "required":
+                return response.status, response.read().decode("utf-8", "replace"), "csrf"
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", "replace"), "csrf"
+    cookie = "; ".join(
+        part.split(";", 1)[0].strip()
+        for part in cookies
+        if "=" in part.split(";", 1)[0]
+    )
+    headers = {**common, "Content-Type": "application/json", "x-csrf-token": token}
+    if cookie:
+        headers["Cookie"] = cookie
+    post = urllib.request.Request(url, data=body.encode("utf-8"), method="POST", headers=headers)
+    try:
+        with urllib.request.urlopen(post, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8", "replace"), "post"
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", "replace"), "post"
+
+
+def remember_attempt(cur, buyer_id, invoice_id, attempt: int, result: str, erp_called: bool) -> None:
+    """Keeps one retry-history row. The same result is not written twice, and an older HTTP error is not deleted."""
+    flat = " ".join(result.split())
+    if not flat:
+        return
+    marker = flat[:80].replace("%", "").replace("_", "")
+    existing = fetchone(
+        cur,
+        """
+        SELECT id FROM buyersystem.inventory_workflow_event
+        WHERE reference_id=%s AND is_active=1 AND action='TRACKER_REPROCESS' AND comment LIKE %s
+        """,
+        (str(invoice_id), f"%{marker}%"),
+    )
+    if existing:
+        return
+    actor = "00000000-0000-0000-0000-000000000000"
+    comment = (
+        f"Stage=ERP; ErpCalled={'Yes' if erp_called else 'No'}; LocalCalled=No; "
+        f"Attempt={attempt}; Previous=; Result={flat}"
+    )[:1000]
+    cur.execute(
+        """
+        INSERT INTO buyersystem.inventory_workflow_event (
+            id, buyer_id, reference_type, reference_id, action, comment, actor_user_id,
+            date_created, date_updated, created_by, updated_by, is_active
+        ) VALUES (%s, %s, 'INVOICE', %s, 'TRACKER_REPROCESS', %s, %s, GETUTCDATE(), GETUTCDATE(), %s, %s, 1)
+        """,
+        (str(uuid.uuid4()), str(buyer_id), str(invoice_id), comment, actor, actor, actor),
+    )
+
+
+def preserve_current_attempt(cur, posting_id: uuid.UUID) -> None:
+    row = fetchone(
+        cur,
+        """
+        SELECT buyer_id, reference_id, attempts, error_message, erp_http_status
+        FROM buyersystem.inventory_erp_posting
+        WHERE id=%s AND is_active=1
+        """,
+        (str(posting_id),),
+    )
+    if row is None or not text(row[3]):
+        return
+    if row[4] is None and "HTTP" not in text(row[3]):
+        return
+    remember_attempt(cur, row[0], row[1], int(row[2] or 0), text(row[3]), row[4] is not None)
+
+
+def deliver(cur, posting_id: uuid.UUID, attempt_before: str) -> dict:
+    """The connected server drops the exception and never records an attempt. Send the stored body and keep the answer."""
+    posting = fetchone(
+        cur,
+        """
+        SELECT reference_type, reference_id, buyer_id, status, erp_reference, erp_http_status, erp_request_payload
+        FROM buyersystem.inventory_erp_posting
+        WHERE id=%s AND is_active=1
+        """,
+        (str(posting_id),),
+    )
+    if posting is None or text(posting[0]) != "INVOICE":
+        return {"ok": True, "called": False}
+    if text(posting[3]) in {"POSTED", "ERP_ACCEPTED", "FAILED_LOCAL"} or text(posting[4]):
+        return {"ok": True, "called": False}
+    api = fetchone(
+        cur,
+        """
+        SELECT id, base_url, resource_path, username, timeout_seconds, last_attempt_at, request_body
+        FROM buyersystem.api_integration_configuration
+        WHERE buyer_id=%s AND is_active=1 AND name=%s
+        """,
+        (str(posting[2]), API_NAME),
+    )
+    if api is None:
+        return {"ok": True, "called": False}
+    if attempt_text(api[5]) != (attempt_before or ""):
+        return {"ok": True, "called": False}
+    preserve_current_attempt(cur, posting_id)
+    invoice_id = posting[1]
+    try:
+        built = document(cur, invoice_id)
+        body = json.dumps(built["body"], separators=(",", ":"))
+    except SubmitError as error:
+        record_delivery(cur, posting_id, api[0], invoice_id, None, "", "FAILED", error.description, clip(posting[6], 8000))
+        return {"ok": True, "called": False, "message": error.description}
+    try:
+        password = sap_password(text(api[3]), text(api[1]))
+        status, response, phase = post_sap(text(api[1]), text(api[2]), text(api[3]), password, body, int(api[4] or 30))
+    except SubmitError as error:
+        record_delivery(cur, posting_id, api[0], invoice_id, None, "", "FAILED", error.description, body)
+        return {"ok": True, "called": False, "message": error.description}
+    except Exception as error:
+        reason = text(error) or error.__class__.__name__
+        if "://" in reason:
+            reason = reason.split("://", 1)[-1]
+        message = f"FIVE S4-INVOICE POSTING was not reached. {reason}"[:1500]
+        record_delivery(cur, posting_id, api[0], invoice_id, None, "", "FAILED", message, body)
+        return {"ok": True, "called": True, "message": message}
+    detail = sap_detail(response)
+    if phase == "csrf":
+        message = f"FIVE S4-INVOICE POSTING was not called. The sign-in token request returned HTTP {status}. {detail}".strip()
+        record_delivery(cur, posting_id, api[0], invoice_id, status, response, "FAILED", message[:1500], body)
+        return {"ok": True, "called": True, "http": status, "message": message[:1500]}
+    if 200 <= status < 300:
+        reference = read_sap_value(response, ("SupplierInvoice", "supplierInvoice"))
+        record_delivery(cur, posting_id, api[0], invoice_id, status, response, "POSTED", None, body, reference, success=True)
+        remember_attempt(cur, posting[2], invoice_id, int(fetch_attempts(cur, posting_id)), f"HTTP {status}. Supplier invoice {reference}".strip(), True)
+        return {"ok": True, "called": True, "http": status, "reference": reference}
+    outcome = "UNKNOWN" if status >= 500 or status == 408 else "FAILED"
+    message = f"FIVE S4-INVOICE POSTING returned HTTP {status}. {detail}".strip()
+    record_delivery(cur, posting_id, api[0], invoice_id, status, response, outcome, message[:1500], body)
+    remember_attempt(cur, posting[2], invoice_id, int(fetch_attempts(cur, posting_id)), message, True)
+    return {"ok": True, "called": True, "http": status, "message": message[:1500]}
+
+
+def fetch_attempts(cur, posting_id: uuid.UUID) -> int:
+    row = fetchone(cur, "SELECT attempts FROM buyersystem.inventory_erp_posting WHERE id=%s", (str(posting_id),))
+    return int(row[0] or 0) if row else 0
+
+
+def record_delivery(cur, posting_id, configuration_id, invoice_id, http_status, response: str, status: str, error: str | None, request_body: str, reference: str = "", success: bool = False) -> None:
+    invoice_status = {"POSTED": "AWAITING_PAYMENT", "UNKNOWN": "POSTING_UNKNOWN"}.get(status, "ERP_POSTING_FAILED")
+    cur.execute(
+        """
+        UPDATE buyersystem.inventory_erp_posting
+        SET status=%s, error_message=%s, erp_http_status=%s,
+            attempts=CASE WHEN %s IS NULL THEN attempts ELSE attempts + 1 END,
+            erp_response_payload=%s,
+            erp_request_payload=%s, erp_reference=CASE WHEN %s='' THEN erp_reference ELSE %s END,
+            integration_system=%s, posted_on=CASE WHEN %s=1 THEN GETUTCDATE() ELSE posted_on END,
+            date_updated=GETUTCDATE()
+        WHERE id=%s
+        """,
+        (
+            status,
+            error,
+            http_status,
+            http_status,
+            clip(response, 12000) or None,
+            clip(request_body, 12000) or None,
+            reference,
+            reference,
+            API_NAME,
+            1 if success else 0,
+            str(posting_id),
+        ),
+    )
+    cur.execute(
+        "UPDATE buyersystem.invoice SET status=%s, erp_posting_id=%s, date_updated=GETUTCDATE() WHERE id=%s",
+        (invoice_status, str(posting_id), str(invoice_id)),
+    )
+    safe = (error or "")[:2000] or None
+    cur.execute(
+        """
+        UPDATE buyersystem.api_integration_configuration
+        SET last_attempt_at=GETUTCDATE(),
+            last_error_safe=%s,
+            last_successful_run_at=CASE WHEN %s=1 THEN GETUTCDATE() ELSE last_successful_run_at END,
+            date_updated=GETUTCDATE()
+        WHERE id=%s
+        """,
+        (safe, 1 if success else 0, str(configuration_id)),
+    )
 
 
 def main() -> None:
@@ -707,6 +1028,14 @@ def main() -> None:
         cursor = connection.cursor()
         if action == "payload":
             print(json.dumps(posting_payload(cursor, uuid.UUID(str(payload.get("postingId"))))))
+            return
+        if action == "attempt":
+            print(json.dumps(attempt(cursor, uuid.UUID(str(payload.get("postingId"))))))
+            return
+        if action == "deliver":
+            sent = deliver(cursor, uuid.UUID(str(payload.get("postingId"))), text(payload.get("attemptBefore")))
+            connection.commit()
+            print(json.dumps(sent))
             return
         if action == "delete":
             removed = delete_integration(cursor, uuid.UUID(str(payload.get("configurationId"))))

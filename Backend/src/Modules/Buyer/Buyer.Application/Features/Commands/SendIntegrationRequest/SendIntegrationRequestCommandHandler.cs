@@ -96,6 +96,16 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
                 result.ErrorMessage = exception.Message;
                 configuration.LastErrorSafe = exception.Message;
             }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // A failure before the HTTP call (for example the saved sign-in cannot be read) is not an IntegrationException.
+                // Leave it on the configuration; otherwise the attempt is discarded and the posting only keeps a generic sentence.
+                result.Answered = false;
+                result.ErrorCode = "INTEGRATION_SEND_FAILED";
+                result.ErrorMessage = "The posting could not be sent. " + SilaLogText.Short(exception.Message);
+                configuration.LastErrorSafe = result.ErrorMessage;
+                _logger.LogError($"Document could not be sent to integration. ConfigurationId: {configuration.Id}, Error: {SilaLogText.Short(exception.Message)}");
+            }
 
             watch.Stop();
             result.DurationMs = watch.ElapsedMilliseconds;

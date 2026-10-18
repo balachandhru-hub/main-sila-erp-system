@@ -47,10 +47,10 @@ const forward = async (
   };
 };
 
-const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string; reference?: string; technicalDetail?: string | null; postingData?: unknown }> =>
+const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string; reference?: string; technicalDetail?: string | null; erpMessage?: string | null; erpHttpStatus?: number | null; postingData?: unknown; lastAttemptAt?: string | null; invoice?: boolean }> =>
   new Promise((resolve, reject) => {
     const child = spawn("python3", [scriptPath]);
-    const timer = setTimeout(() => child.kill(), 25000);
+    const timer = setTimeout(() => child.kill(), 80000);
     let stdout = "";
     child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString("utf8"); });
     child.on("error", (error) => {
@@ -88,6 +88,15 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
         void handleDelete(target, settingsPath, deleteMatch[1], req, res).catch(() => {
           if (!res.headersSent) {
             send(res, 500, "application/json; charset=utf-8", described(500, "Could not delete the integration.", "Could not delete the integration."));
+          }
+        });
+        return;
+      }
+      const reprocessMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/erp-postings\/([0-9a-fA-F-]{36})\/reprocess(?:\?|$)/);
+      if (reprocessMatch && req.method === "POST") {
+        void handleReprocess(target, settingsPath, reprocessMatch[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "The posting could not be prepared or sent.", "The posting could not be prepared or sent."));
           }
         });
         return;
@@ -179,7 +188,9 @@ const handle = async (
     return;
   }
 
+  const before = await run(settingsPath, { action: "attempt", postingId: prepared.postingId });
   const sent = await forward(target, req, "POST", `/api/v1/buyer/sila/erp-postings/${prepared.postingId}/reprocess`, "");
+  await run(settingsPath, { action: "deliver", postingId: prepared.postingId, attemptBefore: before.lastAttemptAt || "" });
   const transportError = sent.status >= 200 && sent.status < 300
     ? ""
     : "The connected server did not accept the invoice posting.";
@@ -246,7 +257,27 @@ const handlePayload = async (
     return;
   }
 
-  send(res, 200, "application/json; charset=utf-8", JSON.stringify({ technicalDetail: looked.technicalDetail || "" }));
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify({
+    technicalDetail: looked.technicalDetail || "",
+    erpMessage: looked.erpMessage || "",
+    erpHttpStatus: looked.erpHttpStatus ?? null,
+  }));
+};
+
+const handleReprocess = async (
+  target: string,
+  settingsPath: string,
+  postingId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  await readRequestBody(req);
+  const before = await run(settingsPath, { action: "attempt", postingId });
+  const upstream = await forward(target, req, "POST", `/api/v1/buyer/sila/erp-postings/${postingId}/reprocess`, "");
+  if (before.invoice) {
+    await run(settingsPath, { action: "deliver", postingId, attemptBefore: before.lastAttemptAt || "" });
+  }
+  send(res, upstream.status, upstream.contentType, upstream.body);
 };
 
 const handleDelete = async (

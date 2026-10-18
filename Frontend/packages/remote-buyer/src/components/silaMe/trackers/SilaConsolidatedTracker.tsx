@@ -189,9 +189,16 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
   const open = async (row: SilaTrackerRow) => {
     setDetailError(null);
     const withPayload = async (detail: SilaTrackerDetail): Promise<SilaTrackerDetail> => {
-      if (detail.technicalDetail?.trim() || !row.erpPostingId) return detail;
+      if (!row.erpPostingId) return detail;
+      if (detail.technicalDetail?.trim() && detail.erpMessage?.trim()) return detail;
       const payload = await getErpPostingPayload(row.erpPostingId);
-      return payload ? { ...detail, technicalDetail: payload } : detail;
+      if (!payload) return detail;
+      return {
+        ...detail,
+        technicalDetail: detail.technicalDetail?.trim() ? detail.technicalDetail : payload.technicalDetail,
+        erpMessage: detail.erpMessage?.trim() ? detail.erpMessage : payload.erpMessage,
+        erpHttpStatus: detail.erpHttpStatus != null ? detail.erpHttpStatus : payload.erpHttpStatus,
+      };
     };
     try {
       const loaded = await getTrackerDetail(tracker, row.id);

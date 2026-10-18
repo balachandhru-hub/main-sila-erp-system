@@ -274,7 +274,8 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     invoiceDocument.Items.Add(item);
                 }
 
-                (string? built, List<string> missingFields) = SilaInvoicePosting.SupplierInvoiceRequest(api.RequestBody, invoiceDocument);
+                (string? built, List<string> missingFields) = SilaInvoicePosting.SupplierInvoiceRequest(
+                    api.RequestBody, invoiceDocument, SilaFiveInvoicePosting.TimeDependentTaxes(api.Name));
                 if (missingFields.Count > 0)
                 {
                     return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null,
@@ -965,19 +966,19 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .OrderBy(x => x.LineNumber)
                 .ToListAsync(cancellationToken);
             SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
+            if (prepared != null && SilaInvoicePostingData.EnsureFiveHeader(prepared, invoice.InvoiceDate))
+            {
+                invoice.PostingData = SilaInvoicePostingData.Write(prepared);
+                _repository.Invoice.Update(invoice);
+            }
+
             string? blocked = SilaInvoicePostingData.BlockSend(prepared, invoice, items);
             if (blocked != null)
             {
                 return (null, blocked);
             }
 
-            if (SilaInvoicePostingData.StampPostingDate(prepared!))
-            {
-                invoice.PostingData = SilaInvoicePostingData.Write(prepared);
-                _repository.Invoice.Update(invoice);
-            }
-
-            SilaInvoicePosting.Document described = SilaInvoicePostingData.ToDocument(prepared);
+            SilaInvoicePosting.Document described = SilaInvoicePostingData.ToDocument(prepared!);
             if (string.IsNullOrWhiteSpace(posting.CompanyCode) && !string.IsNullOrWhiteSpace(described.CompanyCode))
             {
                 posting.CompanyCode = described.CompanyCode;

@@ -520,7 +520,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
             {postingFailed && (
               <div className="sila-alert sila-alert--warning" role="status">
                 <p><strong>Invoice posting failed</strong></p>
-                <p>{invoice.erpMessage || "The ERP did not accept the invoice."}</p>
+                <p className="srcv-error">{invoice.erpMessage || "The ERP did not accept the invoice."}</p>
                 <p>Edit the invoice if a value is wrong, refresh the purchase order from S/4 if that data is stale, then resubmit. Resubmit sends this document to SAP again.</p>
               </div>
             )}

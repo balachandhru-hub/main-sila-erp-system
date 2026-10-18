@@ -856,10 +856,10 @@ namespace Buyer.Application.Features.Shared
 
         /// <summary>
         /// Builds A_SupplierInvoice from the stored posting document. A template with {{placeholders}} is left to
-        /// the normal replacement. A literal sample is not copied: TaxDeterminationDate and an empty GL navigation
-        /// are not sent for a PO-reference invoice.
+        /// the normal replacement. A literal sample is not copied, and an empty GL navigation is not sent.
+        /// TaxDeterminationDate is sent only from the stored header. FIVE requires it; other tenants do not.
         /// </summary>
-        public static (string? Body, List<string> Missing) SupplierInvoiceRequest(string? template, Document document)
+        public static (string? Body, List<string> Missing) SupplierInvoiceRequest(string? template, Document document, bool timeDependentTaxes = false)
         {
             List<string> missing = new List<string>();
             if (!string.IsNullOrWhiteSpace(template) && template.Contains("{{", StringComparison.Ordinal))
@@ -876,6 +876,7 @@ namespace Buyer.Application.Features.Shared
             string? date = SapDate(Value("DocumentDate") ?? Value("InvoiceDate"));
             string? postingDate = SapDate(Value("PostingDate")) ?? date;
             string? dueDate = SapDate(Value("DueCalculationBaseDate")) ?? date;
+            string? taxDate = SapDate(Value("TaxDeterminationDate"));
             string? supplier = BusinessCode(Value("SupplierCode"));
             string? currency = Value("Currency");
             string? company = Value("CompanyCode");
@@ -887,6 +888,10 @@ namespace Buyer.Application.Features.Shared
             Require(date, "Document date, from the SILA invoice", missing);
             Require(postingDate, "Posting date, from the stored posting data", missing);
             Require(dueDate, "Due calculation base date, from the stored posting data", missing);
+            if (timeDependentTaxes)
+            {
+                Require(taxDate, SilaFiveInvoicePosting.TAX_DATE_MISSING, missing);
+            }
             Require(supplier, "Invoicing party, from the purchase order", missing);
             Require(currency, "Currency, from the SILA invoice", missing);
             Require(gross, "Gross amount, from the SILA invoice", missing);
@@ -972,15 +977,21 @@ namespace Buyer.Application.Features.Shared
                 ["CompanyCode"] = company,
                 ["DocumentDate"] = date,
                 ["PostingDate"] = postingDate,
-                ["DueCalculationBaseDate"] = dueDate,
-                ["InvoicingParty"] = supplier,
-                ["DocumentCurrency"] = currency,
-                ["InvoiceGrossAmount"] = gross,
-                ["AccountingDocumentType"] = documentType,
-                ["SupplierInvoiceIDByInvcgParty"] = number,
-                ["TaxIsCalculatedAutomatically"] = automatic,
-                ["to_SuplrInvcItemPurOrdRef"] = new JsonObject { ["results"] = results }
+                ["DueCalculationBaseDate"] = dueDate
             };
+            if (!string.IsNullOrWhiteSpace(taxDate))
+            {
+                body["TaxDeterminationDate"] = taxDate;
+            }
+
+            body["InvoicingParty"] = supplier;
+            body["DocumentCurrency"] = currency;
+            body["InvoiceGrossAmount"] = gross;
+            body["AccountingDocumentType"] = documentType;
+            body["SupplierInvoiceIDByInvcgParty"] = number;
+            body["TaxIsCalculatedAutomatically"] = automatic;
+            body["to_SuplrInvcItemPurOrdRef"] = new JsonObject { ["results"] = results };
+
             if (!automatic)
             {
                 body["to_SupplierInvoiceTax"] = new JsonObject

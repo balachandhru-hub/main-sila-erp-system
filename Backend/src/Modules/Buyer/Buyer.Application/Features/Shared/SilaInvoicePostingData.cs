@@ -29,7 +29,8 @@ namespace Buyer.Application.Features.Shared
         /// <summary>
         /// A_SupplierInvoice on API_SUPPLIERINVOICE_PROCESS_SRV. PO invoices send item TaxCode and
         /// TaxIsCalculatedAutomatically. to_SupplierInvoiceTax is the other tax shape and is not sent with it.
-        /// TaxDeterminationDate is optional on the contract and is not sent. RE is the document type configured for FIVE S4-INVOICE POSTING.
+        /// FIVE S/4 has time-dependent taxes, so the header TaxDeterminationDate is stored from the invoice date.
+        /// RE is the document type configured for FIVE S4-INVOICE POSTING.
         /// </summary>
         public const string DOCUMENT_TYPE = "RE";
         public const string TAX_AUTOMATIC = "true";
@@ -147,7 +148,12 @@ namespace Buyer.Application.Features.Shared
             };
             prepared.Header.Add(FieldOf("CompanyCode", "Company code", sapOrder.CompanyCode, SOURCE_PO, "CompanyCode", true));
             prepared.Header.Add(FieldOf("DocumentDate", "Document date", date, SOURCE_INVOICE, "InvoiceDate", true));
-            prepared.Header.Add(FieldOf("PostingDate", "Posting date", CurrentPostingDate(), SOURCE_CURRENT_DATE, "UtcToday", true));
+            prepared.Header.Add(FieldOf("PostingDate", "Posting date", date, SOURCE_INVOICE, "InvoiceDate", true));
+            if (SilaFiveInvoicePosting.TimeDependentTaxes(SilaInvoiceLifecycle.API_INVOICE))
+            {
+                prepared.Header.Add(FieldOf("TaxDeterminationDate", "Tax determination date", date, SOURCE_INVOICE, "InvoiceDate", true));
+            }
+
             // No payment-term baseline date is stored. The invoice date is the due-calculation baseline.
             prepared.Header.Add(FieldOf("DueCalculationBaseDate", "Due calculation base date", date, SOURCE_INVOICE, "InvoiceDate", true));
             prepared.Header.Add(FieldOf("InvoicingParty", "Invoicing party", supplier, SOURCE_PO, "Supplier", true));
@@ -327,30 +333,61 @@ namespace Buyer.Application.Features.Shared
             }
         }
 
-        /// <summary>The posting date sent to S/4. It is the current UTC date, not the invoice date.</summary>
-        public static string CurrentPostingDate(DateTime? utcNow = null)
+        /// <summary>
+        /// FIVE keeps TaxDeterminationDate on the stored header, taken from the invoice date.
+        /// A posting date that was stamped as "today" is put back on the invoice date. Nothing is taken from the clock.
+        /// </summary>
+        public static bool EnsureFiveHeader(Prepared prepared, DateTime? invoiceDate)
         {
-            return (utcNow ?? DateTime.UtcNow).ToString("yyyy-MM-dd'T'00:00:00", CultureInfo.InvariantCulture);
-        }
-
-        /// <summary>Writes today's posting date onto the stored header before the body is built.</summary>
-        public static bool StampPostingDate(Prepared prepared, DateTime? utcNow = null)
-        {
-            string current = CurrentPostingDate(utcNow);
-            Field? field = prepared.Header.LastOrDefault(x => x.ApiField.Equals("PostingDate", StringComparison.OrdinalIgnoreCase));
-            if (field == null)
+            if (!SilaFiveInvoicePosting.TimeDependentTaxes(SilaInvoiceLifecycle.API_INVOICE))
             {
-                prepared.Header.Add(FieldOf("PostingDate", "Posting date", current, SOURCE_CURRENT_DATE, "UtcToday", true));
-                return true;
+                return false;
             }
 
-            bool changed = !string.Equals(field.Value, current, StringComparison.Ordinal)
-                || !string.Equals(field.Source, SOURCE_CURRENT_DATE, StringComparison.Ordinal);
-            field.Value = current;
-            field.Label = "Posting date";
-            field.Source = SOURCE_CURRENT_DATE;
-            field.SourceField = "UtcToday";
-            field.Required = true;
+            string? date = SapDate(invoiceDate) ?? Value(prepared.Header, "DocumentDate");
+            bool changed = false;
+            Field? postingDate = prepared.Header.LastOrDefault(x => x.ApiField.Equals("PostingDate", StringComparison.OrdinalIgnoreCase));
+            if (postingDate != null
+                && string.Equals(postingDate.Source, SOURCE_CURRENT_DATE, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(date))
+            {
+                postingDate.Value = date;
+                postingDate.Source = SOURCE_INVOICE;
+                postingDate.SourceField = "InvoiceDate";
+                changed = true;
+            }
+
+            Field? taxDate = prepared.Header.LastOrDefault(x => x.ApiField.Equals("TaxDeterminationDate", StringComparison.OrdinalIgnoreCase));
+            if (taxDate == null)
+            {
+                Field field = FieldOf("TaxDeterminationDate", "Tax determination date", date, SOURCE_INVOICE, "InvoiceDate", true);
+                int index = prepared.Header.FindIndex(x => x.ApiField.Equals("PostingDate", StringComparison.OrdinalIgnoreCase));
+                if (index < 0)
+                {
+                    prepared.Header.Add(field);
+                }
+                else
+                {
+                    prepared.Header.Insert(index + 1, field);
+                }
+
+                changed = true;
+            }
+            else if (string.IsNullOrWhiteSpace(taxDate.Value) && !string.IsNullOrWhiteSpace(date))
+            {
+                taxDate.Value = date;
+                taxDate.Label = "Tax determination date";
+                taxDate.Source = SOURCE_INVOICE;
+                taxDate.SourceField = "InvoiceDate";
+                taxDate.Required = true;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                prepared.PreparationStatus = Missing(prepared).Count == 0 ? READY : INVALID;
+            }
+
             return changed;
         }
 
@@ -364,6 +401,7 @@ namespace Buyer.Application.Features.Shared
             Add(document.Header, "CompanyCode", Value(prepared.Header, "CompanyCode"));
             Add(document.Header, "DocumentDate", Value(prepared.Header, "DocumentDate"));
             Add(document.Header, "PostingDate", Value(prepared.Header, "PostingDate"));
+            Add(document.Header, "TaxDeterminationDate", Value(prepared.Header, "TaxDeterminationDate"));
             Add(document.Header, "DueCalculationBaseDate", Value(prepared.Header, "DueCalculationBaseDate"));
             Add(document.Header, "SupplierCode", Value(prepared.Header, "InvoicingParty"));
             Add(document.Header, "Currency", Value(prepared.Header, "DocumentCurrency"));
@@ -399,7 +437,7 @@ namespace Buyer.Application.Features.Shared
             }
 
             bool stale = prepared.PreparationStatus == STALE || Stale(prepared, invoice, items);
-            StampPostingDate(prepared);
+            EnsureFiveHeader(prepared, invoice.InvoiceDate);
             return new SilaInvoicePostingDataDto
             {
                 PreparationStatus = stale ? STALE : prepared.PreparationStatus,
@@ -474,6 +512,11 @@ namespace Buyer.Application.Features.Shared
             if (field.ApiField.Equals("TaxCode", StringComparison.OrdinalIgnoreCase))
             {
                 return "Field: TaxCode. PO: " + (purchaseOrder ?? "") + ". PO Item: " + (purchaseOrderItem ?? "");
+            }
+
+            if (field.ApiField.Equals("TaxDeterminationDate", StringComparison.OrdinalIgnoreCase))
+            {
+                return SilaFiveInvoicePosting.TAX_DATE_MISSING;
             }
 
             string text = field.Label + ", from " + SourceText(field.Source) + " (" + field.SourceField + ")";

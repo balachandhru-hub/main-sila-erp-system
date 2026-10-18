@@ -25,6 +25,7 @@ const HEADER_FIELDS: { apiField: string; label: string }[] = [
   { apiField: "CompanyCode", label: "Company Code" },
   { apiField: "DocumentDate", label: "Document Date" },
   { apiField: "PostingDate", label: "Posting Date" },
+  { apiField: "TaxDeterminationDate", label: "Tax Determination Date" },
   { apiField: "DueCalculationBaseDate", label: "Due Calculation Base Date" },
   { apiField: "InvoicingParty", label: "Invoicing Party" },
   { apiField: "DocumentCurrency", label: "Currency" },
@@ -34,8 +35,17 @@ const HEADER_FIELDS: { apiField: string; label: string }[] = [
   { apiField: "TaxIsCalculatedAutomatically", label: "Automatic Tax Calculation" },
 ];
 
-const storedValue = (fields: SilaInvoicePostingField[] | undefined, apiField: string) =>
-  fields?.find((field) => field.apiField === apiField)?.value || "";
+const DATE_FIELDS = new Set(["DocumentDate", "PostingDate", "TaxDeterminationDate", "DueCalculationBaseDate"]);
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const storedValue = (fields: SilaInvoicePostingField[] | undefined, apiField: string) => {
+  const value = fields?.find((field) => field.apiField === apiField)?.value || "";
+  if (!value || !DATE_FIELDS.has(apiField)) return value;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return value;
+  const month = MONTHS[Number(match[2]) - 1];
+  return month ? `${Number(match[3])}-${month}-${match[1]}` : value;
+};
 
 const Fact: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div>

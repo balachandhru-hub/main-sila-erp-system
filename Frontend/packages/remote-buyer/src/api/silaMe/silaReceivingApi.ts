@@ -483,11 +483,13 @@ export const getErpPostings = async (status: string, search: string, page: SilaP
   }), "Could not load the ERP postings."));
 
 /** The JSON stored on the posting. Empty when the send never kept a body. */
-export const getErpPostingPayload = async (postingId: string): Promise<string | null> => {
+export const getErpPostingPayload = async (postingId: string): Promise<{ technicalDetail: string | null; erpMessage: string | null; erpHttpStatus: number | null } | null> => {
   try {
-    const response = await axiosInstance.get<{ technicalDetail?: string | null }>(`${BASE}/erp-postings/${postingId}/payload`);
-    const text = response.data?.technicalDetail;
-    return text?.trim() ? text : null;
+    const response = await axiosInstance.get<{ technicalDetail?: string | null; erpMessage?: string | null; erpHttpStatus?: number | null }>(`${BASE}/erp-postings/${postingId}/payload`);
+    const text = response.data?.technicalDetail?.trim() ? response.data.technicalDetail : null;
+    const message = response.data?.erpMessage?.trim() ? response.data.erpMessage : null;
+    if (!text && !message && response.data?.erpHttpStatus == null) return null;
+    return { technicalDetail: text, erpMessage: message, erpHttpStatus: response.data?.erpHttpStatus ?? null };
   } catch {
     return null;
   }
