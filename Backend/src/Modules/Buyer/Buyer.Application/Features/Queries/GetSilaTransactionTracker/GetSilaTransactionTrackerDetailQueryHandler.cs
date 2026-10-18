@@ -108,6 +108,21 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             detail.TechnicalDetail = SilaErpPayload.Sanitise(posting.ErpRequestPayload);
             detail.ErpMessage = SilaErpPayload.Sanitise(posting.ErpResponsePayload);
             detail.Attempts = await AttemptsAsync(buyerId, posting.ReferenceType, posting.ReferenceId, cancellationToken);
+            if (SilaInvoiceTracker.IsInvoiceFamily(posting.ReferenceType))
+            {
+                SilaInvoiceTrackerView view = await SilaInvoiceTracker.ReadAsync(_repository, buyerId, posting.ReferenceId, cancellationToken);
+                detail.Flow = view.Steps;
+                if (!string.IsNullOrWhiteSpace(view.Message))
+                {
+                    detail.LastError = view.Message;
+                }
+
+                if (string.IsNullOrWhiteSpace(detail.ErpReference))
+                {
+                    detail.ErpReference = view.ErpInvoiceId;
+                }
+            }
+
             return detail;
         }
 

@@ -62,12 +62,47 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
 
             List<SilaTrackerRowDto> ordered = rows.OrderByDescending(x => x.OccurredOn).ThenBy(x => x.Id).ToList();
             summary.Total = ordered.Count;
+            List<SilaTrackerRowDto> page = ordered.Skip(index).Take(limit).ToList();
+            await ApplyInvoiceOutcomesAsync(page, buyer.Id, cancellationToken);
             return new SilaTrackerPageDto
             {
                 Total = ordered.Count,
                 Summary = summary,
-                Rows = ordered.Skip(index).Take(limit).ToList()
+                Rows = page
             };
+        }
+
+        private async Task ApplyInvoiceOutcomesAsync(List<SilaTrackerRowDto> rows, Guid buyerId, CancellationToken cancellationToken)
+        {
+            List<Guid> postingIds = rows.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).Distinct().ToList();
+            if (postingIds.Count == 0)
+            {
+                return;
+            }
+
+            List<InventoryErpPosting> postings = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && postingIds.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+            Dictionary<Guid, SilaInvoiceTrackerView> views = new Dictionary<Guid, SilaInvoiceTrackerView>();
+            foreach (Guid invoiceId in postings.Where(x => SilaInvoiceTracker.IsInvoiceFamily(x.ReferenceType)).Select(x => x.ReferenceId).Distinct())
+            {
+                views[invoiceId] = await SilaInvoiceTracker.ReadAsync(_repository, buyerId, invoiceId, cancellationToken);
+            }
+
+            foreach (SilaTrackerRowDto row in rows)
+            {
+                InventoryErpPosting? posting = postings.FirstOrDefault(x => x.Id == row.ErpPostingId);
+                if (posting == null || !views.TryGetValue(posting.ReferenceId, out SilaInvoiceTrackerView? view) || string.IsNullOrWhiteSpace(view.Message))
+                {
+                    continue;
+                }
+
+                row.LastError = view.Message;
+                if (string.IsNullOrWhiteSpace(row.ErpReference))
+                {
+                    row.ErpReference = view.ErpInvoiceId;
+                }
+            }
         }
 
         private async Task AddInventoryAsync(

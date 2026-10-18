@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Buyer.Application.Features.Shared;
 using Buyer.Domain.Common;
+using Buyer.Domain.Dtos;
 using Buyer.Domain.Entities;
 using SharedKernel.Integration.Entities;
 
@@ -609,6 +610,59 @@ namespace Buyer.Tests.Shared
             Assert.Equal("1003430", prepared.Header.Single(x => x.ApiField == "InvoicingParty").Value);
             Assert.Equal("V1", prepared.Lines[0].Fields.Single(x => x.ApiField == "TaxCode").Value);
             Assert.Equal("5000003137", prepared.Lines[0].Fields.Single(x => x.ApiField == "GrnNumber").Value);
+        }
+
+        [Fact]
+        public void LinkedKey_JoinsTheSapInvoiceAndFiscalYear()
+        {
+            Assert.Equal("51056011442026", SilaInvoiceAttachment.LinkedKey("5105601144", "2026"));
+            Assert.Null(SilaInvoiceAttachment.LinkedKey("5105601144", null));
+            Assert.Null(SilaInvoiceAttachment.LinkedKey(null, "2026"));
+        }
+
+        [Fact]
+        public void TrackerSuccess_NamesTheSapInvoiceAndTheAttachment()
+        {
+            string? message = SilaInvoiceTracker.ResultMessage("POSTED", "5105601144", null, null, null, "invoice.pdf", "2026");
+            Assert.Equal("Successful. SAP invoice 5105601144. Attachment not sent (key 51056011442026, file invoice.pdf).", message);
+            Assert.Null(SilaInvoiceTracker.ResultMessage("FAILED", null, null, null, null, null, null));
+
+            List<SilaTrackerFlowStepDto> steps = SilaInvoiceTracker.Steps(
+                "sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV/A_PurchaseOrder",
+                "4500004152",
+                "{\"purchaseOrder\":\"4500004152\"}",
+                "{\"InvoiceGrossAmount\":\"47200.00\"}",
+                "{\"d\":{\"SupplierInvoice\":\"5105601144\",\"FiscalYear\":\"2026\"}}",
+                201,
+                "5105601144",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "invoice.pdf",
+                "2026");
+            Assert.Equal(
+                new[] { "PO API Retrieval", "Invoice submission", "Response", "Invoice attachment request", "Response" },
+                steps.Select(x => x.Name).ToArray());
+            Assert.Contains("51056011442026", steps[3].Request, StringComparison.Ordinal);
+            Assert.Contains("BUS2081", steps[3].Request, StringComparison.Ordinal);
+            Assert.Equal("SUCCESS", steps[1].Status);
+            Assert.Equal("NOT_STARTED", steps[3].Status);
+        }
+
+        [Fact]
+        public void Copy_RewritesTheSupplierInvoiceId()
+        {
+            const string json = """{"header":[{"apiField":"SupplierInvoiceIDByInvcgParty","value":"TESTINVOICE121"},{"apiField":"CompanyCode","value":"1050"}]}""";
+            string? rewritten = SilaInvoiceTracker.RetargetPostingData(json, "TESTINVOICE121-COPY");
+            Assert.NotNull(rewritten);
+            using JsonDocument document = JsonDocument.Parse(rewritten);
+            string? value = document.RootElement.GetProperty("header").EnumerateArray()
+                .Single(x => x.GetProperty("apiField").GetString() == "SupplierInvoiceIDByInvcgParty")
+                .GetProperty("value").GetString();
+            Assert.Equal("TESTINVOICE121-COPY", value);
+            Assert.Null(SilaInvoiceTracker.RetargetPostingData("not-json", "COPY"));
         }
     }
 }

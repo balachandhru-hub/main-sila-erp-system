@@ -47,7 +47,45 @@ const forward = async (
   };
 };
 
-const run = (settingsPath: string, payload: Record<string, unknown>): Promise<{ ok: boolean; postingId?: string; status?: number; message?: string; description?: string; reference?: string; technicalDetail?: string | null; erpMessage?: string | null; erpHttpStatus?: number | null; postingData?: unknown; lastAttemptAt?: string | null; invoice?: boolean }> =>
+interface DevFlowStep {
+  name: string;
+  status: string;
+  detail?: string | null;
+  request?: string | null;
+  response?: string | null;
+}
+
+interface DevResult {
+  ok: boolean;
+  postingId?: string;
+  status?: number;
+  message?: string;
+  description?: string;
+  reference?: string;
+  technicalDetail?: string | null;
+  erpMessage?: string | null;
+  erpHttpStatus?: number | null;
+  postingData?: unknown;
+  lastAttemptAt?: string | null;
+  invoice?: boolean;
+  id?: string;
+  erpInvoiceId?: string | null;
+  steps?: DevFlowStep[];
+  results?: Array<{ id: string; erpInvoiceId?: string | null; message?: string | null }>;
+  erpReference?: string | null;
+  fiscalYear?: string | null;
+  attachment?: {
+    businessObject?: string;
+    businessObjectType?: string;
+    linkedSapObjectKey?: string | null;
+    fileName?: string | null;
+    status?: string;
+    message?: string | null;
+    canReprocess?: boolean;
+  };
+}
+
+const run = (settingsPath: string, payload: Record<string, unknown>): Promise<DevResult> =>
   new Promise((resolve, reject) => {
     const child = spawn("python3", [scriptPath]);
     const timer = setTimeout(() => child.kill(), 80000);
@@ -74,6 +112,24 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
   apply: "serve",
   configureServer(server) {
     server.middlewares.use((req, res, next) => {
+      const resultsMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/erp-postings\/invoice-results(?:\?|$)/);
+      if (resultsMatch && req.method === "POST") {
+        void handleInvoiceResults(target, settingsPath, req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not load the transactions.", "Could not load the transactions."));
+          }
+        });
+        return;
+      }
+      const flowMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/erp-postings\/([0-9a-fA-F-]{36})\/flow(?:\?|$)/);
+      if (flowMatch && req.method === "GET") {
+        void handleFlow(target, settingsPath, flowMatch[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not open the transaction.", "Could not open the transaction."));
+          }
+        });
+        return;
+      }
       const payloadMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/erp-postings\/([0-9a-fA-F-]{36})\/payload(?:\?|$)/);
       if (payloadMatch && req.method === "GET") {
         void handlePayload(target, settingsPath, payloadMatch[1], req, res).catch(() => {
@@ -97,6 +153,15 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
         void handleReprocess(target, settingsPath, reprocessMatch[1], req, res).catch(() => {
           if (!res.headersSent) {
             send(res, 500, "application/json; charset=utf-8", described(500, "The posting could not be prepared or sent.", "The posting could not be prepared or sent."));
+          }
+        });
+        return;
+      }
+      const copyMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/copy(?:\?|$)/);
+      if (copyMatch && req.method === "POST") {
+        void handleCopy(target, settingsPath, copyMatch[1], req, res).catch(() => {
+          if (!res.headersSent) {
+            send(res, 500, "application/json; charset=utf-8", described(500, "Could not copy the invoice.", "Could not copy the invoice."));
           }
         });
         return;
@@ -153,6 +218,26 @@ const handleInvoiceRead = async (
       invoice["postingData"] = stored.postingData;
     }
   }
+  const view = await run(settingsPath, { action: "attachment-view", invoiceId });
+  if (view.ok && view.attachment) {
+    if (!invoice["erpReference"] && view.erpReference) invoice["erpReference"] = view.erpReference;
+    if (!invoice["fiscalYear"] && view.fiscalYear) invoice["fiscalYear"] = view.fiscalYear;
+    const current = invoice["attachment"] && typeof invoice["attachment"] === "object"
+      ? invoice["attachment"] as Record<string, unknown>
+      : {};
+    const blank = (value: unknown): boolean => value == null || String(value).trim() === "" || String(value) === "Not started";
+    invoice["attachment"] = {
+      ...view.attachment,
+      ...current,
+      linkedSapObjectKey: blank(current["linkedSapObjectKey"]) ? view.attachment.linkedSapObjectKey : current["linkedSapObjectKey"],
+      status: blank(current["status"]) ? view.attachment.status : current["status"],
+      fileName: blank(current["fileName"]) ? view.attachment.fileName : current["fileName"],
+      message: blank(current["message"]) ? view.attachment.message : current["message"],
+      businessObject: current["businessObject"] || view.attachment.businessObject,
+      businessObjectType: current["businessObjectType"] || view.attachment.businessObjectType,
+      canReprocess: current["canReprocess"] === true || view.attachment.canReprocess === true,
+    };
+  }
   send(res, 200, "application/json; charset=utf-8", JSON.stringify(parsed));
 };
 
@@ -197,6 +282,167 @@ const handle = async (
   await run(settingsPath, { action: "finish", invoiceId, postingId: prepared.postingId, transportError });
   const fresh = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
   send(res, fresh.status, fresh.contentType, fresh.body);
+};
+
+const postingVisible = async (
+  target: string,
+  req: IncomingMessage,
+  postingId: string,
+  looked: DevResult,
+): Promise<{ status: number; body: string; contentType: string } | null> => {
+  const reference = (looked.reference || "").trim();
+  if (!looked.ok || !reference) {
+    const status = looked.status || 404;
+    return {
+      status,
+      body: described(status, looked.message || "Transaction not found.", looked.description || "Select a transaction from this tracker."),
+      contentType: "application/json; charset=utf-8",
+    };
+  }
+  const listed = await forward(
+    target,
+    req,
+    "GET",
+    `/api/v1/buyer/sila/erp-postings?search=${encodeURIComponent(reference)}&limit=50`,
+    null,
+  );
+  if (listed.status !== 200) return listed;
+  let rows: Array<{ id?: string }> = [];
+  try {
+    const parsed = JSON.parse(listed.body) as unknown;
+    if (Array.isArray(parsed)) rows = parsed as Array<{ id?: string }>;
+  } catch {
+    return { status: 502, body: described(502, "Could not open the transaction.", "Could not open the transaction."), contentType: "application/json; charset=utf-8" };
+  }
+  const visible = rows.some((row) => (row.id || "").toLowerCase() === postingId.toLowerCase());
+  if (!visible) {
+    return { status: 404, body: described(404, "Transaction not found.", "Select a transaction from this tracker."), contentType: "application/json; charset=utf-8" };
+  }
+  return null;
+};
+
+const handleFlow = async (
+  target: string,
+  settingsPath: string,
+  postingId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const route = `/api/v1/buyer/sila/erp-postings/${postingId}/flow`;
+  const upstream = await forward(target, req, "GET", route, null);
+  if (upstream.status !== 404 || upstream.body.trim()) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+  const allowed = await forward(target, req, "GET", "/api/v1/buyer/sila/erp-postings?limit=1", null);
+  if (allowed.status !== 200) {
+    send(res, allowed.status, allowed.contentType, allowed.body);
+    return;
+  }
+  const looked = await run(settingsPath, { action: "payload", postingId });
+  const hidden = await postingVisible(target, req, postingId, looked);
+  if (hidden) {
+    send(res, hidden.status, hidden.contentType, hidden.body);
+    return;
+  }
+  const flow = await run(settingsPath, { action: "flow", postingId });
+  if (!flow.ok || !flow.steps) {
+    const status = flow.status || 404;
+    send(res, status, "application/json; charset=utf-8", described(
+      status,
+      flow.message || "Transaction not found.",
+      flow.description || "Select an invoice transaction from this tracker.",
+    ));
+    return;
+  }
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify({
+    erpInvoiceId: flow.erpInvoiceId ?? null,
+    message: flow.message ?? null,
+    steps: flow.steps,
+  }));
+};
+
+const handleInvoiceResults = async (
+  target: string,
+  settingsPath: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const body = await readRequestBody(req);
+  const route = "/api/v1/buyer/sila/erp-postings/invoice-results";
+  const upstream = await forward(target, req, "POST", route, body || "{}");
+  if (upstream.status !== 404 || upstream.body.trim()) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+  const allowed = await forward(target, req, "GET", "/api/v1/buyer/sila/erp-postings?limit=1", null);
+  if (allowed.status !== 200) {
+    send(res, allowed.status, allowed.contentType, allowed.body);
+    return;
+  }
+  let ids: string[] = [];
+  try {
+    const parsed = JSON.parse(body || "{}") as { ids?: string[] };
+    ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+  } catch {
+    ids = [];
+  }
+  const visibleIds = new Set<string>();
+  for (let index = 0; index < 1000; index += 200) {
+    const listed = await forward(target, req, "GET", `/api/v1/buyer/sila/erp-postings?index=${index}&limit=200`, null);
+    if (listed.status !== 200) break;
+    let rows: Array<{ id?: string }> = [];
+    try {
+      const parsed = JSON.parse(listed.body) as unknown;
+      if (Array.isArray(parsed)) rows = parsed as Array<{ id?: string }>;
+    } catch {
+      break;
+    }
+    rows.forEach((row) => {
+      if (row.id) visibleIds.add(row.id.toLowerCase());
+    });
+    if (rows.length < 200) break;
+  }
+  const visible = ids.filter((id) => visibleIds.has(id.toLowerCase())).slice(0, 200);
+  const annotated = await run(settingsPath, { action: "invoice-results", ids: visible });
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify({ results: annotated.results || [] }));
+};
+
+const handleCopy = async (
+  target: string,
+  settingsPath: string,
+  invoiceId: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  await readRequestBody(req);
+  const route = `/api/v1/buyer/sila/invoices/${invoiceId}/copy`;
+  const upstream = await forward(target, req, "POST", route, "{}");
+  if (upstream.status !== 404 || upstream.body.trim()) {
+    send(res, upstream.status, upstream.contentType, upstream.body);
+    return;
+  }
+  const existing = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
+  if (existing.status !== 200) {
+    send(res, existing.status, existing.contentType, existing.body);
+    return;
+  }
+  const copied = await run(settingsPath, { action: "copy", invoiceId });
+  if (!copied.ok || !copied.id) {
+    const status = copied.status || 500;
+    send(res, status, "application/json; charset=utf-8", described(
+      status,
+      copied.message || "Could not copy the invoice.",
+      copied.description || "Could not copy the invoice.",
+    ));
+    return;
+  }
+  send(res, 200, "application/json; charset=utf-8", JSON.stringify({
+    id: copied.id,
+    status_code: 200,
+    message: "Success",
+    description: "Invoice copied. The copy is not posted to SAP.",
+  }));
 };
 
 const handlePayload = async (

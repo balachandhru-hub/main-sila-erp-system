@@ -2,6 +2,8 @@ using Buyer.Application.Features.Commands.ReconcileSilaErpPosting;
 using Buyer.Application.Features.Commands.ReprocessSilaErpPosting;
 using Buyer.Application.Features.Queries.GetSilaErpPostingPayload;
 using Buyer.Application.Features.Queries.GetSilaErpPostings;
+using Buyer.Application.Features.Queries.GetSilaInvoiceFlow;
+using Buyer.Application.Features.Queries.GetSilaInvoiceResults;
 using Buyer.Domain.Dtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +47,36 @@ namespace Buyer.API.Controllers
                 Limit = limit
             });
             _logger.LogDebug($"ERP postings fetched. Count: {result.Count}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/erp-postings/invoice-results")]
+        [ApiAuthorization(Name = "MANAGE_SILA_ERP_POSTING")]
+        [SwaggerOperation("GetSilaInvoiceResults")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceResultsDto))]
+        public async Task<IActionResult> InvoiceResults([FromBody] SilaInvoiceResultsRequestDto request)
+        {
+            SilaInvoiceResultsDto result = await _mediator.Send(new GetSilaInvoiceResultsQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                Ids = request.Ids
+            });
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/erp-postings/{postingId}/flow")]
+        [ApiAuthorization(Name = "MANAGE_SILA_ERP_POSTING")]
+        [SwaggerOperation("GetSilaInvoiceFlow")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceFlowDto))]
+        public async Task<IActionResult> Flow([FromRoute] Guid postingId)
+        {
+            SilaInvoiceFlowDto result = await _mediator.Send(new GetSilaInvoiceFlowQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                PostingId = postingId
+            });
             return Ok(result);
         }
 

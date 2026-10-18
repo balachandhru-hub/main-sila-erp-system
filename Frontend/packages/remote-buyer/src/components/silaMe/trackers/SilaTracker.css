@@ -43,3 +43,28 @@
   border-radius: 0.375rem;
   padding: 0.75rem;
 }
+
+.strk-result {
+  max-width: 22rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.strk-result--ok {
+  color: #0b6b3a;
+}
+
+.strk-flow {
+  display: grid;
+  gap: var(--sila-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.strk-flow-step {
+  display: grid;
+  gap: var(--sila-space-2);
+  padding-bottom: var(--sila-space-3);
+  border-bottom: 1px solid var(--sila-border, #e6eaf0);
+}

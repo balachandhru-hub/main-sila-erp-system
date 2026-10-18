@@ -1019,6 +1019,414 @@ def record_delivery(cur, posting_id, configuration_id, invoice_id, http_status, 
     )
 
 
+def fiscal_year_of(body: str) -> str:
+    return read_sap_value(body, ("FiscalYear", "fiscalYear"))
+
+
+def linked_key(invoice_id: str, year: str) -> str:
+    number = "".join(invoice_id.split())
+    fiscal = "".join(year.split())
+    if not number or not fiscal:
+        return ""
+    return number + fiscal
+
+
+def attachment_sentence(status: str, error: str, http_status, file_name: str, erp_reference: str, year: str) -> str:
+    key = linked_key(erp_reference, year)
+    bits = []
+    if key:
+        bits.append(f"key {key}")
+    if file_name:
+        bits.append(f"file {file_name}")
+    if http_status:
+        bits.append(f"HTTP {http_status}")
+    detail = f" ({', '.join(bits)})" if bits else ""
+    tail = f" {error}".rstrip() if error else ""
+    if not status:
+        return f"Attachment not sent{detail}."
+    if status == "POSTED":
+        return f"Attachment successful{detail}."
+    if status in {"FAILED", "SKIPPED", "FAILED_LOCAL"}:
+        return f"Attachment failed{detail}.{tail if error else ''}"
+    if status == "UNKNOWN":
+        return f"Attachment unknown{detail}.{tail if error else ' S/4 gave no clear answer.'}"
+    return f"Attachment {status}{detail}."
+
+
+def result_message(status: str, erp_reference: str, attachment_status: str, attachment_error: str, attachment_http, file_name: str, year: str) -> str:
+    if status not in {"POSTED", "ERP_ACCEPTED"} or not erp_reference:
+        return ""
+    return (
+        f"Successful. SAP invoice {erp_reference}. "
+        + attachment_sentence(attachment_status, attachment_error, attachment_http, file_name, erp_reference, year)
+    )
+
+
+def retarget_posting_data(raw: str, invoice_number: str) -> str:
+    if not raw or not invoice_number:
+        return ""
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    header = document.get("header") if isinstance(document, dict) else None
+    if not isinstance(header, list):
+        return ""
+    for field in header:
+        if not isinstance(field, dict):
+            continue
+        name = field.get("apiField") or field.get("ApiField")
+        if name != "SupplierInvoiceIDByInvcgParty":
+            continue
+        if "value" in field:
+            field["value"] = invoice_number
+        elif "Value" in field:
+            field["Value"] = invoice_number
+        else:
+            field["value"] = invoice_number
+    return json.dumps(document, separators=(",", ":"))
+
+
+def attachment_view(cur, invoice_id: uuid.UUID) -> dict:
+    """The linked key is the stored SAP invoice number plus the stored fiscal year. It does not wait for the attachment call."""
+    invoice = fetchone(
+        cur,
+        "SELECT file_name, invoice_number FROM buyersystem.invoice WHERE id=%s AND is_active=1",
+        (str(invoice_id),),
+    )
+    if invoice is None:
+        return {"ok": False}
+    posting = fetchone(
+        cur,
+        """
+        SELECT TOP 1 status, erp_reference, erp_response_payload
+        FROM buyersystem.inventory_erp_posting
+        WHERE reference_id=%s AND reference_type='INVOICE' AND is_active=1
+        ORDER BY CASE WHEN status='POSTED' THEN 0 ELSE 1 END, date_updated DESC
+        """,
+        (str(invoice_id),),
+    )
+    attachment = fetchone(
+        cur,
+        """
+        SELECT TOP 1 status, error_message
+        FROM buyersystem.inventory_erp_posting
+        WHERE reference_id=%s AND reference_type='INVOICE_ATTACHMENT' AND is_active=1
+        ORDER BY date_updated DESC
+        """,
+        (str(invoice_id),),
+    )
+    status = text(posting[0]) if posting else ""
+    reference = text(posting[1]) if posting else ""
+    year = fiscal_year_of(text(posting[2]) if posting else "")
+    key = linked_key(reference, year)
+    posted = status in {"POSTED", "ERP_ACCEPTED"} and bool(reference)
+    file_name = text(invoice[0]) or text(invoice[1])
+    if not posted or not key:
+        label = "Not started"
+        message = "The linked key is the SAP invoice number plus the fiscal year. Both are stored when FIVE S4-INVOICE POSTING succeeds."
+        if posted and not year:
+            message = "The SAP invoice number is stored, but the fiscal year was not in the posting response, so the linked key cannot be built."
+    elif attachment is None:
+        label = "Pending"
+        message = "The attachment API has not been called. Linked SAP Object Key is the SAP invoice number and fiscal year with no separator."
+    elif text(attachment[0]) == "POSTED":
+        label = "Success"
+        message = "Attached to S/4."
+    elif text(attachment[0]) in {"FAILED", "SKIPPED", "FAILED_LOCAL"}:
+        label = "Failed"
+        message = text(attachment[1]) or "The attachment was not accepted."
+    elif text(attachment[0]) == "UNKNOWN":
+        label = "Unknown"
+        message = text(attachment[1]) or "S/4 gave no clear answer. Reconcile the attachment before it is sent again."
+    else:
+        label = "Pending"
+        message = text(attachment[1]) or "The attachment has not been confirmed."
+    return {
+        "ok": True,
+        "erpReference": reference or None,
+        "fiscalYear": year or None,
+        "attachment": {
+            "businessObject": "Supplier Invoice",
+            "businessObjectType": "BUS2081",
+            "linkedSapObjectKey": key or None,
+            "fileName": file_name or None,
+            "status": label,
+            "message": message,
+            "canReprocess": label == "Failed",
+        },
+    }
+
+
+def invoice_family(cur, posting_id: uuid.UUID):
+    posting = fetchone(
+        cur,
+        """
+        SELECT reference_type, reference_id, buyer_id
+        FROM buyersystem.inventory_erp_posting
+        WHERE id=%s AND is_active=1
+        """,
+        (str(posting_id),),
+    )
+    if posting is None or text(posting[0]) not in {"INVOICE", "INVOICE_ATTACHMENT"}:
+        return None
+    return posting
+
+
+def describe_invoice(cur, buyer_id, invoice_id) -> dict:
+    invoice = fetchone(
+        cur,
+        """
+        SELECT invoice_number, po_number, file_name, posting_data
+        FROM buyersystem.invoice
+        WHERE id=%s AND buyer_id=%s AND is_active=1
+        """,
+        (str(invoice_id), str(buyer_id)),
+    )
+    postings = fetchall(
+        cur,
+        """
+        SELECT reference_type, status, erp_reference, erp_http_status, error_message,
+               erp_request_payload, erp_response_payload, date_updated
+        FROM buyersystem.inventory_erp_posting
+        WHERE buyer_id=%s AND reference_id=%s AND is_active=1
+          AND reference_type IN ('INVOICE', 'INVOICE_ATTACHMENT')
+        ORDER BY date_updated DESC
+        """,
+        (str(buyer_id), str(invoice_id)),
+    )
+    invoice_posting = next((row for row in postings if text(row[0]) == "INVOICE" and text(row[1]) == "POSTED"), None)
+    if invoice_posting is None:
+        invoice_posting = next((row for row in postings if text(row[0]) == "INVOICE"), None)
+    attachment = next((row for row in postings if text(row[0]) == "INVOICE_ATTACHMENT"), None)
+    po = fetchone(
+        cur,
+        """
+        SELECT resource_path FROM buyersystem.api_integration_configuration
+        WHERE buyer_id=%s AND is_active=1 AND name=%s
+        """,
+        (str(buyer_id), "FIVE S4 - GET PO"),
+    )
+    response = text(invoice_posting[6]) if invoice_posting else ""
+    erp_reference = text(invoice_posting[2]) if invoice_posting else ""
+    year = fiscal_year_of(response)
+    file_name = text(invoice[2]) if invoice else ""
+    attachment_status = text(attachment[1]) if attachment else ""
+    attachment_error = text(attachment[4]) if attachment else ""
+    attachment_http = attachment[3] if attachment else None
+    message = result_message(
+        text(invoice_posting[1]) if invoice_posting else "",
+        erp_reference,
+        attachment_status,
+        attachment_error,
+        attachment_http,
+        file_name,
+        year,
+    )
+    po_number = text(invoice[1]) if invoice else ""
+    posting_data = text(invoice[3]) if invoice else ""
+    resource = text(po[0]) if po else ""
+    request_body = text(invoice_posting[5]) if invoice_posting else ""
+    invoice_http = invoice_posting[3] if invoice_posting else None
+    attachment_request = text(attachment[5]) if attachment else ""
+    attachment_response = text(attachment[6]) if attachment else ""
+    key = linked_key(erp_reference, year)
+    invoice_status = "NOT_STARTED"
+    if request_body:
+        if invoice_http is not None and 200 <= int(invoice_http) < 300:
+            invoice_status = "SUCCESS"
+        elif invoice_http is not None and int(invoice_http) >= 400:
+            invoice_status = "FAILED"
+        else:
+            invoice_status = "PROCESSING"
+    if not attachment_status:
+        attachment_step = "NOT_STARTED"
+    elif attachment_status == "POSTED":
+        attachment_step = "SUCCESS"
+    elif attachment_status in {"FAILED", "SKIPPED", "FAILED_LOCAL"}:
+        attachment_step = "FAILED"
+    elif attachment_status == "UNKNOWN":
+        attachment_step = "UNKNOWN"
+    else:
+        attachment_step = "PROCESSING"
+    po_lines = ["FIVE S4 - GET PO"]
+    if resource:
+        po_lines.append(resource)
+    if po_number:
+        po_lines.append(f"Purchase order {po_number}")
+    not_sent = (
+        "Not sent. The attachment API was not called.\n"
+        "BusinessObjectTypeName: BUS2081\n"
+        f"LinkedSAPObjectKey: {key or '—'}\n"
+        f"FileName: {file_name or '—'}"
+    )
+    http_text = "" if invoice_http is None else f"HTTP {invoice_http}"
+    invoice_text = f"SAP invoice {erp_reference}" if erp_reference else ""
+    response_detail = ". ".join(part for part in (http_text, invoice_text) if part)
+    if response_detail:
+        response_detail += "."
+    else:
+        response_detail = "No invoice response was stored."
+    steps = [
+        {
+            "name": "PO API Retrieval",
+            "status": "SUCCESS" if posting_data else "NOT_STARTED",
+            "detail": f"FIVE S4 - GET PO · purchase order {po_number}" if po_number else "FIVE S4 - GET PO",
+            "request": "\n".join(po_lines),
+            "response": posting_data or "PO retrieval was not stored for this invoice.",
+        },
+        {
+            "name": "Invoice submission",
+            "status": invoice_status,
+            "detail": "FIVE S4-INVOICE POSTING" if request_body else "The invoice was not sent.",
+            "request": request_body or "The invoice was not sent.",
+            "response": None,
+        },
+        {
+            "name": "Response",
+            "status": invoice_status,
+            "detail": response_detail,
+            "request": None,
+            "response": response or "No invoice response was stored.",
+        },
+        {
+            "name": "Invoice attachment request",
+            "status": attachment_step,
+            "detail": "API_CV_ATTACHMENT_SRV" if attachment_request else "The attachment API was not called.",
+            "request": attachment_request or not_sent,
+            "response": None,
+        },
+        {
+            "name": "Response",
+            "status": attachment_step,
+            "detail": attachment_sentence(attachment_status, attachment_error, attachment_http, file_name, erp_reference, year)
+            if attachment_status else "No attachment response was stored.",
+            "request": None,
+            "response": attachment_response or (attachment_error or "Not sent."),
+        },
+    ]
+    return {"erpInvoiceId": erp_reference or None, "message": message or None, "steps": steps}
+
+
+def invoice_flow(cur, posting_id: uuid.UUID) -> dict:
+    posting = invoice_family(cur, posting_id)
+    if posting is None:
+        raise SubmitError(404, "Transaction not found.", "Select an invoice transaction from this tracker.")
+    view = describe_invoice(cur, posting[2], posting[1])
+    return {"ok": True, **view}
+
+
+def invoice_results(cur, posting_ids: list) -> dict:
+    results = []
+    seen = {}
+    for raw in posting_ids[:200]:
+        try:
+            posting_id = uuid.UUID(str(raw))
+        except ValueError:
+            continue
+        posting = invoice_family(cur, posting_id)
+        if posting is None:
+            continue
+        key = str(posting[1])
+        if key not in seen:
+            seen[key] = describe_invoice(cur, posting[2], posting[1])
+        view = seen[key]
+        if not view.get("message"):
+            continue
+        results.append({"id": str(posting_id), "erpInvoiceId": view.get("erpInvoiceId"), "message": view.get("message")})
+    return {"ok": True, "results": results}
+
+
+def next_invoice_number(cur, buyer_id, original: str) -> str:
+    root = (original or "INVOICE").strip() or "INVOICE"
+    if len(root) > 80:
+        root = root[:80]
+    candidate = root + "-COPY"
+    for suffix in range(2, 50):
+        taken = fetchone(
+            cur,
+            "SELECT id FROM buyersystem.invoice WHERE buyer_id=%s AND is_active=1 AND invoice_number=%s",
+            (str(buyer_id), candidate),
+        )
+        if taken is None:
+            return candidate
+        candidate = f"{root}-COPY-{suffix}"
+    return root + "-COPY-" + uuid.uuid4().hex[:6]
+
+
+def copy_invoice(cur, invoice_id: uuid.UUID) -> dict:
+    source = fetchone(
+        cur,
+        """
+        SELECT buyer_id, invoice_number, supplier_id, supplier_name, invoice_date, currency, gross_amount,
+               purchase_order_id, po_number, file_path, file_name, ocr_text, ocr_confidence, uploaded_by,
+               sila_supplier_id, invoice_type, net_amount, tax_amount, supplier_tax_number, posting_data, created_by
+        FROM buyersystem.invoice
+        WHERE id=%s AND is_active=1
+        """,
+        (str(invoice_id),),
+    )
+    if source is None:
+        raise SubmitError(404, "Invoice not found.", "Choose an invoice from the list.")
+    number = next_invoice_number(cur, source[0], text(source[1]))
+    ready = bool(number and source[4] is not None and source[6] is not None and (source[14] or text(source[3])))
+    status = "REVIEWED" if ready else "UPLOADED"
+    new_id = uuid.uuid4()
+    actor = source[20] or source[13]
+    posting_data = retarget_posting_data(text(source[19]), number) or None
+    cur.execute(
+        """
+        INSERT INTO buyersystem.invoice (
+            id, buyer_id, invoice_number, supplier_id, supplier_name, invoice_date, currency, gross_amount,
+            purchase_order_id, po_number, file_path, file_name, status, ocr_text, ocr_confidence, uploaded_by,
+            date_created, date_updated, created_by, updated_by, is_active, content_hash, erp_posting_id,
+            invoice_type, net_amount, sila_supplier_id, supplier_tax_number, tax_amount, posting_data
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s,
+            GETUTCDATE(), GETUTCDATE(), %s, %s, 1, NULL, NULL,
+            %s, %s, %s, %s, %s, %s
+        )
+        """,
+        (
+            str(new_id), str(source[0]), number, source[2], source[3], source[4], source[5], source[6],
+            source[7], source[8], source[9], source[10], status, source[11], source[12], source[13],
+            str(actor), str(actor),
+            source[15], source[16], source[14], source[18], source[17], posting_data,
+        ),
+    )
+    items = fetchall(
+        cur,
+        """
+        SELECT line_number, description, quantity, unit_price, amount, purchase_order_item_id,
+               uom, supplier_material_code, tax_rate, match_status
+        FROM buyersystem.invoice_item
+        WHERE invoice_id=%s AND is_active=1
+        """,
+        (str(invoice_id),),
+    )
+    for item in items:
+        cur.execute(
+            """
+            INSERT INTO buyersystem.invoice_item (
+                id, invoice_id, line_number, description, quantity, unit_price, amount, purchase_order_item_id,
+                date_created, date_updated, created_by, updated_by, is_active,
+                match_status, supplier_material_code, tax_rate, uom
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                GETUTCDATE(), GETUTCDATE(), %s, %s, 1,
+                %s, %s, %s, %s
+            )
+            """,
+            (
+                str(uuid.uuid4()), str(new_id), item[0], item[1], item[2], item[3], item[4], item[5],
+                str(actor), str(actor),
+                item[9], item[7], item[8], item[6],
+            ),
+        )
+    return {"ok": True, "id": str(new_id), "invoiceNumber": number, "status": status}
+
+
 def main() -> None:
     payload = json.loads(sys.stdin.read() or "{}")
     action = payload.get("action")
@@ -1028,6 +1436,17 @@ def main() -> None:
         cursor = connection.cursor()
         if action == "payload":
             print(json.dumps(posting_payload(cursor, uuid.UUID(str(payload.get("postingId"))))))
+            return
+        if action == "flow":
+            print(json.dumps(invoice_flow(cursor, uuid.UUID(str(payload.get("postingId"))))))
+            return
+        if action == "invoice-results":
+            print(json.dumps(invoice_results(cursor, payload.get("ids") or [])))
+            return
+        if action == "copy":
+            copied = copy_invoice(cursor, uuid.UUID(str(payload.get("invoiceId"))))
+            connection.commit()
+            print(json.dumps(copied))
             return
         if action == "attempt":
             print(json.dumps(attempt(cursor, uuid.UUID(str(payload.get("postingId"))))))
@@ -1043,6 +1462,9 @@ def main() -> None:
             print(json.dumps(removed))
             return
         invoice_id = uuid.UUID(str(payload.get("invoiceId")))
+        if action == "attachment-view":
+            print(json.dumps(attachment_view(cursor, invoice_id)))
+            return
         if action == "posting":
             stored = read_posting(cursor, invoice_id)
             connection.commit()

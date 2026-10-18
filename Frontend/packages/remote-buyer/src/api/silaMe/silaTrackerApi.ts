@@ -62,6 +62,20 @@ export interface SilaTrackerAttempt {
   localCalled: boolean;
 }
 
+export interface SilaTrackerFlowStep {
+  name: string;
+  status: string;
+  detail?: string | null;
+  request?: string | null;
+  response?: string | null;
+}
+
+export interface SilaInvoiceFlow {
+  erpInvoiceId?: string | null;
+  message?: string | null;
+  steps: SilaTrackerFlowStep[];
+}
+
 export interface SilaTrackerDetail extends SilaTrackerRow {
   technicalDetail?: string | null;
   erpMessage?: string | null;
@@ -69,6 +83,7 @@ export interface SilaTrackerDetail extends SilaTrackerRow {
   localReference?: string | null;
   recipeId?: string | null;
   attempts: SilaTrackerAttempt[];
+  flow?: SilaTrackerFlowStep[];
 }
 
 export interface SilaTrackerPage {
@@ -130,12 +145,49 @@ const trackerParams = (query: SilaTrackerQuery) => ({
 
 const missing = (error: unknown): boolean => axios.isAxiosError(error) && error.response?.status === 404;
 
+const annotateInvoiceRows = async (page: SilaTrackerPage): Promise<SilaTrackerPage> => {
+  const ids = page.rows.map((row) => row.erpPostingId).filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return page;
+  try {
+    const response = await axiosInstance.post<{ results?: Array<{ id: string; erpInvoiceId?: string | null; message?: string | null }> }>(
+      "/api/v1/buyer/sila/erp-postings/invoice-results",
+      { ids },
+    );
+    const results = response.data?.results ?? [];
+    if (results.length === 0) return page;
+    const byId = new Map(results.map((item) => [item.id.toLowerCase(), item]));
+    return {
+      ...page,
+      rows: page.rows.map((row) => {
+        const found = row.erpPostingId ? byId.get(row.erpPostingId.toLowerCase()) : undefined;
+        if (!found?.message) return row;
+        return {
+          ...row,
+          lastError: found.message,
+          erpReference: row.erpReference || found.erpInvoiceId || null,
+        };
+      }),
+    };
+  } catch {
+    return page;
+  }
+};
+
+export const getErpPostingFlow = async (postingId: string): Promise<SilaInvoiceFlow | null> => {
+  try {
+    const response = await axiosInstance.get<SilaInvoiceFlow>(`/api/v1/buyer/sila/erp-postings/${postingId}/flow`);
+    return { ...response.data, steps: Array.isArray(response.data?.steps) ? response.data.steps : [] };
+  } catch {
+    return null;
+  }
+};
+
 export const getTracker = async (tracker: SilaTrackerName, query: SilaTrackerQuery): Promise<SilaTrackerPage> => {
   try {
     const response = await axiosInstance.get<SilaTrackerPage>(`/api/v1/buyer/sila/trackers/${tracker}`, { params: trackerParams(query) });
-    return response.data;
+    return annotateInvoiceRows(response.data);
   } catch (error) {
-    if (tracker === "SILA_ME" && missing(error)) return composeLiveSilaMeTracker(query);
+    if (tracker === "SILA_ME" && missing(error)) return annotateInvoiceRows(await composeLiveSilaMeTracker(query));
     throw new Error(readError(error, "Could not load the transaction tracker."));
   }
 };

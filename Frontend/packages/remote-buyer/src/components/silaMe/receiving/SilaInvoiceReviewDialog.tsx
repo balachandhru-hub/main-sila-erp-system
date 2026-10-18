@@ -5,6 +5,7 @@ import {
   extractInvoice,
   getGoodsReceipt,
   getGoodsReceipts,
+  copyInvoice,
   getInvoice,
   getInvoiceFile,
   getOpenPurchaseOrders,
@@ -41,6 +42,8 @@ interface SilaInvoiceReviewDialogProps {
   onChanged: () => void;
   /** Opens the receive flow prefilled from the invoice. */
   onReceive: (prefill: ReceivePrefill) => void;
+  /** Opens the copied invoice. */
+  onCopied?: (invoiceId: string) => void;
 }
 
 const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderId" | "invoiceType">; label: string; type: string }[] = [
@@ -55,7 +58,7 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
 ];
 
 type Tab = "review" | "matching" | "posting" | "history";
-type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment";
+type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment" | "copy";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
@@ -64,8 +67,25 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "history", label: "Reading history" },
 ];
 
+const compactKey = (value?: string | null): string => (value || "").replace(/\s+/g, "");
+
+/** SAP invoice number and fiscal year, with no separator. 5105601144 + 2026 = 51056011442026. */
+const linkedSapObjectKey = (invoice: SilaInvoiceDetail): string => {
+  const stored = invoice.attachment?.linkedSapObjectKey?.trim();
+  if (stored) return stored;
+  const number = compactKey(invoice.erpReference);
+  const year = compactKey(invoice.fiscalYear);
+  return number && year ? `${number}${year}` : "—";
+};
+
+const attachmentStatus = (invoice: SilaInvoiceDetail): string => {
+  const status = invoice.attachment?.status?.trim();
+  if (status && status !== "Not started") return status;
+  return linkedSapObjectKey(invoice) === "—" ? "Not started" : "Pending";
+};
+
 /** OCR result and review form of an invoice: fields, supplier/PO/line matching, reading history; then receive the goods. */
-const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoiceId, canPost, onClose, onChanged, onReceive }) => {
+const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoiceId, canPost, onClose, onChanged, onReceive, onCopied }) => {
   const [invoice, setInvoice] = useState<SilaInvoiceDetail | null>(null);
   const [form, setForm] = useState<InvoiceForm | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -462,6 +482,19 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Create GRN from invoice
                 </button>
               )}
+              {canPost && (
+                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("copy", async () => {
+                  const created = await copyInvoice(invoiceId);
+                  toastService.success("Invoice copied. The copy is not posted to SAP.");
+                  onChanged();
+                  setError(null);
+                  setInvoice(null);
+                  setForm(null);
+                  if (onCopied) onCopied(created);
+                })}>
+                  {busy === "copy" ? "Copying..." : "Copy"}
+                </button>
+              )}
               {canEdit && !editing && (
                 <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => { setEditing(true); setTab("review"); }}>
                   Edit
@@ -760,9 +793,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <h3 className="sila-section-title">S/4 attachment</h3>
                   <p className="srcv-sub">Business Object: {invoice.attachment?.businessObject || "Supplier Invoice"}</p>
                   <p className="srcv-sub">Business Object Type: {invoice.attachment?.businessObjectType || "BUS2081"}</p>
-                  <p className="srcv-sub">Linked SAP Object Key: {invoice.attachment?.linkedSapObjectKey || "—"}</p>
+                  <p className="srcv-sub">Linked SAP Object Key: {linkedSapObjectKey(invoice)}</p>
                   <p className="srcv-sub">Document: {invoice.attachment?.fileName || invoice.fileName || "—"}</p>
-                  <p className="srcv-sub">Attachment Status: {invoice.attachment?.status || "Not started"}</p>
+                  <p className="srcv-sub">Attachment Status: {attachmentStatus(invoice)}</p>
                   <p className="srcv-sub">Last Attempt: {invoice.attachment?.lastAttempt ? invoice.attachment.lastAttempt.replace("T", " ").slice(0, 19) : "—"}</p>
                   {invoice.attachment?.message && <p className="srcv-sub">{invoice.attachment.message}</p>}
                   {invoice.attachment?.canReprocess && (

@@ -384,6 +384,12 @@ export const getInvoices = async (search: string, status: string, page: SilaPage
 export const getInvoice = async (invoiceId: string): Promise<SilaInvoiceDetail> =>
   normalizeInvoice(await call(() => axiosInstance.get<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}`), "Could not load the invoice."));
 
+/** A new local invoice with the same file and lines. The copy is not posted and does not keep the SAP invoice id. */
+export const copyInvoice = async (invoiceId: string): Promise<string> => {
+  const data = await call(() => axiosInstance.post<{ id: string }>(`${BASE}/invoices/${invoiceId}/copy`), "Could not copy the invoice.");
+  return data.id;
+};
+
 /** Uploads a PDF, JPEG or PNG invoice (max 20 MB); returns the new invoice id. */
 export const uploadInvoice = async (file: File): Promise<string> => {
   const form = new FormData();

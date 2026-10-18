@@ -1,3 +1,4 @@
+using Buyer.Application.Features.Commands.CopySilaInvoice;
 using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
 using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
@@ -230,6 +231,30 @@ namespace Buyer.API.Controllers
                 StatusCode = 200,
                 Message = "Success",
                 Description = "Invoice uploaded."
+            });
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/copy")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("CopySilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
+        public async Task<IActionResult> CopyInvoice([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Copying invoice. InvoiceId: {invoiceId}");
+            Guid result = await _mediator.Send(new CopySilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice copied. InvoiceId: {result}");
+            return Ok(new SuccessResponseDto
+            {
+                Id = result.ToString(),
+                StatusCode = 200,
+                Message = "Success",
+                Description = "Invoice copied. The copy is not posted to SAP."
             });
         }
 

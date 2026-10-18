@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, Modal, PageHeader, Pagination, toastService } from "@vosox/shared-ui";
 import {
+  getErpPostingFlow,
   getTracker,
   getTrackerDetail,
   reprocessTracker,
+  type SilaInvoiceFlow,
   type SilaTrackerDetail,
+  type SilaTrackerFlowStep,
   type SilaTrackerName,
   type SilaTrackerRow,
   type SilaTrackerSummary,
@@ -78,6 +81,21 @@ const downloadPayload = (detail: SilaTrackerDetail) => {
   URL.revokeObjectURL(url);
 };
 
+const isInvoiceTxn = (type?: string | null): boolean =>
+  type === "INVOICE" || type === "INVOICE_POSTING" || type === "INVOICE_ATTACHMENT" || type === "SUPPLIER_INVOICE_ATTACHMENT";
+
+const resultText = (row: SilaTrackerRow): string => {
+  const stored = row.lastError?.trim();
+  if (stored) return stored;
+  if (isInvoiceTxn(row.transactionType) && row.erpReference && (row.overallStatus === "SUCCESS" || row.erpStatus === "SUCCESS")) {
+    return `Successful. SAP invoice ${row.erpReference}.`;
+  }
+  return "—";
+};
+
+const erpInvoiceId = (row: SilaTrackerRow): string =>
+  isInvoiceTxn(row.transactionType) ? (row.erpReference || "—") : "—";
+
 const badgeClass = (status?: string | null): string => {
   switch (status) {
     case "SUCCESS":
@@ -134,6 +152,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [detail, setDetail] = useState<SilaTrackerDetail | null>(null);
+  const [flow, setFlow] = useState<SilaInvoiceFlow | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<SilaTrackerRow[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -188,6 +207,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
 
   const open = async (row: SilaTrackerRow) => {
     setDetailError(null);
+    setFlow(null);
     const withPayload = async (detail: SilaTrackerDetail): Promise<SilaTrackerDetail> => {
       if (!row.erpPostingId) return detail;
       if (detail.technicalDetail?.trim() && detail.erpMessage?.trim()) return detail;
@@ -202,7 +222,16 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
     };
     try {
       const loaded = await getTrackerDetail(tracker, row.id);
-      setDetail(await withPayload(loaded ?? { ...row, attempts: [] }));
+      const opened = await withPayload(loaded ?? { ...row, attempts: [] });
+      const invoiceFlow = opened.flow?.length
+        ? { steps: opened.flow, erpInvoiceId: opened.erpReference, message: opened.lastError }
+        : row.erpPostingId && isInvoiceTxn(row.transactionType)
+          ? await getErpPostingFlow(row.erpPostingId)
+          : null;
+      if (invoiceFlow?.message) opened.lastError = invoiceFlow.message;
+      if (!opened.erpReference && invoiceFlow?.erpInvoiceId) opened.erpReference = invoiceFlow.erpInvoiceId;
+      setFlow(invoiceFlow && invoiceFlow.steps.length > 0 ? invoiceFlow : null);
+      setDetail(opened);
     } catch (err: unknown) {
       setDetailError(err instanceof Error ? err.message : "Could not open the transaction.");
       setDetail(await withPayload({ ...row, attempts: [] }));
@@ -339,12 +368,13 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
                     <th scope="col">Direction</th>
                     <th scope="col">Company / plant</th>
                     <th scope="col">Reference</th>
+                    <th scope="col">ERP invoice ID</th>
                     <th scope="col">Receive</th>
                     <th scope="col">ERP</th>
                     <th scope="col">Local</th>
                     <th scope="col">Overall</th>
                     <th scope="col">Retries</th>
-                    <th scope="col">Last error</th>
+                    <th scope="col">Result</th>
                     <th scope="col"><span className="sila-visually-hidden">Actions</span></th>
                   </tr>
                 </thead>
@@ -375,12 +405,13 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
                         {row.businessReference || "—"}
                         {row.integrationName && <span className="srcv-sub">{row.integrationName}{row.movementType ? ` · ${row.movementType}` : ""}</span>}
                       </td>
+                      <td>{erpInvoiceId(row)}</td>
                       <td><span className={badgeClass(row.receiveStatus)}>{labelOf(row.receiveStatus)}</span></td>
                       <td><span className={badgeClass(row.erpStatus)}>{labelOf(row.erpStatus)}</span></td>
                       <td><span className={badgeClass(row.localStatus)}>{labelOf(row.localStatus)}</span></td>
                       <td><span className={badgeClass(row.overallStatus)}>{labelOf(row.overallStatus)}</span></td>
                       <td>{row.retryCount}</td>
-                      <td>{row.lastError || "—"}</td>
+                      <td className={resultText(row).startsWith("Successful.") ? "strk-result strk-result--ok" : "strk-result"}>{resultText(row)}</td>
                       <td>
                         {canReprocess && row.action === "REPROCESS" && (
                           <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setConfirming([row])}>Reprocess</button>
@@ -409,7 +440,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
       {detail && (
         <section className="sila-card strk-detail">
           <div className="strk-actions">
-            <button type="button" className="sila-btn sila-btn--secondary" onClick={() => setDetail(null)}>Back to list</button>
+            <button type="button" className="sila-btn sila-btn--secondary" onClick={() => { setDetail(null); setFlow(null); }}>Back to list</button>
             <h2 className="sila-section-title">{labelOf(detail.transactionType)}</h2>
             {canReprocess && detail.action === "REPROCESS" && (
               <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy} onClick={() => setConfirming([detail])}>
@@ -430,7 +461,7 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
             <Fact label="API" value={detail.integrationName} />
             <Fact label="Status" value={labelOf(detail.overallStatus)} />
             <Fact label="ERP" value={labelOf(detail.erpStatus)} />
-            {detail.erpReference ? <Fact label="ERP reference" value={detail.erpReference} /> : null}
+            {isInvoiceTxn(detail.transactionType) ? <Fact label="ERP invoice ID" value={detail.erpReference} /> : detail.erpReference ? <Fact label="ERP reference" value={detail.erpReference} /> : null}
             {detail.erpHttpStatus != null ? <Fact label="HTTP status" value={String(detail.erpHttpStatus)} /> : null}
             {detail.retryCount > 0 ? <Fact label="Retries" value={String(detail.retryCount)} /> : null}
             {(detail.localReference ?? "").includes("PO ") ? <Fact label="Supplier, PO, GRN" value={detail.localReference} /> : null}
@@ -438,27 +469,38 @@ const SilaConsolidatedTracker: React.FC<SilaConsolidatedTrackerProps> = ({ track
           {detail.overallStatus === "FAILED_LOCAL" && (
             <p>SAP already created {detail.erpReference || "the material document"}. Reprocessing resumes from local finalization and will not call SAP again.</p>
           )}
-          {detail.lastError && <p className="srcv-error">{detail.lastError}</p>}
+          {detail.lastError && (
+            <p className={detail.lastError.startsWith("Successful.") ? "strk-result strk-result--ok" : "srcv-error"}>{detail.lastError}</p>
+          )}
           {detail.localError && detail.localError !== detail.lastError && <p className="srcv-error">{detail.localError}</p>}
-          <div>
-            <div className="strk-actions">
-              <h3 className="sila-section-title">Submitted payload</h3>
-              {detail.technicalDetail?.trim() && (
-                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadPayload(detail)}>
-                  Download payload
-                </button>
-              )}
-            </div>
-            {detail.technicalDetail?.trim() ? (
-              <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
-            ) : (
-              <p>No submitted payload was stored for this transaction.</p>
-            )}
-          </div>
-          {detail.erpMessage?.trim() && (
+          {flow && flow.steps.length > 0 && (
+            <ol className="strk-flow">
+              {flow.steps.map((step, index) => (
+                <FlowStep key={`${step.name}-${index}`} step={step} index={index} />
+              ))}
+            </ol>
+          )}
+          {!flow && (
             <div>
-              <h3 className="sila-section-title">ERP message</h3>
-              <pre className="strk-tech">{detail.erpMessage}</pre>
+              <div className="strk-actions">
+                <h3 className="sila-section-title">Submitted payload</h3>
+                {detail.technicalDetail?.trim() && (
+                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => downloadPayload(detail)}>
+                    Download payload
+                  </button>
+                )}
+              </div>
+              {detail.technicalDetail?.trim() ? (
+                <pre className="strk-tech">{prettyPayload(detail.technicalDetail)}</pre>
+              ) : (
+                <p>No submitted payload was stored for this transaction.</p>
+              )}
+              {detail.erpMessage?.trim() && (
+                <div>
+                  <h3 className="sila-section-title">ERP message</h3>
+                  <pre className="strk-tech">{detail.erpMessage}</pre>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -511,6 +553,45 @@ const Field: React.FC<{ id: string; label: string; children: React.ReactNode }> 
     {children}
   </div>
 );
+
+const FlowStep: React.FC<{ step: SilaTrackerFlowStep; index: number }> = ({ step, index }) => {
+  const request = prettyPayload(step.request);
+  const response = prettyPayload(step.response);
+  const download = (text: string, suffix: string) => {
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${step.name.replace(/[^\w.-]+/g, "_")}-${suffix}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <li className="strk-flow-step">
+      <div className="strk-actions">
+        <h3 className="sila-section-title">{index + 1}. {step.name}</h3>
+        <span className={badgeClass(step.status)}>{labelOf(step.status)}</span>
+        {request && <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => download(request, "request")}>Download request</button>}
+        {response && <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => download(response, "response")}>Download response</button>}
+      </div>
+      {step.detail && <p>{step.detail}</p>}
+      {request && (
+        <>
+          <h4 className="sila-section-title">Request</h4>
+          <pre className="strk-tech">{request}</pre>
+        </>
+      )}
+      {response && (
+        <>
+          <h4 className="sila-section-title">Response</h4>
+          <pre className="strk-tech">{response}</pre>
+        </>
+      )}
+    </li>
+  );
+};
 
 const Fact: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
   <div>
