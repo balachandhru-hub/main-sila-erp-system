@@ -897,12 +897,17 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             Dictionary<Guid, int> lineNumbers = await _repository.PurchaseOrderItem
                 .FindByCondition(x => poItemIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, x => x.LineNumber, cancellationToken);
-            string? poPlant = await _repository.PurchaseOrder
+            var poCodes = await _repository.PurchaseOrder
                 .FindByCondition(x => x.Id == receipt.PurchaseOrderId)
-                .Select(x => x.PlantCode)
+                .Select(x => new { x.PlantCode, x.CompanyCode })
                 .FirstOrDefaultAsync(cancellationToken);
 
-            string plant = string.IsNullOrWhiteSpace(poPlant) ? property?.PlantCode : poPlant;
+            // Plant: PO plant, else receiving property plant, else PO company code (FIVE plant = company).
+            string? plant = !string.IsNullOrWhiteSpace(poCodes?.PlantCode)
+                ? poCodes!.PlantCode!.Trim()
+                : !string.IsNullOrWhiteSpace(property?.PlantCode)
+                    ? property!.PlantCode!.Trim()
+                    : string.IsNullOrWhiteSpace(poCodes?.CompanyCode) ? null : poCodes!.CompanyCode!.Trim();
             DateTime receiptDate = DateTime.SpecifyKind(receipt.DateCreated.Date, DateTimeKind.Utc);
             string odataDate = $"/Date({new DateTimeOffset(receiptDate).ToUnixTimeMilliseconds()})/";
             ErpDocument document = new ErpDocument();

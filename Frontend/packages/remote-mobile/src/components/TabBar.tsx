@@ -1,19 +1,20 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { useGo, useMobileBase } from '../navigation';
+import { MobileIcon, type MobileIconName } from './MobileIcons';
 
 interface TabDef {
   key: string;
   label: string;
-  icon: string;
+  icon: MobileIconName;
 }
 
 const TABS: TabDef[] = [
-  { key: 'home', label: 'Home', icon: '⌂' },
-  { key: 'receive', label: 'Receive', icon: '⇩' },
-  { key: 'inventory', label: 'Inventory', icon: '▦' },
-  { key: 'tasks', label: 'Tasks', icon: '✓' },
-  { key: 'more', label: 'More', icon: '☰' },
+  { key: 'home', label: 'Home', icon: 'home' },
+  { key: 'receive', label: 'Receive', icon: 'receive' },
+  { key: 'inventory', label: 'Inventory', icon: 'inventory' },
+  { key: 'tasks', label: 'Tasks', icon: 'tasks' },
+  { key: 'more', label: 'More', icon: 'more' },
 ];
 
 /** Bottom navigation of the app. */
@@ -34,7 +35,7 @@ const TabBar: React.FC = () => {
           onClick={() => go(tab.key)}
         >
           <span className="sm-tabbar__icon" aria-hidden="true">
-            {tab.icon}
+            <MobileIcon name={tab.icon} />
           </span>
           {tab.label}
         </button>

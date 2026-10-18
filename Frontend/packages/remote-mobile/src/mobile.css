@@ -1,8 +1,9 @@
 /* SILA Store: mobile-first styles. Units rem/em/% only, spacing with padding/gap. */
 .sm-app {
-  --sm-primary: #0f5f8c;
-  --sm-brand: #177db8;
-  --sm-light: #eaf5fb;
+  /* SILA brand blue (shared design token --sila-primary) */
+  --sm-primary: #1f5cc4;
+  --sm-brand: #1a4fa8;
+  --sm-light: #eef4fd;
   --sm-success: #2f7d55;
   --sm-warning: #b7791f;
   --sm-error: #c44747;
@@ -412,7 +413,14 @@
   border-radius: 50%;
   background: var(--sm-light);
   color: var(--sm-primary);
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
+}
+
+.sm-action__icon svg {
+  display: block;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--sm-primary);
 }
 
 /* ---------- Lists ---------- */
@@ -754,8 +762,24 @@
 }
 
 .sm-tabbar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.375rem;
   line-height: 1;
+  color: var(--sm-primary);
+}
+
+.sm-tabbar__icon svg {
+  display: block;
+  width: 1.375rem;
+  height: 1.375rem;
+  color: var(--sm-primary);
+}
+
+.sm-tabbar__item[aria-current="page"] .sm-tabbar__icon,
+.sm-tabbar__item[aria-current="page"] .sm-tabbar__icon svg {
+  color: var(--sm-primary);
 }
 
 /* ---------- Prototype parity helpers ---------- */

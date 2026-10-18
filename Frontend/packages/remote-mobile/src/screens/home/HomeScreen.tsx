@@ -2,6 +2,7 @@ import React from 'react';
 import { getInventoryHome, getRecentAlerts } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import ScreenHeader from '../../components/ScreenHeader';
 import LocationPicker from '../../components/LocationPicker';
+import { MobileIcon, type MobileIconName } from '../../components/MobileIcons';
 import { Empty, ErrorNotice, Loading, OfflineBanner } from '../../components/StateViews';
 import { firstNameOf, initialsOf, useAccess } from '../../access';
 import { useMyLocation } from '../../location';
@@ -13,7 +14,7 @@ import HomeAttention from './HomeAttention';
 
 interface QuickAction {
   label: string;
-  icon: string;
+  icon: MobileIconName;
   to: string;
   show: boolean;
 }
@@ -46,16 +47,16 @@ const HomeScreen: React.FC = () => {
   );
 
   const actions: QuickAction[] = [
-    { label: 'Scan Invoice', icon: '⎙', to: 'receive/scan', show: true },
-    { label: 'Receive Goods', icon: '⇩', to: 'receive/pos?mode=receive', show: true },
-    { label: 'Purchase orders', icon: '☰', to: 'receive/pos', show: true },
-    { label: 'Suppliers', icon: '⌂', to: 'more/suppliers', show: true },
-    { label: 'Live Stock', icon: '▦', to: 'inventory/stock', show: true },
-    { label: 'Raise ITO', icon: '⇄', to: 'inventory/transfers/new', show: can.manageTransfer },
-    { label: 'Stock Count', icon: '☑', to: 'inventory/counts', show: can.manageCount || can.approveCount || can.initiateCount },
-    { label: 'Quick Transfer', icon: '➜', to: 'inventory/transfers/new?mode=quick', show: can.manageTransfer },
-    { label: 'Recipes', icon: '☰', to: 'recipes', show: canRecipes },
-    { label: 'Approvals', icon: '✓', to: 'tasks', show: can.approveCount || can.approveTransfer || can.approveRecipe || can.approvePrice },
+    { label: 'Scan Invoice', icon: 'scan', to: 'receive/scan', show: true },
+    { label: 'Receive Goods', icon: 'receive', to: 'receive/pos?mode=receive', show: true },
+    { label: 'Purchase orders', icon: 'purchaseOrders', to: 'receive/pos', show: true },
+    { label: 'Suppliers', icon: 'suppliers', to: 'more/suppliers', show: true },
+    { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: true },
+    { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: can.manageTransfer },
+    { label: 'Stock Count', icon: 'count', to: 'inventory/counts', show: can.manageCount || can.approveCount || can.initiateCount },
+    { label: 'Quick Transfer', icon: 'quickTransfer', to: 'inventory/transfers/new?mode=quick', show: can.manageTransfer },
+    { label: 'Recipes', icon: 'recipes', to: 'recipes', show: canRecipes },
+    { label: 'Approvals', icon: 'approvals', to: 'tasks', show: can.approveCount || can.approveTransfer || can.approveRecipe || can.approvePrice },
   ];
 
   const count = (value: number | undefined, loading: boolean): string => (loading ? '…' : value === undefined ? '—' : String(value));
@@ -103,7 +104,7 @@ const HomeScreen: React.FC = () => {
             {actions.filter((action) => action.show).map((action) => (
               <button key={action.label} type="button" className="sm-action" onClick={() => go(action.to)}>
                 <span className="sm-action__icon" aria-hidden="true">
-                  {action.icon}
+                  <MobileIcon name={action.icon} />
                 </span>
                 {action.label}
               </button>
