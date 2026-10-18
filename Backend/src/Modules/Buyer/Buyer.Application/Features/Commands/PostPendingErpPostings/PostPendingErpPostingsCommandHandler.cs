@@ -926,12 +926,9 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 string purchaseOrderItem = lineNumber == null
                     ? string.Empty
                     : lineNumber.Value.ToString("00000", CultureInfo.InvariantCulture);
+                // Only SAP Material Document fields — camelCase internal names must never reach S4.
                 document.Items.Add(new List<(string, object?)>
                 {
-                    ("PoLineNumber", lineNumber),
-                    ("MaterialCode", item.MaterialCode),
-                    ("Quantity", item.AcceptedQty),
-                    ("Uom", item.Uom),
                     ("Material", item.MaterialCode),
                     ("Plant", plant),
                     ("StorageLocation", location?.StorageLocationCode),
@@ -940,7 +937,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     ("PurchaseOrderItem", purchaseOrderItem),
                     ("GoodsMovementRefDocType", SilaGrnSap.GOODS_MOVEMENT_REF_DOC_TYPE),
                     ("EntryUnit", item.Uom),
-                    ("QuantityInEntryUnit", item.AcceptedQty.ToString(CultureInfo.InvariantCulture))
+                    ("QuantityInEntryUnit", item.AcceptedQty.ToString("0.0000", CultureInfo.InvariantCulture))
                 });
             }
 
@@ -1106,10 +1103,18 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
 
         private static Dictionary<string, object?> Fields(string prefix, List<(string Name, object? Value)> fields, List<ApiFieldMapping> mappings)
         {
+            // When mappings exist for this area, only mapped fields are sent — prevents camelCase junk (poNumber) reaching S4.
+            bool mappedOnly = mappings.Any(x =>
+                x.TargetField.StartsWith(prefix + ".", StringComparison.OrdinalIgnoreCase));
             Dictionary<string, object?> result = new Dictionary<string, object?>();
             foreach ((string name, object? value) in fields)
             {
                 ApiFieldMapping? mapping = mappings.FirstOrDefault(x => Same(x.TargetField, $"{prefix}.{name}"));
+                if (mappedOnly && mapping == null)
+                {
+                    continue;
+                }
+
                 result[mapping?.SourceField ?? Camel(name)] = Transform(value, mapping);
             }
 
@@ -1157,8 +1162,34 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 result = result.Replace("{{" + Camel(name) + "}}", text);
             }
 
-            string items = JsonSerializer.Serialize(document.Items.Select(item => Fields($"{area}.{ITEMS}", item, mappings)));
+            // GRN Material Document items keep SAP PascalCase property names (never camelCase poNumber/materialCode).
+            string items = area == AREA_GRN
+                ? JsonSerializer.Serialize(document.Items.Select(SapGrnItemPayload))
+                : JsonSerializer.Serialize(document.Items.Select(item => Fields($"{area}.{ITEMS}", item, mappings)));
             return result.Replace("{{items}}", items);
+        }
+
+        private static Dictionary<string, object?> SapGrnItemPayload(List<(string Name, object? Value)> item)
+        {
+            object? Value(string name) => item.FirstOrDefault(x => x.Name == name).Value;
+            Dictionary<string, object?> line = new Dictionary<string, object?>
+            {
+                ["Material"] = Value("Material"),
+                ["Plant"] = Value("Plant"),
+                ["GoodsMovementType"] = Value("GoodsMovementType"),
+                ["PurchaseOrder"] = Value("PurchaseOrder"),
+                ["PurchaseOrderItem"] = Value("PurchaseOrderItem"),
+                ["GoodsMovementRefDocType"] = Value("GoodsMovementRefDocType"),
+                ["EntryUnit"] = Value("EntryUnit"),
+                ["QuantityInEntryUnit"] = Value("QuantityInEntryUnit")
+            };
+            string? storage = Value("StorageLocation")?.ToString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(storage))
+            {
+                line["StorageLocation"] = storage;
+            }
+
+            return line;
         }
 
         private static string? ReadReference(string? body)

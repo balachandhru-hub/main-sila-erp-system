@@ -71,9 +71,8 @@ BEGIN
       );
 END;
 
--- Never keep a sample Material Document body on FIVE S4-GRN POSTING.
--- SapGrnBody builds the request from the prepared GRN; a filled request_body was
--- incorrectly posted as-is (wrong PO + invalid DocumentHeaderText).
+-- Strip invalid sample bodies (DocumentHeaderText / placeholder PO). Keep the
+-- ApplyTemplate Material Document shape used until SapGrnBody is deployed on sila-api.
 UPDATE buyersystem.api_integration_configuration
 SET request_body = NULL,
     date_updated = @Now,
@@ -86,6 +85,47 @@ WHERE name IN (N'FIVE S4-GRN POSTING', N'FIVE S4 - POST GRN')
      OR request_body LIKE N'%4500001234%'
      OR request_body LIKE N'%MAT1001%'
   );
+
+-- Durable S4 Material Document template (placeholders filled from the prepared GRN).
+-- Required on hosts that still fall through to ToPayload (poNumber) when request_body is empty.
+DECLARE @GrnTemplate nvarchar(max) = N'{
+  "DocumentDate": "{{documentDate}}",
+  "PostingDate": "{{oDataPostingDate}}",
+  "GoodsMovementCode": "{{goodsMovementCode}}",
+  "MaterialDocumentHeaderText": "{{grnNumber}}",
+  "to_MaterialDocumentItem": {{items}}
+}';
+UPDATE buyersystem.api_integration_configuration
+SET name = N'FIVE S4-GRN POSTING',
+    request_body = @GrnTemplate,
+    date_updated = @Now,
+    updated_by = @Actor
+WHERE name IN (N'FIVE S4-GRN POSTING', N'FIVE S4 - POST GRN')
+  AND is_active = 1
+  AND process_type = N'POST_GRN'
+  AND (request_body IS NULL OR LTRIM(RTRIM(request_body)) = N'' OR request_body NOT LIKE N'%MaterialDocumentHeaderText%');
+
+-- PascalCase item field mappings so ApplyTemplate {{items}} is not camelCase.
+DECLARE @Cfg uniqueidentifier;
+SELECT TOP 1 @Cfg = id FROM buyersystem.api_integration_configuration
+WHERE name = N'FIVE S4-GRN POSTING' AND is_active = 1 AND process_type = N'POST_GRN';
+IF @Cfg IS NOT NULL
+BEGIN
+    DELETE FROM buyersystem.api_field_mapping WHERE configuration_id = @Cfg;
+    INSERT INTO buyersystem.api_field_mapping
+        (id, configuration_id, source_field, target_field, transformation, null_policy, default_value,
+         is_validated, date_created, date_updated, created_by, updated_by, is_active)
+    VALUES
+        (NEWID(), @Cfg, N'Material', N'Grn.Items.Material', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'Plant', N'Grn.Items.Plant', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'StorageLocation', N'Grn.Items.StorageLocation', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'GoodsMovementType', N'Grn.Items.GoodsMovementType', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'PurchaseOrder', N'Grn.Items.PurchaseOrder', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'PurchaseOrderItem', N'Grn.Items.PurchaseOrderItem', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'GoodsMovementRefDocType', N'Grn.Items.GoodsMovementRefDocType', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'EntryUnit', N'Grn.Items.EntryUnit', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1),
+        (NEWID(), @Cfg, N'QuantityInEntryUnit', N'Grn.Items.QuantityInEntryUnit', NULL, N'IGNORE_NULL', NULL, 1, @Now, @Now, @Actor, @Actor, 1);
+END;
 
 -- FIVETEST-GRNPOSTING-ARIBA (DRAFT, company 1020 — previous SOAP URL + realm defaults)
 IF NOT EXISTS (
