@@ -12,7 +12,8 @@ namespace Buyer.Application.Features.Shared
     {
         public const string API_GET_PO = "FIVE S4 - GET PO";
         public const string API_INVOICE = "FIVE S4-INVOICE POSTING";
-        public const string API_ATTACHMENT = "FIVE S4 - INVOICE ATTACHMENT";
+        public const string API_ATTACHMENT = "API_CV_ATTACHMENT_SRV";
+        public const string API_ATTACHMENT_LEGACY = "FIVE S4 - INVOICE ATTACHMENT";
         public const string ATTACHMENT_SERVICE = "API_CV_ATTACHMENT_SRV";
         public const string ATTACHMENT_PATH = "/sap/opu/odata/sap/API_CV_ATTACHMENT_SRV/CreateUrlAsAttachment";
         public const string BUSINESS_OBJECT = "BUS2081";

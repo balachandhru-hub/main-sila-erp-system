@@ -158,9 +158,10 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const erpAccepted = Boolean(invoice?.erpReference) || invoice?.erpStatus === "POSTED" || invoice?.erpStatus === "ERP_ACCEPTED";
   const readyStatus = invoice != null && ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "APPROVED", "REVIEWED", "EXTRACTED"].includes(invoice.status);
   const serviceReady = invoice?.goodsReceiptApplicable === false && (invoice.status === "REVIEWED" || invoice.status === "READY_FOR_INVOICE_SUBMISSION");
+  const receiptAlreadyConfirmed = invoice?.status === "GRN_POSTED" || invoice?.status === "READY_FOR_INVOICE_SUBMISSION" || invoice?.status === "APPROVED";
   const readyToSubmit = Boolean(
     canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
-    && (serviceReady || (readyStatus && (postedGrns.length >= 1 || invoice.status === "READY_FOR_INVOICE_SUBMISSION")))
+    && (serviceReady || (readyStatus && (postedGrns.length >= 1 || receiptAlreadyConfirmed)))
     && !erpAccepted
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
   );
@@ -178,11 +179,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const canEdit = Boolean(canPost && invoice && pastReceipt && !sealed);
   const fieldsLocked = !canPost || sealed || (pastReceipt && !editing);
   const postingFailed = invoice?.status === "ERP_POSTING_FAILED" || (invoice?.erpStatus === "FAILED" && !posted);
-  const submitLabel = !postingReviewed
-    ? "Review before S/4"
-    : busy === "submit"
-      ? (retry ? "Resubmitting..." : "Submitting...")
-      : (retry ? "Resubmit to S/4" : "Submit to S/4");
+  const submitLabel = busy === "submit" ? "Submitting..." : "Submit";
+  const resubmitLabel = busy === "submit" ? "Resubmitting..." : "Resubmit";
   const linkedIds = (invoice?.goodsReceipts ?? []).map((receipt) => receipt.id);
   const selectedGrns = grnPick ?? linkedIds;
   const grnDirty = selectedGrns.length !== linkedIds.length || selectedGrns.some((id) => !linkedIds.includes(id));
@@ -499,6 +497,11 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   {submitLabel}
                 </button>
               )}
+              {canSubmit && (
+                <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
+                  {resubmitLabel}
+                </button>
+              )}
             </div>
             {askSubmit && !deferred && grn && (
               <div className="sila-alert sila-alert--success" role="status">
@@ -509,6 +512,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => setDeferred(true)}>Not now</button>
                   <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
                     {submitLabel}
+                  </button>
+                  <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>
+                    {resubmitLabel}
                   </button>
                 </div>
                 <p>Would you like to submit the invoice?</p>
@@ -534,6 +540,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   )}
                   {canSubmit && (
                     <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{submitLabel}</button>
+                  )}
+                  {canSubmit && (
+                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={handleSubmit}>{resubmitLabel}</button>
                   )}
                 </div>
               </div>

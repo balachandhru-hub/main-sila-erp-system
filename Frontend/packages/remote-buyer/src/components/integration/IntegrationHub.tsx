@@ -240,7 +240,12 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
                 {visibleRows.map((row) => (
                   <tr key={row.id}>
                     <td className="sila-cell-strong">{purposeOf(row.processType)}</td>
-                    <td>{row.name}</td>
+                    <td>
+                      {row.name}
+                      {row.resourcePath?.includes("API_CV_ATTACHMENT_SRV") && row.name !== "API_CV_ATTACHMENT_SRV" && (
+                        <span className="srcv-sub">API_CV_ATTACHMENT_SRV</span>
+                      )}
+                    </td>
                     <td>{row.systemName || "—"}</td>
                     <td>{row.baseUrl || "—"}</td>
                     <td>{row.entityCode || "—"}</td>

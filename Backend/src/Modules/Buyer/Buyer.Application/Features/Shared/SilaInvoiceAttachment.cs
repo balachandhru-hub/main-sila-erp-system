@@ -410,7 +410,10 @@ namespace Buyer.Application.Features.Shared
             string processType = IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT.ToString();
             List<ApiIntegrationConfiguration> existing = await repository.ApiIntegrationConfiguration
                 .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive
-                    && (x.ProcessType == processType || x.Name == SilaInvoiceLifecycle.API_ATTACHMENT))
+                    && (x.ProcessType == processType
+                        || x.Name == SilaInvoiceLifecycle.API_ATTACHMENT
+                        || x.Name == SilaInvoiceLifecycle.API_ATTACHMENT_LEGACY
+                        || (x.ResourcePath != null && x.ResourcePath.Contains(SilaInvoiceLifecycle.ATTACHMENT_SERVICE))))
                 .ToListAsync(cancellationToken);
             ApiIntegrationConfiguration? match = Match(existing, companyCode);
             if (match != null)
@@ -451,7 +454,7 @@ namespace Buyer.Application.Features.Shared
                 Name = SilaInvoiceLifecycle.API_ATTACHMENT,
                 ProcessType = IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT.ToString(),
                 Protocol = source.Protocol,
-                SystemName = "S4",
+                SystemName = "SAP S/4",
                 BaseUrl = source.BaseUrl,
                 ResourcePath = SilaInvoiceLifecycle.ATTACHMENT_PATH,
                 AuthenticationType = source.AuthenticationType,
