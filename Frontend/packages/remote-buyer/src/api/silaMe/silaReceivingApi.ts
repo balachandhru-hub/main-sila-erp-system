@@ -891,6 +891,8 @@ export interface SilaInvoiceExtraction {
   confidence?: number | null;
   message?: string | null;
   fields?: SilaInvoiceOcrFields | null;
+  poNumber?: string | null;
+  grnNumber?: string | null;
   lineCount: number;
   createdOn: string;
   /** BUILT_IN | EXTERNAL | CACHED */

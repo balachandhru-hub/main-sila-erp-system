@@ -507,7 +507,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Edit
                 </button>
               )}
-              {postingFailed && invoice.erpPostingId && (
+              {canPost && !posted && invoice.purchaseOrderId && invoice.status !== "POSTING" && invoice.status !== "POSTING_UNKNOWN" && (
                 <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("refresh", async () => {
                   show(await refreshInvoicePosting(invoiceId));
                   onChanged();

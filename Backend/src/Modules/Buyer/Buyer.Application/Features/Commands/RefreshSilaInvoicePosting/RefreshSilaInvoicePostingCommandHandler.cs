@@ -28,6 +28,17 @@ namespace Buyer.Application.Features.Commands.RefreshSilaInvoicePosting
             _logger.LogInfo($"Refreshing invoice posting data. InvoiceId: {request.InvoiceId}, OrganizationId: {request.OrganizationId}, UserId: {request.UserId}");
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             Invoice invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
+            if (invoice.PurchaseOrderId == null && !string.IsNullOrWhiteSpace(invoice.PoNumber))
+            {
+                PurchaseOrder? matched = await _repository.PurchaseOrder.FindFirstByConditionAsync(x =>
+                    x.BuyerId == buyer.Id && x.PoNumber == invoice.PoNumber.Trim());
+                if (matched != null)
+                {
+                    invoice.PurchaseOrderId = matched.Id;
+                    invoice.PoNumber = matched.PoNumber;
+                }
+            }
+
             if (Locked(invoice.Status))
             {
                 throw new BadRequestCustomException(
@@ -48,7 +59,10 @@ namespace Buyer.Application.Features.Commands.RefreshSilaInvoicePosting
 
             SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
             List<string> missing = SilaInvoicePostingData.Missing(prepared);
-            if (invoice.Status != Common.SILA_INVOICE_POSTING_FAILED)
+            await SilaInvoiceGrnGate.ReleaseBlockedInvoiceAsync(_repository, invoice, cancellationToken);
+            await SilaInvoicePosting.ClearStaleBlocksAsync(_repository, invoice.Id, cancellationToken);
+            if (invoice.Status != Common.SILA_INVOICE_POSTING_FAILED
+                || await SilaInvoiceGrnGate.AllGoodsReceiptsPostedAsync(_repository, invoice, cancellationToken))
             {
                 invoice.Status = missing.Count == 0 ? Common.SILA_INVOICE_READY_TO_POST : Common.SILA_INVOICE_VALIDATION_FAILED;
             }

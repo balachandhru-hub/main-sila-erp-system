@@ -360,6 +360,17 @@ namespace Buyer.Application.Features.Shared
             string? erpMessage = invoice.Status == Common.SILA_INVOICE_GET_PO_FAILED
                 ? blocked ?? posting?.ErrorMessage
                 : posting?.ErrorMessage ?? blocked;
+            if (grnConfirmed && SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(erpMessage))
+            {
+                erpMessage = null;
+            }
+
+            if (erpMessage != null
+                && invoice.Status is Common.SILA_INVOICE_READY or Common.SILA_INVOICE_READY_TO_POST
+                && erpMessage.Contains("GET PO", StringComparison.OrdinalIgnoreCase))
+            {
+                erpMessage = null;
+            }
             string paymentIntegration = await SilaInvoicePosting.PaymentIntegrationAsync(repository, invoice.BuyerId, cancellationToken);
             bool supplierMatched = invoice.SilaSupplierId != null || invoice.SupplierId != null || !string.IsNullOrWhiteSpace(invoice.SupplierName);
             InventoryErpPosting? attachment = await repository.InventoryErpPosting
@@ -435,7 +446,9 @@ namespace Buyer.Application.Features.Shared
                 SilaSupplierId = invoice.SilaSupplierId,
                 SupplierCode = supplierCode,
                 ErpPostingId = invoice.ErpPostingId,
-                ErpStatus = posting?.Status,
+                ErpStatus = grnConfirmed && SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(posting?.ErrorMessage)
+                    ? null
+                    : posting?.Status,
                 ErpReference = posting?.ErpReference,
                 FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting?.ErpResponsePayload),
                 ErpMessage = erpMessage,

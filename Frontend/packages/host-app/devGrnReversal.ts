@@ -9,6 +9,7 @@ import type { Plugin } from "vite";
 
 const REVERSAL_GET = /^\/api\/v1\/buyer\/sila\/grns\/([0-9a-fA-F-]{36})\/reversal(?:\?|$)/;
 const REVERSAL_POST = /^\/api\/v1\/buyer\/sila\/grns\/([0-9a-fA-F-]{36})\/reverse(?:\?|$)/;
+const REFRESH_POST = /^\/api\/v1\/buyer\/sila\/invoices\/([0-9a-fA-F-]{36})\/refresh-posting(?:\?|$)/;
 
 const send = (res: ServerResponse, status: number, contentType: string, body: string): void => {
   res.statusCode = status;
@@ -136,6 +137,18 @@ export const devGrnReversal = (cloudTarget: string): Plugin => ({
           .catch(() => {
             if (!res.headersSent) {
               send(res, 500, "application/json; charset=utf-8", described(500, "Could not reverse the goods receipt.", "Could not reverse the goods receipt."));
+            }
+          });
+        return;
+      }
+      const refreshMatch = url.match(REFRESH_POST);
+      if (refreshMatch && req.method === "POST") {
+        const path = `/api/v1/buyer/sila/invoices/${refreshMatch[1]}/refresh-posting`;
+        void readRequestBody(req)
+          .then((raw) => handle(cloudTarget, req, res, "POST", path, raw || "{}"))
+          .catch(() => {
+            if (!res.headersSent) {
+              send(res, 500, "application/json; charset=utf-8", described(500, "Could not refresh the posting data.", "Could not refresh the posting data."));
             }
           });
         return;

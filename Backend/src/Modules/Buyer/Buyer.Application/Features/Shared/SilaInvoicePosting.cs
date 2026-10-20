@@ -641,6 +641,22 @@ namespace Buyer.Application.Features.Shared
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
+        public static async Task ClearStaleBlocksAsync(IRepositoryWrapper repository, Guid invoiceId, CancellationToken cancellationToken)
+        {
+            List<InventoryWorkflowEvent> blocks = await repository.InventoryWorkflowEvent
+                .FindByCondition(x => x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == invoiceId && x.IsActive && x.Action == ACTION_BLOCKED)
+                .ToListAsync(cancellationToken);
+            foreach (InventoryWorkflowEvent row in blocks)
+            {
+                if (SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(row.Comment)
+                    || (row.Comment != null && row.Comment.Contains("GET PO", StringComparison.OrdinalIgnoreCase)))
+                {
+                    row.IsActive = false;
+                    repository.InventoryWorkflowEvent.Update(row);
+                }
+            }
+        }
+
         public static async Task<string?> PaymentIntegrationAsync(IRepositoryWrapper repository, Guid buyerId, CancellationToken cancellationToken)
         {
             List<string> names = await repository.ApiIntegrationConfiguration
@@ -721,6 +737,8 @@ namespace Buyer.Application.Features.Shared
             {
                 logger.LogError($"GRN PDF was not stored. GoodsReceiptId: {receipt.Id}, Error: {SilaLogText.Short(exception.Message)}");
             }
+
+            await SilaInvoiceGrnGate.ReleaseBlockedInvoiceAsync(repository, invoice, cancellationToken);
 
             if (!OpenForGrn(invoice.Status))
             {

@@ -69,10 +69,16 @@ const SilaInvoiceHistory: React.FC<SilaInvoiceHistoryProps> = ({ invoiceId, vers
                 {row.message && <span className="srcv-sub">{row.message}</span>}
               </td>
               <td>
-                {row.fields ? (
+                {row.fields || row.poNumber || row.grnNumber ? (
                   <>
-                    {[row.fields.invoiceNumber, row.fields.supplierName, row.fields.poNumber].filter(Boolean).join(" · ") || "—"}
-                    <span className="srcv-sub">{row.lineCount} line{row.lineCount === 1 ? "" : "s"}</span>
+                    {[row.fields?.invoiceNumber, row.fields?.supplierName, row.poNumber || row.fields?.poNumber].filter(Boolean).join(" · ") || "—"}
+                    <span className="srcv-sub">
+                      PO {row.poNumber || row.fields?.poNumber || "—"}
+                      {" · "}
+                      GRN {row.grnNumber || "—"}
+                      {" · "}
+                      {row.lineCount} line{row.lineCount === 1 ? "" : "s"}
+                    </span>
                   </>
                 ) : "—"}
               </td>
