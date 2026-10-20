@@ -175,3 +175,61 @@ BEGIN
         @Now, @Now, @Actor, @Actor, 1
     );
 END;
+
+-- FIVE S4-GRN REVERSAL (ACTIVE, ALL) — dedicated 102 material-document POST.
+-- Copies credentials/base URL from FIVE S4-GRN POSTING when present.
+DECLARE @RevId uniqueidentifier = 'c0d5e3f2-6d4f-4a1c-9e9b-3f7a8c0d2e4f';
+
+IF NOT EXISTS (
+    SELECT 1 FROM buyersystem.api_integration_configuration
+    WHERE buyer_id = @Buyer
+      AND name = N'FIVE S4-GRN REVERSAL'
+      AND is_active = 1
+)
+BEGIN
+    DECLARE @RevUser nvarchar(250) = @S4User;
+    DECLARE @RevPassword nvarchar(max) = @S4Password;
+    DECLARE @RevBase nvarchar(500) = N'https://my419951-api.s4hana.cloud.sap';
+    DECLARE @RevPath nvarchar(500) = N'sap/opu/odata/sap/API_MATERIAL_DOCUMENT_SRV/A_MaterialDocumentHeader';
+    DECLARE @RevHeaders nvarchar(max) = N'{"Accept":"application/json","Content-Type":"application/json","x-csrf-token":"Fetch","DataServiceVersion":"2.0","MaxDataServiceVersion":"2.0"}';
+
+    SELECT TOP 1
+        @RevUser = username,
+        @RevPassword = protected_password,
+        @RevBase = base_url,
+        @RevPath = resource_path,
+        @RevHeaders = COALESCE(headers_json, @RevHeaders)
+    FROM buyersystem.api_integration_configuration
+    WHERE buyer_id = @Buyer
+      AND name IN (N'FIVE S4-GRN POSTING', N'FIVE S4 - POST GRN')
+      AND is_active = 1
+    ORDER BY CASE WHEN name = N'FIVE S4-GRN POSTING' THEN 0 ELSE 1 END;
+
+    INSERT INTO buyersystem.api_integration_configuration
+    (
+        id, buyer_id, entity_code, name, process_type, protocol, system_name,
+        base_url, resource_path, authentication_type, username, protected_password,
+        http_method, payload_format, request_body, headers_json,
+        timeout_seconds, retry_count, page_size, is_running, status,
+        date_created, date_updated, created_by, updated_by, is_active
+    )
+    VALUES
+    (
+        @RevId, @Buyer, N'ALL', N'FIVE S4-GRN REVERSAL', N'POST_GRN_REVERSAL', N'ODATA_V2', N'SAP S/4',
+        @RevBase, @RevPath, N'BASIC', @RevUser, @RevPassword,
+        N'POST', N'JSON', NULL, @RevHeaders,
+        30, 2, 100, 0, N'ACTIVE',
+        @Now, @Now, @Actor, @Actor, 1
+    );
+END;
+ELSE
+BEGIN
+    UPDATE buyersystem.api_integration_configuration
+    SET process_type = N'POST_GRN_REVERSAL',
+        status = N'ACTIVE',
+        date_updated = @Now,
+        updated_by = @Actor
+    WHERE buyer_id = @Buyer
+      AND name = N'FIVE S4-GRN REVERSAL'
+      AND is_active = 1;
+END;

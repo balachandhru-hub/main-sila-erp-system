@@ -3,20 +3,20 @@ using Buyer.Domain.Common;
 namespace Buyer.Application.Features.Shared
 {
     /// <summary>
-    /// Decides whether a goods-receipt reversal (SAP Cancel → 102) may start.
+    /// Decides whether a goods-receipt reversal (FIVE S4-GRN REVERSAL → 102) may start.
     /// A posted supplier invoice blocks until that invoice is reversed first.
     /// </summary>
     public static class SilaReceivingReversal
     {
         public const string NOT_POSTED = "NOT_POSTED";
         public const string INVOICE_FIRST = "INVOICE_REVERSAL_REQUIRED";
-        public const string NOT_CONFIGURED = "NOT CONFIGURED";
+        public const string NOT_CONFIGURED = "GRN_REVERSAL_INTEGRATION_NOT_CONFIGURED";
         public const string READY = "READY";
-        public const string ALREADY_REVERSED = "ALREADY_REVERSED";
+        public const string ALREADY_REVERSED = "GRN_ALREADY_FULLY_REVERSED";
         public const string IN_FLIGHT = "IN_FLIGHT";
-        public const string UNKNOWN = "POSTING_UNKNOWN";
+        public const string UNKNOWN = "GRN_REVERSAL_POSTING_UNKNOWN";
         public const string MISSING_MATERIAL_DOCUMENT = "MISSING_MATERIAL_DOCUMENT";
-        /// <summary>SAP Cancel succeeded; local inventory/finalization must be completed without calling Cancel again.</summary>
+        /// <summary>SAP 102 succeeded; local inventory/finalization must be completed without calling SAP again.</summary>
         public const string LOCAL_FINALIZE = "LOCAL_FINALIZE";
 
         public static string InvoiceGate(string? invoiceStatus)
@@ -56,6 +56,12 @@ namespace Buyer.Application.Features.Shared
             return invoiceGate is "INVOICE_POSTED" or "INVOICE_POSTING" or "INVOICE_REVERSAL_FAILED" or "INVOICE_REVERSAL_UNKNOWN";
         }
 
+        public static bool IsReversalEligibleStatus(string? grnStatus)
+        {
+            return string.Equals(grnStatus, Common.SILA_GRN_POSTED, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(grnStatus, Common.SILA_GRN_PARTIALLY_REVERSED, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static bool NeedsLocalFinalization(string? grnStatus, string? reversalStatus, string? reversalMaterialDocument)
         {
             if (string.Equals(grnStatus, Common.SILA_GRN_REVERSED, StringComparison.OrdinalIgnoreCase))
@@ -73,15 +79,16 @@ namespace Buyer.Application.Features.Shared
         }
 
         public static string Decide(
-            bool grnPosted,
+            bool grnEligible,
             bool invoiceBlocks,
             bool reversalConfigured,
-            bool alreadyReversed,
+            bool alreadyFullyReversed,
             string? reversalStatus,
             bool hasMaterialDocument,
-            bool needsLocalFinalization = false)
+            bool needsLocalFinalization = false,
+            bool hasRemainingReversible = true)
         {
-            if (alreadyReversed || string.Equals(reversalStatus, Common.SILA_POSTING_POSTED, StringComparison.OrdinalIgnoreCase))
+            if (alreadyFullyReversed || !hasRemainingReversible)
             {
                 return ALREADY_REVERSED;
             }
@@ -91,13 +98,14 @@ namespace Buyer.Application.Features.Shared
                 return LOCAL_FINALIZE;
             }
 
-            if (!grnPosted)
+            if (!grnEligible)
             {
                 return NOT_POSTED;
             }
 
             if (string.Equals(reversalStatus, Common.SILA_POSTING_UNKNOWN, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(reversalStatus, "POSTING_UNKNOWN", StringComparison.OrdinalIgnoreCase))
+                || string.Equals(reversalStatus, "POSTING_UNKNOWN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(reversalStatus, UNKNOWN, StringComparison.OrdinalIgnoreCase))
             {
                 return UNKNOWN;
             }

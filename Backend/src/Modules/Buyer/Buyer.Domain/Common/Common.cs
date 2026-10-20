@@ -243,6 +243,7 @@ namespace Buyer.Domain.Common
                 public const string SILA_POS_SOURCE_FILE = "FILE";
                 public const string SILA_POS_SOURCE_API = "API";
                 public const string SILA_GRN_POSTED = "POSTED";
+                public const string SILA_GRN_PARTIALLY_REVERSED = "PARTIALLY_REVERSED";
                 public const string SILA_GRN_REVERSED = "REVERSED";
                 public const string SILA_TXN_GOODS_RECEIPT_REVERSAL = "GOODS_RECEIPT_REVERSAL";
                 public const string SILA_PO_PARTIALLY_RECEIVED = "PARTIALLY_RECEIVED";

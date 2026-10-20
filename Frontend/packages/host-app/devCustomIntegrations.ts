@@ -13,7 +13,7 @@ import type { Plugin } from "vite";
 const KNOWN_PROCESS_TYPES = new Set([
   "POST_PO", "GET_STOCK", "GET_MATERIAL", "GET_CONTRACT", "POST_SUPPLIER",
   "GET_CATALOG", "GET_CATALOG_STOCK", "POST_SALES_ORDER", "POST_GOODS_MOVEMENT",
-  "UPDATE_STOCK", "POST_GRN", "GET_POS_SALE", "POST_INVOICE", "SUPPLIER_INVOICE_ATTACHMENT", "GET_SUPPLIER",
+  "UPDATE_STOCK", "POST_GRN", "POST_GRN_REVERSAL", "GET_POS_SALE", "POST_INVOICE", "SUPPLIER_INVOICE_ATTACHMENT", "GET_SUPPLIER",
   "GET_PO", "EXTRACT_INVOICE", "POST_CONTRACT",
 ]);
 
@@ -395,6 +395,11 @@ const lastSegment = (resourcePath: string): string => {
   return parts[parts.length - 1] || "";
 };
 
+const isODataProtocol = (protocol: unknown): boolean => {
+  const key = String(protocol || "").trim().replace(/[\s_-]/g, "").toUpperCase();
+  return key === "ODATAV2" || key === "ODATAV4" || key === "ODATA";
+};
+
 /** CreateUrlAsAttachment is an action. A_MaterialDocumentHeader and AttachmentContentSet are entity sets. */
 const isODataAction = (resourcePath: string): boolean => {
   const last = lastSegment(resourcePath);
@@ -412,11 +417,11 @@ const serviceDocumentUrl = (baseUrl: string, resourcePath: string): URL => {
 const probeUrl = (saved: StoredIntegration): URL => {
   const baseUrl = String(saved.public.baseUrl || "");
   const resourcePath = text(saved.public.resourcePath);
-  if (text(saved.public.protocol) === "ODATA_V4" && isODataAction(resourcePath)) {
+  if (isODataProtocol(saved.public.protocol) && isODataAction(resourcePath)) {
     return serviceDocumentUrl(baseUrl, resourcePath);
   }
   const target = new URL(resourcePath ? `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}` : baseUrl);
-  if (text(saved.public.protocol) === "ODATA_V4" && !target.searchParams.has("$top")) {
+  if (isODataProtocol(saved.public.protocol) && !target.searchParams.has("$top")) {
     target.searchParams.set("$top", "1");
   }
   return target;

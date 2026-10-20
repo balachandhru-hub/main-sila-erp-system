@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import {
   getGoodsReceiptReversal,
@@ -21,15 +21,17 @@ interface LoadFailure {
   at: string;
 }
 
-/** Cloud Reverse GRN: SAP Cancel on original Material Document (101 → 102). */
+/** Cloud GRN REVERSAL mode: original posted GRN with editable Reverse Qty → FIVE S4-GRN REVERSAL (102). */
 const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps> = ({
   goodsReceiptId,
   onClose,
   onChanged,
 }) => {
   const [preview, setPreview] = useState<SilaGrnReversalPreview | null>(null);
+  const [qtyByLine, setQtyByLine] = useState<Record<string, string>>({});
   const [error, setError] = useState<LoadFailure | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [remarks, setRemarks] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,11 +43,21 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
     at: new Date().toISOString(),
   });
 
+  const applyPreview = (data: SilaGrnReversalPreview) => {
+    setPreview(data);
+    const next: Record<string, string> = {};
+    data.lines.forEach((line) => {
+      next[line.goodsReceiptItemId] = String(line.reversalQty ?? line.remainingReversibleQty ?? 0);
+    });
+    setQtyByLine(next);
+  };
+
   const load = () => {
     setError(null);
     setShowDetails(false);
+    setConfirmOpen(false);
     getGoodsReceiptReversal(goodsReceiptId)
-      .then(setPreview)
+      .then(applyPreview)
       .catch((err: unknown) => {
         setError(asFailure(err));
       });
@@ -55,9 +67,10 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
     let active = true;
     setError(null);
     setShowDetails(false);
+    setConfirmOpen(false);
     getGoodsReceiptReversal(goodsReceiptId)
       .then((data) => {
-        if (active) setPreview(data);
+        if (active) applyPreview(data);
       })
       .catch((err: unknown) => {
         if (active) setError(asFailure(err));
@@ -67,6 +80,45 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
     };
   }, [goodsReceiptId]);
 
+  const parsedLines = useMemo(() => {
+    if (!preview) return [];
+    return preview.lines.map((line) => {
+      const raw = qtyByLine[line.goodsReceiptItemId] ?? "0";
+      const qty = Number(raw);
+      return {
+        ...line,
+        reversalQuantity: Number.isFinite(qty) ? qty : NaN,
+      };
+    });
+  }, [preview, qtyByLine]);
+
+  const selectedLines = useMemo(
+    () => parsedLines.filter((line) => Number.isFinite(line.reversalQuantity) && line.reversalQuantity > 0),
+    [parsedLines],
+  );
+
+  const qtyError = useMemo(() => {
+    for (const line of parsedLines) {
+      if (!Number.isFinite(line.reversalQuantity) || line.reversalQuantity < 0) {
+        return `Enter a valid reversal quantity for ${line.materialName}.`;
+      }
+      if (line.reversalQuantity > line.remainingReversibleQty + 0.0001) {
+        return `Reversal qty for ${line.materialName} exceeds remaining ${line.remainingReversibleQty}.`;
+      }
+    }
+    if (preview?.canReverse && !preview.localFinalizationNeeded && selectedLines.length === 0) {
+      return "Set Reversal Qty greater than zero on at least one line.";
+    }
+    return null;
+  }, [parsedLines, preview, selectedLines.length]);
+
+  const isPartial = useMemo(() => {
+    if (!preview) return false;
+    const eligible = preview.lines.filter((line) => line.remainingReversibleQty > 0.0001);
+    if (selectedLines.length !== eligible.length) return true;
+    return selectedLines.some((line) => Math.abs(line.reversalQuantity - line.remainingReversibleQty) > 0.0001);
+  }, [preview, selectedLines]);
+
   const submit = async (opts?: { reverseInvoiceAndGrn?: boolean; localFinalizationOnly?: boolean }) => {
     if (!preview) return;
     const trimmed = reason.trim();
@@ -74,13 +126,26 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
       toastService.error("Enter a reversal reason.");
       return;
     }
+    if (!opts?.localFinalizationOnly && qtyError) {
+      toastService.error(qtyError);
+      return;
+    }
     setBusy(true);
     try {
+      const today = new Date().toISOString().slice(0, 10);
       const result = await reverseGoodsReceipt(preview.goodsReceiptId, {
         reason: trimmed,
         remarks: remarks.trim() || null,
+        postingDate: today,
+        documentDate: today,
         reverseInvoiceAndGrn: opts?.reverseInvoiceAndGrn === true,
         localFinalizationOnly: opts?.localFinalizationOnly === true || preview.localFinalizationNeeded,
+        lines: opts?.localFinalizationOnly
+          ? undefined
+          : parsedLines.map((line) => ({
+              goodsReceiptItemId: line.goodsReceiptItemId,
+              reversalQuantity: line.reversalQuantity,
+            })),
       });
       toastService.success(result.message || "Goods receipt reversed.");
       onChanged?.();
@@ -90,17 +155,19 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
       load();
     } finally {
       setBusy(false);
+      setConfirmOpen(false);
     }
   };
 
   const showForm = Boolean(preview && (preview.canReverse || preview.invoiceMustReverseFirst || preview.localFinalizationNeeded));
+  const canPost = Boolean(preview?.canReverse && !preview.localFinalizationNeeded && !preview.invoiceMustReverseFirst);
 
   return (
     <Modal
       isOpen
       onClose={onClose}
       size="xl"
-      headerProps={{ heading: preview ? `Reverse GRN ${preview.grnNumber}` : "Reverse Goods Receipt" }}
+      headerProps={{ heading: preview ? `GRN REVERSAL — ${preview.grnNumber}` : "GRN REVERSAL" }}
       footerProps={{
         secondaryButton: { text: "Cancel", onClick: onClose, disabled: busy },
         primaryButton: preview?.localFinalizationNeeded
@@ -117,12 +184,22 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
                 loading: busy,
                 disabled: busy || !reason.trim(),
               }
-            : preview?.canReverse
+            : canPost
               ? {
-                  text: busy ? "Reversing..." : "Confirm reverse GRN",
-                  onClick: () => void submit(),
+                  text: busy ? "Posting..." : "POST REVERSAL",
+                  onClick: () => {
+                    if (!reason.trim()) {
+                      toastService.error("Enter a reversal reason.");
+                      return;
+                    }
+                    if (qtyError) {
+                      toastService.error(qtyError);
+                      return;
+                    }
+                    setConfirmOpen(true);
+                  },
                   loading: busy,
-                  disabled: busy || !reason.trim(),
+                  disabled: busy || !reason.trim() || Boolean(qtyError),
                 }
               : undefined,
       }}
@@ -152,22 +229,27 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
           <Loader size={24} message="Loading reversal..." />
         ) : (
           <>
+            <p className="srcv-sub">Reversal mode — reviewing the original posted GRN. Integration: {preview.integrationName || "FIVE S4-GRN REVERSAL"}</p>
             <dl className="srcv-facts">
-              <div><dt>GRN</dt><dd>{preview.grnNumber}</dd></div>
+              <div><dt>Original GRN</dt><dd>{preview.grnNumber}</dd></div>
               <div><dt>SAP Material Document</dt><dd>{preview.materialDocument || "—"}</dd></div>
               <div><dt>Material Document Year</dt><dd>{preview.materialDocumentYear || "—"}</dd></div>
               <div><dt>PO</dt><dd>{preview.poNumber}</dd></div>
               <div><dt>Supplier</dt><dd>{preview.supplierName || "—"}</dd></div>
+              <div><dt>Company Code</dt><dd>{preview.companyCode || "—"}</dd></div>
+              <div><dt>Property</dt><dd>{preview.propertyName || "—"}</dd></div>
+              <div><dt>Plant</dt><dd>{preview.plant || "—"}</dd></div>
+              <div><dt>Storage Location</dt><dd>{preview.storageLocation || "—"}</dd></div>
               <div>
-                <dt>Invoice</dt>
+                <dt>Invoice Status</dt>
                 <dd>
-                  {preview.invoiceNumber || "—"}
+                  {preview.invoiceStatus || preview.invoiceNumber || "—"}
                   {preview.invoiceGate ? ` · ${receivingLabel(preview.invoiceGate)}` : ""}
                 </dd>
               </div>
               {preview.reversalMaterialDocument && (
                 <div>
-                  <dt>Reversal Material Document</dt>
+                  <dt>Latest Reversal Material Document</dt>
                   <dd>
                     {preview.reversalMaterialDocument}
                     {preview.reversalMaterialDocumentYear ? ` / ${preview.reversalMaterialDocumentYear}` : ""}
@@ -179,7 +261,7 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
             {preview.message && (
               <div
                 className={
-                  preview.invoiceMustReverseFirst || preview.decision === "POSTING_UNKNOWN" || preview.localFinalizationNeeded
+                  preview.invoiceMustReverseFirst || preview.decision === "GRN_REVERSAL_POSTING_UNKNOWN" || preview.localFinalizationNeeded
                     ? "sila-alert sila-alert--warning"
                     : "sila-alert"
                 }
@@ -187,10 +269,6 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
               >
                 {preview.message}
               </div>
-            )}
-
-            {preview.fullDocumentCancelOnly && preview.canReverse && !preview.localFinalizationNeeded && (
-              <p className="srcv-sub">Full Material Document Cancel only (SAP 102). Partial quantity reverse is not available.</p>
             )}
 
             <h3 className="sila-section-title">Lines</h3>
@@ -202,11 +280,14 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
                   <thead>
                     <tr>
                       <th scope="col">Material</th>
-                      <th scope="col">PO item</th>
-                      <th scope="col">Original</th>
-                      <th scope="col">Previously reversed</th>
-                      <th scope="col">Remaining</th>
-                      <th scope="col">Reversal qty</th>
+                      <th scope="col">PO Item</th>
+                      <th scope="col">Received</th>
+                      <th scope="col">Reversed</th>
+                      <th scope="col">Available</th>
+                      <th scope="col">Reverse Qty</th>
+                      <th scope="col">UOM</th>
+                      <th scope="col">Plant</th>
+                      <th scope="col">SLoc</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -216,16 +297,58 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
                           <span className="sila-cell-strong">{line.materialName}</span>
                           <span className="srcv-sub">{line.materialCode || "—"}</span>
                         </td>
-                        <td>{line.poItem || "—"}{line.materialDocumentItem ? ` · MD ${line.materialDocumentItem}` : ""}</td>
+                        <td>{line.purchaseOrderItem || line.poItem || "—"}</td>
                         <td>{formatQtyUom(line.originalReceivedQty, line.uom)}</td>
                         <td>{formatQtyUom(line.previouslyReversedQty, line.uom)}</td>
                         <td>{formatQtyUom(line.remainingReversibleQty, line.uom)}</td>
-                        <td className="sila-cell-strong">{formatQtyUom(line.reversalQty, line.uom)}</td>
+                        <td>
+                          {canPost ? (
+                            <input
+                              className="sila-input"
+                              type="number"
+                              min={0}
+                              max={line.remainingReversibleQty}
+                              step="any"
+                              value={qtyByLine[line.goodsReceiptItemId] ?? "0"}
+                              disabled={busy || line.remainingReversibleQty <= 0}
+                              onChange={(event) =>
+                                setQtyByLine((current) => ({
+                                  ...current,
+                                  [line.goodsReceiptItemId]: event.target.value,
+                                }))
+                              }
+                              aria-label={`Reverse qty for ${line.materialName}`}
+                            />
+                          ) : (
+                            <span className="sila-cell-strong">{formatQtyUom(line.reversalQty, line.uom)}</span>
+                          )}
+                        </td>
+                        <td>{line.uom || "—"}</td>
+                        <td>{line.plant || preview.plant || "—"}</td>
+                        <td>{line.storageLocation || preview.storageLocation || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {preview.history && preview.history.length > 0 && (
+              <>
+                <h3 className="sila-section-title">Reversal history</h3>
+                <ul className="srcv-stack">
+                  {preview.history.map((row) => (
+                    <li key={row.erpPostingId} className="srcv-sub">
+                      {row.postedOn ? new Date(row.postedOn).toLocaleDateString() : "—"}
+                      {" · "}
+                      {row.reversedQuantity} · {row.status}
+                      {row.materialDocument ? ` · SAP ${row.materialDocument}` : ""}
+                      {row.reason ? ` · ${row.reason}` : ""}
+                      {row.errorMessage ? ` · ${row.errorMessage}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
 
             {showForm && (
@@ -250,6 +373,30 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
                   disabled={busy}
                   onChange={(event) => setRemarks(event.target.value)}
                 />
+              </div>
+            )}
+
+            {confirmOpen && (
+              <div className="sila-alert" role="alertdialog" aria-labelledby="srcv-rev-confirm-title">
+                <h3 id="srcv-rev-confirm-title" className="sila-section-title">GRN REVERSAL</h3>
+                <p>Original GRN: {preview.grnNumber}</p>
+                <p>Lines: {selectedLines.length}</p>
+                <ul>
+                  {selectedLines.map((line) => (
+                    <li key={line.goodsReceiptItemId}>
+                      Line {line.purchaseOrderItem || line.poItem} — {line.reversalQuantity} {line.uom || ""}
+                    </li>
+                  ))}
+                </ul>
+                <p>{isPartial ? "This is a partial reversal." : "This reverses all remaining quantity."}</p>
+                <div className="srcv-stack" style={{ flexDirection: "row", gap: "0.5rem" }}>
+                  <button type="button" className="sila-btn sila-btn--secondary" disabled={busy} onClick={() => setConfirmOpen(false)}>
+                    CANCEL
+                  </button>
+                  <button type="button" className="sila-btn sila-btn--primary" disabled={busy} onClick={() => void submit()}>
+                    {busy ? "Posting..." : "CONFIRM REVERSAL"}
+                  </button>
+                </div>
               </div>
             )}
           </>

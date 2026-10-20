@@ -1,3 +1,4 @@
+using System.Globalization;
 using Buyer.Application.Features.Shared;
 using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
@@ -52,7 +53,6 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 }
             }
 
-            // Invoice dependency must not abort the load — gate is returned on the preview.
             Invoice? invoice = null;
             string? invoiceLoadError = null;
             if (receipt.InvoiceId != null)
@@ -78,29 +78,38 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 ? "GRN_INVOICE_DEPENDENCY_LOAD_FAILED"
                 : SilaReceivingReversal.InvoiceGate(invoice?.Status);
             bool invoiceBlocks = SilaReceivingReversal.InvoiceBlocksGrn(invoiceGate);
-            bool grnPosted = string.Equals(receipt.Status, Common.SILA_GRN_POSTED, StringComparison.OrdinalIgnoreCase);
-            bool alreadyReversed = string.Equals(receipt.Status, Common.SILA_GRN_REVERSED, StringComparison.OrdinalIgnoreCase);
+            bool grnEligible = SilaReceivingReversal.IsReversalEligibleStatus(receipt.Status);
+            bool alreadyFullyReversed = string.Equals(receipt.Status, Common.SILA_GRN_REVERSED, StringComparison.OrdinalIgnoreCase);
             bool needsLocal = SilaReceivingReversal.NeedsLocalFinalization(
                 receipt.Status, receipt.ReversalStatus, receipt.ReversalMaterialDocument);
 
-            // Load then filter in memory — IsConfiguredName / OrdinalIgnoreCase are not EF-translatable.
-            string postGrn = IntegrationProcessType.POST_GRN.ToString();
-            List<ApiIntegrationConfiguration> postGrnApis = await _repository.ApiIntegrationConfiguration
+            string processType = IntegrationProcessType.POST_GRN_REVERSAL.ToString();
+            List<ApiIntegrationConfiguration> reversalApis = await _repository.ApiIntegrationConfiguration
                 .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
-                    && x.ProcessType == postGrn)
+                    && x.ProcessType == processType)
                 .ToListAsync(cancellationToken);
-            bool apiConfigured = postGrnApis.Any(x => SilaGrnSap.IsConfiguredName(x.Name)
-                || (x.ResourcePath != null && x.ResourcePath.Contains("API_MATERIAL_DOCUMENT_SRV", StringComparison.OrdinalIgnoreCase)));
+            ApiIntegrationConfiguration? reversalApi = reversalApis.FirstOrDefault(x => SilaGrnSap.IsReversalConfiguredName(x.Name));
+            bool apiConfigured = reversalApi != null;
 
-            string decision = SilaReceivingReversal.Decide(
-                grnPosted,
-                invoiceBlocks,
-                apiConfigured,
-                alreadyReversed,
-                receipt.ReversalStatus,
-                !string.IsNullOrWhiteSpace(receipt.MaterialDocument),
-                needsLocal);
+            InventoryLocation? location = await _repository.InventoryLocation
+                .FindByCondition(x => x.Id == receipt.LocationId && x.IsActive)
+                .FirstOrDefaultAsync(cancellationToken);
+            BuyerProperty? property = location == null
+                ? null
+                : await _repository.BuyerProperty
+                    .FindByCondition(x => x.Id == location.PropertyId && x.IsActive)
+                    .FirstOrDefaultAsync(cancellationToken);
+            PurchaseOrder? purchaseOrder = await _repository.PurchaseOrder
+                .FindByCondition(x => x.Id == receipt.PurchaseOrderId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            string? plant = !string.IsNullOrWhiteSpace(purchaseOrder?.PlantCode)
+                ? purchaseOrder!.PlantCode!.Trim()
+                : !string.IsNullOrWhiteSpace(property?.PlantCode)
+                    ? property!.PlantCode!.Trim()
+                    : string.IsNullOrWhiteSpace(purchaseOrder?.CompanyCode) ? null : purchaseOrder!.CompanyCode!.Trim();
+            string? storageLocation = location?.StorageLocationCode?.Trim();
 
             List<GoodsReceiptItem> items = await _repository.GoodsReceiptItem
                 .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive && x.AcceptedQty > TOLERANCE)
@@ -116,6 +125,51 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 .GroupBy(x => x.Id)
                 .ToDictionary(g => g.Key, g => g.First().LineNumber);
 
+            decimal totalRemaining = 0;
+            List<SilaReceivingGrnReversalLineDto> lines = new List<SilaReceivingGrnReversalLineDto>();
+            int itemIndex = 1;
+            foreach (GoodsReceiptItem item in items)
+            {
+                decimal remaining = Math.Max(0, item.AcceptedQty - item.ReversedQty);
+                totalRemaining += remaining;
+                string? lineSloc = storageLocation;
+                if (poItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId) is PurchaseOrderItem poItem
+                    && !string.IsNullOrWhiteSpace(poItem.StorageLocation))
+                {
+                    lineSloc = poItem.StorageLocation.Trim();
+                }
+
+                int lineNumber = lineNumbers.TryGetValue(item.PurchaseOrderItemId, out int ln) ? ln : 0;
+                lines.Add(new SilaReceivingGrnReversalLineDto
+                {
+                    GoodsReceiptItemId = item.Id,
+                    MaterialCode = item.MaterialCode,
+                    MaterialName = item.MaterialName,
+                    PoItem = lineNumber,
+                    PurchaseOrderItem = lineNumber > 0 ? SilaGrnSap.FormatPurchaseOrderItem(lineNumber) : null,
+                    MaterialDocumentItem = item.MaterialDocumentItem ?? itemIndex.ToString("0000", CultureInfo.InvariantCulture),
+                    OriginalReceivedQty = item.AcceptedQty,
+                    PreviouslyReversedQty = item.ReversedQty,
+                    RemainingReversibleQty = remaining,
+                    ReversalQty = remaining,
+                    Uom = item.Uom,
+                    Plant = plant,
+                    StorageLocation = lineSloc
+                });
+                itemIndex++;
+            }
+
+            bool hasRemaining = totalRemaining > TOLERANCE;
+            string decision = SilaReceivingReversal.Decide(
+                grnEligible,
+                invoiceBlocks,
+                apiConfigured,
+                alreadyFullyReversed,
+                receipt.ReversalStatus,
+                !string.IsNullOrWhiteSpace(receipt.MaterialDocument),
+                needsLocal,
+                hasRemaining);
+
             List<SilaReceivingGrnListItemDto> headers = await SilaReceivingRules.ToGrnListAsync(
                 _repository, new List<GoodsReceipt> { receipt }, cancellationToken);
             if (headers.Count == 0)
@@ -127,42 +181,53 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
 
             SilaReceivingGrnListItemDto header = headers[0];
 
-            List<SilaReceivingGrnReversalLineDto> lines = new List<SilaReceivingGrnReversalLineDto>();
-            int itemIndex = 1;
-            foreach (GoodsReceiptItem item in items)
+            List<InventoryErpPosting> historyPostings = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == buyer.Id && x.ReferenceId == receipt.Id
+                    && x.ReferenceType == Common.SILA_REF_GRN_REVERSAL && x.IsActive)
+                .OrderByDescending(x => x.DateCreated)
+                .ToListAsync(cancellationToken);
+            List<SilaReceivingGrnReversalHistoryDto> history = historyPostings.Select(posting =>
             {
-                decimal remaining = Math.Max(0, item.AcceptedQty - item.ReversedQty);
-                lines.Add(new SilaReceivingGrnReversalLineDto
+                decimal qty = SilaGrnSap.ReadReversalQuantities(posting.ErpRequestPayload).Sum(x => x.Quantity);
+                (string? md, string? year) = SilaGrnSap.ReadMaterialDocument(posting.ErpResponsePayload, posting.ErpReference);
+                return new SilaReceivingGrnReversalHistoryDto
                 {
-                    GoodsReceiptItemId = item.Id,
-                    MaterialCode = item.MaterialCode,
-                    MaterialName = item.MaterialName,
-                    PoItem = lineNumbers.TryGetValue(item.PurchaseOrderItemId, out int ln) ? ln : 0,
-                    MaterialDocumentItem = item.MaterialDocumentItem ?? itemIndex.ToString("0000"),
-                    OriginalReceivedQty = item.AcceptedQty,
-                    PreviouslyReversedQty = item.ReversedQty,
-                    RemainingReversibleQty = remaining,
-                    ReversalQty = remaining,
-                    Uom = item.Uom
-                });
-                itemIndex++;
+                    ErpPostingId = posting.Id,
+                    ReversalNumber = posting.ReferenceNumber,
+                    PostedOn = posting.PostedOn ?? posting.DateUpdated,
+                    Status = posting.Status,
+                    MaterialDocument = md,
+                    MaterialDocumentYear = year,
+                    Reason = null,
+                    ReversedQuantity = qty,
+                    ErrorMessage = posting.ErrorMessage
+                };
+            }).ToList();
+
+            // Attach latest reversal reason from GRN header onto the newest history row when present.
+            if (history.Count > 0 && !string.IsNullOrWhiteSpace(receipt.ReversalReason))
+            {
+                history[0].Reason = receipt.ReversalReason;
             }
 
             string? message = invoiceLoadError ?? decision switch
             {
                 SilaReceivingReversal.INVOICE_FIRST =>
-                    "This Goods Receipt has already been invoiced. The SAP Supplier Invoice must be reversed before the Goods Receipt can be reversed.",
-                SilaReceivingReversal.ALREADY_REVERSED => "This goods receipt is already reversed.",
-                SilaReceivingReversal.UNKNOWN => "GRN reversal outcome is unknown. Reconcile with SAP before retrying.",
+                    "Invoice Status: " + (invoice?.Status ?? "POSTED") + ". GRN reversal requires Invoice reversal first.",
+                SilaReceivingReversal.ALREADY_REVERSED => "This goods receipt is fully reversed. No reversible quantity remains.",
+                SilaReceivingReversal.UNKNOWN =>
+                    "GRN_REVERSAL_POSTING_UNKNOWN. Reconcile with SAP before retrying. Do not reverse local inventory.",
                 SilaReceivingReversal.IN_FLIGHT => "A GRN reversal is already processing.",
                 SilaReceivingReversal.LOCAL_FINALIZE =>
-                    "SAP Cancel succeeded but local inventory finalization failed. Reprocess local finalization only. Do not Cancel again.",
+                    "GRN_REVERSAL_LOCAL_FINALIZATION_FAILED. SAP 102 succeeded but local inventory finalization failed. Reprocess local finalization only. Do not call FIVE S4-GRN REVERSAL again.",
                 SilaReceivingReversal.MISSING_MATERIAL_DOCUMENT =>
                     "GRN " + receipt.GrnNumber + " was found, but its SAP Material Document number is missing.",
-                SilaReceivingReversal.NOT_CONFIGURED => "No active FIVE S4 Material Document API is configured for Cancel.",
+                SilaReceivingReversal.NOT_CONFIGURED =>
+                    "GRN_REVERSAL_INTEGRATION_NOT_CONFIGURED. Configure an ACTIVE integration named FIVE S4-GRN REVERSAL (API type POST_GRN_REVERSAL).",
                 SilaReceivingReversal.NOT_POSTED =>
-                    "Only a posted goods receipt can be reversed. Current status: " + receipt.Status + ".",
-                SilaReceivingReversal.READY => "SAP Cancel will reverse the full Material Document (movement type 102).",
+                    "GRN_NOT_POSTED. Only a posted or partially reversed goods receipt can be reversed. Current status: " + receipt.Status + ".",
+                SilaReceivingReversal.READY =>
+                    "Adjust Reversal Qty per line (default = remaining). POST REVERSAL calls FIVE S4-GRN REVERSAL with movement type 102.",
                 _ => null
             };
 
@@ -178,6 +243,11 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 ReversalStatus = receipt.ReversalStatus,
                 PoNumber = receipt.PoNumber,
                 SupplierName = header.SupplierName,
+                CompanyCode = purchaseOrder?.CompanyCode,
+                PropertyName = property?.PropertyName,
+                Plant = plant,
+                StorageLocation = storageLocation,
+                OriginalPostingDate = receipt.DateCreated,
                 InvoiceId = receipt.InvoiceId,
                 InvoiceNumber = header.InvoiceNumber ?? invoice?.InvoiceNumber,
                 InvoiceStatus = invoice?.Status,
@@ -186,9 +256,11 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 CanReverse = decision == SilaReceivingReversal.READY || decision == SilaReceivingReversal.LOCAL_FINALIZE,
                 InvoiceMustReverseFirst = decision == SilaReceivingReversal.INVOICE_FIRST,
                 LocalFinalizationNeeded = decision == SilaReceivingReversal.LOCAL_FINALIZE,
-                FullDocumentCancelOnly = true,
+                FullDocumentCancelOnly = false,
+                IntegrationName = reversalApi?.Name,
                 Message = message,
-                Lines = lines
+                Lines = lines,
+                History = history
             };
         }
     }

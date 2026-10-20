@@ -207,12 +207,27 @@ export interface SilaGrnReversalLine {
   materialCode?: string | null;
   materialName: string;
   poItem: number;
+  purchaseOrderItem?: string | null;
   materialDocumentItem?: string | null;
   originalReceivedQty: number;
   previouslyReversedQty: number;
   remainingReversibleQty: number;
   reversalQty: number;
   uom?: string | null;
+  plant?: string | null;
+  storageLocation?: string | null;
+}
+
+export interface SilaGrnReversalHistory {
+  erpPostingId: string;
+  reversalNumber?: string | null;
+  postedOn?: string | null;
+  status: string;
+  materialDocument?: string | null;
+  materialDocumentYear?: string | null;
+  reason?: string | null;
+  reversedQuantity: number;
+  errorMessage?: string | null;
 }
 
 export interface SilaGrnReversalPreview {
@@ -226,6 +241,11 @@ export interface SilaGrnReversalPreview {
   reversalStatus?: string | null;
   poNumber: string;
   supplierName?: string | null;
+  companyCode?: string | null;
+  propertyName?: string | null;
+  plant?: string | null;
+  storageLocation?: string | null;
+  originalPostingDate?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
   invoiceStatus?: string | null;
@@ -235,15 +255,25 @@ export interface SilaGrnReversalPreview {
   invoiceMustReverseFirst: boolean;
   localFinalizationNeeded: boolean;
   fullDocumentCancelOnly: boolean;
+  integrationName?: string | null;
   message?: string | null;
   lines: SilaGrnReversalLine[];
+  history?: SilaGrnReversalHistory[];
+}
+
+export interface SilaGrnReversalLineWrite {
+  goodsReceiptItemId: string;
+  reversalQuantity: number;
 }
 
 export interface SilaGrnReversalWrite {
   reason: string;
   remarks?: string | null;
+  postingDate?: string | null;
+  documentDate?: string | null;
   reverseInvoiceAndGrn?: boolean;
   localFinalizationOnly?: boolean;
+  lines?: SilaGrnReversalLineWrite[];
 }
 
 export interface SilaGrnReversalResult {

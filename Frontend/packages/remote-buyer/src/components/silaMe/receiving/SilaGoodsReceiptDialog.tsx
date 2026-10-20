@@ -59,7 +59,11 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({
   const showReverse =
     canReverse &&
     status !== "REVERSED" &&
-    (status === "POSTED" || reversalStatus === "FAILED" || reversalStatus === "FAILED_LOCAL" || reversalStatus === "ERP_ACCEPTED");
+    (status === "POSTED"
+      || status === "PARTIALLY_REVERSED"
+      || reversalStatus === "FAILED"
+      || reversalStatus === "FAILED_LOCAL"
+      || reversalStatus === "ERP_ACCEPTED");
 
   const handleReprocess = async () => {
     if (!posting) return;

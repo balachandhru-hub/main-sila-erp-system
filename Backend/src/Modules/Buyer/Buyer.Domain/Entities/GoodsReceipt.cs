@@ -42,7 +42,7 @@ namespace Buyer.Domain.Entities
 
         public string? MaterialDocumentYear { get; set; }
 
-        /// <summary>SAP Material Document created by Cancel (102).</summary>
+        /// <summary>Latest SAP Material Document created by FIVE S4-GRN REVERSAL (102).</summary>
         public string? ReversalMaterialDocument { get; set; }
 
         public string? ReversalMaterialDocumentYear { get; set; }

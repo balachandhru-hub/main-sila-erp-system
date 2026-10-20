@@ -33,15 +33,16 @@ const GrnDetailScreen: React.FC = () => {
   const [busy, setBusy] = useState<'invoice' | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
 
-  const posted = (data?.status || '').toUpperCase() === 'POSTED';
-  const reversed = (data?.status || '').toUpperCase() === 'REVERSED';
+  const status = (data?.status || '').toUpperCase();
+  const reversalStatus = (data?.reversalStatus || '').toUpperCase();
   const canPostInvoice = !!data?.invoiceId && INVOICE_SUBMIT_OK.has((data.invoiceStatus || '').toUpperCase());
   const showReverse =
-    !reversed &&
-    (posted ||
-      (data?.reversalStatus || '').toUpperCase() === 'FAILED' ||
-      (data?.reversalStatus || '').toUpperCase() === 'FAILED_LOCAL' ||
-      (data?.reversalStatus || '').toUpperCase() === 'ERP_ACCEPTED');
+    status !== 'REVERSED' &&
+    (status === 'POSTED' ||
+      status === 'PARTIALLY_REVERSED' ||
+      reversalStatus === 'FAILED' ||
+      reversalStatus === 'FAILED_LOCAL' ||
+      reversalStatus === 'ERP_ACCEPTED');
 
   const onPostInvoice = async () => {
     if (!data?.invoiceId) return;

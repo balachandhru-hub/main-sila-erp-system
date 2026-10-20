@@ -21,10 +21,10 @@ namespace SharedKernel.Integration.Rules
             ApiIntegrationConfiguration configuration,
             CancellationToken cancellationToken)
         {
-            if (configuration.Protocol != IntegrationProtocol.ODATA_V4)
+            if (configuration.Protocol is not (IntegrationProtocol.ODATA_V2 or IntegrationProtocol.ODATA_V4))
             {
                 logger.LogError($"Schema discovery is not supported for this protocol. ConfigurationId: {configuration.Id}, Protocol: {configuration.Protocol}");
-                throw new BadRequestCustomException("Schema discovery is not supported.", "Schema discovery is available for OData V4 configurations.");
+                throw new BadRequestCustomException("Schema discovery is not supported.", "Schema discovery is available for OData V2 and OData V4 configurations.");
             }
 
             string metadataUrl = executor.MetadataUrl(configuration);
