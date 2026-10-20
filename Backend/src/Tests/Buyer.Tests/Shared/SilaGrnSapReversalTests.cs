@@ -43,11 +43,13 @@ namespace Buyer.Tests.Shared
             Assert.Equal("2026-10-19T00:00:00", root.GetProperty("PostingDate").GetString());
             Assert.Equal("2026-10-19T00:00:00", root.GetProperty("DocumentDate").GetString());
             Assert.Equal("01", root.GetProperty("GoodsMovementCode").GetString());
-            Assert.Equal("GRN Partial Reversal", root.GetProperty("DocumentHeaderText").GetString());
+            Assert.Equal("GRN Partial Reversal", root.GetProperty("MaterialDocumentHeaderText").GetString());
+            Assert.False(root.TryGetProperty("DocumentHeaderText", out _));
             Assert.Equal("GRN-REVERSAL", root.GetProperty("ReferenceDocument").GetString());
 
             JsonElement items = root.GetProperty("to_MaterialDocumentItem");
             Assert.Equal(2, items.GetArrayLength());
+            Assert.Equal("B", items[0].GetProperty("GoodsMovementRefDocType").GetString());
             Assert.Equal("102", items[0].GetProperty("GoodsMovementType").GetString());
             Assert.Equal("4", items[0].GetProperty("QuantityInEntryUnit").GetString());
             Assert.Equal("00010", items[0].GetProperty("PurchaseOrderItem").GetString());
@@ -80,7 +82,7 @@ namespace Buyer.Tests.Shared
                 });
 
             using JsonDocument json = JsonDocument.Parse(body);
-            Assert.Equal("GRN Reversal", json.RootElement.GetProperty("DocumentHeaderText").GetString());
+            Assert.Equal("GRN Reversal", json.RootElement.GetProperty("MaterialDocumentHeaderText").GetString());
             Assert.Equal("10", json.RootElement.GetProperty("to_MaterialDocumentItem")[0].GetProperty("QuantityInEntryUnit").GetString());
         }
 

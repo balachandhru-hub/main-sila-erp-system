@@ -119,9 +119,14 @@ namespace Buyer.Application.Features.Shared
             using JsonDocument json = JsonDocument.Parse(body);
             JsonElement root = json.RootElement;
             string expectedHeader = isFullRemainingReversal ? REVERSAL_HEADER_TEXT_FULL : REVERSAL_HEADER_TEXT_PARTIAL;
-            string? header = root.TryGetProperty("DocumentHeaderText", out JsonElement headerEl) ? headerEl.GetString() : null;
+            if (root.TryGetProperty("DocumentHeaderText", out _))
+            {
+                return FieldMismatch(REVERSAL_MISMATCH, "DocumentHeaderText", "(not used; API_MATERIAL_DOCUMENT_SRV field is MaterialDocumentHeaderText)", root.GetProperty("DocumentHeaderText").ToString());
+            }
+
+            string? header = root.TryGetProperty("MaterialDocumentHeaderText", out JsonElement headerEl) ? headerEl.GetString() : null;
             string? code = root.TryGetProperty("GoodsMovementCode", out JsonElement codeEl) ? codeEl.GetString() : null;
-            string? mismatch = CompareField(REVERSAL_MISMATCH, "DocumentHeaderText", expectedHeader, header)
+            string? mismatch = CompareField(REVERSAL_MISMATCH, "MaterialDocumentHeaderText", expectedHeader, header)
                 ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementCode", GOODS_MOVEMENT_CODE, code);
             if (mismatch != null)
             {
@@ -147,6 +152,7 @@ namespace Buyer.Application.Features.Shared
                     ?? CompareField(REVERSAL_MISMATCH, "Plant", prepared.Plant, Read("Plant"))
                     ?? CompareField(REVERSAL_MISMATCH, "StorageLocation", prepared.StorageLocation, Read("StorageLocation"))
                     ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementType", REVERSAL_GOODS_MOVEMENT_TYPE, Read("GoodsMovementType"))
+                    ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementRefDocType", GOODS_MOVEMENT_REF_DOC_TYPE, Read("GoodsMovementRefDocType"))
                     ?? CompareField(REVERSAL_MISMATCH, "EntryUnit", prepared.EntryUnit, Read("EntryUnit"), ignoreCase: true)
                     ?? CompareField(REVERSAL_MISMATCH, "PurchaseOrder", prepared.PurchaseOrder, Read("PurchaseOrder"))
                     ?? CompareField(REVERSAL_MISMATCH, "PurchaseOrderItem", prepared.PurchaseOrderItem, Read("PurchaseOrderItem"))
@@ -165,7 +171,8 @@ namespace Buyer.Application.Features.Shared
         private static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "(empty)" : value.Trim();
 
         /// <summary>
-        /// Approved FIVE S4-GRN REVERSAL body: GoodsMovementType 102, positive QuantityInEntryUnit.
+        /// Approved FIVE S4-GRN REVERSAL body: MaterialDocumentHeaderText, GoodsMovementType 102, positive QuantityInEntryUnit.
+        /// DocumentHeaderText is rejected by API_MATERIAL_DOCUMENT_SRV (same header field as 101).
         /// </summary>
         public static string ReversalBody(
             DateTime postingDate,
@@ -191,6 +198,7 @@ namespace Buyer.Application.Features.Shared
                     ["Material"] = line.Material.Trim(),
                     ["Plant"] = line.Plant.Trim(),
                     ["GoodsMovementType"] = REVERSAL_GOODS_MOVEMENT_TYPE,
+                    ["GoodsMovementRefDocType"] = GOODS_MOVEMENT_REF_DOC_TYPE,
                     ["QuantityInEntryUnit"] = FormatQuantity(line.Quantity),
                     ["EntryUnit"] = line.EntryUnit.Trim(),
                     ["PurchaseOrder"] = line.PurchaseOrder.Trim(),
@@ -209,7 +217,7 @@ namespace Buyer.Application.Features.Shared
                 ["PostingDate"] = FormatSapDate(postingDate),
                 ["DocumentDate"] = FormatSapDate(documentDate),
                 ["GoodsMovementCode"] = GOODS_MOVEMENT_CODE,
-                ["DocumentHeaderText"] = headerText,
+                ["MaterialDocumentHeaderText"] = headerText,
                 ["ReferenceDocument"] = reference,
                 ["to_MaterialDocumentItem"] = items
             });

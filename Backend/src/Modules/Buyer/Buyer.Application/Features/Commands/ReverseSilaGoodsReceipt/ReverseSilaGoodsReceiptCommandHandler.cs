@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Buyer.Application.Features.Commands.SendIntegrationRequest;
 using Buyer.Application.Features.Queries.ResolveIntegration;
 using Buyer.Application.Features.Shared;
@@ -350,7 +351,7 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
 
             if (!send.Answered || send.StatusCode < 200 || send.StatusCode >= 300)
             {
-                string sapError = send.ErrorMessage ?? $"HTTP {send.StatusCode}";
+                string sapError = SapErrorText(send.ErrorMessage, send.ResponseBody, send.StatusCode);
                 reversalPosting.Status = Common.SILA_POSTING_FAILED;
                 reversalPosting.ErrorMessage = sapError.Length > 2000 ? sapError[..2000] : sapError;
                 receipt.ReversalStatus = Common.SILA_POSTING_FAILED;
@@ -681,6 +682,36 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 ActorUserId = userId,
                 IsActive = true
             });
+        }
+
+        private static string SapErrorText(string? sendError, string? responseBody, int statusCode)
+        {
+            string? sapMessage = null;
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                try
+                {
+                    using JsonDocument json = JsonDocument.Parse(responseBody);
+                    if (json.RootElement.TryGetProperty("error", out JsonElement error)
+                        && error.TryGetProperty("message", out JsonElement message))
+                    {
+                        sapMessage = message.ValueKind == JsonValueKind.String
+                            ? message.GetString()
+                            : message.TryGetProperty("value", out JsonElement value) ? value.GetString() : null;
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Keep the HTTP status text when the ERP body is not JSON.
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(sapMessage))
+            {
+                return $"HTTP {statusCode}. {sapMessage.Trim()}";
+            }
+
+            return string.IsNullOrWhiteSpace(sendError) ? $"HTTP {statusCode}" : sendError;
         }
 
         private static SilaReceivingGrnReversalResultDto Result(GoodsReceipt receipt, string message)
