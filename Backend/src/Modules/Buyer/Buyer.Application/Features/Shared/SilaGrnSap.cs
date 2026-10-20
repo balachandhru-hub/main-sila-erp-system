@@ -4,11 +4,9 @@ using System.Text.Json;
 namespace Buyer.Application.Features.Shared
 {
     /// <summary>
-    /// SAP S/4 goods receipt posted through the POST_GRN configuration named FIVE S4-GRN POSTING
-    /// (API_MATERIAL_DOCUMENT_SRV / A_MaterialDocumentHeader). Shape matches the previous SILAME
-    /// S4HanaPostGrnAdapter: GoodsMovementCode 01, movement type 101.
-    /// Reversal uses a separate configuration FIVE S4-GRN REVERSAL (POST_GRN_REVERSAL) posting
-    /// movement type 102 with the confirmed reversal quantity (full or partial).
+    /// PROTECTED / FROZEN: GRN SAP 101 posting mapper and GRN SAP 102 reversal mapper.
+    /// 101 uses FIVE S4-GRN POSTING only. 102 uses FIVE S4-GRN REVERSAL only.
+    /// Do not invent sample/fallback SAP values. Do not change the frozen 101 field contract.
     /// </summary>
     public static class SilaGrnSap
     {
@@ -71,6 +69,92 @@ namespace Buyer.Application.Features.Shared
         {
             return lineNumber.ToString("00000", CultureInfo.InvariantCulture);
         }
+
+        public const string POSTING_MISMATCH = "GRN_REQUEST_MAPPING_MISMATCH";
+        public const string POSTING_MISSING = "GRN_REQUIRED_FIELD_MISSING";
+        public const string REVERSAL_MISMATCH = "GRN_REVERSAL_REQUEST_MAPPING_MISMATCH";
+
+        public static string FieldMismatch(string code, string field, string? prepared, string? outbound)
+        {
+            return code + ". Field " + field + ". Prepared Value: " + Display(prepared) + ". Outbound Value: " + Display(outbound) + ".";
+        }
+
+        public static string FieldMissing(string code, string field)
+        {
+            return code + ". Field " + field + " is missing on the prepared document.";
+        }
+
+        public static string? CompareField(string code, string field, string? prepared, string? outbound, bool ignoreCase = false)
+        {
+            if (string.IsNullOrWhiteSpace(prepared))
+            {
+                return FieldMissing(code == REVERSAL_MISMATCH ? "GRN_REVERSAL_REQUIRED_FIELD_MISSING" : POSTING_MISSING, field);
+            }
+
+            if (string.IsNullOrWhiteSpace(outbound))
+            {
+                return FieldMismatch(code, field, prepared, outbound);
+            }
+
+            StringComparison comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            if (!string.Equals(prepared.Trim(), outbound.Trim(), comparison))
+            {
+                return FieldMismatch(code, field, prepared, outbound);
+            }
+
+            return null;
+        }
+
+        /// <summary>Outbound 102 body must match original GRN material/PO/plant/SLoc/UOM and confirmed reversal qty.</summary>
+        public static string? ValidateReversalBody(string body, IReadOnlyList<SilaGrnReversalSapLine> expected, bool isFullRemainingReversal)
+        {
+            using JsonDocument json = JsonDocument.Parse(body);
+            JsonElement root = json.RootElement;
+            string expectedHeader = isFullRemainingReversal ? REVERSAL_HEADER_TEXT_FULL : REVERSAL_HEADER_TEXT_PARTIAL;
+            string? header = root.TryGetProperty("DocumentHeaderText", out JsonElement headerEl) ? headerEl.GetString() : null;
+            string? code = root.TryGetProperty("GoodsMovementCode", out JsonElement codeEl) ? codeEl.GetString() : null;
+            string? mismatch = CompareField(REVERSAL_MISMATCH, "DocumentHeaderText", expectedHeader, header)
+                ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementCode", GOODS_MOVEMENT_CODE, code);
+            if (mismatch != null)
+            {
+                return mismatch;
+            }
+
+            if (!root.TryGetProperty("to_MaterialDocumentItem", out JsonElement lines) || lines.ValueKind != JsonValueKind.Array)
+            {
+                return FieldMissing(REVERSAL_MISMATCH, "to_MaterialDocumentItem");
+            }
+
+            if (lines.GetArrayLength() != expected.Count)
+            {
+                return FieldMismatch(REVERSAL_MISMATCH, "to_MaterialDocumentItem.Count", expected.Count.ToString(CultureInfo.InvariantCulture), lines.GetArrayLength().ToString(CultureInfo.InvariantCulture));
+            }
+
+            int index = 0;
+            foreach (JsonElement line in lines.EnumerateArray())
+            {
+                SilaGrnReversalSapLine prepared = expected[index];
+                string? Read(string name) => line.TryGetProperty(name, out JsonElement value) ? value.ToString() : null;
+                mismatch = CompareField(REVERSAL_MISMATCH, "Material", prepared.Material, Read("Material"))
+                    ?? CompareField(REVERSAL_MISMATCH, "Plant", prepared.Plant, Read("Plant"))
+                    ?? CompareField(REVERSAL_MISMATCH, "StorageLocation", prepared.StorageLocation, Read("StorageLocation"))
+                    ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementType", REVERSAL_GOODS_MOVEMENT_TYPE, Read("GoodsMovementType"))
+                    ?? CompareField(REVERSAL_MISMATCH, "EntryUnit", prepared.EntryUnit, Read("EntryUnit"), ignoreCase: true)
+                    ?? CompareField(REVERSAL_MISMATCH, "PurchaseOrder", prepared.PurchaseOrder, Read("PurchaseOrder"))
+                    ?? CompareField(REVERSAL_MISMATCH, "PurchaseOrderItem", prepared.PurchaseOrderItem, Read("PurchaseOrderItem"))
+                    ?? CompareField(REVERSAL_MISMATCH, "QuantityInEntryUnit", FormatQuantity(prepared.Quantity), Read("QuantityInEntryUnit"));
+                if (mismatch != null)
+                {
+                    return mismatch;
+                }
+
+                index++;
+            }
+
+            return null;
+        }
+
+        private static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "(empty)" : value.Trim();
 
         /// <summary>
         /// Approved FIVE S4-GRN REVERSAL body: GoodsMovementType 102, positive QuantityInEntryUnit.

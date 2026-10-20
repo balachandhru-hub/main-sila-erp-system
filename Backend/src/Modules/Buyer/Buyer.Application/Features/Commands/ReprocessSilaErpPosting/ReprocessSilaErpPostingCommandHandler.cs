@@ -10,6 +10,10 @@ using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
 {
+    /// <summary>
+    /// PROTECTED / FROZEN: GRN / invoice reprocessing. POSTING_UNKNOWN must reconcile.
+    /// SAP success + local failure finalizes locally and does not call SAP again.
+    /// </summary>
     public class ReprocessSilaErpPostingCommandHandler : IRequestHandler<ReprocessSilaErpPostingCommand, Guid>
     {
         private readonly IRepositoryWrapper _repository;

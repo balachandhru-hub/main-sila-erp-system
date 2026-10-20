@@ -253,6 +253,11 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             }
 
             string body = SilaGrnSap.ReversalBody(postingDate, documentDate, isFullRemaining, null, sapLines);
+            string? mappingError = SilaGrnSap.ValidateReversalBody(body, sapLines, isFullRemaining);
+            if (mappingError != null)
+            {
+                throw new BadRequestCustomException(SilaGrnSap.REVERSAL_MISMATCH, mappingError);
+            }
 
             // New posting attempt when previous is terminal success/failure; reuse only FAILED for reprocess of same attempt.
             InventoryErpPosting? reversalPosting = null;
@@ -290,7 +295,7 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                     Status = Common.SILA_POSTING_PENDING,
                     Attempts = 0,
                     CompanyCode = api.EntityCode == IntegrationConstants.ENTITY_CODE_ALL ? null : api.EntityCode,
-                    IntegrationSystem = api.SystemName,
+                    IntegrationSystem = api.Name,
                     IsActive = true
                 };
                 _repository.InventoryErpPosting.Create(reversalPosting);
@@ -309,7 +314,9 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 $"Calling {SilaGrnSap.REVERSAL_API_CONFIG_NAME} for {selected.Count} line(s); original MD {receipt.MaterialDocument}/{receipt.MaterialDocumentYear}");
 
             reversalPosting.Attempts++;
-            reversalPosting.ErpRequestPayload = body.Length > 4000 ? body[..4000] : body;
+            reversalPosting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            reversalPosting.IntegrationSystem = api.Name;
+            await _repository.SaveAsync();
             IntegrationSendResultDto send = await _mediator.Send(new SendIntegrationRequestCommand
             {
                 OrganizationId = request.OrganizationId,
@@ -324,8 +331,9 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             }, cancellationToken);
 
             reversalPosting.ErpHttpStatus = send.StatusCode;
-            reversalPosting.ErpResponsePayload = send.ResponseBody;
-            reversalPosting.IntegrationSystem = api.SystemName ?? reversalPosting.IntegrationSystem;
+            reversalPosting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            reversalPosting.ErpResponsePayload = SilaErpPayload.Sanitise(send.ResponseBody);
+            reversalPosting.IntegrationSystem = api.Name;
 
             if (send.OutcomeUnknown || (!send.Answered && send.OutcomeUnknown))
             {

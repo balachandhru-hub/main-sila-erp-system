@@ -20,8 +20,8 @@ using SharedKernel.LoggerServices;
 namespace Buyer.Application.Features.Commands.PostPendingErpPostings
 {
     /// <summary>
-    /// Each posting is sent and saved on its own, so a document that reached the ERP is never sent again because a later
-    /// posting of the same run failed. A posting is retried by the next runs until it fails three times.
+    /// PROTECTED / FROZEN orchestrator for GRN 101 (FIVE S4-GRN POSTING), invoice posting (FIVE S4-INVOICE POSTING),
+    /// and other ERP postings. Each posting is sent and saved on its own.
     /// </summary>
     public class PostPendingErpPostingsCommandHandler : IRequestHandler<PostPendingErpPostingsCommand, SilaErpPostingRunResultDto>
     {
@@ -224,11 +224,18 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, blocked, cancellationToken);
                 }
             }
+            else if (isGrn)
+            {
+                string? grnError;
+                (document, grnError) = await BuildGrnAsync(posting, location, property, cancellationToken);
+                if (grnError != null)
+                {
+                    return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null, grnError, cancellationToken);
+                }
+            }
             else
             {
-                document = isGrn
-                    ? await BuildGrnAsync(posting, location, property, cancellationToken)
-                    : await BuildMovementAsync(posting, location, property, cancellationToken);
+                document = await BuildMovementAsync(posting, location, property, cancellationToken);
             }
 
             if (document == null)
@@ -255,11 +262,23 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 .FindByCondition(x => x.ConfigurationId == api.ConfigurationId.Value && x.IsActive)
                 .ToListAsync(cancellationToken);
             string area = isGrn ? AREA_GRN : isInvoice ? AREA_INVOICE : AREA_GOODS_MOVEMENT;
-            // FIVE S4-GRN POSTING / API_MATERIAL_DOCUMENT_SRV always use SapGrnBody from the prepared GRN.
-            // A sample request_body on the integration row must not replace authoritative GRN values.
-            bool sapGrn = isGrn
-                && (SilaGrnSap.IsConfiguredName(api.Name)
-                    || (api.ResourcePath ?? string.Empty).Contains("API_MATERIAL_DOCUMENT_SRV", StringComparison.OrdinalIgnoreCase));
+            // PROTECTED: GRN 101 uses FIVE S4-GRN POSTING only. Never FIVE S4-GRN REVERSAL or a generic Material Document URL.
+            if (isGrn && (SilaGrnSap.IsReversalConfiguredName(api.Name) || api.ProcessType == IntegrationProcessType.POST_GRN_REVERSAL))
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null,
+                    "GRN posting must use " + SilaGrnSap.API_CONFIG_NAME + ". " + SilaGrnSap.REVERSAL_API_CONFIG_NAME + " must not be used for movement type 101.",
+                    cancellationToken);
+            }
+
+            if (isGrn && !SilaGrnSap.IsConfiguredName(api.Name))
+            {
+                string companyScope = posting.CompanyCode == null ? string.Empty : $" for company code {posting.CompanyCode} (or ALL)";
+                return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null,
+                    $"No active {SilaGrnSap.API_CONFIG_NAME} API is configured{companyScope}. Resolved '{api.Name}'.",
+                    cancellationToken);
+            }
+
+            bool sapGrn = isGrn && SilaGrnSap.IsConfiguredName(api.Name);
             bool sapShape = stockCount
                 && string.IsNullOrWhiteSpace(api.RequestBody)
                 && (string.Equals(api.Name, SilaStockCountSap.API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
@@ -866,14 +885,25 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         }
 
         // The goods receipt against its purchase order: the accepted quantity of each line.
-        private async Task<ErpDocument?> BuildGrnAsync(InventoryErpPosting posting, InventoryLocation? location, BuyerProperty? property, CancellationToken cancellationToken)
+        /// <summary>PROTECTED / FROZEN: GRN 101 document from the persisted prepared GRN only.</summary>
+        private async Task<(ErpDocument? Document, string? Error)> BuildGrnAsync(InventoryErpPosting posting, InventoryLocation? location, BuyerProperty? property, CancellationToken cancellationToken)
         {
             GoodsReceipt? receipt = await _repository.GoodsReceipt
                 .FindByCondition(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId)
                 .FirstOrDefaultAsync(cancellationToken);
             if (receipt == null)
             {
-                return null;
+                return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "GoodsReceipt"));
+            }
+
+            if (string.IsNullOrWhiteSpace(receipt.PoNumber))
+            {
+                return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "PurchaseOrder"));
+            }
+
+            if (string.IsNullOrWhiteSpace(receipt.GrnNumber))
+            {
+                return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "MaterialDocumentHeaderText"));
             }
 
             List<GoodsReceiptItem> items = await _repository.GoodsReceiptItem
@@ -890,58 +920,87 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             items = items.Where(x => x.MaterialId != null && stockedMaterialIds.Contains(x.MaterialId.Value)).ToList();
             if (items.Count == 0)
             {
-                return null;
+                return (null, null);
             }
 
             List<Guid> poItemIds = items.Select(x => x.PurchaseOrderItemId).ToList();
-            Dictionary<Guid, int> lineNumbers = await _repository.PurchaseOrderItem
+            Dictionary<Guid, PurchaseOrderItem> poItems = await _repository.PurchaseOrderItem
                 .FindByCondition(x => poItemIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, x => x.LineNumber, cancellationToken);
+                .ToDictionaryAsync(x => x.Id, cancellationToken);
             var poCodes = await _repository.PurchaseOrder
                 .FindByCondition(x => x.Id == receipt.PurchaseOrderId)
                 .Select(x => new { x.PlantCode, x.CompanyCode })
                 .FirstOrDefaultAsync(cancellationToken);
 
-            // Plant: PO plant, else receiving property plant, else PO company code (FIVE plant = company).
+            // Frozen FIVE plant: PO plant, else receiving property plant, else PO company code (FIVE plant = company).
             string? plant = !string.IsNullOrWhiteSpace(poCodes?.PlantCode)
                 ? poCodes!.PlantCode!.Trim()
                 : !string.IsNullOrWhiteSpace(property?.PlantCode)
                     ? property!.PlantCode!.Trim()
                     : string.IsNullOrWhiteSpace(poCodes?.CompanyCode) ? null : poCodes!.CompanyCode!.Trim();
+            if (string.IsNullOrWhiteSpace(plant))
+            {
+                return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "Plant"));
+            }
+
+            string? storageLocation = location?.StorageLocationCode?.Trim();
+            if (string.IsNullOrWhiteSpace(storageLocation))
+            {
+                return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "StorageLocation"));
+            }
+
             DateTime receiptDate = DateTime.SpecifyKind(receipt.DateCreated.Date, DateTimeKind.Utc);
             string odataDate = $"/Date({new DateTimeOffset(receiptDate).ToUnixTimeMilliseconds()})/";
             ErpDocument document = new ErpDocument();
-            document.Header.Add(("PoNumber", receipt.PoNumber));
-            document.Header.Add(("GrnNumber", receipt.GrnNumber));
+            document.Header.Add(("PoNumber", receipt.PoNumber.Trim()));
+            document.Header.Add(("GrnNumber", receipt.GrnNumber.Trim()));
             document.Header.Add(("PostingDate", receipt.DateCreated.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
             document.Header.Add(("DocumentDate", odataDate));
             document.Header.Add(("ODataPostingDate", odataDate));
             document.Header.Add(("Plant", plant));
-            document.Header.Add(("StorageLocation", location?.StorageLocationCode));
+            document.Header.Add(("StorageLocation", storageLocation));
             document.Header.Add(("DeliveryNote", receipt.DeliveryNote));
             document.Header.Add(("GoodsMovementCode", SilaGrnSap.GOODS_MOVEMENT_CODE));
+            document.Header.Add(("CompanyCode", poCodes?.CompanyCode));
             foreach (GoodsReceiptItem item in items)
             {
-                int? lineNumber = lineNumbers.TryGetValue(item.PurchaseOrderItemId, out int number) ? number : null;
-                string purchaseOrderItem = lineNumber == null
-                    ? string.Empty
-                    : lineNumber.Value.ToString("00000", CultureInfo.InvariantCulture);
+                if (!poItems.TryGetValue(item.PurchaseOrderItemId, out PurchaseOrderItem? poItem))
+                {
+                    return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "PurchaseOrderItem"));
+                }
+
+                if (string.IsNullOrWhiteSpace(item.MaterialCode))
+                {
+                    return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "Material"));
+                }
+
+                if (string.IsNullOrWhiteSpace(item.Uom))
+                {
+                    return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "EntryUnit"));
+                }
+
+                if (item.AcceptedQty <= 0)
+                {
+                    return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "QuantityInEntryUnit"));
+                }
+
+                string purchaseOrderItem = SilaGrnSap.FormatPurchaseOrderItem(poItem.LineNumber);
                 // Only SAP Material Document fields — camelCase internal names must never reach S4.
                 document.Items.Add(new List<(string, object?)>
                 {
-                    ("Material", item.MaterialCode),
+                    ("Material", item.MaterialCode.Trim()),
                     ("Plant", plant),
-                    ("StorageLocation", location?.StorageLocationCode),
+                    ("StorageLocation", storageLocation),
                     ("GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE),
-                    ("PurchaseOrder", receipt.PoNumber),
+                    ("PurchaseOrder", receipt.PoNumber.Trim()),
                     ("PurchaseOrderItem", purchaseOrderItem),
                     ("GoodsMovementRefDocType", SilaGrnSap.GOODS_MOVEMENT_REF_DOC_TYPE),
-                    ("EntryUnit", item.Uom),
+                    ("EntryUnit", item.Uom.Trim()),
                     ("QuantityInEntryUnit", item.AcceptedQty.ToString("0.0000", CultureInfo.InvariantCulture))
                 });
             }
 
-            return document;
+            return (document, null);
         }
 
         // An invoice follows its goods receipts: WAITING while one is on its way to the ERP, a message when one failed,
@@ -1505,51 +1564,53 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         }
 
         /// <summary>
-        /// Ensures the outbound Material Document matches the prepared GRN (PO / PO item / qty / plant / UOM).
+        /// Ensures the outbound Material Document matches the prepared GRN (PO / PO item / qty / plant / UOM / SLoc).
         /// </summary>
         private static string? ValidateSapGrnBody(ErpDocument document, string body)
         {
             string? Header(string name) => document.Header.FirstOrDefault(x => x.Name == name).Value?.ToString();
             string? preparedPo = Header("PoNumber")?.Trim();
             string? headerText = Header("GrnNumber")?.Trim();
-            if (string.IsNullOrWhiteSpace(preparedPo))
+            string? preparedPlant = Header("Plant")?.Trim();
+            string? preparedSloc = Header("StorageLocation")?.Trim();
+            string? mismatch = SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "PurchaseOrder", preparedPo, preparedPo)
+                ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "MaterialDocumentHeaderText", headerText, headerText)
+                ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Plant", preparedPlant, preparedPlant)
+                ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "StorageLocation", preparedSloc, preparedSloc);
+            if (mismatch != null)
             {
-                return "GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN is missing PurchaseOrder.";
-            }
-
-            if (string.IsNullOrWhiteSpace(headerText))
-            {
-                return "GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN is missing MaterialDocumentHeaderText (GrnNumber).";
+                return mismatch;
             }
 
             if (document.Items.Count == 0)
             {
-                return "GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN has no lines.";
+                return SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "to_MaterialDocumentItem");
             }
 
             using JsonDocument json = JsonDocument.Parse(body);
             JsonElement root = json.RootElement;
             if (root.TryGetProperty("DocumentHeaderText", out _))
             {
-                return "GRN_REQUEST_MAPPING_MISMATCH. DocumentHeaderText must not be sent; use MaterialDocumentHeaderText.";
+                return SilaGrnSap.FieldMismatch(SilaGrnSap.POSTING_MISMATCH, "DocumentHeaderText", "(not used on frozen 101 contract)", root.GetProperty("DocumentHeaderText").ToString());
             }
 
             string? sentHeader = root.TryGetProperty("MaterialDocumentHeaderText", out JsonElement headerEl)
                 ? headerEl.GetString()?.Trim()
                 : null;
-            if (!string.Equals(sentHeader, headerText, StringComparison.Ordinal))
+            mismatch = SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "MaterialDocumentHeaderText", headerText, sentHeader);
+            if (mismatch != null)
             {
-                return $"GRN_REQUEST_MAPPING_MISMATCH. MaterialDocumentHeaderText '{sentHeader}' does not match prepared GrnNumber '{headerText}'.";
+                return mismatch;
             }
 
             if (!root.TryGetProperty("to_MaterialDocumentItem", out JsonElement lines) || lines.ValueKind != JsonValueKind.Array)
             {
-                return "GRN_REQUEST_MAPPING_MISMATCH. to_MaterialDocumentItem is missing.";
+                return SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISMATCH, "to_MaterialDocumentItem");
             }
 
             if (lines.GetArrayLength() != document.Items.Count)
             {
-                return $"GRN_REQUEST_MAPPING_MISMATCH. Line count {lines.GetArrayLength()} does not match prepared GRN ({document.Items.Count}).";
+                return SilaGrnSap.FieldMismatch(SilaGrnSap.POSTING_MISMATCH, "to_MaterialDocumentItem.Count", document.Items.Count.ToString(CultureInfo.InvariantCulture), lines.GetArrayLength().ToString(CultureInfo.InvariantCulture));
             }
 
             int index = 0;
@@ -1557,48 +1618,24 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             {
                 List<(string Name, object? Value)> prepared = document.Items[index];
                 string? Value(string name) => prepared.FirstOrDefault(x => x.Name == name).Value?.ToString();
-                string? preparedItem = Value("PurchaseOrderItem")?.Trim();
-                string? preparedMaterial = Value("Material")?.Trim();
-                string? preparedPlant = Value("Plant")?.Trim();
-                string? preparedQty = Value("QuantityInEntryUnit")?.Trim();
-                string? preparedUom = Value("EntryUnit")?.Trim();
-                string? sentPo = line.TryGetProperty("PurchaseOrder", out JsonElement poEl) ? poEl.GetString()?.Trim() : null;
-                string? sentItem = line.TryGetProperty("PurchaseOrderItem", out JsonElement itemEl) ? itemEl.GetString()?.Trim() : null;
-                string? sentMaterial = line.TryGetProperty("Material", out JsonElement matEl) ? matEl.GetString()?.Trim() : null;
-                string? sentPlant = line.TryGetProperty("Plant", out JsonElement plantEl) ? plantEl.GetString()?.Trim() : null;
-                string? sentQty = line.TryGetProperty("QuantityInEntryUnit", out JsonElement qtyEl) ? qtyEl.ToString()?.Trim() : null;
-                string? sentUom = line.TryGetProperty("EntryUnit", out JsonElement uomEl) ? uomEl.GetString()?.Trim() : null;
-
-                if (string.IsNullOrWhiteSpace(preparedItem) || string.IsNullOrWhiteSpace(preparedMaterial)
-                    || string.IsNullOrWhiteSpace(preparedPlant) || string.IsNullOrWhiteSpace(preparedQty)
-                    || string.IsNullOrWhiteSpace(preparedUom))
+                string? Read(string name) => line.TryGetProperty(name, out JsonElement value) ? value.ToString() : null;
+                mismatch = SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "PurchaseOrder", preparedPo, Read("PurchaseOrder"))
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "PurchaseOrderItem", Value("PurchaseOrderItem"), Read("PurchaseOrderItem"))
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Material", Value("Material"), Read("Material"))
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Plant", Value("Plant"), Read("Plant"))
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "StorageLocation", Value("StorageLocation"), Read("StorageLocation"))
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE, Read("GoodsMovementType"))
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "EntryUnit", Value("EntryUnit"), Read("EntryUnit"), ignoreCase: true)
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "QuantityInEntryUnit", Value("QuantityInEntryUnit"), Read("QuantityInEntryUnit"));
+                if (mismatch != null)
                 {
-                    return $"GRN_REQUEST_MAPPING_MISMATCH. Prepared GRN line {index + 1} is missing PO item, material, plant, quantity or UOM.";
+                    return mismatch;
                 }
 
-                if (!string.Equals(sentPo, preparedPo, StringComparison.Ordinal))
+                if (!decimal.TryParse(Value("QuantityInEntryUnit"), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal preparedAmount)
+                    || preparedAmount <= 0)
                 {
-                    return $"GRN_REQUEST_MAPPING_MISMATCH. PurchaseOrder '{sentPo}' does not match prepared '{preparedPo}'.";
-                }
-
-                if (!string.Equals(sentItem, preparedItem, StringComparison.Ordinal))
-                {
-                    return $"GRN_REQUEST_MAPPING_MISMATCH. PurchaseOrderItem '{sentItem}' does not match prepared '{preparedItem}'.";
-                }
-
-                if (!string.Equals(sentMaterial, preparedMaterial, StringComparison.Ordinal)
-                    || !string.Equals(sentPlant, preparedPlant, StringComparison.Ordinal)
-                    || !string.Equals(sentUom, preparedUom, StringComparison.OrdinalIgnoreCase))
-                {
-                    return $"GRN_REQUEST_MAPPING_MISMATCH. Line {index + 1} material/plant/UOM does not match the prepared GRN.";
-                }
-
-                if (!decimal.TryParse(preparedQty, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal preparedAmount)
-                    || !decimal.TryParse(sentQty, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sentAmount)
-                    || preparedAmount <= 0
-                    || preparedAmount != sentAmount)
-                {
-                    return $"GRN_REQUEST_MAPPING_MISMATCH. Line {index + 1} quantity '{sentQty}' does not match prepared receiving qty '{preparedQty}'.";
+                    return SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "QuantityInEntryUnit");
                 }
 
                 index++;

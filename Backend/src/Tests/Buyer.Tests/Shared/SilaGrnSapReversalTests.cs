@@ -90,6 +90,53 @@ namespace Buyer.Tests.Shared
             Assert.True(SilaGrnSap.IsReversalConfiguredName("FIVE S4-GRN REVERSAL"));
             Assert.False(SilaGrnSap.IsReversalConfiguredName("FIVE S4-GRN POSTING"));
             Assert.False(SilaGrnSap.IsConfiguredName("FIVE S4-GRN REVERSAL"));
+            Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4-GRN POSTING"));
+        }
+
+        [Fact]
+        public void ValidateReversalBody_AcceptsAuthoritativeLines()
+        {
+            SilaGrnReversalSapLine[] lines =
+            {
+                new SilaGrnReversalSapLine
+                {
+                    Material = "MAT-A",
+                    Plant = "1020",
+                    StorageLocation = "0001",
+                    Quantity = 4,
+                    EntryUnit = "BTL",
+                    PurchaseOrder = "4500999999",
+                    PurchaseOrderItem = "00010"
+                }
+            };
+            string body = SilaGrnSap.ReversalBody(new DateTime(2026, 10, 19), new DateTime(2026, 10, 19), false, null, lines);
+            Assert.Null(SilaGrnSap.ValidateReversalBody(body, lines, false));
+        }
+
+        [Fact]
+        public void ValidateReversalBody_StopsWhenMaterialWouldChange()
+        {
+            SilaGrnReversalSapLine[] lines =
+            {
+                new SilaGrnReversalSapLine
+                {
+                    Material = "MAT-A",
+                    Plant = "1020",
+                    StorageLocation = "0001",
+                    Quantity = 4,
+                    EntryUnit = "BTL",
+                    PurchaseOrder = "4500999999",
+                    PurchaseOrderItem = "00010"
+                }
+            };
+            string body = SilaGrnSap.ReversalBody(new DateTime(2026, 10, 19), new DateTime(2026, 10, 19), false, null, lines)
+                .Replace("MAT-A", "WRONG", StringComparison.Ordinal);
+            string? error = SilaGrnSap.ValidateReversalBody(body, lines, false);
+            Assert.NotNull(error);
+            Assert.Contains(SilaGrnSap.REVERSAL_MISMATCH, error, StringComparison.Ordinal);
+            Assert.Contains("Material", error, StringComparison.Ordinal);
+            Assert.Contains("MAT-A", error, StringComparison.Ordinal);
+            Assert.Contains("WRONG", error, StringComparison.Ordinal);
         }
     }
 }

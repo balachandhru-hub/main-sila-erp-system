@@ -3,7 +3,10 @@ using MediatR;
 
 namespace Buyer.Application.Features.Commands.RefreshSilaInvoicePosting
 {
-    /// <summary>Reads FIVE S4 - GET PO again and replaces the stored posting data. It does not post the invoice.</summary>
+    /// <summary>
+    /// PROTECTED / FROZEN: explicit REFRESH POSTING DATA FROM S/4.
+    /// This is the only invoice path that calls FIVE S4 - GET PO. It does not post the invoice.
+    /// </summary>
     public class RefreshSilaInvoicePostingCommand : IRequest<SilaInvoiceDetailDto>
     {
         public Guid OrganizationId { get; set; }

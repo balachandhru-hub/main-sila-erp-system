@@ -681,7 +681,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   posting={invoice.postingData}
                   invoice={invoice}
                   order={order}
-                  canRefresh={!postingFailed && canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
+                  canRefresh={canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
                   busy={busy !== null}
                   onRefresh={() => run("refresh", async () => {
                     show(await refreshInvoicePosting(invoiceId));

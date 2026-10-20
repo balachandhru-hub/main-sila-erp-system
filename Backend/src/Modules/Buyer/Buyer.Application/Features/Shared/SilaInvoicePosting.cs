@@ -306,7 +306,10 @@ namespace Buyer.Application.Features.Shared
             return (sapOrder, null);
         }
 
-        /// <summary>Reads the S/4 purchase order when needed, maps the invoice, then posts through the existing invoice API. Approval has already finished.</summary>
+        /// <summary>
+        /// PROTECTED / FROZEN: Invoice SAP posting / resubmit.
+        /// Uses persisted prepared posting data. Does not call GET PO (that is RefreshSilaInvoicePosting only).
+        /// </summary>
         public static async Task ContinueAsync(
             IRepositoryWrapper repository,
             ILoggerManager logger,
@@ -317,22 +320,7 @@ namespace Buyer.Application.Features.Shared
             Guid userId,
             CancellationToken cancellationToken)
         {
-            bool nonPo = SilaInvoiceCreation.IsNonPo(invoice.CreationType);
-            if (!nonPo)
-            {
-                string? readError = await RefreshPurchaseOrderAsync(repository, logger, executor, buyer.OrganizationId, invoice, userId, cancellationToken);
-                if (readError != null)
-                {
-                    invoice.Status = Common.SILA_INVOICE_GET_PO_FAILED;
-                    Block(repository, invoice, userId, readError);
-                    repository.Invoice.Update(invoice);
-                    await repository.SaveAsync();
-                    throw new BadRequestCustomException("Purchase order could not be read.", readError);
-                }
-
-                await repository.SaveAsync();
-            }
-
+            ArgumentNullException.ThrowIfNull(executor);
             PurchaseOrder? order = invoice.PurchaseOrderId == null
                 ? null
                 : await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId);
