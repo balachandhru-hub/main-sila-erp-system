@@ -91,6 +91,8 @@ namespace Buyer.Tests.Shared
             Assert.False(SilaGrnSap.IsReversalConfiguredName("FIVE S4-GRN POSTING"));
             Assert.False(SilaGrnSap.IsConfiguredName("FIVE S4-GRN REVERSAL"));
             Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4-GRN POSTING"));
+            Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4 GRN POSTING"));
+            Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4 - POST GRN"));
         }
 
         [Fact]

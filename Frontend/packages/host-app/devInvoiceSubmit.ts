@@ -152,9 +152,12 @@ export const devInvoiceSubmit = (target: string, settingsPath: string): Plugin =
       }
       const reprocessMatch = (req.url || "").match(/^\/api\/v1\/buyer\/sila\/erp-postings\/([0-9a-fA-F-]{36})\/reprocess(?:\?|$)/);
       if (reprocessMatch && req.method === "POST") {
-        void handleReprocess(target, settingsPath, reprocessMatch[1], req, res).catch(() => {
+        void handleReprocess(target, settingsPath, reprocessMatch[1], req, res).catch((error: unknown) => {
           if (!res.headersSent) {
-            send(res, 500, "application/json; charset=utf-8", described(500, "The posting could not be prepared or sent.", "The posting could not be prepared or sent."));
+            const detail = error instanceof Error && error.message.trim()
+              ? error.message
+              : "The posting could not be prepared or sent. Check the document and the ERP API.";
+            send(res, 500, "application/json; charset=utf-8", described(500, detail, detail));
           }
         });
         return;

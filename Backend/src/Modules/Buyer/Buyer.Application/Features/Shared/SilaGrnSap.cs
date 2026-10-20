@@ -38,9 +38,17 @@ namespace Buyer.Application.Features.Shared
                 return false;
             }
 
-            string text = name.Trim();
-            return text.Equals(API_CONFIG_NAME, StringComparison.OrdinalIgnoreCase)
-                || text.Equals(API_CONFIG_NAME_LEGACY, StringComparison.OrdinalIgnoreCase);
+            string compact = CompactName(name);
+            return compact is "FIVES4GRNPOSTING" or "FIVES4POSTGRN";
+        }
+
+        private static string CompactName(string name)
+        {
+            return name.Trim()
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace("_", string.Empty, StringComparison.Ordinal)
+                .ToUpperInvariant();
         }
 
         public static bool IsReversalConfiguredName(string? name)

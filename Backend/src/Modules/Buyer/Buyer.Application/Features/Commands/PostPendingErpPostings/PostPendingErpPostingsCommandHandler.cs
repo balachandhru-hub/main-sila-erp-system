@@ -795,7 +795,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 string detail = SilaLogText.Short(reason);
                 posting.ErrorMessage = string.IsNullOrWhiteSpace(detail)
                     ? "The posting could not be prepared or sent. Check the document and the ERP API."
-                    : "The posting could not be prepared or sent. " + detail;
+                    : detail;
                 if (invoice)
                 {
                     Invoice? invoiceRow = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive);
@@ -923,10 +923,12 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return (null, null);
             }
 
-            List<Guid> poItemIds = items.Select(x => x.PurchaseOrderItemId).ToList();
-            Dictionary<Guid, PurchaseOrderItem> poItems = await _repository.PurchaseOrderItem
-                .FindByCondition(x => poItemIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> poItemIds = items.Select(x => x.PurchaseOrderItemId).Distinct().ToList();
+            Dictionary<Guid, PurchaseOrderItem> poItems = (await _repository.PurchaseOrderItem
+                    .FindByCondition(x => poItemIds.Contains(x.Id))
+                    .ToListAsync(cancellationToken))
+                .GroupBy(x => x.Id)
+                .ToDictionary(group => group.Key, group => group.First());
             var poCodes = await _repository.PurchaseOrder
                 .FindByCondition(x => x.Id == receipt.PurchaseOrderId)
                 .Select(x => new { x.PlantCode, x.CompanyCode })
@@ -943,12 +945,6 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "Plant"));
             }
 
-            string? storageLocation = location?.StorageLocationCode?.Trim();
-            if (string.IsNullOrWhiteSpace(storageLocation))
-            {
-                return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "StorageLocation"));
-            }
-
             DateTime receiptDate = DateTime.SpecifyKind(receipt.DateCreated.Date, DateTimeKind.Utc);
             string odataDate = $"/Date({new DateTimeOffset(receiptDate).ToUnixTimeMilliseconds()})/";
             ErpDocument document = new ErpDocument();
@@ -958,7 +954,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             document.Header.Add(("DocumentDate", odataDate));
             document.Header.Add(("ODataPostingDate", odataDate));
             document.Header.Add(("Plant", plant));
-            document.Header.Add(("StorageLocation", storageLocation));
+            document.Header.Add(("StorageLocation", location?.StorageLocationCode?.Trim()));
             document.Header.Add(("DeliveryNote", receipt.DeliveryNote));
             document.Header.Add(("GoodsMovementCode", SilaGrnSap.GOODS_MOVEMENT_CODE));
             document.Header.Add(("CompanyCode", poCodes?.CompanyCode));
@@ -984,13 +980,17 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     return (null, SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "QuantityInEntryUnit"));
                 }
 
+                string? lineSloc = !string.IsNullOrWhiteSpace(poItem.StorageLocation)
+                    ? poItem.StorageLocation.Trim()
+                    : location?.StorageLocationCode?.Trim();
                 string purchaseOrderItem = SilaGrnSap.FormatPurchaseOrderItem(poItem.LineNumber);
                 // Only SAP Material Document fields — camelCase internal names must never reach S4.
+                // Blank SLoc is omitted by SapGrnBody (frozen 101 contract).
                 document.Items.Add(new List<(string, object?)>
                 {
                     ("Material", item.MaterialCode.Trim()),
                     ("Plant", plant),
-                    ("StorageLocation", storageLocation),
+                    ("StorageLocation", lineSloc),
                     ("GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE),
                     ("PurchaseOrder", receipt.PoNumber.Trim()),
                     ("PurchaseOrderItem", purchaseOrderItem),
@@ -1572,11 +1572,9 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             string? preparedPo = Header("PoNumber")?.Trim();
             string? headerText = Header("GrnNumber")?.Trim();
             string? preparedPlant = Header("Plant")?.Trim();
-            string? preparedSloc = Header("StorageLocation")?.Trim();
             string? mismatch = SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "PurchaseOrder", preparedPo, preparedPo)
                 ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "MaterialDocumentHeaderText", headerText, headerText)
-                ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Plant", preparedPlant, preparedPlant)
-                ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "StorageLocation", preparedSloc, preparedSloc);
+                ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Plant", preparedPlant, preparedPlant);
             if (mismatch != null)
             {
                 return mismatch;
@@ -1618,24 +1616,44 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             {
                 List<(string Name, object? Value)> prepared = document.Items[index];
                 string? Value(string name) => prepared.FirstOrDefault(x => x.Name == name).Value?.ToString();
-                string? Read(string name) => line.TryGetProperty(name, out JsonElement value) ? value.ToString() : null;
+                string? Read(string name)
+                {
+                    if (!line.TryGetProperty(name, out JsonElement value))
+                    {
+                        return null;
+                    }
+
+                    return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+                }
+
+                string? preparedSloc = Value("StorageLocation")?.Trim();
+                string? sentSloc = Read("StorageLocation")?.Trim();
                 mismatch = SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "PurchaseOrder", preparedPo, Read("PurchaseOrder"))
                     ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "PurchaseOrderItem", Value("PurchaseOrderItem"), Read("PurchaseOrderItem"))
                     ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Material", Value("Material"), Read("Material"))
                     ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "Plant", Value("Plant"), Read("Plant"))
-                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "StorageLocation", Value("StorageLocation"), Read("StorageLocation"))
                     ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "GoodsMovementType", SilaGrnSap.GOODS_MOVEMENT_TYPE, Read("GoodsMovementType"))
-                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "EntryUnit", Value("EntryUnit"), Read("EntryUnit"), ignoreCase: true)
-                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "QuantityInEntryUnit", Value("QuantityInEntryUnit"), Read("QuantityInEntryUnit"));
+                    ?? SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "EntryUnit", Value("EntryUnit"), Read("EntryUnit"), ignoreCase: true);
                 if (mismatch != null)
                 {
                     return mismatch;
                 }
 
-                if (!decimal.TryParse(Value("QuantityInEntryUnit"), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal preparedAmount)
-                    || preparedAmount <= 0)
+                if (!string.IsNullOrWhiteSpace(preparedSloc))
                 {
-                    return SilaGrnSap.FieldMissing(SilaGrnSap.POSTING_MISSING, "QuantityInEntryUnit");
+                    mismatch = SilaGrnSap.CompareField(SilaGrnSap.POSTING_MISMATCH, "StorageLocation", preparedSloc, sentSloc);
+                    if (mismatch != null)
+                    {
+                        return mismatch;
+                    }
+                }
+
+                if (!decimal.TryParse(Value("QuantityInEntryUnit"), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal preparedAmount)
+                    || preparedAmount <= 0
+                    || !decimal.TryParse(Read("QuantityInEntryUnit"), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sentAmount)
+                    || preparedAmount != sentAmount)
+                {
+                    return SilaGrnSap.FieldMismatch(SilaGrnSap.POSTING_MISMATCH, "QuantityInEntryUnit", Value("QuantityInEntryUnit"), Read("QuantityInEntryUnit"));
                 }
 
                 index++;
