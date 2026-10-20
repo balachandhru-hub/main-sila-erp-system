@@ -84,7 +84,7 @@ export const readError = (error: unknown, fallback: string): string => {
     if (fromBody) return fromBody;
     const status = error.response?.status;
     if (status === 404) {
-      return `${fallback} (HTTP 404 — the reversal API was not found on this server. Deploy the Buyer API that includes GET …/grns/{id}/reversal.)`;
+      return `${fallback} (HTTP 404 — this route is not registered on the connected server. A missing goods receipt returns GRN_NOT_FOUND, not an empty 404. Deploy Buyer.API with GET …/grns/{id}/reversal, or use localhost:6001 against the local Buyer API.)`;
     }
     if (typeof status === "number") {
       return `${fallback} (HTTP ${status})`;

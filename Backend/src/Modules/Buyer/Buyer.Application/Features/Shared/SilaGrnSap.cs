@@ -150,7 +150,9 @@ namespace Buyer.Application.Features.Shared
                 string? Read(string name) => line.TryGetProperty(name, out JsonElement value) ? value.ToString() : null;
                 mismatch = CompareField(REVERSAL_MISMATCH, "Material", prepared.Material, Read("Material"))
                     ?? CompareField(REVERSAL_MISMATCH, "Plant", prepared.Plant, Read("Plant"))
-                    ?? CompareField(REVERSAL_MISMATCH, "StorageLocation", prepared.StorageLocation, Read("StorageLocation"))
+                    ?? (string.IsNullOrWhiteSpace(prepared.StorageLocation)
+                        ? null
+                        : CompareField(REVERSAL_MISMATCH, "StorageLocation", prepared.StorageLocation, Read("StorageLocation")))
                     ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementType", REVERSAL_GOODS_MOVEMENT_TYPE, Read("GoodsMovementType"))
                     ?? CompareField(REVERSAL_MISMATCH, "GoodsMovementRefDocType", GOODS_MOVEMENT_REF_DOC_TYPE, Read("GoodsMovementRefDocType"))
                     ?? CompareField(REVERSAL_MISMATCH, "EntryUnit", prepared.EntryUnit, Read("EntryUnit"), ignoreCase: true)
@@ -262,6 +264,61 @@ namespace Buyer.Application.Features.Shared
             return (document, year);
         }
 
+        /// <summary>Plant/SLoc/UOM/PO item from the original successful 101 request stored on this GRN. No rematch.</summary>
+        public static List<SilaGrnPostedSapLine> ReadPostedGrnItems(string? requestBody)
+        {
+            List<SilaGrnPostedSapLine> rows = new List<SilaGrnPostedSapLine>();
+            if (string.IsNullOrWhiteSpace(requestBody))
+            {
+                return rows;
+            }
+
+            try
+            {
+                using JsonDocument json = JsonDocument.Parse(requestBody);
+                if (!json.RootElement.TryGetProperty("to_MaterialDocumentItem", out JsonElement items)
+                    || items.ValueKind != JsonValueKind.Array)
+                {
+                    return rows;
+                }
+
+                foreach (JsonElement item in items.EnumerateArray())
+                {
+                    string Read(string name) => item.TryGetProperty(name, out JsonElement value) ? value.ToString().Trim() : string.Empty;
+                    string material = Read("Material");
+                    string plant = Read("Plant");
+                    string poItem = Read("PurchaseOrderItem");
+                    if (string.IsNullOrWhiteSpace(material) || string.IsNullOrWhiteSpace(plant) || string.IsNullOrWhiteSpace(poItem))
+                    {
+                        continue;
+                    }
+
+                    rows.Add(new SilaGrnPostedSapLine
+                    {
+                        Material = material,
+                        Plant = plant,
+                        StorageLocation = string.IsNullOrWhiteSpace(Read("StorageLocation")) ? null : Read("StorageLocation"),
+                        EntryUnit = Read("EntryUnit"),
+                        PurchaseOrder = Read("PurchaseOrder"),
+                        PurchaseOrderItem = poItem
+                    });
+                }
+            }
+            catch (JsonException)
+            {
+                // Caller fails closed when nothing is read.
+            }
+
+            return rows;
+        }
+
+        public static SilaGrnPostedSapLine? FindPostedLine(IReadOnlyList<SilaGrnPostedSapLine> posted, string material, string purchaseOrderItem)
+        {
+            return posted.FirstOrDefault(x =>
+                string.Equals(x.Material, material, StringComparison.Ordinal)
+                && string.Equals(x.PurchaseOrderItem, purchaseOrderItem, StringComparison.Ordinal));
+        }
+
         /// <summary>Parse confirmed reversal quantities from a stored FIVE S4-GRN REVERSAL request body (local finalization retry).</summary>
         public static List<(string Material, string PurchaseOrderItem, decimal Quantity)> ReadReversalQuantities(string? requestBody)
         {
@@ -303,6 +360,16 @@ namespace Buyer.Application.Features.Shared
 
             return rows;
         }
+    }
+
+    public sealed class SilaGrnPostedSapLine
+    {
+        public string Material { get; init; } = string.Empty;
+        public string Plant { get; init; } = string.Empty;
+        public string? StorageLocation { get; init; }
+        public string EntryUnit { get; init; } = string.Empty;
+        public string PurchaseOrder { get; init; } = string.Empty;
+        public string PurchaseOrderItem { get; init; } = string.Empty;
     }
 
     public sealed class SilaGrnReversalSapLine

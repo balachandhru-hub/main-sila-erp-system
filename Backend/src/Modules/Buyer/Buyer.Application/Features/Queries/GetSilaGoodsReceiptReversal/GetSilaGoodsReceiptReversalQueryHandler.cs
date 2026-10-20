@@ -104,12 +104,19 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 .FindByCondition(x => x.Id == receipt.PurchaseOrderId)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            string? plant = !string.IsNullOrWhiteSpace(purchaseOrder?.PlantCode)
-                ? purchaseOrder!.PlantCode!.Trim()
-                : !string.IsNullOrWhiteSpace(property?.PlantCode)
-                    ? property!.PlantCode!.Trim()
+            InventoryErpPosting? originalPosting = receipt.ErpPostingId == null
+                ? null
+                : await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.Id == receipt.ErpPostingId.Value)
+                    .FirstOrDefaultAsync(cancellationToken);
+            List<SilaGrnPostedSapLine> postedLines = SilaGrnSap.ReadPostedGrnItems(originalPosting?.ErpRequestPayload);
+            string? plant = !string.IsNullOrWhiteSpace(postedLines.FirstOrDefault()?.Plant)
+                ? postedLines[0].Plant
+                : !string.IsNullOrWhiteSpace(purchaseOrder?.PlantCode)
+                    ? purchaseOrder!.PlantCode!.Trim()
                     : string.IsNullOrWhiteSpace(purchaseOrder?.CompanyCode) ? null : purchaseOrder!.CompanyCode!.Trim();
-            string? storageLocation = location?.StorageLocationCode?.Trim();
+            string? storageLocation = postedLines.Select(x => x.StorageLocation).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))
+                ?? location?.StorageLocationCode?.Trim();
 
             List<GoodsReceiptItem> items = await _repository.GoodsReceiptItem
                 .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive && x.AcceptedQty > TOLERANCE)
@@ -132,14 +139,12 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
             {
                 decimal remaining = Math.Max(0, item.AcceptedQty - item.ReversedQty);
                 totalRemaining += remaining;
-                string? lineSloc = storageLocation;
-                if (poItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId) is PurchaseOrderItem poItem
-                    && !string.IsNullOrWhiteSpace(poItem.StorageLocation))
-                {
-                    lineSloc = poItem.StorageLocation.Trim();
-                }
-
                 int lineNumber = lineNumbers.TryGetValue(item.PurchaseOrderItemId, out int ln) ? ln : 0;
+                SilaGrnPostedSapLine? posted = lineNumber > 0
+                    ? SilaGrnSap.FindPostedLine(postedLines, item.MaterialCode ?? string.Empty, SilaGrnSap.FormatPurchaseOrderItem(lineNumber))
+                    : null;
+                string? linePlant = !string.IsNullOrWhiteSpace(posted?.Plant) ? posted!.Plant : plant;
+                string? lineSloc = posted != null ? posted.StorageLocation : storageLocation;
                 lines.Add(new SilaReceivingGrnReversalLineDto
                 {
                     GoodsReceiptItemId = item.Id,
@@ -153,7 +158,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                     RemainingReversibleQty = remaining,
                     ReversalQty = remaining,
                     Uom = item.Uom,
-                    Plant = plant,
+                    Plant = linePlant,
                     StorageLocation = lineSloc
                 });
                 itemIndex++;

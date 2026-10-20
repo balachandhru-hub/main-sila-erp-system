@@ -177,27 +177,27 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             InventoryLocation? location = await _repository.InventoryLocation
                 .FindByCondition(x => x.Id == receipt.LocationId && x.IsActive)
                 .FirstOrDefaultAsync(cancellationToken);
-            BuyerProperty? property = location == null
-                ? null
-                : await _repository.BuyerProperty
-                    .FindByCondition(x => x.Id == location.PropertyId && x.IsActive)
-                    .FirstOrDefaultAsync(cancellationToken);
             PurchaseOrder? purchaseOrder = await _repository.PurchaseOrder
                 .FindByCondition(x => x.Id == receipt.PurchaseOrderId)
                 .FirstOrDefaultAsync(cancellationToken)
                 ?? throw new BadRequestCustomException("GRN_REVERSAL_REQUIRED_FIELD_MISSING", "Original purchase order was not found for this GRN.");
 
-            string? plant = !string.IsNullOrWhiteSpace(purchaseOrder.PlantCode)
-                ? purchaseOrder.PlantCode!.Trim()
-                : !string.IsNullOrWhiteSpace(property?.PlantCode)
-                    ? property!.PlantCode!.Trim()
-                    : string.IsNullOrWhiteSpace(purchaseOrder.CompanyCode) ? null : purchaseOrder.CompanyCode!.Trim();
-            if (string.IsNullOrWhiteSpace(plant))
-            {
-                throw new BadRequestCustomException("GRN_REVERSAL_REQUIRED_FIELD_MISSING", "Plant is missing on the original GRN / PO / property.");
-            }
+            InventoryErpPosting? originalPosting = receipt.ErpPostingId == null
+                ? null
+                : await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.Id == receipt.ErpPostingId.Value)
+                    .FirstOrDefaultAsync(cancellationToken);
+            List<SilaGrnPostedSapLine> postedLines = SilaGrnSap.ReadPostedGrnItems(originalPosting?.ErpRequestPayload);
 
-            string? defaultSloc = location?.StorageLocationCode?.Trim();
+            string? defaultPlant = !string.IsNullOrWhiteSpace(postedLines.FirstOrDefault()?.Plant)
+                ? postedLines[0].Plant
+                : !string.IsNullOrWhiteSpace(purchaseOrder.PlantCode)
+                    ? purchaseOrder.PlantCode!.Trim()
+                    : !string.IsNullOrWhiteSpace(purchaseOrder.CompanyCode) ? purchaseOrder.CompanyCode!.Trim() : null;
+            if (string.IsNullOrWhiteSpace(defaultPlant))
+            {
+                throw new BadRequestCustomException("GRN_REVERSAL_REQUIRED_FIELD_MISSING", "Plant is missing on the original posted GRN.");
+            }
             List<Guid> poItemIds = selected.Select(x => x.Item.PurchaseOrderItemId).Distinct().ToList();
             Dictionary<Guid, PurchaseOrderItem> poItems = await _repository.PurchaseOrderItem
                 .FindByCondition(x => poItemIds.Contains(x.Id))
@@ -227,14 +227,14 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                         "PO item was not found for GRN line " + item.Id.ToString("D") + ".");
                 }
 
-                string sloc = !string.IsNullOrWhiteSpace(poItem.StorageLocation)
-                    ? poItem.StorageLocation!.Trim()
-                    : defaultSloc ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(sloc))
-                {
-                    throw new BadRequestCustomException("GRN_REVERSAL_REQUIRED_FIELD_MISSING",
-                        "Storage Location is missing for material " + item.MaterialCode + ".");
-                }
+                string poItemNumber = SilaGrnSap.FormatPurchaseOrderItem(poItem.LineNumber);
+                SilaGrnPostedSapLine? posted = SilaGrnSap.FindPostedLine(postedLines, item.MaterialCode!, poItemNumber);
+                string plant = !string.IsNullOrWhiteSpace(posted?.Plant) ? posted!.Plant : defaultPlant!;
+                string? sloc = posted != null
+                    ? posted.StorageLocation
+                    : !string.IsNullOrWhiteSpace(poItem.StorageLocation)
+                        ? poItem.StorageLocation!.Trim()
+                        : location?.StorageLocationCode?.Trim();
 
                 if (string.IsNullOrWhiteSpace(receipt.PoNumber))
                 {
@@ -244,7 +244,7 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 sapLines.Add(new SilaGrnReversalSapLine
                 {
                     Material = item.MaterialCode!,
-                    Plant = plant!,
+                    Plant = plant,
                     StorageLocation = sloc,
                     Quantity = qty,
                     EntryUnit = item.Uom!,

@@ -142,5 +142,20 @@ namespace Buyer.Tests.Shared
             Assert.Contains("MAT-A", error, StringComparison.Ordinal);
             Assert.Contains("WRONG", error, StringComparison.Ordinal);
         }
+
+        [Fact]
+        public void ReadPostedGrnItems_UsesOriginal101PlantAndOmitsBlankSloc()
+        {
+            const string body = """
+                {"DocumentDate":"/Date(1)/","PostingDate":"/Date(1)/","GoodsMovementCode":"01","MaterialDocumentHeaderText":"GR000003","to_MaterialDocumentItem":[{"Material":"1000000","Plant":"1050","GoodsMovementType":"101","PurchaseOrder":"4500004152","PurchaseOrderItem":"00010","GoodsMovementRefDocType":"B","EntryUnit":"EA","QuantityInEntryUnit":"10.0000"}]}
+                """;
+            List<SilaGrnPostedSapLine> posted = SilaGrnSap.ReadPostedGrnItems(body);
+            Assert.Single(posted);
+            Assert.Equal("1050", posted[0].Plant);
+            Assert.Null(posted[0].StorageLocation);
+            SilaGrnPostedSapLine? found = SilaGrnSap.FindPostedLine(posted, "1000000", "00010");
+            Assert.NotNull(found);
+            Assert.Equal("1050", found!.Plant);
+        }
     }
 }
