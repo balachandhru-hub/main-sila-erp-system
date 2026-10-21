@@ -152,46 +152,72 @@
 .srcv-track {
   display: flex;
   flex-direction: column;
-  gap: var(--sila-space-3);
+  gap: var(--sila-space-2);
   margin-top: var(--sila-space-3);
 }
 
-.srcv-track-chain {
+.srcv-track-head {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--sila-space-2);
+}
+
+.srcv-track-head .sila-section-title {
   margin: 0;
+}
+
+.srcv-track-title-btn {
+  border: 0;
   padding: 0;
-  list-style: none;
-}
-
-.srcv-track-node {
-  flex: 1 1 8rem;
-  min-width: 7rem;
-}
-
-.srcv-track-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-  width: 100%;
-  padding: var(--sila-space-2);
-  border: 0.0625rem solid var(--sila-border);
-  border-radius: 0.5rem;
-  background: var(--sila-bg);
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.srcv-track-btn:disabled {
-  cursor: default;
-  opacity: 1;
+.srcv-track-title-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+  border-radius: var(--sila-radius);
 }
 
-.srcv-track-node--current .srcv-track-btn {
-  border-color: var(--sila-accent, #0b6bcb);
-  box-shadow: inset 0 0 0 0.0625rem var(--sila-accent, #0b6bcb);
+.srcv-track-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-3);
+}
+
+.srcv-track-tree {
+  margin: 0;
+  padding: 0 0 0 0.75rem;
+  list-style: none;
+  border-left: 0.125rem solid var(--sila-border);
+}
+
+.srcv-track-tree-item + .srcv-track-tree-item {
+  margin-top: 0.15rem;
+}
+
+.srcv-track-tree-btn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  width: 100%;
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.srcv-track-tree-btn:disabled {
+  cursor: default;
+}
+
+.srcv-track-tree-item--current .srcv-track-tree-btn {
+  font-weight: 600;
 }
 
 .srcv-track-kind {
