@@ -687,6 +687,11 @@ namespace Buyer.Application.Features.Shared
                 {
                     receipt.MaterialDocument = md;
                     receipt.MaterialDocumentYear = year;
+                    repository.GoodsReceipt.Update(receipt);
+                }
+
+                if (!string.IsNullOrWhiteSpace(receipt.MaterialDocument))
+                {
                     List<GoodsReceiptItem> grnItems = await repository.GoodsReceiptItem
                         .FindByCondition(x => x.GoodsReceiptId == receipt.Id && x.IsActive)
                         .OrderBy(x => x.DateCreated)
@@ -694,16 +699,20 @@ namespace Buyer.Application.Features.Shared
                     int index = 1;
                     foreach (GoodsReceiptItem line in grnItems)
                     {
-                        if (string.IsNullOrWhiteSpace(line.MaterialDocumentItem))
+                        GoodsReceiptItem? trackedLine = await repository.GoodsReceiptItem
+                            .FindFirstByConditionAsync(x => x.Id == line.Id);
+                        GoodsReceiptItem targetLine = trackedLine ?? line;
+                        if (string.IsNullOrWhiteSpace(targetLine.MaterialDocumentItem))
                         {
-                            line.MaterialDocumentItem = index.ToString("0000");
-                            repository.GoodsReceiptItem.Update(line);
+                            targetLine.MaterialDocumentItem = index.ToString("0000");
+                            if (trackedLine == null)
+                            {
+                                repository.GoodsReceiptItem.Update(targetLine);
+                            }
                         }
 
                         index++;
                     }
-
-                    repository.GoodsReceipt.Update(receipt);
                 }
             }
 
