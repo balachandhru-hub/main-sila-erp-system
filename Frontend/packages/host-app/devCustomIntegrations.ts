@@ -163,6 +163,13 @@ const validate = (payload: Record<string, unknown>): string | null => {
 const rejectedByEnum = (status: number, body: string): boolean =>
   status === 400 && body.includes("IntegrationProcessType");
 
+const localBuyerUrl = (): string =>
+  (process.env.VITE_LOCAL_BUYER_API || "http://127.0.0.1:8004").replace(/\/$/, "");
+
+/** Cloud Buyer.API still maps process_type as an enum and dies on POST_GRN_REVERSAL. */
+const cannotReadProcessType = (status: number, body: string): boolean =>
+  status >= 400 && body.includes("IntegrationProcessType") && /Cannot convert string value|is not a valid/i.test(body);
+
 const forward = async (
   target: string,
   req: IncomingMessage,
@@ -228,7 +235,17 @@ const handle = async (
   const find = (id: string) => rows().find((row) => row.public.id === id);
 
   if (req.method === "GET" && parts.length === 0) {
-    const upstream = await forward(target, req, null);
+    let upstream = await forward(target, req, null);
+    if (cannotReadProcessType(upstream.status, upstream.body) || upstream.status >= 500) {
+      try {
+        const local = await forward(localBuyerUrl(), req, null);
+        if (local.status === 200) {
+          upstream = local;
+        }
+      } catch {
+        // Local Buyer.API is not running; return the cloud error.
+      }
+    }
     if (upstream.status !== 200) {
       passThrough(res, upstream);
       return;
@@ -289,7 +306,19 @@ const handle = async (
   const action = parts[1];
   const saved = id ? find(id) : undefined;
   if (!saved) {
-    next();
+    const raw = req.method === "GET" || req.method === "DELETE" ? null : await readRequestBody(req);
+    let upstream = await forward(target, req, raw);
+    if (cannotReadProcessType(upstream.status, upstream.body) || upstream.status >= 500) {
+      try {
+        const local = await forward(localBuyerUrl(), req, raw);
+        if (local.status === 200 || (local.status < 500 && cannotReadProcessType(upstream.status, upstream.body))) {
+          upstream = local;
+        }
+      } catch {
+        // Local Buyer.API is not running; return the cloud error.
+      }
+    }
+    passThrough(res, upstream);
     return;
   }
 

@@ -65,7 +65,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
   { key: "matching", label: "Supplier & PO matching" },
   { key: "posting", label: "S/4 posting data" },
-  { key: "history", label: "Reading history" },
+  { key: "history", label: "History" },
 ];
 
 const compactKey = (value?: string | null): string => (value || "").replace(/\s+/g, "");
@@ -692,8 +692,15 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               </div>
             )}
             {tab === "history" && (
-              <div id="srcv-panel-history" role="tabpanel" aria-labelledby="srcv-tab-history">
-                <SilaInvoiceHistory invoiceId={invoice.id} version={`${readings}`} />
+              <div id="srcv-panel-history" role="tabpanel" aria-labelledby="srcv-tab-history" className="srcv-stack">
+                <SilaDocumentTrackPanel
+                  track={invoice.documentTrack}
+                  kinds={["PO", "GRN", "ATTACHMENT"]}
+                  showHistory={false}
+                  attachmentsOpenByDefault
+                  title="PO, GRN and attachments"
+                />
+                <SilaInvoiceHistory invoiceId={invoice.id} version={`${readings}`} compact />
               </div>
             )}
             {tab === "review" && (
@@ -834,8 +841,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                     </button>
                   )}
                 </div>
-                <SilaDocumentTrackPanel track={invoice.documentTrack} />
-                {(invoice.timeline ?? []).length > 0 && (
+                {!editing && (invoice.timeline ?? []).length > 0 && (
                   <div>
                     <h3 className="sila-section-title">Lifecycle</h3>
                     <ul>
@@ -847,6 +853,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                     </ul>
                   </div>
                 )}
+                {!editing && (
                 <div>
                   <h3 className="sila-section-title">Attachments</h3>
                   {(invoice.documents ?? []).filter((document) => document.documentType !== "GRN PDF").length === 0 ? <p className="srcv-sub">No documents stored.</p> : (
@@ -865,6 +872,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                     </ul>
                   )}
                 </div>
+                )}
+                {!editing && (
                 <div>
                   <h3 className="sila-section-title">Payment</h3>
                   <p className="srcv-sub">Supplier invoice: {invoice.invoiceNumber || "—"}</p>
@@ -879,10 +888,11 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   <p className="srcv-sub">Payment reference: —</p>
                   <p className="srcv-sub">Payment integration: {invoice.paymentIntegration || "NOT CONFIGURED"}</p>
                 </div>
-                {invoice.goodsReceipts.length > 0 && (
+                )}
+                {!editing && invoice.goodsReceipts.length > 0 && (
                   <p className="srcv-sub">Goods receipts: {invoice.goodsReceipts.map((receipt) => receipt.grnNumber).join(", ")}</p>
                 )}
-                {invoice.ocrText && (
+                {!editing && invoice.ocrText && (
                   <details>
                     <summary>Text read by the OCR</summary>
                     <pre className="srcv-ocr-text">{invoice.ocrText}</pre>

@@ -19,6 +19,9 @@ const readRequestBody = (req: IncomingMessage): Promise<string> => new Promise((
   req.on("error", reject);
 });
 
+const localBuyerUrl = (): string =>
+  (process.env.VITE_LOCAL_BUYER_API || "http://127.0.0.1:8004").replace(/\/$/, "");
+
 const send = (res: ServerResponse, status: number, contentType: string, body: string): void => {
   res.statusCode = status;
   res.setHeader("Content-Type", contentType);
@@ -324,6 +327,16 @@ const handle = async (
     return;
   }
 
+  try {
+    const local = await forward(localBuyerUrl(), req, "POST", route, "");
+    if (local.status !== 404 || local.body.trim()) {
+      send(res, local.status, local.contentType, local.body);
+      return;
+    }
+  } catch {
+    // Local Buyer.API is not running; continue with the posting-route fallback.
+  }
+
   const allowed = await forward(target, req, "GET", `/api/v1/buyer/sila/invoices/${invoiceId}`, null);
   if (allowed.status !== 200) {
     send(res, allowed.status, allowed.contentType, allowed.body);
@@ -587,7 +600,20 @@ const handleReprocess = async (
 ): Promise<void> => {
   await readRequestBody(req);
   const before = await run(settingsPath, { action: "attempt", postingId });
-  const upstream = await forward(target, req, "POST", `/api/v1/buyer/sila/erp-postings/${postingId}/reprocess`, "");
+  const route = `/api/v1/buyer/sila/erp-postings/${postingId}/reprocess`;
+  let upstream = await forward(target, req, "POST", route, "");
+  const cloudMiss = (upstream.status === 404 && !upstream.body.trim())
+    || (upstream.status >= 500 && /IntegrationProcessType|Cannot convert string value/i.test(upstream.body));
+  if (cloudMiss) {
+    try {
+      const local = await forward(localBuyerUrl(), req, "POST", route, "");
+      if (local.status !== 404 || local.body.trim()) {
+        upstream = local;
+      }
+    } catch {
+      // Local Buyer.API is not running; return the cloud error.
+    }
+  }
   if (before.invoice) {
     await run(settingsPath, { action: "deliver", postingId, attemptBefore: before.lastAttemptAt || "" });
   }

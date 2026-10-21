@@ -8,26 +8,46 @@ interface SilaDocumentTrackProps {
   onOpen?: (kind: string, id: string) => void;
   /** When true, history starts collapsed and opens as a panel on click. */
   historyAsPanel?: boolean;
+  /** When set, only these node kinds are shown (for example PO, GRN, ATTACHMENT). */
+  kinds?: string[];
+  /** Hide event history (workflow dump). */
+  showHistory?: boolean;
+  /** When true, attachments start open. */
+  attachmentsOpenByDefault?: boolean;
+  title?: string;
 }
 
 const KIND_ORDER = ["PO", "GRN", "INVOICE", "ATTACHMENT", "PAYMENT", "SOA"];
 
 /** PO → GRN → Invoice → Attachment → Payment → SOA with history and attachments. */
-const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpen, historyAsPanel = true }) => {
+const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({
+  track,
+  onOpen,
+  historyAsPanel = true,
+  kinds,
+  showHistory = true,
+  attachmentsOpenByDefault = false,
+  title = "Document track",
+}) => {
   const [historyOpen, setHistoryOpen] = useState(!historyAsPanel);
-  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(attachmentsOpenByDefault);
 
   if (!track || (track.nodes?.length ?? 0) === 0) return null;
 
-  const nodes = [...(track.nodes ?? [])].sort((a, b) => {
-    const ai = KIND_ORDER.indexOf(a.kind);
-    const bi = KIND_ORDER.indexOf(b.kind);
-    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
-  });
+  const allowed = kinds && kinds.length > 0 ? new Set(kinds) : null;
+  const nodes = [...(track.nodes ?? [])]
+    .filter((node) => !allowed || allowed.has(node.kind))
+    .sort((a, b) => {
+      const ai = KIND_ORDER.indexOf(a.kind);
+      const bi = KIND_ORDER.indexOf(b.kind);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+
+  if (nodes.length === 0 && (track.attachments?.length ?? 0) === 0) return null;
 
   return (
     <section className="srcv-track" aria-labelledby="srcv-track-title">
-      <h3 id="srcv-track-title" className="sila-section-title">Document track</h3>
+      <h3 id="srcv-track-title" className="sila-section-title">{title}</h3>
       <ol className="srcv-track-chain">
         {nodes.map((node, index) => {
           const clickable = Boolean(onOpen && node.id && (node.kind === "PO" || node.kind === "GRN" || node.kind === "INVOICE"));
@@ -62,7 +82,7 @@ const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpe
             {attachmentsOpen ? "Hide attachments" : `Attachments (${track.attachments.length})`}
           </button>
         )}
-        {(track.history?.length ?? 0) > 0 && (
+        {showHistory && (track.history?.length ?? 0) > 0 && (
           <button
             type="button"
             className="sila-btn sila-btn--secondary sila-btn--sm"
@@ -89,7 +109,7 @@ const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({ track, onOpe
         </div>
       )}
 
-      {historyOpen && (track.history?.length ?? 0) > 0 && (
+      {showHistory && historyOpen && (track.history?.length ?? 0) > 0 && (
         <div className="srcv-panel srcv-track-block" role="region" aria-label="Document history">
           <h4 className="sila-section-title">History</h4>
           <ol className="srcv-track-list">

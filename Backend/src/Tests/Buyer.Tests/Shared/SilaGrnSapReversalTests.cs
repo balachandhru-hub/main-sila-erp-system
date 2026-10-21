@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Buyer.Application.Features.Shared;
+using SharedKernel.Integration.Enums;
+using SharedKernel.Integration.Rules;
 using Xunit;
 
 namespace Buyer.Tests.Shared
@@ -95,6 +97,15 @@ namespace Buyer.Tests.Shared
             Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4-GRN POSTING"));
             Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4 GRN POSTING"));
             Assert.True(SilaGrnSap.IsConfiguredName("FIVE S4 - POST GRN"));
+        }
+
+        [Fact]
+        public void ProcessType_ReadsPostGrnReversalFromDatabaseText()
+        {
+            Assert.True(IntegrationProcessTypes.TryRead("POST_GRN_REVERSAL", out IntegrationProcessType type));
+            Assert.Equal(IntegrationProcessType.POST_GRN_REVERSAL, type);
+            Assert.NotNull(IntegrationProcessCatalog.Find("POST_GRN_REVERSAL"));
+            Assert.Null(IntegrationProcessTypes.ReadOrNull("NOT_A_REAL_PROCESS"));
         }
 
         [Fact]

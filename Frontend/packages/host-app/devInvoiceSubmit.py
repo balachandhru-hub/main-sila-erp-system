@@ -532,17 +532,11 @@ def read_posting(cur, invoice_id: uuid.UUID) -> dict:
     return {"ok": True, "postingData": prepared}
 
 
+GRN_POSTING_NAME = "FIVE S4-GRN POSTING"
+GRN_POSTING_NAME_LEGACY = "FIVE S4 - POST GRN"
+
+
 def ensure_api(cur, buyer_id, body: dict) -> None:
-    source = fetchone(
-        cur,
-        """
-        SELECT id FROM buyersystem.api_integration_configuration
-        WHERE buyer_id=%s AND is_active=1 AND name='FIVE S4 - POST GRN' AND status='ACTIVE'
-        """,
-        (str(buyer_id),),
-    )
-    if source is None:
-        raise SubmitError(400, "Invoice cannot be submitted.", "No active FIVE S4 - POST GRN connection is available to sign in to S/4.")
     payload = json.dumps(body, separators=(",", ":"))
     existing = fetchone(
         cur,
@@ -563,6 +557,29 @@ def ensure_api(cur, buyer_id, body: dict) -> None:
             (API_NAME, PROCESS_TYPE, RESOURCE_PATH, payload, str(existing[0])),
         )
         return
+    source = fetchone(
+        cur,
+        """
+        SELECT id FROM buyersystem.api_integration_configuration
+        WHERE buyer_id=%s AND is_active=1 AND status='ACTIVE'
+          AND name IN (%s, %s, %s)
+        ORDER BY CASE name WHEN %s THEN 1 WHEN %s THEN 2 ELSE 3 END
+        """,
+        (
+            str(buyer_id),
+            API_NAME,
+            GRN_POSTING_NAME,
+            GRN_POSTING_NAME_LEGACY,
+            API_NAME,
+            GRN_POSTING_NAME,
+        ),
+    )
+    if source is None:
+        raise SubmitError(
+            400,
+            "Invoice cannot be submitted.",
+            "No active FIVE S4-INVOICE POSTING connection is available to sign in to S/4.",
+        )
     cur.execute(
         """
         INSERT INTO buyersystem.api_integration_configuration (

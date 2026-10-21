@@ -1468,7 +1468,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             return new IntegrationApiDto
             {
                 Configured = true,
-                ProcessType = Enum.Parse<IntegrationProcessType>(configuration.ProcessType),
+                ProcessType = IntegrationProcessTypes.ReadOrNull(configuration.ProcessType),
                 ConfigurationId = configuration.Id,
                 Name = configuration.Name,
                 SystemName = configuration.SystemName,
