@@ -228,7 +228,18 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    _logger.LogError($"Immediate GRN ERP post failed after stock update. GoodsReceiptId: {receipt.Id}, PostingId: {grnPostingId}, Error: {SilaLogText.Short(exception.Message)}");
+                    _logger.LogError($"Immediate GRN ERP post failed after stock update. GoodsReceiptId: {receipt.Id}, PostingId: {grnPostingId}, Error: {SilaLogText.FromException(exception)}");
+                }
+
+                InventoryErpPosting? sent = await _repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == grnPostingId.Value);
+                if (sent != null && (sent.Status == Common.SILA_POSTING_FAILED
+                    || sent.Status == Common.SILA_POSTING_UNKNOWN
+                    || sent.Status == Common.SILA_POSTING_SKIPPED))
+                {
+                    string error = string.IsNullOrWhiteSpace(sent.ErrorMessage)
+                        ? "S4 posting failed."
+                        : sent.ErrorMessage;
+                    throw new BadRequestCustomException(error, error);
                 }
             }
 

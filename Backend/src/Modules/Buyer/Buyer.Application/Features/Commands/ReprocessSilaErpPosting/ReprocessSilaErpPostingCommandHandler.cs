@@ -81,10 +81,19 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogError($"Reprocess ERP send failed. PostingId: {posting.Id}, Error: {SilaLogText.Short(exception.Message)}");
+                _logger.LogError($"Reprocess ERP send failed. PostingId: {posting.Id}, Error: {SilaLogText.FromException(exception)}");
             }
 
-            _logger.LogInfo($"ERP posting reprocessed. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}");
+            InventoryErpPosting fresh = await _repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == posting.Id);
+            if (fresh.Status == Common.SILA_POSTING_FAILED
+                || fresh.Status == Common.SILA_POSTING_UNKNOWN
+                || fresh.Status == Common.SILA_POSTING_SKIPPED)
+            {
+                string error = string.IsNullOrWhiteSpace(fresh.ErrorMessage) ? "S4 posting failed." : fresh.ErrorMessage;
+                throw new BadRequestCustomException(error, error);
+            }
+
+            _logger.LogInfo($"ERP posting reprocessed. PostingId: {posting.Id}, Reference: {fresh.ReferenceNumber}");
             return posting.Id;
         }
     }

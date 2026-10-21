@@ -91,8 +91,8 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    _logger.LogError($"ERP posting failed unexpectedly. PostingId: {postingId}, Error: {SilaLogText.Short(exception.Message)}");
-                    status = await RecordUnexpectedFailureAsync(postingId, exception.Message);
+                    _logger.LogError($"ERP posting failed unexpectedly. PostingId: {postingId}, Error: {SilaLogText.FromException(exception)}");
+                    status = await RecordUnexpectedFailureAsync(postingId, exception);
                 }
 
                 result.Processed++;
@@ -774,7 +774,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
         }
 
         // An exception left the context in an unknown state: drop it and count the attempt on a fresh copy.
-        private async Task<string> RecordUnexpectedFailureAsync(Guid postingId, string? reason)
+        private async Task<string> RecordUnexpectedFailureAsync(Guid postingId, Exception? reason)
         {
             try
             {
@@ -792,10 +792,8 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 // An invoice is not retried in the dark: the same preparation error would only lock the document.
                 bool invoice = posting.ReferenceType == Common.SILA_REF_INVOICE;
                 posting.Status = invoice || posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
-                string detail = SilaLogText.Short(reason);
-                posting.ErrorMessage = string.IsNullOrWhiteSpace(detail)
-                    ? "The posting could not be prepared or sent. Check the document and the ERP API."
-                    : detail;
+                string detail = SilaLogText.FromException(reason, ERROR_LIMIT);
+                posting.ErrorMessage = string.IsNullOrWhiteSpace(detail) ? reason?.GetType().Name ?? "Unknown error." : detail;
                 if (invoice)
                 {
                     Invoice? invoiceRow = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive);
