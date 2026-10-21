@@ -18,9 +18,13 @@ import GrnErpCard from './GrnErpCard';
 const INVOICE_SUBMIT_OK = new Set([
   'GRN_POSTED',
   'READY_FOR_INVOICE_SUBMISSION',
+  'READY_TO_POST',
   'REVIEWED',
   'EXTRACTED',
   'APPROVED',
+  'VALIDATION_FAILED',
+  'GET_PO_FAILED',
+  'POSTING_FAILED',
 ]);
 
 /** A goods receipt; right after posting it is the result screen. */
