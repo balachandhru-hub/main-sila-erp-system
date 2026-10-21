@@ -1127,3 +1127,10 @@
 .sm-grn-line__extra .sm-input {
   min-height: 2.25rem;
 }
+
+.sm-file-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: 0.0625rem solid var(--sm-border);
+  background: var(--sm-subtle);
+}
