@@ -119,7 +119,7 @@ const GrnDetailScreen: React.FC = () => {
             </Card>
 
             <GrnErpCard grn={data} onChanged={reload} />
-            <DocumentTrackCard track={data.documentTrack} />
+            <DocumentTrackCard track={data.documentTrack} linkedInvoiceId={data.invoiceId} />
 
             {(showReverse || canPostInvoice) && (
               <div className="sm-actions sm-grid-2">

@@ -8,6 +8,7 @@ import { MobileBaseProvider } from './navigation';
 import HomeScreen from './screens/home/HomeScreen';
 import ReceiveScreen from './screens/receive/ReceiveScreen';
 import ScanInvoiceScreen from './screens/receive/ScanInvoiceScreen';
+import InvoiceFileScreen from './screens/receive/InvoiceFileScreen';
 import InvoiceReviewScreen from './screens/receive/InvoiceReviewScreen';
 import GrnFormScreen from './screens/receive/GrnFormScreen';
 import GrnDetailScreen from './screens/receive/GrnDetailScreen';
@@ -103,6 +104,7 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="receive" element={<ReceiveScreen />} />
                 <Route path="receive/scan" element={<ScanInvoiceScreen />} />
                 <Route path="receive/invoices/:invoiceId" element={<InvoiceReviewScreen />} />
+                <Route path="receive/invoices/:invoiceId/file" element={<InvoiceFileScreen />} />
                 <Route path="receive/grn/new" element={<GrnFormScreen />} />
                 <Route path="receive/grns/:grnId" element={<GrnDetailScreen />} />
                 <Route path="receive/grns/:grnId/reverse" element={<GrnReverseScreen />} />

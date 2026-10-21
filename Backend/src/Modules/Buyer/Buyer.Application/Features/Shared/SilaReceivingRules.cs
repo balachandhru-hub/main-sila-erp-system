@@ -327,6 +327,11 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindByCondition(x => x.Id == invoice.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
+            if (SilaInvoicePosting.AlignInvoiceStatus(invoice, posting))
+            {
+                repository.Invoice.Update(invoice);
+                await repository.SaveAsync();
+            }
             List<Guid> grnPostingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
             Dictionary<Guid, InventoryErpPosting> grnPostings = grnPostingIds.Count == 0
                 ? new Dictionary<Guid, InventoryErpPosting>()

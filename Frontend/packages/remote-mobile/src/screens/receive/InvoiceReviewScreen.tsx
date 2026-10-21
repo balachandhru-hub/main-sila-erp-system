@@ -3,24 +3,39 @@ import { useParams } from 'react-router-dom';
 import {
   getInvoice,
   getInvoiceExtractions,
+  submitInvoice,
   type SilaInvoiceDetail,
   type SilaInvoiceExtraction,
 } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
-import { ErrorNotice, Loading } from '../../components/StateViews';
+import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../components/StateViews';
 import { formatDate } from '../../format';
 import { useGo } from '../../navigation';
-import { useLoad } from '../../useLoad';
+import { errorText, useLoad } from '../../useLoad';
 import DocumentTrackCard from './DocumentTrackCard';
 import InvoiceDocumentCard from './InvoiceDocumentCard';
+import InvoiceHistoryCard from './InvoiceHistoryCard';
 import InvoiceReviewForm from './InvoiceReviewForm';
+import { invoiceFormVisible, invoicePosted, invoicePostingFailed, safeErpMessage } from './invoicePosting';
 
 /** Newest completed reading (it holds what the OCR read before the user corrected anything). */
 const latestReading = (extractions: SilaInvoiceExtraction[] | null): SilaInvoiceExtraction | null =>
   (extractions ?? [])
     .filter((item) => item.status === 'COMPLETED')
     .sort((left, right) => right.attempt - left.attempt)[0] ?? null;
+
+const postingTitle = (invoice: SilaInvoiceDetail): { label: string; status: string } => {
+  if (invoicePostingFailed(invoice)) return { label: 'Posting Failed', status: 'ERP_POSTING_FAILED' };
+  if ((invoice.status || '').toUpperCase() === 'POSTING_UNKNOWN' || (invoice.erpStatus || '').toUpperCase() === 'UNKNOWN') {
+    return { label: 'Posting Status Unknown', status: 'POSTING_UNKNOWN' };
+  }
+  if (invoicePosted(invoice)) return { label: 'Posted', status: invoice.status };
+  if ((invoice.status || '').toUpperCase() === 'POSTING' || (invoice.erpStatus || '').toUpperCase() === 'PENDING') {
+    return { label: 'Posting', status: 'POSTING' };
+  }
+  return { label: invoice.status, status: invoice.status };
+};
 
 /** Invoice review: document, supplier (OCR → Supplier Master), invoice fields, open PO, items; then Finalize GRN. */
 const InvoiceReviewScreen: React.FC = () => {
@@ -30,9 +45,27 @@ const InvoiceReviewScreen: React.FC = () => {
   const readings = useLoad(() => getInvoiceExtractions(invoiceId), invoiceId || null);
   /** Re-read result; it replaces the loaded invoice and remounts the form with the new values. */
   const [reread, setReread] = useState<{ invoice: SilaInvoiceDetail; version: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<NoticeMessage | null>(null);
   const invoice = reread?.invoice ?? data;
-  const posted = invoice?.status === 'GRN_POSTED';
   const reading = latestReading(readings.data);
+  const posting = invoice ? postingTitle(invoice) : null;
+  const failure = invoice ? safeErpMessage(invoice.erpMessage) : null;
+
+  const retry = async () => {
+    if (!invoice) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const updated = await submitInvoice(invoice.id);
+      setReread((current) => ({ invoice: updated, version: (current?.version ?? 0) + 1 }));
+      setNotice({ tone: 'success', text: 'Invoice submitted for posting.' });
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not submit the invoice.') });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <>
@@ -46,9 +79,25 @@ const InvoiceReviewScreen: React.FC = () => {
               <span className="sm-meta">
                 {invoice.invoiceNumber || 'Invoice'} · {formatDate(invoice.uploadedOn)}
               </span>
-              <StatusBadge status={invoice.status} />
+              <StatusBadge status={posting?.status} label={posting?.label} />
             </div>
-            <DocumentTrackCard track={invoice.documentTrack} />
+            {invoicePostingFailed(invoice) && (
+              <p className="sm-notice sm-notice--error">
+                {failure ?? 'Invoice posting failed.'}
+              </p>
+            )}
+            {(invoice.status || '').toUpperCase() === 'POSTING_UNKNOWN' && (
+              <p className="sm-notice sm-notice--warning">Posting status unknown. Reconciliation is required before SAP is called again.</p>
+            )}
+            {invoicePosted(invoice) && (
+              <p className="sm-notice sm-notice--success">
+                Posted
+                {invoice.erpReference ? ` · ${invoice.erpReference}` : ''}
+                {invoice.fiscalYear ? ` · FY ${invoice.fiscalYear}` : ''}
+              </p>
+            )}
+            <DocumentTrackCard track={invoice.documentTrack} linkedInvoiceId={invoice.id} />
+            <InvoiceHistoryCard invoice={invoice} />
             <InvoiceDocumentCard
               invoice={invoice}
               extraction={reading}
@@ -78,9 +127,17 @@ const InvoiceReviewScreen: React.FC = () => {
                 </ul>
               </section>
             )}
-            {!posted && (
+            {invoiceFormVisible(invoice) && (
               <InvoiceReviewForm key={`${invoice.id}-${reread?.version ?? 0}`} invoice={invoice} ocr={reading?.fields ?? null} />
             )}
+            {invoicePostingFailed(invoice) && (
+              <div className="sm-actions">
+                <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={retry}>
+                  {busy ? 'Submitting…' : 'Retry invoice posting'}
+                </button>
+              </div>
+            )}
+            <Notice notice={notice} />
           </>
         )}
       </div>

@@ -10,6 +10,7 @@ import { Notice, type NoticeMessage } from '../../components/StateViews';
 import { useGo } from '../../navigation';
 import { errorText } from '../../useLoad';
 import InvoiceItemsCard from './InvoiceItemsCard';
+import { invoiceEditLocked } from './invoicePosting';
 import PoPicker from './PoPicker';
 import SupplierMatch, { type MatchedSupplier } from './SupplierMatch';
 
@@ -163,9 +164,11 @@ const InvoiceReviewForm: React.FC<InvoiceReviewFormProps> = ({ invoice, ocr }) =
       <InvoiceItemsCard items={invoice.items} currency={currency || invoice.currency || null} />
 
       <Notice notice={notice} />
-      <button type="button" className="sm-btn sm-btn--primary sm-btn--block" disabled={saving} onClick={save}>
-        {saving ? 'Saving…' : 'SAVE AND CONTINUE'}
-      </button>
+      {!invoiceEditLocked(invoice.status) && (
+        <button type="button" className="sm-btn sm-btn--primary sm-btn--block" disabled={saving} onClick={save}>
+          {saving ? 'Saving…' : 'SAVE AND CONTINUE'}
+        </button>
+      )}
     </>
   );
 };
