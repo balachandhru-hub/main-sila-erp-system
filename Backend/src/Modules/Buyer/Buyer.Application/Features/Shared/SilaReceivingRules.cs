@@ -238,6 +238,12 @@ namespace Buyer.Application.Features.Shared
             List<Guid> purchaseOrderIds = receipts.Select(x => x.PurchaseOrderId).Distinct().ToList();
             List<Guid> invoiceIds = receipts.Where(x => x.InvoiceId != null).Select(x => x.InvoiceId!.Value).Distinct().ToList();
             List<Guid> postingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            List<string> reversalGrnNumbers = receipts
+                .Where(x => x.ParentGoodsReceiptId != null)
+                .Select(x => x.GrnNumber)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
 
             Dictionary<Guid, string> locations = await repository.InventoryLocation
                 .FindByCondition(x => locationIds.Contains(x.Id))
@@ -253,9 +259,19 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, InventoryErpPosting> invoicePostings = invoicePostingIds.Count == 0
                 ? new Dictionary<Guid, InventoryErpPosting>()
                 : await repository.InventoryErpPosting.FindByCondition(x => invoicePostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
-            Dictionary<Guid, InventoryErpPosting> postings = await repository.InventoryErpPosting
-                .FindByCondition(x => postingIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, cancellationToken);
+            Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting
+                    .FindByCondition(x => postingIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            Dictionary<string, InventoryErpPosting> reversalPostings = reversalGrnNumbers.Count == 0
+                ? new Dictionary<string, InventoryErpPosting>(StringComparer.OrdinalIgnoreCase)
+                : (await repository.InventoryErpPosting
+                    .FindByCondition(x => x.ReferenceType == Common.SILA_REF_GRN_REVERSAL && x.IsActive
+                        && x.ReferenceNumber != null && reversalGrnNumbers.Contains(x.ReferenceNumber))
+                    .ToListAsync(cancellationToken))
+                    .GroupBy(x => x.ReferenceNumber!, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(x => x.Key, x => x.OrderByDescending(p => p.DateCreated).First(), StringComparer.OrdinalIgnoreCase);
             List<Guid> lineReceiptIds = await repository.GoodsReceiptItem
                 .FindByCondition(x => receiptIds.Contains(x.GoodsReceiptId) && x.IsActive)
                 .Select(x => x.GoodsReceiptId)
@@ -264,6 +280,10 @@ namespace Buyer.Application.Features.Shared
             return receipts.Select(receipt =>
             {
                 InventoryErpPosting? posting = receipt.ErpPostingId != null && postings.TryGetValue(receipt.ErpPostingId.Value, out InventoryErpPosting? found) ? found : null;
+                if (posting == null && receipt.ParentGoodsReceiptId != null)
+                {
+                    reversalPostings.TryGetValue(receipt.GrnNumber, out posting);
+                }
                 return new SilaReceivingGrnListItemDto
                 {
                     Id = receipt.Id,
@@ -281,7 +301,7 @@ namespace Buyer.Application.Features.Shared
                     Status = receipt.Status,
                     ReceivedOn = receipt.DateCreated,
                     LineCount = lineReceiptIds.Count(id => id == receipt.Id),
-                    ErpPostingId = receipt.ErpPostingId,
+                    ErpPostingId = receipt.ErpPostingId ?? posting?.Id,
                     ErpStatus = posting?.Status,
                     ErpReference = posting?.ErpReference ?? receipt.MaterialDocument,
                     ReversalGrnNumber = receipt.ReversalGrnNumber,

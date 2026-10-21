@@ -379,10 +379,7 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             {
                 await ApplyLocalReversalAsync(buyer, receipt, request.UserId, selected, cancellationToken);
                 reversalPosting.Status = Common.SILA_POSTING_POSTED;
-                if (!string.IsNullOrWhiteSpace(receipt.ReversalGrnNumber))
-                {
-                    reversalPosting.ReferenceNumber = receipt.ReversalGrnNumber;
-                }
+                BindReversalPostingToLinkedGrn(reversalPosting, receipt);
                 receipt.ReversalStatus = Common.SILA_POSTING_POSTED;
                 receipt.ReversedOn = DateTime.UtcNow;
                 bool fullyReversed = items.All(x => x.AcceptedQty - x.ReversedQty <= TOLERANCE);
@@ -495,10 +492,7 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             {
                 posting.Status = Common.SILA_POSTING_POSTED;
                 posting.ErrorMessage = null;
-                if (!string.IsNullOrWhiteSpace(receipt.ReversalGrnNumber))
-                {
-                    posting.ReferenceNumber = receipt.ReversalGrnNumber;
-                }
+                BindReversalPostingToLinkedGrn(posting, receipt);
                 _repository.InventoryErpPosting.Update(posting);
             }
 
@@ -687,6 +681,7 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 Status = Common.SILA_GRN_REVERSED,
                 ReceivedBy = original.ReceivedBy,
                 ParentGoodsReceiptId = original.Id,
+                ErpPostingId = original.ReversalErpPostingId,
                 MaterialDocument = original.ReversalMaterialDocument,
                 MaterialDocumentYear = original.ReversalMaterialDocumentYear,
                 ReversalStatus = Common.SILA_POSTING_POSTED,
@@ -757,6 +752,23 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 ActorUserId = userId,
                 IsActive = true
             });
+        }
+
+        /// <summary>
+        /// The 102 posting belongs to the linked GR** (GR000010), not the original GR000008.
+        /// Does not call SAP again.
+        /// </summary>
+        private static void BindReversalPostingToLinkedGrn(InventoryErpPosting posting, GoodsReceipt original)
+        {
+            if (!string.IsNullOrWhiteSpace(original.ReversalGrnNumber))
+            {
+                posting.ReferenceNumber = original.ReversalGrnNumber;
+            }
+
+            if (original.ReversalGoodsReceiptId != null)
+            {
+                posting.ReferenceId = original.ReversalGoodsReceiptId.Value;
+            }
         }
 
         private static string SapErrorText(string? sendError, string? responseBody, int statusCode)
