@@ -7,7 +7,7 @@ interface SilaDocumentTrackProps {
   track?: Track | null;
   /** Optional navigation when a PO / GRN / Invoice node is clicked. */
   onOpen?: (kind: string, id: string) => void;
-  /** When true, history starts collapsed and opens as a panel on click. */
+  /** Kept for callers. History is shown when Document track is expanded. */
   historyAsPanel?: boolean;
   /** When set, only these node kinds are shown (for example PO, GRN, ATTACHMENT). */
   kinds?: string[];
@@ -44,14 +44,22 @@ const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({
   title = "Document track",
 }) => {
   const [open, setOpen] = useState(!startCollapsed);
-  const [historyOpen, setHistoryOpen] = useState(!historyAsPanel);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const [attachmentsOpen, setAttachmentsOpen] = useState(attachmentsOpenByDefault);
 
   useEffect(() => {
     setOpen(!startCollapsed);
-    setHistoryOpen(!historyAsPanel);
+    setHistoryOpen(true);
     setAttachmentsOpen(attachmentsOpenByDefault);
-  }, [track?.rootId, startCollapsed, historyAsPanel, attachmentsOpenByDefault]);
+  }, [track?.rootId, startCollapsed, attachmentsOpenByDefault]);
+
+  const toggleOpen = () => {
+    setOpen((current) => {
+      const next = !current;
+      if (next) setHistoryOpen(true);
+      return next;
+    });
+  };
 
   if (!track || (track.nodes?.length ?? 0) === 0) return null;
 
@@ -66,19 +74,27 @@ const SilaDocumentTrackPanel: React.FC<SilaDocumentTrackProps> = ({
 
   if (nodes.length === 0 && (track.attachments?.length ?? 0) === 0) return null;
 
-  const bodyId = "srcv-track-body";
+  const bodyId = `srcv-track-body-${track.rootId}`;
 
   return (
     <section className="srcv-track" aria-labelledby="srcv-track-title">
       <div className="srcv-track-head">
-        <h3 id="srcv-track-title" className="sila-section-title">{title}</h3>
+        <button
+          type="button"
+          className="srcv-track-title-btn"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={toggleOpen}
+        >
+          <h3 id="srcv-track-title" className="sila-section-title">{title}</h3>
+        </button>
         <button
           type="button"
           className="sila-icon-btn"
           aria-expanded={open}
           aria-controls={bodyId}
           aria-label={open ? "Collapse document track" : "Show document track"}
-          onClick={() => setOpen((current) => !current)}
+          onClick={toggleOpen}
         >
           {open ? <FaChevronUp aria-hidden="true" /> : <FaInfoCircle aria-hidden="true" />}
         </button>

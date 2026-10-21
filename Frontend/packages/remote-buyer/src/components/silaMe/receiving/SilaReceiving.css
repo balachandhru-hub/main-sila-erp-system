@@ -167,6 +167,21 @@
   margin: 0;
 }
 
+.srcv-track-title-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.srcv-track-title-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+  border-radius: var(--sila-radius);
+}
+
 .srcv-track-body {
   display: flex;
   flex-direction: column;

@@ -696,7 +696,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <SilaDocumentTrackPanel
                   track={invoice.documentTrack}
                   kinds={["PO", "GRN", "ATTACHMENT"]}
-                  showHistory={false}
+                  showHistory
                   attachmentsOpenByDefault
                   startCollapsed={false}
                   title="PO, GRN and attachments"
@@ -706,6 +706,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
             )}
             {tab === "review" && (
               <div id="srcv-panel-review" role="tabpanel" aria-labelledby="srcv-tab-review" className="srcv-stack">
+                <SilaDocumentTrackPanel key={invoice.id} track={invoice.documentTrack} historyAsPanel startCollapsed />
                 <div className="sila-form-grid">
                   {HEADER_FIELDS.map((field) => (
                     <div className="sila-field" key={field.key}>
