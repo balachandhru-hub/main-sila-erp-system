@@ -42,8 +42,13 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
         {
             _logger.LogInfo($"Sending document to integration. ConfigurationId: {request.ConfigurationId}, OrganizationId: {request.OrganizationId}");
             ApiIntegrationConfiguration configuration = await IntegrationLookup.GetTrackedAsync(_repository, _logger, request.ConfigurationId, request.OrganizationId);
+            // The attachment API is a POST. On a server whose API type is still an enum, its row is stored as a type that enum
+            // already contains, so the integrations list can load. The name and the attachment path still identify the call.
+            bool attachment = string.Equals(configuration.Name, SilaInvoiceLifecycle.API_ATTACHMENT, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(configuration.Name, SilaInvoiceLifecycle.API_ATTACHMENT_LEGACY, StringComparison.OrdinalIgnoreCase)
+                || (configuration.ResourcePath?.Contains(SilaInvoiceLifecycle.ATTACHMENT_SERVICE, StringComparison.OrdinalIgnoreCase) ?? false);
             if (configuration.Status != IntegrationConfigurationStatus.ACTIVE
-                || IntegrationProcessCatalog.Find(configuration.ProcessType)?.IsPush != true)
+                || (!attachment && IntegrationProcessCatalog.Find(configuration.ProcessType)?.IsPush != true))
             {
                 _logger.LogError($"Integration cannot be sent to. ConfigurationId: {configuration.Id}, Status: {configuration.Status}, ProcessType: {configuration.ProcessType}");
                 throw new BadRequestCustomException("API is not active.", "Activate this API before documents are sent to it.");
@@ -52,13 +57,21 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
             IntegrationSendResultDto result = new IntegrationSendResultDto();
             Stopwatch watch = Stopwatch.StartNew();
             configuration.LastAttemptAt = DateTime.UtcNow;
+            string? savedPath = configuration.ResourcePath;
+            if (!string.IsNullOrWhiteSpace(request.ResourcePathOverride))
+            {
+                configuration.ResourcePath = request.ResourcePathOverride.Trim();
+            }
+
             try
             {
+                // Empty body = no content (OData function imports such as CreateUrlAsAttachment).
+                string? requestBody = string.IsNullOrWhiteSpace(request.Body) ? null : request.Body;
                 using HttpResponseMessage response = await _executor.SendOnceAsync(
                     configuration,
                     _executor.ResourceUrl(configuration),
                     new HttpMethod(configuration.HttpMethod),
-                    request.Body,
+                    requestBody,
                     request.Headers,
                     cancellationToken);
                 string body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -90,6 +103,23 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
                 result.ErrorCode = exception.Code;
                 result.ErrorMessage = exception.Message;
                 configuration.LastErrorSafe = exception.Message;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // A failure before the HTTP call (for example the saved sign-in cannot be read) is not an IntegrationException.
+                // Leave it on the configuration; otherwise the attempt is discarded and the posting only keeps a generic sentence.
+                result.Answered = false;
+                result.ErrorCode = "INTEGRATION_SEND_FAILED";
+                result.ErrorMessage = "The posting could not be sent. " + SilaLogText.Short(exception.Message);
+                configuration.LastErrorSafe = result.ErrorMessage;
+                _logger.LogError($"Document could not be sent to integration. ConfigurationId: {configuration.Id}, Error: {SilaLogText.Short(exception.Message)}");
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(request.ResourcePathOverride))
+                {
+                    configuration.ResourcePath = savedPath;
+                }
             }
 
             watch.Stop();

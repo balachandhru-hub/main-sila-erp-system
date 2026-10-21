@@ -1,15 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { getGoodsReceipt } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
+import {
+  getGoodsReceipt,
+  submitInvoice,
+} from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { formatQty } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import Card from '../../components/Card';
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
-import { ErrorNotice, Loading } from '../../components/StateViews';
+import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../components/StateViews';
 import { formatDateTime } from '../../format';
 import { useGo } from '../../navigation';
-import { useLoad } from '../../useLoad';
+import { errorText, useLoad } from '../../useLoad';
+import DocumentTrackCard from './DocumentTrackCard';
 import GrnErpCard from './GrnErpCard';
+
+const INVOICE_SUBMIT_OK = new Set([
+  'GRN_POSTED',
+  'READY_FOR_INVOICE_SUBMISSION',
+  'REVIEWED',
+  'EXTRACTED',
+  'APPROVED',
+]);
 
 /** A goods receipt; right after posting it is the result screen. */
 const GrnDetailScreen: React.FC = () => {
@@ -18,6 +30,33 @@ const GrnDetailScreen: React.FC = () => {
   const justPosted = params.get('posted') === '1';
   const go = useGo();
   const { data, loading, error, reload } = useLoad(() => getGoodsReceipt(grnId), grnId || null);
+  const [busy, setBusy] = useState<'invoice' | null>(null);
+  const [notice, setNotice] = useState<NoticeMessage | null>(null);
+
+  const status = (data?.status || '').toUpperCase();
+  const reversalStatus = (data?.reversalStatus || '').toUpperCase();
+  const canPostInvoice = !!data?.invoiceId && INVOICE_SUBMIT_OK.has((data.invoiceStatus || '').toUpperCase());
+  const showReverse =
+    status !== 'REVERSED' &&
+    (status === 'POSTED' ||
+      status === 'PARTIALLY_REVERSED' ||
+      reversalStatus === 'FAILED' ||
+      reversalStatus === 'FAILED_LOCAL' ||
+      reversalStatus === 'ERP_ACCEPTED');
+
+  const onPostInvoice = async () => {
+    if (!data?.invoiceId) return;
+    setBusy('invoice');
+    setNotice(null);
+    try {
+      await submitInvoice(data.invoiceId);
+      setNotice({ tone: 'success', text: 'Invoice submitted for posting.' });
+      go(`receive/invoices/${data.invoiceId}`, { replace: false });
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not submit the invoice.') });
+      setBusy(null);
+    }
+  };
 
   return (
     <>
@@ -40,6 +79,24 @@ const GrnDetailScreen: React.FC = () => {
                 <dd>{data.supplierName ?? '—'}</dd>
                 <dt>Store</dt>
                 <dd>{data.locationName ?? '—'}</dd>
+                {(data.materialDocument || data.erpPosting?.erpReference) && (
+                  <>
+                    <dt>SAP Material Document</dt>
+                    <dd>
+                      {data.materialDocument ?? data.erpPosting?.erpReference}
+                      {data.materialDocumentYear ? ` / ${data.materialDocumentYear}` : ''}
+                    </dd>
+                  </>
+                )}
+                {data.reversalMaterialDocument && (
+                  <>
+                    <dt>Reversal Material Document</dt>
+                    <dd>
+                      {data.reversalMaterialDocument}
+                      {data.reversalMaterialDocumentYear ? ` / ${data.reversalMaterialDocumentYear}` : ''}
+                    </dd>
+                  </>
+                )}
                 {data.invoiceNumber && (
                   <>
                     <dt>Invoice</dt>
@@ -58,6 +115,28 @@ const GrnDetailScreen: React.FC = () => {
             </Card>
 
             <GrnErpCard grn={data} onChanged={reload} />
+            <DocumentTrackCard track={data.documentTrack} />
+
+            {(showReverse || canPostInvoice) && (
+              <div className="sm-actions sm-grid-2">
+                {showReverse && (
+                  <button
+                    type="button"
+                    className="sm-btn"
+                    disabled={busy !== null}
+                    onClick={() => go(`receive/grns/${data.id}/reverse`)}
+                  >
+                    Reverse GRN
+                  </button>
+                )}
+                {canPostInvoice && (
+                  <button type="button" className="sm-btn sm-btn--primary" disabled={busy !== null} onClick={onPostInvoice}>
+                    {busy === 'invoice' ? 'Submitting…' : 'Post invoice'}
+                  </button>
+                )}
+              </div>
+            )}
+            <Notice notice={notice} />
 
             <section className="sm-section" aria-labelledby="sm-grn-lines">
               <h2 id="sm-grn-lines">Lines ({data.items.length})</h2>

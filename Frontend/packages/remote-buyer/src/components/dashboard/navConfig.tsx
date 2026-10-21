@@ -108,6 +108,8 @@ export const buildBuyerNavItems = ({
     ...(isAdmin ? [leaf("invitations", "Invitations")] : []),
   ];
 
+  const showPurchasingTxn = isAdmin || showPurchasingTracker;
+
   const purchasing: NavLeaf[] = [
     leaf("purchasing", "Purchasing Dashboard"),
     leaf("product", "Product Catalog"),
@@ -115,7 +117,7 @@ export const buildBuyerNavItems = ({
     ...(usesWeeklyBucket ? [leaf("weeklyBucket", "Weekly Bucket")] : []),
     ...(requestsProducts ? [leaf("cart", "Cart")] : []),
     leaf("purchaseOrders", "Purchase Orders"),
-    ...((isAdmin || showPurchasingTracker) ? [leaf("purchasingTransactions", "Purchasing Transactions")] : []),
+    ...(showPurchasingTxn ? [leaf("purchasingTransactions", "Purchasing Transactions")] : []),
   ];
 
   const settings: NavLeaf[] = [
@@ -132,6 +134,7 @@ export const buildBuyerNavItems = ({
       : []),
     leaf("materialService", "Item Master (Material & Service)"),
     leaf("documents", "Documents"),
+    ...(showPurchasingTxn ? [leaf("purchasingTransactions", "Purchasing Transactions")] : []),
   ];
 
   return [

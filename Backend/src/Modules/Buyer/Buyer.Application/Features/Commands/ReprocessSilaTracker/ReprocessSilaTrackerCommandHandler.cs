@@ -50,11 +50,12 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaTracker
             }
 
             SilaTrackerReprocessResultDto result = new SilaTrackerReprocessResultDto();
+            HashSet<Guid> resumedPostings = new HashSet<Guid>();
             foreach (string id in request.Ids.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 try
                 {
-                    string message = await OneAsync(request, id, cancellationToken);
+                    string message = await OneAsync(request, id, resumedPostings, cancellationToken);
                     result.Eligible++;
                     result.Completed++;
                     result.Messages.Add(message);
@@ -70,7 +71,7 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaTracker
             return result;
         }
 
-        private async Task<string> OneAsync(ReprocessSilaTrackerCommand request, string id, CancellationToken cancellationToken)
+        private async Task<string> OneAsync(ReprocessSilaTrackerCommand request, string id, HashSet<Guid> resumedPostings, CancellationToken cancellationToken)
         {
             if (!SilaTrackerRules.TryParseKey(id, out string source, out Guid key))
             {
@@ -80,10 +81,38 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaTracker
             return source switch
             {
                 SilaTrackerRules.SOURCE_ERP => await ErpAsync(request, key, cancellationToken),
+                SilaTrackerRules.SOURCE_LEDGER => await LedgerAsync(request, key, resumedPostings, cancellationToken),
                 SilaTrackerRules.SOURCE_POS => await PosAsync(request, key, cancellationToken),
                 SilaTrackerRules.SOURCE_PO => await PurchaseAsync(request, key, cancellationToken),
                 _ => await RunAsync(request, key, cancellationToken)
             };
+        }
+
+        private async Task<string> LedgerAsync(ReprocessSilaTrackerCommand request, Guid id, HashSet<Guid> resumedPostings, CancellationToken cancellationToken)
+        {
+            BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
+            InventoryTransaction? line = await _repository.InventoryTransaction.FindFirstByConditionAsync(x => x.Id == id && x.BuyerId == buyer.Id && x.IsActive);
+            if (line == null)
+            {
+                throw new BadRequestCustomException("Transaction cannot be reprocessed.", "This inventory transaction is not on the tracker.");
+            }
+
+            InventoryErpPosting? posting = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive && x.ReferenceType == line.ReferenceType && x.ReferenceId == line.ReferenceId)
+                .OrderByDescending(x => x.DateCreated)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (posting == null)
+            {
+                throw new BadRequestCustomException("Transaction cannot be reprocessed.", "This inventory transaction has no ERP posting to continue.");
+            }
+
+            if (!resumedPostings.Add(posting.Id))
+            {
+                return line.TransactionNumber + " uses the same ERP posting as another selected line. SAP is called once.";
+            }
+
+            string message = await ErpAsync(request, posting.Id, cancellationToken);
+            return line.TransactionNumber + " " + message;
         }
 
         private async Task<string> ErpAsync(ReprocessSilaTrackerCommand request, Guid id, CancellationToken cancellationToken)

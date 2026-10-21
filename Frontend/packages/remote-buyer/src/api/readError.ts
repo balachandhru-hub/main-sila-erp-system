@@ -67,10 +67,30 @@ const messageFromBody = (data: unknown): string => {
   return "";
 };
 
-/** User-facing text of a failed call: the API's description, otherwise the fallback. */
+/** User-facing text of a response body: description, message, or validation errors. */
+export const readBody = (data: unknown): string => messageFromBody(data);
+
+/** HTTP status from an Axios failure, or null. */
+export const readHttpStatus = (error: unknown): number | null =>
+  axios.isAxiosError(error) && typeof error.response?.status === "number" ? error.response.status : null;
+
+/**
+ * User-facing text of a failed call: the API's description/message, otherwise a status-aware fallback.
+ * Empty 404 bodies (undeployed route) must not collapse to a vague sentence alone.
+ */
 export const readError = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError(error)) {
-    return messageFromBody(error.response?.data) || fallback;
+    const fromBody = messageFromBody(error.response?.data);
+    if (fromBody) return fromBody;
+    const status = error.response?.status;
+    if (status === 404) {
+      return `${fallback} (HTTP 404 — this route is not registered on the connected server. A missing goods receipt returns GRN_NOT_FOUND, not an empty 404. Deploy Buyer.API with GET …/grns/{id}/reversal, or use localhost:6001 against the local Buyer API.)`;
+    }
+    if (typeof status === "number") {
+      return `${fallback} (HTTP ${status})`;
+    }
+    if (error.message) return `${fallback} (${error.message})`;
+    return fallback;
   }
   if (error instanceof Error && error.message) return error.message;
   return fallback;

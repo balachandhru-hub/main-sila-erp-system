@@ -13,7 +13,7 @@ import type { Plugin } from "vite";
 const KNOWN_PROCESS_TYPES = new Set([
   "POST_PO", "GET_STOCK", "GET_MATERIAL", "GET_CONTRACT", "POST_SUPPLIER",
   "GET_CATALOG", "GET_CATALOG_STOCK", "POST_SALES_ORDER", "POST_GOODS_MOVEMENT",
-  "UPDATE_STOCK", "POST_GRN", "GET_POS_SALE", "POST_INVOICE", "GET_SUPPLIER",
+  "UPDATE_STOCK", "POST_GRN", "POST_GRN_REVERSAL", "GET_POS_SALE", "POST_INVOICE", "SUPPLIER_INVOICE_ATTACHMENT", "GET_SUPPLIER",
   "GET_PO", "EXTRACT_INVOICE", "POST_CONTRACT",
 ]);
 
@@ -163,6 +163,13 @@ const validate = (payload: Record<string, unknown>): string | null => {
 const rejectedByEnum = (status: number, body: string): boolean =>
   status === 400 && body.includes("IntegrationProcessType");
 
+const localBuyerUrl = (): string =>
+  (process.env.VITE_LOCAL_BUYER_API || "http://127.0.0.1:8004").replace(/\/$/, "");
+
+/** Cloud Buyer.API still maps process_type as an enum and dies on POST_GRN_REVERSAL. */
+const cannotReadProcessType = (status: number, body: string): boolean =>
+  status >= 400 && body.includes("IntegrationProcessType") && /Cannot convert string value|is not a valid/i.test(body);
+
 const forward = async (
   target: string,
   req: IncomingMessage,
@@ -228,7 +235,17 @@ const handle = async (
   const find = (id: string) => rows().find((row) => row.public.id === id);
 
   if (req.method === "GET" && parts.length === 0) {
-    const upstream = await forward(target, req, null);
+    let upstream = await forward(target, req, null);
+    if (cannotReadProcessType(upstream.status, upstream.body) || upstream.status >= 500) {
+      try {
+        const local = await forward(localBuyerUrl(), req, null);
+        if (local.status === 200) {
+          upstream = local;
+        }
+      } catch {
+        // Local Buyer.API is not running; return the cloud error.
+      }
+    }
     if (upstream.status !== 200) {
       passThrough(res, upstream);
       return;
@@ -289,7 +306,19 @@ const handle = async (
   const action = parts[1];
   const saved = id ? find(id) : undefined;
   if (!saved) {
-    next();
+    const raw = req.method === "GET" || req.method === "DELETE" ? null : await readRequestBody(req);
+    let upstream = await forward(target, req, raw);
+    if (cannotReadProcessType(upstream.status, upstream.body) || upstream.status >= 500) {
+      try {
+        const local = await forward(localBuyerUrl(), req, raw);
+        if (local.status === 200 || (local.status < 500 && cannotReadProcessType(upstream.status, upstream.body))) {
+          upstream = local;
+        }
+      } catch {
+        // Local Buyer.API is not running; return the cloud error.
+      }
+    }
+    passThrough(res, upstream);
     return;
   }
 
@@ -388,11 +417,40 @@ const authorizationHeader = (saved: StoredIntegration): Record<string, string> =
   return {};
 };
 
+const lastSegment = (resourcePath: string): string => {
+  // FunctionImport query parameters must not be treated as the last path segment.
+  const pathOnly = resourcePath.split("?", 2)[0];
+  const parts = pathOnly.split("/").filter(Boolean);
+  return parts[parts.length - 1] || "";
+};
+
+const isODataProtocol = (protocol: unknown): boolean => {
+  const key = String(protocol || "").trim().replace(/[\s_-]/g, "").toUpperCase();
+  return key === "ODATAV2" || key === "ODATAV4" || key === "ODATA";
+};
+
+/** CreateUrlAsAttachment is an action. A_MaterialDocumentHeader and AttachmentContentSet are entity sets. */
+const isODataAction = (resourcePath: string): boolean => {
+  const last = lastSegment(resourcePath);
+  if (!last || last.startsWith("A_") || last.endsWith("Set")) return false;
+  return /^[A-Z][A-Za-z0-9]+$/.test(last);
+};
+
+/** Service document of an OData service, which answers a GET. An action URL does not. */
+const serviceDocumentUrl = (baseUrl: string, resourcePath: string): URL => {
+  const combined = `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}`;
+  const match = combined.match(/^(.*\/[^/]+_SRV)(?:\/|$)/i);
+  return new URL(match ? `${match[1]}/` : `${baseUrl.replace(/\/+$/, "")}/`);
+};
+
 const probeUrl = (saved: StoredIntegration): URL => {
   const baseUrl = String(saved.public.baseUrl || "");
   const resourcePath = text(saved.public.resourcePath);
+  if (isODataProtocol(saved.public.protocol) && isODataAction(resourcePath)) {
+    return serviceDocumentUrl(baseUrl, resourcePath);
+  }
   const target = new URL(resourcePath ? `${baseUrl.replace(/\/+$/, "")}/${resourcePath.replace(/^\/+/, "")}` : baseUrl);
-  if (text(saved.public.protocol) === "ODATA_V4" && !target.searchParams.has("$top")) {
+  if (isODataProtocol(saved.public.protocol) && !target.searchParams.has("$top")) {
     target.searchParams.set("$top", "1");
   }
   return target;
@@ -401,6 +459,7 @@ const probeUrl = (saved: StoredIntegration): URL => {
 /**
  * Proves the endpoint and the sign-in. The probe is a GET, the same call Postman uses to fetch the SAP CSRF token
  * (x-csrf-token: Fetch plus Basic). It does not post the request body, so a stock transfer is not created.
+ * An OData action such as CreateUrlAsAttachment rejects $top, so that probe reads the service document instead.
  * A POST-only API that answers 405 is reachable and the credentials were accepted.
  */
 const testConnection = async (saved: StoredIntegration): Promise<{ success: boolean; message: string; httpStatus: number | null; testedAt: string }> => {

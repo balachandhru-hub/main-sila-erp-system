@@ -120,6 +120,15 @@ namespace Buyer.Application.Features.Shared
                 .ThenByDescending(x => x)
                 .Take(SEED_CANDIDATES)
                 .ToListAsync(cancellationToken);
+            if (prefix == GOODS_RECEIPT)
+            {
+                List<string> reversalNumbers = await repository.GoodsReceipt
+                    .FindByCondition(x => x.BuyerId == buyerId && x.ReversalGrnNumber != null)
+                    .Select(x => x.ReversalGrnNumber!)
+                    .ToListAsync(cancellationToken);
+                candidates.AddRange(reversalNumbers.Where(x => x.StartsWith(prefix)));
+            }
+
             return candidates.Select(x => ParseSequence(x, prefix) ?? 0).DefaultIfEmpty(0).Max();
         }
     }

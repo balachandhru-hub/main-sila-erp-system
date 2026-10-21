@@ -12,6 +12,7 @@ import { ErrorNotice, Loading } from '../../components/StateViews';
 import { formatDate } from '../../format';
 import { useGo } from '../../navigation';
 import { useLoad } from '../../useLoad';
+import DocumentTrackCard from './DocumentTrackCard';
 import InvoiceDocumentCard from './InvoiceDocumentCard';
 import InvoiceReviewForm from './InvoiceReviewForm';
 
@@ -47,6 +48,7 @@ const InvoiceReviewScreen: React.FC = () => {
               </span>
               <StatusBadge status={invoice.status} />
             </div>
+            <DocumentTrackCard track={invoice.documentTrack} />
             <InvoiceDocumentCard
               invoice={invoice}
               extraction={reading}

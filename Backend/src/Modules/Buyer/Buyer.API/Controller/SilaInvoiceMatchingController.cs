@@ -106,6 +106,26 @@ namespace Buyer.API.Controllers
         }
 
         [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/match-po/add")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("AddSilaInvoicePurchaseOrder")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> AddPurchaseOrder([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceMatchPoDto request)
+        {
+            _logger.LogDebug($"Adding a purchase order to an invoice. InvoiceId: {invoiceId}, PurchaseOrderId: {request.PurchaseOrderId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new MatchSilaInvoicePurchaseOrderCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId,
+                Append = true,
+                Request = request
+            });
+            _logger.LogDebug($"Purchase order added. InvoiceId: {invoiceId}");
+            return Ok(result);
+        }
+
+        [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/match-lines")]
         [ApiAuthorization(Name = "POST_SILA_GRN")]
         [SwaggerOperation("MatchSilaInvoiceLines")]

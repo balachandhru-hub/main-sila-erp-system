@@ -1,30 +1,38 @@
 import React, { useEffect, useId, useState } from 'react';
+import logo from '../assets/sila-logo.png';
 import { CLOUD_LATER } from './format';
 
+/** Same top bar as SILA Store: logo, SILA Store wordmark, then the screen title. */
 export const PageHeader: React.FC<{
   eyebrow?: string;
   title: string;
   intro?: string;
   back?: () => void;
   aside?: React.ReactNode;
-}> = ({ eyebrow, title, intro, back, aside }) => (
-  <header className="sp-header">
-    <div className="sp-header__bar">
-      {back ? (
-        <button type="button" className="sp-icon-btn" onClick={back} aria-label="Back">
-          ←
-        </button>
-      ) : (
-        <span className="sp-mark">SILA</span>
-      )}
-      <strong>Supplier</strong>
-      {aside ?? <span />}
+  /** Extra band under the title, the same gradient the store home uses. */
+  band?: React.ReactNode;
+}> = ({ eyebrow, title, intro, back, aside, band }) => (
+  <header>
+    <div className="sm-topbar">
+      <span className="sm-topbar__lead">
+        <img className="sm-logo" src={logo} alt="SILA" />
+        {back && (
+          <button type="button" className="sm-header__back" aria-label="Back" onClick={back}>
+            ←
+          </button>
+        )}
+      </span>
+      <span className="sm-brand" aria-label="SILA Store">
+        SILA <span>Store</span>
+      </span>
+      {aside ?? <span aria-hidden="true" />}
     </div>
-    <div className="sp-header__title">
-      {eyebrow && <span className="sp-eyebrow">{eyebrow}</span>}
+    <div className="sm-titleblock">
+      {eyebrow && <span className="sm-eyebrow">{eyebrow}</span>}
       <h1>{title}</h1>
       {intro && <p>{intro}</p>}
     </div>
+    {band && <div className="sm-greet">{band}</div>}
   </header>
 );
 

@@ -1,6 +1,7 @@
 using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.LoggerServices;
 
@@ -17,7 +18,10 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting posting,
             Guid userId,
             string? previousError,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? basePath = null,
+            IMediator? mediator = null,
+            string? publicDocumentBase = null)
         {
             if (posting.Status == Common.SILA_POSTING_POSTED)
             {
@@ -39,9 +43,22 @@ namespace Buyer.Application.Features.Shared
                 posting.Status = Common.SILA_POSTING_POSTED;
                 posting.ErrorMessage = null;
                 posting.PostedOn ??= DateTime.UtcNow;
+                await SilaInvoicePosting.OnFinishedAsync(repository, logger, basePath, posting, posting.Status, cancellationToken);
                 Record(repository, posting, userId, SilaTrackerRules.FROM_LOCAL, previousError, false, true, "Local finalization completed. SAP was not called.");
                 await repository.SaveAsync();
                 logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
+                if (posting.ReferenceType == Common.SILA_REF_INVOICE && mediator != null)
+                {
+                    try
+                    {
+                        await SilaInvoiceAttachment.AfterInvoiceAsync(repository, logger, mediator, publicDocumentBase, posting, userId, cancellationToken);
+                    }
+                    catch (Exception attachmentException) when (attachmentException is not OperationCanceledException)
+                    {
+                        logger.LogError($"Invoice attachment was not sent. PostingId: {posting.Id}, Error: {SilaLogText.Short(attachmentException.Message)}");
+                    }
+                }
+
                 return posting.Status;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -49,6 +66,7 @@ namespace Buyer.Application.Features.Shared
                 logger.LogError($"Local finalization failed. PostingId: {posting.Id}, Error: {SilaLogText.Short(exception.Message)}");
                 posting.Status = Common.SILA_POSTING_FAILED_LOCAL;
                 posting.ErrorMessage = SilaTrackerRules.LocalFailureMessage(posting.ErpReference);
+                await SilaInvoicePosting.OnFinishedAsync(repository, logger, basePath, posting, posting.Status, cancellationToken);
                 Record(repository, posting, userId, SilaTrackerRules.FROM_LOCAL, previousError, false, true, posting.ErrorMessage);
                 try
                 {

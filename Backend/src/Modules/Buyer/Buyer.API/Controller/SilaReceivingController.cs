@@ -1,17 +1,32 @@
+using Buyer.Application.Features.Commands.CopySilaInvoice;
+using Buyer.Application.Features.Commands.CreateSilaInvoice;
+using Buyer.Application.Features.Commands.DecideSilaInvoice;
+using Buyer.Application.Features.Commands.PrepareSilaCreateInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
+using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
+using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
+using Buyer.Application.Features.Commands.ReprocessSilaInvoiceAttachment;
+using Buyer.Application.Features.Commands.SubmitSilaInvoice;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
+using Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt;
+using Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
+using Buyer.Application.Features.Queries.GetSilaCreateInvoiceMasters;
+using Buyer.Application.Features.Queries.GetSilaEligibleGoodsReceipts;
+using Buyer.Application.Features.Queries.GetSilaEligiblePurchaseOrders;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceipt;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceipts;
 using Buyer.Application.Features.Queries.GetSilaInvoice;
 using Buyer.Application.Features.Queries.GetSilaInvoiceFile;
+using Buyer.Application.Features.Queries.GetSilaInvoiceGrnFile;
 using Buyer.Application.Features.Queries.GetSilaInvoices;
 using Buyer.Application.Features.Queries.GetSilaOpenPurchaseOrders;
 using Buyer.Application.Features.Queries.GetSilaPurchaseOrder;
 using Buyer.Application.Features.Queries.ValidateSilaGoodsReceipt;
 using Buyer.Domain.Dtos;
 using MediatR;
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel.Attributes;
@@ -148,6 +163,41 @@ namespace Buyer.API.Controllers
             });
         }
 
+        [HttpGet]
+        [Route("api/v1/buyer/sila/grns/{goodsReceiptId}/reversal")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaGoodsReceiptReversal")]
+        [SwaggerResponse(200, type: typeof(SilaReceivingGrnReversalPreviewDto))]
+        public async Task<IActionResult> GetGoodsReceiptReversal([FromRoute] Guid goodsReceiptId)
+        {
+            return Ok(await _mediator.Send(new GetSilaGoodsReceiptReversalQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                GoodsReceiptId = goodsReceiptId
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/grns/{goodsReceiptId}/reverse")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("ReverseSilaGoodsReceipt")]
+        [SwaggerResponse(200, type: typeof(SilaReceivingGrnReversalResultDto))]
+        public async Task<IActionResult> ReverseGoodsReceipt([FromRoute] Guid goodsReceiptId, [FromBody] SilaReceivingGrnReversalWriteDto? request)
+        {
+            _logger.LogDebug($"Reversing goods receipt. GoodsReceiptId: {goodsReceiptId}");
+            SilaReceivingGrnReversalResultDto result = await _mediator.Send(new ReverseSilaGoodsReceiptCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                GoodsReceiptId = goodsReceiptId,
+                Request = request ?? new SilaReceivingGrnReversalWriteDto()
+            });
+            return Ok(result);
+        }
+
         [HttpPost]
         [Route("api/v1/buyer/sila/grns/validate")]
         [ApiAuthorization(Name = "POST_SILA_GRN")]
@@ -184,6 +234,90 @@ namespace Buyer.API.Controllers
                 Limit = limit
             });
             _logger.LogDebug($"Invoices fetched. Count: {result.Count}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/create/masters")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaCreateInvoiceMasters")]
+        [SwaggerResponse(200, type: typeof(SilaCreateInvoiceMastersDto))]
+        public async Task<IActionResult> CreateMasters()
+        {
+            return Ok(await _mediator.Send(new GetSilaCreateInvoiceMastersQuery { OrganizationId = GetOrganizationId() }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/create/purchase-orders")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaEligiblePurchaseOrders")]
+        [SwaggerResponse(200, type: typeof(List<SilaEligiblePurchaseOrderDto>))]
+        public async Task<IActionResult> EligiblePurchaseOrders(
+            [FromQuery] Guid? silaSupplierId,
+            [FromQuery] Guid? supplierId,
+            [FromQuery] string? companyCode,
+            [FromQuery] Guid? propertyId)
+        {
+            return Ok(await _mediator.Send(new GetSilaEligiblePurchaseOrdersQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                SilaSupplierId = silaSupplierId,
+                SupplierId = supplierId,
+                CompanyCode = companyCode,
+                PropertyId = propertyId
+            }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/create/purchase-orders/{purchaseOrderId}/goods-receipts")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaEligibleGoodsReceipts")]
+        [SwaggerResponse(200, type: typeof(List<SilaEligibleGoodsReceiptDto>))]
+        public async Task<IActionResult> EligibleGoodsReceipts([FromRoute] Guid purchaseOrderId)
+        {
+            return Ok(await _mediator.Send(new GetSilaEligibleGoodsReceiptsQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                PurchaseOrderId = purchaseOrderId
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/create")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("CreateSilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
+        public async Task<IActionResult> CreateInvoice([FromBody] SilaCreateInvoiceRequestDto request)
+        {
+            Guid result = await _mediator.Send(new CreateSilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                Request = request
+            });
+            return Ok(new SuccessResponseDto
+            {
+                Id = result.ToString(),
+                StatusCode = 200,
+                Message = "Success",
+                Description = "Invoice draft created."
+            });
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/prepare-create")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("PrepareSilaCreateInvoice")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> PrepareCreate([FromRoute] Guid invoiceId, [FromBody] SilaCreateInvoiceRequestDto request)
+        {
+            SilaInvoiceDetailDto result = await _mediator.Send(new PrepareSilaCreateInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId,
+                Request = request
+            });
             return Ok(result);
         }
 
@@ -226,6 +360,30 @@ namespace Buyer.API.Controllers
             });
         }
 
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/copy")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("CopySilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
+        public async Task<IActionResult> CopyInvoice([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Copying invoice. InvoiceId: {invoiceId}");
+            Guid result = await _mediator.Send(new CopySilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice copied. InvoiceId: {result}");
+            return Ok(new SuccessResponseDto
+            {
+                Id = result.ToString(),
+                StatusCode = 200,
+                Message = "Success",
+                Description = "Invoice copied. The copy is not posted to SAP."
+            });
+        }
+
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}")]
         [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
@@ -257,7 +415,12 @@ namespace Buyer.API.Controllers
                 InvoiceId = invoiceId
             });
             _logger.LogDebug($"Invoice file fetched. InvoiceId: {invoiceId}, Bytes: {result.Content.Length}");
-            return File(result.Content, result.ContentType, result.FileName);
+            ContentDispositionHeaderValue disposition = new ContentDispositionHeaderValue("inline")
+            {
+                FileNameStar = result.FileName
+            };
+            Response.Headers.ContentDisposition = disposition.ToString();
+            return File(result.Content, result.ContentType);
         }
 
         [HttpPost]
@@ -313,6 +476,122 @@ namespace Buyer.API.Controllers
                 Request = request
             });
             _logger.LogDebug($"Invoice reviewed. InvoiceId: {invoiceId}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/grn-pdf/{goodsReceiptId}")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaInvoiceGrnFile")]
+        [SwaggerResponse(200, type: typeof(FileContentResult))]
+        public async Task<IActionResult> GetInvoiceGrnFile([FromRoute] Guid invoiceId, [FromRoute] Guid goodsReceiptId)
+        {
+            _logger.LogDebug($"Fetching GRN PDF. InvoiceId: {invoiceId}, GoodsReceiptId: {goodsReceiptId}");
+            SilaInvoiceFileDto result = await _mediator.Send(new GetSilaInvoiceGrnFileQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                InvoiceId = invoiceId,
+                GoodsReceiptId = goodsReceiptId
+            });
+            ContentDispositionHeaderValue disposition = new ContentDispositionHeaderValue("inline")
+            {
+                FileNameStar = result.FileName
+            };
+            Response.Headers.ContentDisposition = disposition.ToString();
+            return File(result.Content, result.ContentType);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/goods-receipts")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("LinkSilaInvoiceGoodsReceipts")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> LinkGoodsReceipts([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceLinkGrnDto request)
+        {
+            _logger.LogDebug($"Linking goods receipts. InvoiceId: {invoiceId}, Count: {request.GoodsReceiptIds?.Count ?? 0}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new LinkSilaInvoiceGoodsReceiptsCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId,
+                Request = request
+            });
+            _logger.LogDebug($"Goods receipts linked. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/submit")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("SubmitSilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> SubmitInvoice([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Submitting invoice. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new SubmitSilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice submission finished. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/refresh-posting")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("RefreshSilaInvoicePosting")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> RefreshPosting([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Refreshing invoice posting data. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new RefreshSilaInvoicePostingCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice posting data refreshed. InvoiceId: {invoiceId}, Status: {result.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/attachment/reprocess")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("ReprocessSilaInvoiceAttachment")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> ReprocessAttachment([FromRoute] Guid invoiceId)
+        {
+            _logger.LogDebug($"Reprocessing invoice attachment. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new ReprocessSilaInvoiceAttachmentCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            _logger.LogDebug($"Invoice attachment reprocess finished. InvoiceId: {invoiceId}, Status: {result.Attachment.Status}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/approval")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("DecideSilaInvoice")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> DecideInvoice([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceDecisionDto request)
+        {
+            _logger.LogDebug($"Deciding invoice approval. InvoiceId: {invoiceId}");
+            SilaInvoiceDetailDto result = await _mediator.Send(new DecideSilaInvoiceCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                InvoiceId = invoiceId,
+                Request = request ?? new SilaInvoiceDecisionDto()
+            });
+            _logger.LogDebug($"Invoice approval finished. InvoiceId: {invoiceId}, Status: {result.Status}");
             return Ok(result);
         }
     }

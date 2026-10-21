@@ -67,6 +67,41 @@ namespace Buyer.Domain.Dtos
         public string? LocalReference { get; set; }
         public Guid? RecipeId { get; set; }
         public List<SilaTrackerAttemptDto> Attempts { get; set; } = new List<SilaTrackerAttemptDto>();
+        public List<SilaTrackerFlowStepDto> Flow { get; set; } = new List<SilaTrackerFlowStepDto>();
+    }
+
+    public class SilaTrackerFlowStepDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string? Detail { get; set; }
+        public string? Request { get; set; }
+        public string? Response { get; set; }
+    }
+
+    public class SilaInvoiceFlowDto
+    {
+        public string? ErpInvoiceId { get; set; }
+        public string? Message { get; set; }
+        public List<SilaTrackerFlowStepDto> Steps { get; set; } = new List<SilaTrackerFlowStepDto>();
+    }
+
+    public class SilaInvoiceResultsRequestDto
+    {
+        [JsonPropertyName("ids")]
+        public List<Guid> Ids { get; set; } = new List<Guid>();
+    }
+
+    public class SilaInvoiceResultItemDto
+    {
+        public Guid Id { get; set; }
+        public string? ErpInvoiceId { get; set; }
+        public string? Message { get; set; }
+    }
+
+    public class SilaInvoiceResultsDto
+    {
+        public List<SilaInvoiceResultItemDto> Results { get; set; } = new List<SilaInvoiceResultItemDto>();
     }
 
     public class SilaTrackerAttemptDto

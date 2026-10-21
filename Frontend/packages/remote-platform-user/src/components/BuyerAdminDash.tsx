@@ -319,7 +319,8 @@ const BuyerAdminDash: React.FC = () => {
   const [activeNav, setActiveNav] = useRouteNav(BUYER_ADMIN_NAV_PATHS, "dashboard");
 
   // The SILA ME (hospitality) add-on menu, for organizations that have the add-on.
-  const hasSilaMe = useSilaMeAddon();
+  const silaAddon = useSilaMeAddon();
+  const hasSilaMe = silaAddon.enabled;
   const inSilaModule = isSilaMeNav(activeNav);
   // Inside SILA ME the bar is that module. Outside it, the purchasing menu.
   const headerNavItems = useMemo(
@@ -327,6 +328,7 @@ const BuyerAdminDash: React.FC = () => {
       ? buildSilaMeModuleNav("admin")
       : withContractPurchaseOrderNav(buildBuyerNavItems({
           isAdmin: true,
+          showPurchasingTracker: true,
           rfqListKey: "activeRFQs",
         })),
     [inSilaModule],
@@ -813,6 +815,7 @@ const BuyerAdminDash: React.FC = () => {
               <PurchasingDashboard
                 currentUserId={currentUserId}
                 hasSilaMe={hasSilaMe}
+                attentionReady={silaAddon.ready}
                 bucketRole="reviewer"
                 classPrefix="bad"
                 onNavigate={handleNavClick}
@@ -1266,6 +1269,7 @@ const BuyerAdminDash: React.FC = () => {
                 <NeedsAttentionPanel
                   currentUserId={currentUserId}
                   hasSilaMe={hasSilaMe}
+                  ready={silaAddon.ready}
                   bucketRole="reviewer"
                   onNavigate={handleNavClick}
                 />

@@ -39,6 +39,9 @@ namespace Buyer.Domain.Entities
 
         public string? UnitOfMeasure { get; set; }
 
+        /// <summary>Tax code from the purchase order API (TaxCode on the item).</summary>
+        public string? TaxCode { get; set; }
+
         [Precision(18, 4)]
         public decimal? UnitPrice { get; set; }
 

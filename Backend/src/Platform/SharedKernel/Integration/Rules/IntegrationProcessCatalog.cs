@@ -50,6 +50,7 @@ namespace SharedKernel.Integration.Rules
             // Stock-count variances. Reuses goods-movement field mapping. The tested config name is FIVE_POS_UPDATE.
             [IntegrationProcessType.UPDATE_STOCK] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
             [IntegrationProcessType.POST_GRN] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
+            [IntegrationProcessType.POST_GRN_REVERSAL] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
             [IntegrationProcessType.GET_POS_SALE] = new IntegrationProcessInfo
             {
                 CanPull = true,
@@ -58,6 +59,8 @@ namespace SharedKernel.Integration.Rules
             },
             // SILA ME receiving: the invoice is posted after its goods receipt; suppliers and purchase orders are read from the ERP.
             [IntegrationProcessType.POST_INVOICE] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Invoice" },
+            // URL attachment on a supplier invoice that S/4 has already created. It does not post the invoice.
+            [IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT] = new IntegrationProcessInfo { IsPush = true, MappingArea = "InvoiceAttachment" },
             [IntegrationProcessType.GET_SUPPLIER] = new IntegrationProcessInfo
             {
                 CanPull = true,

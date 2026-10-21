@@ -8,13 +8,15 @@ interface SilaInvoiceHistoryProps {
   invoiceId: string;
   /** Changes after each reading, so the history reloads. */
   version: string;
+  /** Invoice History tab: PO, GRN and result only. */
+  compact?: boolean;
 }
 
 const TRIGGERS: Record<string, string> = { UPLOAD: "On upload", MANUAL: "Read", REREAD: "Re-read" };
 const METHODS: Record<string, string> = { PDF_TEXT: "PDF text", OCR: "OCR", EXTERNAL: "External reader" };
 
 /** Every reading of the invoice: when, how, the confidence and what it found. */
-const SilaInvoiceHistory: React.FC<SilaInvoiceHistoryProps> = ({ invoiceId, version }) => {
+const SilaInvoiceHistory: React.FC<SilaInvoiceHistoryProps> = ({ invoiceId, version, compact = false }) => {
   const [rows, setRows] = useState<SilaInvoiceExtraction[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +44,11 @@ const SilaInvoiceHistory: React.FC<SilaInvoiceHistoryProps> = ({ invoiceId, vers
           <tr>
             <th scope="col">#</th>
             <th scope="col">Completed</th>
-            <th scope="col">Reading</th>
+            {!compact && <th scope="col">Reading</th>}
             <th scope="col">Result</th>
-            <th scope="col">Found</th>
+            <th scope="col">PO</th>
+            <th scope="col">GRN</th>
+            {!compact && <th scope="col">Found</th>}
           </tr>
         </thead>
         <tbody>
@@ -52,6 +56,7 @@ const SilaInvoiceHistory: React.FC<SilaInvoiceHistoryProps> = ({ invoiceId, vers
             <tr key={row.id}>
               <td>{row.attempt}</td>
               <td>{formatDateTime(row.createdOn)}</td>
+              {!compact && (
               <td>
                 {TRIGGERS[row.trigger] ?? row.trigger}
                 <span className="srcv-sub">{METHODS[row.method] ?? row.method}</span>
@@ -62,20 +67,27 @@ const SilaInvoiceHistory: React.FC<SilaInvoiceHistoryProps> = ({ invoiceId, vers
                 )}
                 {row.contentHash && <span className="srcv-sub" title={row.contentHash}>File {row.contentHash.slice(0, 12)}</span>}
               </td>
+              )}
               <td>
                 <span className={row.status === "COMPLETED" ? "sila-badge sila-badge--success" : "sila-badge sila-badge--danger"}>
                   {row.status === "COMPLETED" ? `Read ${formatConfidence(row.confidence)}` : "Failed"}
                 </span>
-                {row.message && <span className="srcv-sub">{row.message}</span>}
+                {!compact && row.message && <span className="srcv-sub">{row.message}</span>}
               </td>
+              <td>{row.poNumber || row.fields?.poNumber || "—"}</td>
+              <td>{row.grnNumber || "—"}</td>
+              {!compact && (
               <td>
                 {row.fields ? (
                   <>
-                    {[row.fields.invoiceNumber, row.fields.supplierName, row.fields.poNumber].filter(Boolean).join(" · ") || "—"}
-                    <span className="srcv-sub">{row.lineCount} line{row.lineCount === 1 ? "" : "s"}</span>
+                    {[row.fields?.invoiceNumber, row.fields?.supplierName].filter(Boolean).join(" · ") || "—"}
+                    <span className="srcv-sub">
+                      {row.lineCount} line{row.lineCount === 1 ? "" : "s"}
+                    </span>
                   </>
                 ) : "—"}
               </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -1,8 +1,9 @@
 import React, { useCallback, useRef, useState } from "react";
 import { PageHeader, toastService } from "@vosox/shared-ui";
-import { getInvoices, uploadInvoice, type SilaPage } from "../../../api/silaMe/silaReceivingApi";
+import { copyInvoice, extractInvoice, getInvoice, getInvoices, uploadInvoice, type SilaPage } from "../../../api/silaMe/silaReceivingApi";
 import { formatDate } from "../../cart/lineFormat";
 import PagedListBody from "./PagedListBody";
+import SilaCreateInvoiceDialog from "./SilaCreateInvoiceDialog";
 import SilaInvoiceReviewDialog from "./SilaInvoiceReviewDialog";
 import SilaReceiveGoodsDialog, { type ReceivePrefill } from "./SilaReceiveGoodsDialog";
 import { formatAmount, formatConfidence, receivingBadgeClass, receivingLabel } from "./receivingFormat";
@@ -17,7 +18,9 @@ interface SilaInvoicesProps {
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
-const STATUSES = ["UPLOADED", "EXTRACTED", "REVIEW_REQUIRED", "OCR_FAILED", "REVIEWED", "GRN_POSTED"];
+const STATUSES = ["UPLOADED", "EXTRACTED", "REVIEW_REQUIRED", "OCR_FAILED", "REVIEWED", "GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "ERP_POSTING_FAILED"];
+const SUBMIT_STATUSES = ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "REVIEWED", "EXTRACTED", "APPROVED"];
+const RESUBMIT_STATUSES = ["ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"];
 
 /** Supplier invoices: upload, OCR, review, and "Create GRN from invoice". */
 const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
@@ -25,13 +28,16 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
   const [status, setStatus] = useState("");
   const term = useDebounced(search);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [receive, setReceive] = useState<ReceivePrefill | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [copying, setCopying] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const load = useCallback((page: SilaPage) => getInvoices(term, status, page), [term, status]);
   const list = usePagedList(load, "Could not load the invoices.");
   const closeReview = useCallback(() => setOpenId(null), []);
   const closeReceive = useCallback(() => setReceive(null), []);
+  const closeCreate = useCallback(() => setCreating(false), []);
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -44,7 +50,19 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
     setUploading(true);
     try {
       const id = await uploadInvoice(file);
-      toastService.success("Invoice uploaded. Read it with OCR or type the fields.");
+      try {
+        const created = await getInvoice(id);
+        const read = created.status === "UPLOADED" ? await extractInvoice(id) : created;
+        if (read.status === "OCR_FAILED") {
+          toastService.error(read.ocrMessage || "The invoice was uploaded, but it could not be read. Type the fields.");
+        } else if (read.status === "UPLOADED") {
+          toastService.success("Invoice uploaded. Read it with OCR or type the fields.");
+        } else {
+          toastService.success("Invoice uploaded and read. Check the fields.");
+        }
+      } catch (err: unknown) {
+        toastService.error(err instanceof Error ? err.message : "The invoice was uploaded, but it could not be read. Type the fields.");
+      }
       list.reload();
       setOpenId(id);
     } catch (err: unknown) {
@@ -64,6 +82,20 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
     list.reload();
   };
 
+  const handleCopy = async (invoiceId: string) => {
+    setCopying(invoiceId);
+    try {
+      const created = await copyInvoice(invoiceId);
+      toastService.success("Invoice copied. The copy is not posted to SAP.");
+      list.reload();
+      setOpenId(created);
+    } catch (err: unknown) {
+      toastService.error(err instanceof Error ? err.message : "Could not copy the invoice.");
+    } finally {
+      setCopying(null);
+    }
+  };
+
   return (
     <div className="sila-me srcv-page">
       <PageHeader
@@ -73,7 +105,10 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
         actions={canPost ? (
           <>
             <input ref={fileInput} type="file" accept={ACCEPT} hidden aria-label="Invoice file" onChange={handleFile} />
-            <button type="button" className="sila-btn sila-btn--primary" disabled={uploading} onClick={() => fileInput.current?.click()}>
+            <button type="button" className="sila-btn sila-btn--primary" onClick={() => setCreating(true)}>
+              Create Invoice
+            </button>
+            <button type="button" className="sila-btn sila-btn--secondary" disabled={uploading} onClick={() => fileInput.current?.click()}>
               {uploading ? "Uploading..." : "Upload invoice"}
             </button>
           </>
@@ -125,7 +160,8 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
                       )}
                     </td>
                     <td>
-                      {row.invoiceType ? receivingLabel(row.invoiceType) : "—"}
+                      {row.creationType ? receivingLabel(row.creationType) : (row.invoiceType ? receivingLabel(row.invoiceType) : "—")}
+                      {row.companyCode && <span className="srcv-sub">{row.companyCode}</span>}
                       {row.goodsReceiptApplicable === false && <span className="srcv-sub">No goods receipt</span>}
                     </td>
                     <td>
@@ -133,9 +169,26 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
                       {row.ocrConfidence != null && <span className="srcv-sub">OCR {formatConfidence(row.ocrConfidence)}</span>}
                     </td>
                     <td>
-                      <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" aria-label={`Open invoice ${row.invoiceNumber || row.fileName}`} onClick={() => setOpenId(row.id)}>
-                        Open
-                      </button>
+                      <div className="sila-btn-group">
+                        <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" aria-label={`Open invoice ${row.invoiceNumber || row.fileName}`} onClick={() => setOpenId(row.id)}>
+                          Open
+                        </button>
+                        {canPost && (
+                          <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" aria-label={`Copy invoice ${row.invoiceNumber || row.fileName}`} disabled={copying === row.id} onClick={() => handleCopy(row.id)}>
+                            {copying === row.id ? "Copying..." : "Copy"}
+                          </button>
+                        )}
+                        {canPost && SUBMIT_STATUSES.includes(row.status) && (
+                          <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" onClick={() => setOpenId(row.id)}>
+                            Submit
+                          </button>
+                        )}
+                        {canPost && RESUBMIT_STATUSES.includes(row.status) && (
+                          <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" onClick={() => setOpenId(row.id)}>
+                            Resubmit
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -144,8 +197,18 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
           </div>
         </PagedListBody>
       </section>
+      {creating && (
+        <SilaCreateInvoiceDialog
+          onClose={closeCreate}
+          onCreated={(invoiceId) => {
+            setCreating(false);
+            list.reload();
+            setOpenId(invoiceId);
+          }}
+        />
+      )}
       {openId && (
-        <SilaInvoiceReviewDialog invoiceId={openId} canPost={canPost} onClose={closeReview} onChanged={list.reload} onReceive={handleReceive} />
+        <SilaInvoiceReviewDialog invoiceId={openId} canPost={canPost} onClose={closeReview} onChanged={list.reload} onReceive={handleReceive} onCopied={setOpenId} />
       )}
       {receive && <SilaReceiveGoodsDialog prefill={receive} onClose={closeReceive} onPosted={handlePosted} />}
     </div>

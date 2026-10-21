@@ -230,6 +230,8 @@ namespace Buyer.Infrastructure.DbContext
             _ = modelBuilder.Entity<PurchaseOrder>().HasIndex(a => a.ContractId);
             _ = modelBuilder.Entity<PurchaseOrderItem>().HasIndex(a => a.IsActive);
             _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => a.IsActive);
+            // Stored as text so a new API type such as POST_GRN_REVERSAL does not fail the whole list.
+            _ = modelBuilder.Entity<ApiIntegrationConfiguration>().Property(a => a.ProcessType).HasMaxLength(30).HasColumnType("nvarchar(30)");
             // A Buyer-side configuration belongs to a buyer (BuyerId); OrganizationId is the Supplier-side owner and has no column here.
             _ = modelBuilder.Entity<ApiIntegrationConfiguration>().Ignore(a => a.OrganizationId);
             _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => new { a.BuyerId, a.EntityCode, a.ProcessType }).IsUnique();

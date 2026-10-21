@@ -16,6 +16,7 @@ namespace Buyer.Application.Features.Shared
         public const string SOURCE_POS = "POS";
         public const string SOURCE_PO = "PO";
         public const string SOURCE_RUN = "RUN";
+        public const string SOURCE_LEDGER = "LEDGER";
 
         public const string NOT_STARTED = "NOT_STARTED";
         public const string PROCESSING = "PROCESSING";
@@ -82,7 +83,7 @@ namespace Buyer.Application.Features.Shared
             }
 
             source = key[..split].Trim().ToUpperInvariant();
-            return source is SOURCE_ERP or SOURCE_POS or SOURCE_PO or SOURCE_RUN;
+            return source is SOURCE_ERP or SOURCE_POS or SOURCE_PO or SOURCE_RUN or SOURCE_LEDGER;
         }
 
         public static bool ErpAlreadyAccepted(InventoryErpPosting posting)
@@ -139,6 +140,83 @@ namespace Buyer.Application.Features.Shared
 
             bool waiting = status == Common.SILA_POSTING_PENDING;
             return Finish(receive, erp, local, attempts > 0 && waiting, waiting);
+        }
+
+        /// <summary>
+        /// An inventory ledger line is local stock already written. ERP stays at the posting's stage.
+        /// A missing posting has not started the ERP step.
+        /// </summary>
+        public static Stages OfLedger(string? postingStatus, int attempts, string? erpReference)
+        {
+            if (string.IsNullOrWhiteSpace(postingStatus))
+            {
+                return Finish(SUCCESS, NOT_STARTED, SUCCESS, false, false);
+            }
+
+            Stages posting = OfPosting(postingStatus, attempts, erpReference);
+            bool waiting = posting.Action == ACTION_NONE && posting.Erp is PROCESSING or NOT_STARTED;
+            return Finish(SUCCESS, posting.Erp, SUCCESS, posting.Overall == OVERALL_REPROCESSING, waiting);
+        }
+
+        /// <summary>
+        /// A transfer that was skipped on the old goods-movement API is shown as 311 or 301.
+        /// Movement types already stored as 311, 301, Z01 or Z02 are left unchanged.
+        /// </summary>
+        public static (string Movement, string? Api, string? Error) DescribeLegacyTransfer(
+            string? movementType,
+            string? integrationName,
+            string? error,
+            string? status,
+            string? fromPlant,
+            string? fromStorage,
+            string? toPlant,
+            string? toStorage,
+            string? fromCompany,
+            string? toCompany)
+        {
+            string movement = movementType ?? string.Empty;
+            string? api = integrationName;
+            string? message = error;
+            if (movement is "311" or "301" or "Z01" or "Z02")
+            {
+                return (movement, api, message);
+            }
+
+            bool legacy = string.Equals(movement, Common.SILA_MOVEMENT_TRANSFER, StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(movement)
+                || (error != null && error.Contains("POST_GOODS_MOVEMENT", StringComparison.OrdinalIgnoreCase));
+            if (!legacy)
+            {
+                return (movement, api, message);
+            }
+
+            string? problem = SilaInventorySap.DecideTransfer(fromPlant, fromStorage, toPlant, toStorage, fromCompany, toCompany, out SilaInventorySap.Rule? rule);
+            bool failed = string.IsNullOrWhiteSpace(status)
+                || status == Common.SILA_POSTING_FAILED
+                || status == Common.SILA_POSTING_SKIPPED;
+            if (problem != null || rule == null)
+            {
+                if (failed && problem != null && (string.IsNullOrWhiteSpace(error) || error.Contains("POST_GOODS_MOVEMENT", StringComparison.OrdinalIgnoreCase)))
+                {
+                    message = SilaInventorySap.Failure(problem);
+                }
+
+                return (movement, api, message);
+            }
+
+            movement = rule.GoodsMovementType;
+            if (string.IsNullOrWhiteSpace(api))
+            {
+                api = rule.ApiName;
+            }
+
+            bool oldMessage = string.IsNullOrWhiteSpace(error) || error.Contains("POST_GOODS_MOVEMENT", StringComparison.OrdinalIgnoreCase);
+            if (failed && oldMessage)
+            {
+                message = SilaInventorySap.MissingApi(rule.ApiName);
+            }
+
+            return (movement, api, message);
         }
 
         public static Stages OfPos(string status, string? failedStep, Stages? posting)
@@ -246,6 +324,30 @@ namespace Buyer.Application.Features.Shared
                 : DATA_TRANSACTION;
         }
 
+        /// <summary>
+        /// Invoice / attachment tracker rows stay hidden in SILA ME until the invoice leaves the
+        /// scan / GRN receiving phase (receiver or batch has processed it into approval / posting).
+        /// </summary>
+        public static bool InvoiceVisibleInSilaMeTracker(string? invoiceStatus)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceStatus))
+            {
+                return false;
+            }
+
+            return invoiceStatus is not (
+                Common.SILA_INVOICE_UPLOADED
+                or Common.SILA_INVOICE_EXTRACTED
+                or Common.SILA_INVOICE_OCR_FAILED
+                or Common.SILA_INVOICE_REVIEWED
+                or Common.SILA_INVOICE_GRN_POSTED
+                or Common.SILA_INVOICE_GRN_IN_PROGRESS
+                or Common.SILA_INVOICE_GRN_FAILED
+                or Common.SILA_INVOICE_READY
+                or Common.SILA_INVOICE_GET_PO_FAILED
+                or Common.SILA_INVOICE_VALIDATION_FAILED);
+        }
+
         public static string TransactionTypeOfPosting(string referenceType, string movementType)
         {
             if (referenceType == Common.SILA_REF_ITO && movementType == "301")
@@ -286,6 +388,26 @@ namespace Buyer.Application.Features.Shared
             if (referenceType == Common.SILA_REF_POS_SALE)
             {
                 return "POS_SALE";
+            }
+
+            if (referenceType == Common.SILA_REF_INVOICE)
+            {
+                return "INVOICE_POSTING";
+            }
+
+            if (referenceType == Common.SILA_REF_INVOICE_ATTACHMENT)
+            {
+                return Common.SILA_MOVEMENT_INVOICE_ATTACHMENT;
+            }
+
+            if (referenceType == Common.SILA_REF_GRN_REVERSAL || movementType == Common.SILA_MOVEMENT_GRN_REVERSAL)
+            {
+                return "GRN_REVERSAL";
+            }
+
+            if (referenceType == Common.SILA_REF_GRN)
+            {
+                return "GRN";
             }
 
             return string.IsNullOrWhiteSpace(referenceType) ? movementType : referenceType;

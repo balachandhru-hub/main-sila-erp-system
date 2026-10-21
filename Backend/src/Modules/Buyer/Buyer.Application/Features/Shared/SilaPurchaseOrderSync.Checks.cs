@@ -193,6 +193,7 @@ namespace Buyer.Application.Features.Shared
                 Uom = Upper(row.Uom),
                 UnitPrice = unitPrice,
                 ReceivedQuantity = received ?? 0,
+                TaxCode = string.IsNullOrWhiteSpace(row.TaxCode) ? null : row.TaxCode.Trim(),
                 GoodsReceiptExpected = grExpected == null ? null : grExpected == "TRUE"
             };
         }
