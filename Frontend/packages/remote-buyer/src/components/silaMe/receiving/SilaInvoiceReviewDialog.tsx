@@ -698,6 +698,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   kinds={["PO", "GRN", "ATTACHMENT"]}
                   showHistory={false}
                   attachmentsOpenByDefault
+                  startCollapsed={false}
                   title="PO, GRN and attachments"
                 />
                 <SilaInvoiceHistory invoiceId={invoice.id} version={`${readings}`} compact />

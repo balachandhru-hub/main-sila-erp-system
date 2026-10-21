@@ -183,7 +183,7 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({
                 </button>
               </div>
             )}
-            <SilaDocumentTrackPanel track={receipt.documentTrack} historyAsPanel />
+            <SilaDocumentTrackPanel key={receipt.id} track={receipt.documentTrack} historyAsPanel startCollapsed />
             <h3 className="sila-section-title">Received lines</h3>
             <p className="srcv-sub">Receipt quantities are never inferred from invoice quantities. Inventory lines update stock and post to S4.</p>
             {receipt.items.length === 0 ? (
