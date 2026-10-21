@@ -664,8 +664,8 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
         }
 
         /// <summary>
-        /// Allocates the next GR** for a successful 102 and stores it as a linked reversal document.
-        /// GR000008 reversed → GR000009. Does not post 101 again.
+        /// Allocates a new GR** for every successful 102 and stores it as a linked reversal document.
+        /// A second reverse of GR000008 allocates GR000010, not a reuse of GR000009. Does not post 101 again.
         /// </summary>
         private async Task<GoodsReceipt> EnsureLinkedReversalGrnAsync(
             BuyerBusinessProfile buyer,
@@ -673,22 +673,6 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             List<(GoodsReceiptItem Item, decimal Qty)> selected,
             CancellationToken cancellationToken)
         {
-            if (original.ReversalGoodsReceiptId != null)
-            {
-                GoodsReceipt? existing = await _repository.GoodsReceipt
-                    .FindByCondition(x => x.Id == original.ReversalGoodsReceiptId.Value && x.BuyerId == buyer.Id)
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (existing != null)
-                {
-                    existing.MaterialDocument = original.ReversalMaterialDocument;
-                    existing.MaterialDocumentYear = original.ReversalMaterialDocumentYear;
-                    existing.Status = Common.SILA_GRN_REVERSED;
-                    existing.InvoiceId = original.InvoiceId;
-                    _repository.GoodsReceipt.Update(existing);
-                    return existing;
-                }
-            }
-
             string reversalNumber = await DocumentNumber.NextAsync(_repository, buyer.Id, DocumentNumber.GOODS_RECEIPT, 6, cancellationToken);
             GoodsReceipt reversal = new GoodsReceipt
             {
