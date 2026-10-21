@@ -169,6 +169,8 @@ export interface SilaGoodsReceipt {
   erpPostingId?: string | null;
   erpStatus?: SilaErpPostingStatus | null;
   erpReference?: string | null;
+  reversalGrnNumber?: string | null;
+  parentGoodsReceiptId?: string | null;
 }
 
 export interface SilaGoodsReceiptItem {
@@ -196,6 +198,9 @@ export interface SilaGoodsReceiptDetail extends Omit<SilaGoodsReceipt, "lineCoun
   materialDocumentYear?: string | null;
   reversalMaterialDocument?: string | null;
   reversalMaterialDocumentYear?: string | null;
+  reversalGrnNumber?: string | null;
+  reversalGoodsReceiptId?: string | null;
+  parentGoodsReceiptId?: string | null;
   reversalStatus?: string | null;
   erpPosting?: SilaErpPosting | null;
   items: SilaGoodsReceiptItem[];
@@ -238,6 +243,8 @@ export interface SilaGrnReversalPreview {
   materialDocumentYear?: string | null;
   reversalMaterialDocument?: string | null;
   reversalMaterialDocumentYear?: string | null;
+  reversalGrnNumber?: string | null;
+  reversalGoodsReceiptId?: string | null;
   reversalStatus?: string | null;
   poNumber: string;
   supplierName?: string | null;
@@ -285,6 +292,8 @@ export interface SilaGrnReversalResult {
   materialDocumentYear?: string | null;
   reversalMaterialDocument?: string | null;
   reversalMaterialDocumentYear?: string | null;
+  reversalGrnNumber?: string | null;
+  reversalGoodsReceiptId?: string | null;
   message: string;
 }
 

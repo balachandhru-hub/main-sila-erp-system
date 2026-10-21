@@ -101,6 +101,8 @@ const SilaGoodsReceipts: React.FC<SilaGoodsReceiptsProps> = ({ canPost, canRepro
                     <tr key={row.id}>
                       <td>
                         <span className="sila-cell-strong">{row.grnNumber}</span>
+                        {row.reversalGrnNumber && <span className="srcv-sub">Reversal {row.reversalGrnNumber}</span>}
+                        {row.parentGoodsReceiptId && <span className="srcv-sub">Reversal of original GRN</span>}
                         <span className="srcv-sub">{row.locationName || "—"}</span>
                         {row.deliveryNote && <span className="srcv-sub">Delivery note {row.deliveryNote}</span>}
                       </td>

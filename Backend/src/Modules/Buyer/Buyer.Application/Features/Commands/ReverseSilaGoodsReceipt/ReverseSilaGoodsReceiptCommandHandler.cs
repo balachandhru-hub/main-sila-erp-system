@@ -379,6 +379,10 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             {
                 await ApplyLocalReversalAsync(buyer, receipt, request.UserId, selected, cancellationToken);
                 reversalPosting.Status = Common.SILA_POSTING_POSTED;
+                if (!string.IsNullOrWhiteSpace(receipt.ReversalGrnNumber))
+                {
+                    reversalPosting.ReferenceNumber = receipt.ReversalGrnNumber;
+                }
                 receipt.ReversalStatus = Common.SILA_POSTING_POSTED;
                 receipt.ReversedOn = DateTime.UtcNow;
                 bool fullyReversed = items.All(x => x.AcceptedQty - x.ReversedQty <= TOLERANCE);
@@ -491,6 +495,10 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             {
                 posting.Status = Common.SILA_POSTING_POSTED;
                 posting.ErrorMessage = null;
+                if (!string.IsNullOrWhiteSpace(receipt.ReversalGrnNumber))
+                {
+                    posting.ReferenceNumber = receipt.ReversalGrnNumber;
+                }
                 _repository.InventoryErpPosting.Update(posting);
             }
 
@@ -561,8 +569,10 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             List<(GoodsReceiptItem Item, decimal Qty)> selected,
             CancellationToken cancellationToken)
         {
+            receipt.ReversedBy ??= userId;
+            GoodsReceipt reversalDoc = await EnsureLinkedReversalGrnAsync(buyer, receipt, selected, cancellationToken);
             Record(buyer.Id, receipt.Id, userId, EVENT_LOCAL_INVENTORY,
-                "Reversing local stock after FIVE S4-GRN REVERSAL success");
+                "Reversing local stock after FIVE S4-GRN REVERSAL success as " + reversalDoc.GrnNumber);
 
             List<Guid> poItemIds = selected.Select(x => x.Item.PurchaseOrderItemId).Distinct().ToList();
             Dictionary<Guid, PurchaseOrderItem> poItems = await _repository.PurchaseOrderItem
@@ -612,8 +622,8 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                         EnteredQuantity = apply,
                         EnteredUom = item.Uom,
                         ReferenceType = Common.SILA_REF_GRN_REVERSAL,
-                        ReferenceId = receipt.Id,
-                        ReferenceNumber = receipt.GrnNumber,
+                        ReferenceId = reversalDoc.Id,
+                        ReferenceNumber = reversalDoc.GrnNumber,
                         Reason = receipt.ReversalReason ?? "GRN reversal 102"
                     }, cancellationToken);
                 }
@@ -649,7 +659,88 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 _repository.PurchaseOrder.Update(purchaseOrder);
             }
 
-            ledger.AddEvent(Common.SILA_REF_GRN_REVERSAL, receipt.Id, EVENT_LOCAL_INVENTORY, receipt.ReversalReason);
+            ledger.AddEvent(Common.SILA_REF_GRN_REVERSAL, receipt.Id, EVENT_LOCAL_INVENTORY,
+                (receipt.ReversalGrnNumber ?? receipt.GrnNumber) + (string.IsNullOrWhiteSpace(receipt.ReversalReason) ? "" : " — " + receipt.ReversalReason));
+        }
+
+        /// <summary>
+        /// Allocates the next GR** for a successful 102 and stores it as a linked reversal document.
+        /// GR000008 reversed → GR000009. Does not post 101 again.
+        /// </summary>
+        private async Task<GoodsReceipt> EnsureLinkedReversalGrnAsync(
+            BuyerBusinessProfile buyer,
+            GoodsReceipt original,
+            List<(GoodsReceiptItem Item, decimal Qty)> selected,
+            CancellationToken cancellationToken)
+        {
+            if (original.ReversalGoodsReceiptId != null)
+            {
+                GoodsReceipt? existing = await _repository.GoodsReceipt
+                    .FindByCondition(x => x.Id == original.ReversalGoodsReceiptId.Value && x.BuyerId == buyer.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (existing != null)
+                {
+                    existing.MaterialDocument = original.ReversalMaterialDocument;
+                    existing.MaterialDocumentYear = original.ReversalMaterialDocumentYear;
+                    existing.Status = Common.SILA_GRN_REVERSED;
+                    existing.InvoiceId = original.InvoiceId;
+                    _repository.GoodsReceipt.Update(existing);
+                    return existing;
+                }
+            }
+
+            string reversalNumber = await DocumentNumber.NextAsync(_repository, buyer.Id, DocumentNumber.GOODS_RECEIPT, 6, cancellationToken);
+            GoodsReceipt reversal = new GoodsReceipt
+            {
+                Id = Guid.NewGuid(),
+                BuyerId = buyer.Id,
+                GrnNumber = reversalNumber,
+                PurchaseOrderId = original.PurchaseOrderId,
+                PoNumber = original.PoNumber,
+                LocationId = original.LocationId,
+                InvoiceId = original.InvoiceId,
+                DeliveryNote = "Reversal of " + original.GrnNumber,
+                Status = Common.SILA_GRN_REVERSED,
+                ReceivedBy = original.ReceivedBy,
+                ParentGoodsReceiptId = original.Id,
+                MaterialDocument = original.ReversalMaterialDocument,
+                MaterialDocumentYear = original.ReversalMaterialDocumentYear,
+                ReversalStatus = Common.SILA_POSTING_POSTED,
+                ReversalReason = original.ReversalReason,
+                ReversedOn = DateTime.UtcNow,
+                IsActive = true
+            };
+            _repository.GoodsReceipt.Create(reversal);
+            foreach ((GoodsReceiptItem item, decimal qty) in selected.Where(x => x.Qty > TOLERANCE))
+            {
+                _repository.GoodsReceiptItem.Create(new GoodsReceiptItem
+                {
+                    Id = Guid.NewGuid(),
+                    GoodsReceiptId = reversal.Id,
+                    PurchaseOrderItemId = item.PurchaseOrderItemId,
+                    MaterialId = item.MaterialId,
+                    MaterialCode = item.MaterialCode,
+                    MaterialName = item.MaterialName,
+                    OrderedQty = item.OrderedQty,
+                    ReceivedQty = qty,
+                    AcceptedQty = qty,
+                    RejectedQty = 0,
+                    DamagedQty = 0,
+                    Uom = item.Uom,
+                    MaterialDocumentItem = item.MaterialDocumentItem,
+                    ReversedQty = 0,
+                    IsActive = true
+                });
+            }
+
+            original.ReversalGrnNumber = reversalNumber;
+            original.ReversalGoodsReceiptId = reversal.Id;
+            _repository.GoodsReceipt.Update(original);
+            Record(buyer.Id, original.Id, original.ReversedBy ?? original.ReceivedBy, EVENT_GRN_REVERSAL,
+                original.GrnNumber + " reversed as " + reversalNumber);
+            Record(buyer.Id, reversal.Id, original.ReversedBy ?? original.ReceivedBy, EVENT_GRN_REVERSAL,
+                "Linked to " + original.GrnNumber);
+            return reversal;
         }
 
         private async Task InvalidateOpenInvoiceAsync(Invoice? invoice, CancellationToken cancellationToken)
@@ -726,6 +817,8 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                 MaterialDocumentYear = receipt.MaterialDocumentYear,
                 ReversalMaterialDocument = receipt.ReversalMaterialDocument,
                 ReversalMaterialDocumentYear = receipt.ReversalMaterialDocumentYear,
+                ReversalGrnNumber = receipt.ReversalGrnNumber,
+                ReversalGoodsReceiptId = receipt.ReversalGoodsReceiptId,
                 Message = message
             };
         }

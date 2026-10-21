@@ -100,6 +100,13 @@ namespace Buyer.Tests.Shared
         }
 
         [Fact]
+        public void NextGoodsReceiptNumber_FormatsLinkedReversalAsGrStarStar()
+        {
+            Assert.Equal("GR000008", DocumentNumber.Format(DocumentNumber.GOODS_RECEIPT, 8, 6));
+            Assert.Equal("GR000009", DocumentNumber.Format(DocumentNumber.GOODS_RECEIPT, 9, 6));
+        }
+
+        [Fact]
         public void ProcessType_ReadsPostGrnReversalFromDatabaseText()
         {
             Assert.True(IntegrationProcessTypes.TryRead("POST_GRN_REVERSAL", out IntegrationProcessType type));

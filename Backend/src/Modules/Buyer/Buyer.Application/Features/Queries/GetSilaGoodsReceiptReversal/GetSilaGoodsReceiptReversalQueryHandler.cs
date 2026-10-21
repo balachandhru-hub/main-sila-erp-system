@@ -198,7 +198,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 return new SilaReceivingGrnReversalHistoryDto
                 {
                     ErpPostingId = posting.Id,
-                    ReversalNumber = posting.ReferenceNumber,
+                    ReversalNumber = receipt.ReversalGrnNumber ?? posting.ReferenceNumber,
                     PostedOn = posting.PostedOn ?? posting.DateUpdated,
                     Status = posting.Status,
                     MaterialDocument = md,
@@ -245,6 +245,8 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 MaterialDocumentYear = receipt.MaterialDocumentYear,
                 ReversalMaterialDocument = receipt.ReversalMaterialDocument,
                 ReversalMaterialDocumentYear = receipt.ReversalMaterialDocumentYear,
+                ReversalGrnNumber = receipt.ReversalGrnNumber,
+                ReversalGoodsReceiptId = receipt.ReversalGoodsReceiptId,
                 ReversalStatus = receipt.ReversalStatus,
                 PoNumber = receipt.PoNumber,
                 SupplierName = header.SupplierName,

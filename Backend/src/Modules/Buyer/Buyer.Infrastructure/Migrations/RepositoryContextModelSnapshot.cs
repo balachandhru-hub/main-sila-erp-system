@@ -1874,6 +1874,10 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("nvarchar(4)")
                         .HasColumnName("material_document_year");
 
+                    b.Property<Guid?>("ParentGoodsReceiptId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("parent_goods_receipt_id");
+
                     b.Property<string>("PoNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -1890,6 +1894,15 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<Guid?>("ReversalErpPostingId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("reversal_erp_posting_id");
+
+                    b.Property<Guid?>("ReversalGoodsReceiptId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("reversal_goods_receipt_id");
+
+                    b.Property<string>("ReversalGrnNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("reversal_grn_number");
 
                     b.Property<string>("ReversalMaterialDocument")
                         .HasMaxLength(20)

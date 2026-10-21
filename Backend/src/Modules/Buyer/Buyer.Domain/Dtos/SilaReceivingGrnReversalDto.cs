@@ -41,6 +41,8 @@ namespace Buyer.Domain.Dtos
         public string? MaterialDocumentYear { get; set; }
         public string? ReversalMaterialDocument { get; set; }
         public string? ReversalMaterialDocumentYear { get; set; }
+        public string? ReversalGrnNumber { get; set; }
+        public Guid? ReversalGoodsReceiptId { get; set; }
         public string? ReversalStatus { get; set; }
         public string PoNumber { get; set; } = string.Empty;
         public string? SupplierName { get; set; }
@@ -96,6 +98,8 @@ namespace Buyer.Domain.Dtos
         public string? MaterialDocumentYear { get; set; }
         public string? ReversalMaterialDocument { get; set; }
         public string? ReversalMaterialDocumentYear { get; set; }
+        public string? ReversalGrnNumber { get; set; }
+        public Guid? ReversalGoodsReceiptId { get; set; }
         public string Message { get; set; } = string.Empty;
     }
 }

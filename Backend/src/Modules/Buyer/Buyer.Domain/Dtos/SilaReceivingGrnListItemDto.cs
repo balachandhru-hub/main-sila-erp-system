@@ -25,5 +25,7 @@ namespace Buyer.Domain.Dtos
         public Guid? ErpPostingId { get; set; }
         public string? ErpStatus { get; set; }
         public string? ErpReference { get; set; }
+        public string? ReversalGrnNumber { get; set; }
+        public Guid? ParentGoodsReceiptId { get; set; }
     }
 }

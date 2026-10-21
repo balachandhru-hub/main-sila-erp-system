@@ -148,19 +148,33 @@ namespace Buyer.Application.Features.Shared
                 });
             }
 
-            foreach (GoodsReceipt grn in grns)
+            foreach (GoodsReceipt grn in grns.OrderBy(x => x.DateCreated))
             {
                 InventoryErpPosting? grnPosting = grn.ErpPostingId != null && postings.TryGetValue(grn.ErpPostingId.Value, out InventoryErpPosting? gp) ? gp : null;
+                bool reversalDoc = grn.ParentGoodsReceiptId != null;
                 nodes.Add(new SilaDocumentTrackNodeDto
                 {
                     Kind = KIND_GRN,
                     Id = grn.Id,
-                    Label = "Goods receipt",
+                    Label = reversalDoc ? "Goods receipt reversal" : "Goods receipt",
                     Number = grn.GrnNumber,
                     Status = grn.Status,
                     ErpReference = grn.MaterialDocument ?? grnPosting?.ErpReference,
                     Current = rootKind == KIND_GRN && grn.Id == rootId
                 });
+                if (!reversalDoc && !string.IsNullOrWhiteSpace(grn.ReversalGrnNumber) && grns.All(x => x.GrnNumber != grn.ReversalGrnNumber))
+                {
+                    nodes.Add(new SilaDocumentTrackNodeDto
+                    {
+                        Kind = KIND_GRN,
+                        Id = grn.ReversalGoodsReceiptId ?? grn.Id,
+                        Label = "Goods receipt reversal",
+                        Number = grn.ReversalGrnNumber,
+                        Status = Common.SILA_GRN_REVERSED,
+                        ErpReference = grn.ReversalMaterialDocument,
+                        Current = false
+                    });
+                }
             }
 
             foreach (Invoice invoice in invoices.Values.OrderByDescending(x => x.DateCreated))

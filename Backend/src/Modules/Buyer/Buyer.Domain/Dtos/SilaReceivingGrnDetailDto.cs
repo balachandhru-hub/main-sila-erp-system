@@ -22,6 +22,9 @@ namespace Buyer.Domain.Dtos
         public string? MaterialDocumentYear { get; set; }
         public string? ReversalMaterialDocument { get; set; }
         public string? ReversalMaterialDocumentYear { get; set; }
+        public string? ReversalGrnNumber { get; set; }
+        public Guid? ReversalGoodsReceiptId { get; set; }
+        public Guid? ParentGoodsReceiptId { get; set; }
         public string? ReversalStatus { get; set; }
         public string? InvoiceStatus { get; set; }
         public SilaErpPostingListItemDto? ErpPosting { get; set; }

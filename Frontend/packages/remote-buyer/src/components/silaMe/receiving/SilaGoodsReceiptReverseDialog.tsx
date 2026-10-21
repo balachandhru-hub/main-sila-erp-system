@@ -232,6 +232,9 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
             <p className="srcv-sub">Reversal mode — reviewing the original posted GRN. Integration: {preview.integrationName || "FIVE S4-GRN REVERSAL"}</p>
             <dl className="srcv-facts">
               <div><dt>Original GRN</dt><dd>{preview.grnNumber}</dd></div>
+              {preview.reversalGrnNumber && (
+                <div><dt>Reversal GRN</dt><dd>{preview.reversalGrnNumber}</dd></div>
+              )}
               <div><dt>SAP Material Document</dt><dd>{preview.materialDocument || "—"}</dd></div>
               <div><dt>Material Document Year</dt><dd>{preview.materialDocumentYear || "—"}</dd></div>
               <div><dt>PO</dt><dd>{preview.poNumber}</dd></div>
@@ -380,6 +383,7 @@ const SilaGoodsReceiptReverseDialog: React.FC<SilaGoodsReceiptReverseDialogProps
               <div className="sila-alert" role="alertdialog" aria-labelledby="srcv-rev-confirm-title">
                 <h3 id="srcv-rev-confirm-title" className="sila-section-title">GRN REVERSAL</h3>
                 <p>Original GRN: {preview.grnNumber}</p>
+                {preview.reversalGrnNumber && <p>Reversal GRN: {preview.reversalGrnNumber}</p>}
                 <p>Lines: {selectedLines.length}</p>
                 <ul>
                   {selectedLines.map((line) => (

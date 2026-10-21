@@ -283,7 +283,9 @@ namespace Buyer.Application.Features.Shared
                     LineCount = lineReceiptIds.Count(id => id == receipt.Id),
                     ErpPostingId = receipt.ErpPostingId,
                     ErpStatus = posting?.Status,
-                    ErpReference = posting?.ErpReference
+                    ErpReference = posting?.ErpReference ?? receipt.MaterialDocument,
+                    ReversalGrnNumber = receipt.ReversalGrnNumber,
+                    ParentGoodsReceiptId = receipt.ParentGoodsReceiptId
                 };
             }).ToList();
         }

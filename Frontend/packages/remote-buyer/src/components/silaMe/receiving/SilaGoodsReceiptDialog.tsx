@@ -154,6 +154,18 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({
                   </dd>
                 </div>
               )}
+              {receipt.reversalGrnNumber && (
+                <div>
+                  <dt>Reversal GRN</dt>
+                  <dd>{receipt.reversalGrnNumber}{receipt.parentGoodsReceiptId ? ` · linked` : ""}</dd>
+                </div>
+              )}
+              {receipt.parentGoodsReceiptId && (
+                <div>
+                  <dt>Original GRN</dt>
+                  <dd>Linked reversal document</dd>
+                </div>
+              )}
               {receipt.reversalMaterialDocument && (
                 <div>
                   <dt>Reversal Material Document</dt>

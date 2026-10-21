@@ -49,6 +49,15 @@ namespace Buyer.Domain.Entities
 
         public Guid? ReversalErpPostingId { get; set; }
 
+        /// <summary>Original GRN when this row is the reversal document (GR**9 linked to GR**8).</summary>
+        public Guid? ParentGoodsReceiptId { get; set; }
+
+        /// <summary>Internal GR** number created for the latest successful reversal of this receipt.</summary>
+        [MaxLength(20)]
+        public string? ReversalGrnNumber { get; set; }
+
+        public Guid? ReversalGoodsReceiptId { get; set; }
+
         /// <summary>PENDING | POSTED | FAILED | UNKNOWN | FAILED_LOCAL | INVOICE_REQUIRED</summary>
         public string? ReversalStatus { get; set; }
 
