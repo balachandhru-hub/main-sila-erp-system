@@ -97,6 +97,12 @@ namespace Buyer.Application.Features.Shared
                 IsActive = true
             }).ToList();
             repository.SilaApprovalStep.CreateRange(steps);
+            SilaApprovalStep? current = steps.OrderBy(x => x.Order).FirstOrDefault();
+            if (current != null)
+            {
+                await SilaOperations.OnApprovalStepAsync(repository, current, approvalType, cancellationToken);
+            }
+
             return steps;
         }
 
@@ -149,6 +155,7 @@ namespace Buyer.Application.Features.Shared
             current.Comment = comment?.Trim();
             current.ActedOn = DateTime.UtcNow;
             repository.SilaApprovalStep.Update(current);
+            await SilaOperations.CompleteApprovalStepAsync(repository, current, userId, cancellationToken);
 
             if (!approve)
             {
@@ -156,6 +163,7 @@ namespace Buyer.Application.Features.Shared
                 foreach (SilaApprovalStep step in remaining)
                 {
                     step.Status = STEP_CANCELLED;
+                    await SilaOperations.CompleteApprovalStepAsync(repository, step, userId, cancellationToken);
                 }
 
                 repository.SilaApprovalStep.UpdateRange(remaining);
@@ -171,6 +179,7 @@ namespace Buyer.Application.Features.Shared
                     step.Status = Common.SILA_APPROVAL_APPROVED;
                     step.ActedOn = DateTime.UtcNow;
                     step.Comment = comment?.Trim();
+                    await SilaOperations.CompleteApprovalStepAsync(repository, step, userId, cancellationToken);
                 }
 
                 if (rest.Count > 0)
@@ -182,6 +191,15 @@ namespace Buyer.Application.Features.Shared
             }
 
             bool last = steps.All(x => x.Id == current.Id || x.Status == Common.SILA_APPROVAL_APPROVED);
+            if (!last)
+            {
+                SilaApprovalStep? next = steps.Where(x => x.Status == Common.SILA_APPROVAL_PENDING).OrderBy(x => x.Order).FirstOrDefault();
+                if (next != null)
+                {
+                    await SilaOperations.OnApprovalStepAsync(repository, next, next.ApprovalType, cancellationToken);
+                }
+            }
+
             return new ApprovalDecision { Outcome = last ? OUTCOME_APPROVED : OUTCOME_PENDING, Level = current.Order };
         }
 

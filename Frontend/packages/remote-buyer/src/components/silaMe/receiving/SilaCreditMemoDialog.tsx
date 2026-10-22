@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import {
   createCreditMemo,
+  decideCreditMemo,
   creditMemoAmountTextForQuantity,
   creditMemoDraftFromLine,
   creditMemoExcludeDraft,
@@ -64,6 +65,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
   const [memo, setMemo] = useState<SilaCreditMemoDetail | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [comment, setComment] = useState("");
 
   const loadInvoice = async (id: string) => {
     setError(null);
@@ -170,7 +172,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
       const data = await work();
       setMemo(data);
       onChanged?.();
-      toastService.success(label === "retry" ? "Credit memo posting retried from stored data." : label === "submit" ? "Credit memo submitted." : "Credit memo saved.");
+      toastService.success(label === "retry" ? "Credit memo posting retried from stored data." : label === "submit" ? "Credit memo submitted." : label === "decide" ? "Credit memo approval recorded." : "Credit memo saved.");
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : "Credit memo action failed.");
     } finally {
@@ -210,6 +212,16 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
   const unknown = memo?.status === "POSTING_UNKNOWN" || memo?.erpStatus === "UNKNOWN";
   const failed = memo?.canRetry;
   const posted = memo?.status === "POSTED";
+  const pendingApproval = memo?.status === "PENDING_APPROVAL";
+
+  const decide = (approve: boolean) => {
+    if (!memo) return;
+    if (!approve && comment.trim() === "") {
+      toastService.error("A comment is required.");
+      return;
+    }
+    void run("decide", () => decideCreditMemo(memo.id, approve, comment));
+  };
 
   return (
     <Modal
@@ -218,7 +230,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
       size="xl"
       headerProps={{ heading: "Credit Memo" }}
       footerProps={{
-        primaryButton: posted || unknown ? undefined : { text: busy === "submit" ? "Submitting..." : "Post credit memo", onClick: submit, loading: busy === "submit", disabled: busy !== null || !reference },
+        primaryButton: posted || unknown || pendingApproval ? undefined : { text: busy === "submit" ? "Submitting..." : "Post credit memo", onClick: submit, loading: busy === "submit", disabled: busy !== null || !reference },
         secondaryButton: { text: "Close", onClick: onClose, disabled: busy !== null },
       }}
     >
@@ -278,6 +290,17 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
             {posted && memo?.erpMessage && <p className="sila-alert sila-alert--success">{memo.erpMessage}</p>}
             {failed && memo?.erpMessage && <p className="srcv-error">{memo.erpMessage}</p>}
             {unknown && <p className="sila-alert sila-alert--warning">Credit memo posting is unknown. Reconcile it. Do not retry blindly.</p>}
+            {pendingApproval && (
+              <div className="sila-alert" role="status">
+                <p><strong>Waiting for approval</strong></p>
+                <label className="sila-label" htmlFor="srcv-cm-approval-comment">Comment</label>
+                <input id="srcv-cm-approval-comment" className="sila-input" value={comment} onChange={(event) => setComment(event.target.value)} />
+                <div className="srcv-actions">
+                  <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => decide(true)}>Approve</button>
+                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => decide(false)}>Reject</button>
+                </div>
+              </div>
+            )}
             <div className="sila-form-grid">
               <div className="sila-field">
                 <label className="sila-label" htmlFor="srcv-cm-ref">Credit memo number</label>

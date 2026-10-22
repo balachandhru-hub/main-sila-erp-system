@@ -190,7 +190,7 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
           <section className="sila-card">
             <h2 className="sila-form-section-title">Pending Approvals</h2>
             {(data?.approvals ?? []).filter((row) => showApproval(row, caps)).length === 0
-              ? <EmptyState title="No pending approvals." description="Approvals assigned to you in modules you can access appear here. PO approval, GRN reversal approval and credit memo approval are not in the current approval engine." />
+              ? <EmptyState title="No pending approvals." description="Approvals assigned to you in modules you can access appear here. PO approval and GRN reversal approval are not in the current engine." />
               : (
                 <ul className="srcv-task-list">
                   {data!.approvals.filter((row) => showApproval(row, caps)).map((row, index) => (
@@ -397,6 +397,7 @@ const taskLabel = (action: string, readOnly: boolean): string => {
 
 const showTask = (task: SilaReceivingTask, caps: SilaHomeCapabilities): boolean => {
   if (task.type === "PROCESS_INVOICE") return caps.processInvoices;
+  if (task.type === "INVOICE") return caps.viewInvoices;
   if (task.type === "CREDIT_MEMO") return caps.viewCreditMemos;
   if (task.action === "REVIEW" && !caps.viewReceiving) return false;
   return caps.viewReceiving;
@@ -410,6 +411,7 @@ const showException = (row: SilaReceivingException, caps: SilaHomeCapabilities):
 
 const showApproval = (row: SilaHomeApproval, caps: SilaHomeCapabilities): boolean => {
   if (row.type === "Invoice Approval") return caps.viewInvoices;
+  if (row.type === "Credit Memo Approval") return caps.viewCreditMemos;
   if (row.type === "Transfer Approval") return caps.approveTransfer || caps.viewInventory;
   return true;
 };

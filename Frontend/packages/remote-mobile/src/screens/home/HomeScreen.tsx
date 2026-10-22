@@ -49,7 +49,12 @@ const HomeScreen: React.FC = () => {
     if (row.exception.toLowerCase().includes('credit memo')) return caps.viewCreditMemos;
     return caps.viewReceiving;
   });
-  const approvals = (data?.approvals ?? []).filter((row) => row.type !== 'Transfer Approval' || caps.approveTransfer || caps.viewInventory);
+  const approvals = (data?.approvals ?? []).filter((row) => {
+    if (row.type === 'Transfer Approval') return caps.approveTransfer || caps.viewInventory;
+    if (row.type === 'Credit Memo Approval') return caps.viewCreditMemos;
+    if (row.type === 'Invoice Approval') return caps.viewInvoices;
+    return true;
+  });
 
   const actions: QuickAction[] = [
     { label: 'Scan Invoice', icon: 'scan', to: 'receive/scan', show: caps.processInvoices },
@@ -138,11 +143,11 @@ const HomeScreen: React.FC = () => {
 
         <section className="sm-section" aria-labelledby="sm-home-approvals">
           <h2 id="sm-home-approvals">Pending Approvals</h2>
-          {approvals.length === 0 && !dashboard.loading && <Empty text="No pending approvals." description="PO, GRN reversal and credit memo approvals are not in the current engine." />}
+          {approvals.length === 0 && !dashboard.loading && <Empty text="No pending approvals." description="PO and GRN reversal approvals are not in the current engine." />}
           <ul className="sm-list">
             {approvals.map((row, index) => (
               <li key={`${row.document}-${index}`}>
-                <button type="button" className="sm-list-btn" onClick={() => row.invoiceId ? go(`receive/invoices/${row.invoiceId}`) : row.transferId ? go('inventory/transfers?tab=to-approve') : undefined}>
+                <button type="button" className="sm-list-btn" onClick={() => row.creditMemoId ? go(`receive/credit-memos/${row.creditMemoId}`) : row.invoiceId ? go(`receive/invoices/${row.invoiceId}`) : row.transferId ? go('inventory/transfers?tab=to-approve') : undefined}>
                   <span className="sm-row"><strong>{row.document}</strong><StatusBadge status={row.status} /></span>
                   <span className="sm-meta">{row.type}{row.supplierName ? ` · ${row.supplierName}` : ''} · {row.age}</span>
                 </button>

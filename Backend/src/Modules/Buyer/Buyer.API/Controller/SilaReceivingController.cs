@@ -1,5 +1,6 @@
 using Buyer.Application.Features.Commands.CopySilaInvoice;
 using Buyer.Application.Features.Commands.CreateSilaInvoice;
+using Buyer.Application.Features.Commands.DecideSilaCreditMemo;
 using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.PrepareSilaCreateInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
@@ -749,6 +750,23 @@ namespace Buyer.API.Controllers
                 UserId = GetUserId(),
                 CreditMemoId = creditMemoId,
                 Retry = true
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}/approval")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("DecideSilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> DecideCreditMemo([FromRoute] Guid creditMemoId, [FromBody] SilaInvoiceDecisionDto request)
+        {
+            return Ok(await _mediator.Send(new DecideSilaCreditMemoCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                CreditMemoId = creditMemoId,
+                Request = request ?? new SilaInvoiceDecisionDto()
             }));
         }
     }
