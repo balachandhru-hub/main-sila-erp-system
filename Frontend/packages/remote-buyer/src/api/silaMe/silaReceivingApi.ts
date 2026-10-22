@@ -746,6 +746,8 @@ export interface SilaReceivingActivity {
   status?: string | null;
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
+  invoiceId?: string | null;
+  creditMemoId?: string | null;
 }
 
 export interface SilaReceivingTeam {
@@ -759,12 +761,14 @@ export interface SilaReceivingTeam {
 export interface SilaHomeInvoiceKpis {
   readyForProcessing: number;
   inProgress: number;
+  pendingApproval?: number;
   postingFailed: number;
   postedRecently: number;
 }
 
 export interface SilaHomeCreditMemoKpis {
   inProgress: number;
+  pendingApproval?: number;
   postingFailed: number;
   postedRecently: number;
 }
@@ -827,8 +831,8 @@ export const getReceivingDashboard = async (filter?: {
     exceptions: list(data.exceptions),
     activity: list(data.activity),
     team: data.team ?? { receiptsCompleted: 0, grnsPosted: 0, partialReceipts: 0, reversals: 0, failures: 0 },
-    invoice: data.invoice ?? { readyForProcessing: 0, inProgress: 0, postingFailed: 0, postedRecently: 0 },
-    creditMemo: data.creditMemo ?? { inProgress: 0, postingFailed: 0, postedRecently: 0 },
+    invoice: data.invoice ?? { readyForProcessing: 0, inProgress: 0, pendingApproval: 0, postingFailed: 0, postedRecently: 0 },
+    creditMemo: data.creditMemo ?? { inProgress: 0, pendingApproval: 0, postingFailed: 0, postedRecently: 0 },
     approvals: list(data.approvals),
   };
 };

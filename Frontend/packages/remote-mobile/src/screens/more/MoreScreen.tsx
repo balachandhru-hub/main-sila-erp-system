@@ -22,6 +22,7 @@ const ENTRIES: MoreEntry[] = [
   { label: 'Search', detail: 'Suppliers, purchase orders and GRNs', to: 'search' },
   { label: 'GRN History', detail: 'Goods receipts and their ERP status', to: 'receive/history' },
   { label: 'Internal Transfer History', detail: 'Completed transfers', to: 'inventory/transfers?tab=completed' },
+  { label: 'Recommendations', detail: 'Stock-out and replenishment to add to a PO', to: 'inventory/recommendations', visible: (can) => can.requestPurchase },
   { label: 'Purchase Requests', detail: 'Requests raised from live inventory', to: 'inventory/purchase-requests', visible: (can) => can.requestPurchase },
   { label: 'Goods Issue', detail: 'Issue store stock to an outlet', to: 'inventory/goods-issues', visible: (can) => can.postGoodsIssue },
   { label: 'Waste and Adjustments', detail: 'Waste, damage, spoilage, opening stock', to: 'inventory/adjustments', visible: (can) => can.postAdjustment },
