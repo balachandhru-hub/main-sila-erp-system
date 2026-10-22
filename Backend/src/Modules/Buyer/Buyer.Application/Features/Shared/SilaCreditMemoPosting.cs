@@ -82,18 +82,43 @@ namespace Buyer.Application.Features.Shared
             JsonObject body = new JsonObject
             {
                 ["CompanyCode"] = SilaCreditMemoPostingData.Header(prepared, "CompanyCode"),
-                ["DocumentDate"] = SilaCreditMemoPostingData.Header(prepared, "DocumentDate"),
-                ["PostingDate"] = SilaCreditMemoPostingData.Header(prepared, "PostingDate"),
+                ["DocumentDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "DocumentDate")),
+                ["PostingDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "PostingDate")),
                 ["SupplierInvoiceIDByInvoicingParty"] = SilaCreditMemoPostingData.Header(prepared, "SupplierInvoiceIDByInvoicingParty"),
                 ["InvoicingParty"] = SilaCreditMemoPostingData.Header(prepared, "InvoicingParty"),
                 ["DocumentCurrency"] = SilaCreditMemoPostingData.Header(prepared, "DocumentCurrency"),
                 ["InvoiceGrossAmount"] = SilaCreditMemoPostingData.Header(prepared, "InvoiceGrossAmount"),
                 ["AccountingDocumentType"] = SilaCreditMemoLifecycle.DOCUMENT_TYPE,
                 ["BusinessPartnerPostingType"] = SilaCreditMemoLifecycle.PARTNER_POSTING_TYPE,
-                ["TaxCalculationDate"] = SilaCreditMemoPostingData.Header(prepared, "TaxCalculationDate"),
+                ["TaxCalculationDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "TaxCalculationDate")),
                 ["To_SuplrInvcItemPurOrdRef"] = items
             };
             return (body.ToJsonString(), missing);
+        }
+
+        /// <summary>
+        /// Same outbound date form as FIVE S4-INVOICE POSTING: yyyy-MM-ddT00:00:00.
+        /// Stored posting data stays yyyy-MM-dd.
+        /// </summary>
+        private static string? SapDate(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            string text = value.Trim();
+            if (text.Length == 10)
+            {
+                return text + "T00:00:00";
+            }
+
+            if (text.Length == 16 && text[10] == 'T')
+            {
+                return text + ":00";
+            }
+
+            return text;
         }
 
         public static async Task ContinueAsync(
