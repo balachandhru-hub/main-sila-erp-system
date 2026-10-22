@@ -63,17 +63,32 @@ namespace Buyer.Application.Features.Shared
                 return (null, missing);
             }
 
-            JsonArray items = new JsonArray();
+            string? documentDate = SapDate(SilaCreditMemoPostingData.Header(prepared, "DocumentDate"));
+            string? postingDate = SapDate(SilaCreditMemoPostingData.Header(prepared, "PostingDate")) ?? documentDate;
+            string? dueDate = SapDate(SilaCreditMemoPostingData.Header(prepared, "DueCalculationBaseDate")) ?? postingDate;
+            string? taxDate = SapDate(SilaCreditMemoPostingData.Header(prepared, "TaxDeterminationDate"))
+                ?? SapDate(SilaCreditMemoPostingData.Header(prepared, "TaxCalculationDate"));
+            string? currency = SilaCreditMemoPostingData.Header(prepared, "DocumentCurrency");
+            JsonArray results = new JsonArray();
+            int sequence = 0;
             foreach (SilaCreditMemoPostingData.Line line in prepared.Lines)
             {
-                items.Add(new JsonObject
+                sequence++;
+                string? itemNumber = SilaCreditMemoPostingData.LineValue(line, "SupplierInvoiceItem");
+                if (string.IsNullOrWhiteSpace(itemNumber))
                 {
-                    ["InvoicingParty"] = SilaCreditMemoPostingData.LineValue(line, "InvoicingParty"),
+                    itemNumber = sequence.ToString("00000", CultureInfo.InvariantCulture);
+                }
+
+                results.Add(new JsonObject
+                {
+                    ["SupplierInvoiceItem"] = itemNumber,
                     ["PurchaseOrder"] = SilaCreditMemoPostingData.LineValue(line, "PurchaseOrder"),
                     ["PurchaseOrderItem"] = SilaCreditMemoPostingData.LineValue(line, "PurchaseOrderItem"),
+                    ["DocumentCurrency"] = SilaCreditMemoPostingData.LineValue(line, "DocumentCurrency") ?? currency,
                     ["SupplierInvoiceItemAmount"] = SilaCreditMemoPostingData.LineValue(line, "SupplierInvoiceItemAmount"),
-                    ["DocumentCurrency"] = SilaCreditMemoPostingData.LineValue(line, "DocumentCurrency"),
-                    ["Quantity"] = SilaCreditMemoPostingData.LineValue(line, "Quantity"),
+                    ["QuantityInPurchaseOrderUnit"] = QuantityText(SilaCreditMemoPostingData.LineValue(line, "QuantityInPurchaseOrderUnit")
+                        ?? SilaCreditMemoPostingData.LineValue(line, "Quantity")),
                     ["PurchaseOrderQuantityUnit"] = SilaCreditMemoPostingData.LineValue(line, "PurchaseOrderQuantityUnit"),
                     ["TaxCode"] = SilaCreditMemoPostingData.LineValue(line, "TaxCode")
                 });
@@ -82,16 +97,23 @@ namespace Buyer.Application.Features.Shared
             JsonObject body = new JsonObject
             {
                 ["CompanyCode"] = SilaCreditMemoPostingData.Header(prepared, "CompanyCode"),
-                ["DocumentDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "DocumentDate")),
-                ["PostingDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "PostingDate")),
-                ["SupplierInvoiceIDByInvcgParty"] = SilaCreditMemoPostingData.Header(prepared, "SupplierInvoiceIDByInvoicingParty"),
-                ["InvoicingParty"] = SilaCreditMemoPostingData.Header(prepared, "InvoicingParty"),
-                ["DocumentCurrency"] = SilaCreditMemoPostingData.Header(prepared, "DocumentCurrency"),
-                ["InvoiceGrossAmount"] = SilaCreditMemoPostingData.Header(prepared, "InvoiceGrossAmount"),
-                ["AccountingDocumentType"] = SilaCreditMemoLifecycle.DOCUMENT_TYPE,
-                ["TaxCalculationDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "TaxCalculationDate")),
-                ["To_SuplrInvcItemPurOrdRef"] = items
+                ["DocumentDate"] = documentDate,
+                ["PostingDate"] = postingDate,
+                ["DueCalculationBaseDate"] = dueDate
             };
+            if (!string.IsNullOrWhiteSpace(taxDate))
+            {
+                body["TaxDeterminationDate"] = taxDate;
+            }
+
+            body["InvoicingParty"] = SilaCreditMemoPostingData.Header(prepared, "InvoicingParty");
+            body["DocumentCurrency"] = currency;
+            body["InvoiceGrossAmount"] = SilaCreditMemoPostingData.Header(prepared, "InvoiceGrossAmount");
+            body["AccountingDocumentType"] = SilaCreditMemoLifecycle.DOCUMENT_TYPE;
+            body["SupplierInvoiceIDByInvcgParty"] = SilaCreditMemoPostingData.Header(prepared, "SupplierInvoiceIDByInvoicingParty");
+            body["TaxIsCalculatedAutomatically"] = true;
+            body["SupplierInvoiceIsCreditMemo"] = "1";
+            body["to_SuplrInvcItemPurOrdRef"] = new JsonObject { ["results"] = results };
             return (body.ToJsonString(), missing);
         }
 
@@ -118,6 +140,18 @@ namespace Buyer.Application.Features.Shared
             }
 
             return text;
+        }
+
+        private static string? QuantityText(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amount)
+                ? amount.ToString("0.####", CultureInfo.InvariantCulture)
+                : value.Trim();
         }
 
         public static async Task ContinueAsync(
