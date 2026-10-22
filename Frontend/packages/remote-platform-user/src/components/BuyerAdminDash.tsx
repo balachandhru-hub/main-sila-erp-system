@@ -46,6 +46,9 @@ import OutletManagement from "../../../remote-buyer/src/components/outlet/Outlet
 import SilaMeWorkspace from "../../../remote-buyer/src/components/silaMe/SilaMeWorkspace";
 import SilaConsolidatedTracker from "../../../remote-buyer/src/components/silaMe/trackers/SilaConsolidatedTracker";
 import { SILA_ME_MODEL_KEY, SILA_ME_NAV_PATHS, buildSilaMeModuleNav, isSilaMeNav } from "../../../remote-buyer/src/components/silaMe/silaMeNav";
+import SilaHomeDashboard from "../../../remote-buyer/src/components/silaMe/SilaHomeDashboard";
+import { silaHomeCapabilities, silaHomePersonaCapabilities, type SilaHomePersona } from "../../../remote-buyer/src/components/silaMe/silaHomeCapabilities";
+import { silaMePermissions } from "../../../remote-buyer/src/components/silaMe/silaMePermissions";
 import { useSilaMeAddon } from "../../../remote-buyer/src/components/silaMe/useSilaMeAddon";
 import { PURCHASING_NAV_PATHS, buildBuyerNavItems, type BuyerNavItem } from "../../../remote-buyer/src/components/dashboard/navConfig";
 import NeedsAttentionPanel from "../../../remote-buyer/src/components/dashboard/attention/NeedsAttentionPanel";
@@ -321,6 +324,9 @@ const BuyerAdminDash: React.FC = () => {
   // The SILA ME (hospitality) add-on menu, for organizations that have the add-on.
   const silaAddon = useSilaMeAddon();
   const hasSilaMe = silaAddon.enabled;
+  const [homePreview, setHomePreview] = useState<SilaHomePersona>("self");
+  const adminHomeCaps = silaHomeCapabilities(hasSilaMe, silaMePermissions("admin"));
+  const previewHomeCaps = silaHomePersonaCapabilities(adminHomeCaps, homePreview);
   const inSilaModule = isSilaMeNav(activeNav);
   // Inside SILA ME the bar is that module. Outside it, the purchasing menu.
   const headerNavItems = useMemo(
@@ -1261,6 +1267,17 @@ const BuyerAdminDash: React.FC = () => {
               />
             ) : (
               <>
+                {hasSilaMe && (
+                  <SilaHomeDashboard
+                    capabilities={previewHomeCaps}
+                    previewPersona={homePreview}
+                    onPreviewPersona={setHomePreview}
+                    onNavigate={handleNavClick}
+                    readOnly={homePreview !== "self"}
+                  />
+                )}
+                {homePreview === "self" && (
+                <>
                 <div className="bad-page-header">
                   <h1 className="bad-title">Buyer Admin Command Center</h1>
                   <p className="bad-subtitle">Manage buyers, track procurement activities, and oversee operations.</p>
@@ -1424,6 +1441,8 @@ const BuyerAdminDash: React.FC = () => {
                     </button>
                   </div>
                 </section>
+                </>
+                )}
               </>
             )}
           </div>

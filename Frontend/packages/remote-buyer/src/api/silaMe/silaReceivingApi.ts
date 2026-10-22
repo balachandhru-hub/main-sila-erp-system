@@ -680,6 +680,7 @@ export interface SilaReceivingTask {
   action: string;
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
+  invoiceId?: string | null;
   openLineCount?: number | null;
 }
 
@@ -716,6 +717,7 @@ export interface SilaReceivingException {
   action: string;
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
+  invoiceId?: string | null;
   message?: string | null;
 }
 
@@ -736,6 +738,34 @@ export interface SilaReceivingTeam {
   failures: number;
 }
 
+export interface SilaHomeInvoiceKpis {
+  readyForProcessing: number;
+  inProgress: number;
+  postingFailed: number;
+  postedRecently: number;
+}
+
+export interface SilaHomeCreditMemoKpis {
+  inProgress: number;
+  postingFailed: number;
+  postedRecently: number;
+}
+
+export interface SilaHomeApproval {
+  type: string;
+  document: string;
+  supplierName?: string | null;
+  amount?: number | null;
+  requestedBy?: string | null;
+  age?: string | null;
+  status: string;
+  action: string;
+  purchaseOrderId?: string | null;
+  goodsReceiptId?: string | null;
+  invoiceId?: string | null;
+  transferId?: string | null;
+}
+
 export interface SilaReceivingDashboard {
   kpis: SilaReceivingDashboardKpis;
   aging: SilaReceivingAging;
@@ -745,6 +775,9 @@ export interface SilaReceivingDashboard {
   exceptions: SilaReceivingException[];
   activity: SilaReceivingActivity[];
   team: SilaReceivingTeam;
+  invoice: SilaHomeInvoiceKpis;
+  creditMemo: SilaHomeCreditMemoKpis;
+  approvals: SilaHomeApproval[];
 }
 
 export const getReceivingDashboard = async (filter?: {
@@ -775,6 +808,9 @@ export const getReceivingDashboard = async (filter?: {
     exceptions: list(data.exceptions),
     activity: list(data.activity),
     team: data.team ?? { receiptsCompleted: 0, grnsPosted: 0, partialReceipts: 0, reversals: 0, failures: 0 },
+    invoice: data.invoice ?? { readyForProcessing: 0, inProgress: 0, postingFailed: 0, postedRecently: 0 },
+    creditMemo: data.creditMemo ?? { inProgress: 0, postingFailed: 0, postedRecently: 0 },
+    approvals: list(data.approvals),
   };
 };
 

@@ -151,6 +151,7 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
             dashboard.Tasks = BuildTasks(open, failed, locations, supplierByPo, DateTime.UtcNow).Take(TASKS).ToList();
             dashboard.Workbench = BuildWorkbench(open, latestByPo, postings, locations, properties).Take(WORKBENCH).ToList();
             dashboard.Exceptions = BuildExceptions(open, failed, locations, supplierByPo, DateTime.UtcNow);
+            await AppendHomeModulesAsync(dashboard, buyer.Id, receipts, postings, locationIds, supplierByPo, cancellationToken);
             dashboard.Activity = receipts.Take(ACTIVITY).Select(receipt =>
             {
                 bool reversed = receipt.ParentGoodsReceiptId != null || receipt.Status == Common.SILA_GRN_REVERSED;
@@ -174,6 +175,186 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
 
             _logger.LogInfo($"Receiving dashboard fetched. OpenPos: {open.Count}, Grns: {receipts.Count}, BuyerId: {buyer.Id}");
             return dashboard;
+        }
+
+        private async Task AppendHomeModulesAsync(
+            SilaReceivingDashboardDto dashboard,
+            Guid buyerId,
+            List<GoodsReceipt> receipts,
+            Dictionary<Guid, InventoryErpPosting> postings,
+            List<Guid> locationIds,
+            Dictionary<Guid, string?> supplierByPo,
+            CancellationToken cancellationToken)
+        {
+            DateTime now = DateTime.UtcNow;
+            DateTime today = now.Date;
+            List<Guid> invoiceIds = receipts.Where(x => x.InvoiceId != null).Select(x => x.InvoiceId!.Value).Distinct().ToList();
+            Dictionary<Guid, Invoice> heldInvoices = invoiceIds.Count == 0
+                ? new Dictionary<Guid, Invoice>()
+                : await _repository.Invoice.FindByCondition(x => invoiceIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Guid> heldPostingIds = heldInvoices.Values.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).Distinct().ToList();
+            Dictionary<Guid, InventoryErpPosting> invoicePostings = heldPostingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await _repository.InventoryErpPosting.FindByCondition(x => heldPostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+
+            List<SilaReceivingTaskDto> invoiceTasks = new List<SilaReceivingTaskDto>();
+            foreach (GoodsReceipt receipt in receipts)
+            {
+                if (!SilaInvoiceCreation.IsPostedForInvoice(receipt, postings))
+                {
+                    continue;
+                }
+
+                if (receipt.InvoiceId != null && heldInvoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? locked))
+                {
+                    string? lockedErp = locked.ErpPostingId != null
+                        && invoicePostings.TryGetValue(locked.ErpPostingId.Value, out InventoryErpPosting? lockedPosting)
+                        ? lockedPosting.Status
+                        : null;
+                    if (SilaGoodsReceiptSelection.Holds(locked.Status, lockedErp) || !string.IsNullOrWhiteSpace(locked.Status))
+                    {
+                        continue;
+                    }
+                }
+
+                invoiceTasks.Add(new SilaReceivingTaskDto
+                {
+                    Priority = "ACTION_REQUIRED",
+                    Type = "PROCESS_INVOICE",
+                    Title = "Process invoice",
+                    PoNumber = receipt.PoNumber,
+                    GrnNumber = receipt.GrnNumber,
+                    SupplierName = supplierByPo.TryGetValue(receipt.PurchaseOrderId, out string? supplier) ? supplier : null,
+                    Age = AgeText(receipt.DateCreated, now),
+                    Status = Common.SILA_INVOICE_READY,
+                    Action = "PROCESS_INVOICE",
+                    PurchaseOrderId = receipt.PurchaseOrderId,
+                    GoodsReceiptId = receipt.Id
+                });
+            }
+
+            dashboard.Tasks = invoiceTasks.Concat(dashboard.Tasks).Take(TASKS).ToList();
+            dashboard.Invoice.ReadyForProcessing = invoiceTasks.Count;
+
+            List<Invoice> invoices = await _repository.Invoice
+                .FindByCondition(x => x.BuyerId == buyerId && x.IsActive)
+                .OrderByDescending(x => x.DateCreated)
+                .Take(400)
+                .ToListAsync(cancellationToken);
+            HashSet<string> posted = SilaInvoiceLifecycle.PostedStatuses.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            string[] failedInvoice =
+            {
+                Common.SILA_INVOICE_POSTING_FAILED, Common.SILA_INVOICE_POSTING_UNKNOWN, Common.SILA_INVOICE_LOCAL_FAILED,
+                Common.SILA_INVOICE_OCR_FAILED, Common.SILA_INVOICE_VALIDATION_FAILED
+            };
+            string[] inProgressInvoice =
+            {
+                Common.SILA_INVOICE_UPLOADED, Common.SILA_INVOICE_EXTRACTED,
+                Common.SILA_INVOICE_REVIEWED, Common.SILA_INVOICE_GRN_IN_PROGRESS, Common.SILA_INVOICE_READY,
+                Common.SILA_INVOICE_PENDING_APPROVAL, Common.SILA_INVOICE_READY_TO_POST, Common.SILA_INVOICE_POSTING
+            };
+            dashboard.Invoice.InProgress = invoices.Count(x => inProgressInvoice.Contains(x.Status));
+            dashboard.Invoice.PostingFailed = invoices.Count(x => failedInvoice.Contains(x.Status));
+            dashboard.Invoice.PostedRecently = invoices.Count(x => posted.Contains(x.Status) && x.DateCreated.Date == today);
+
+            foreach (Invoice invoice in invoices.Where(x => failedInvoice.Contains(x.Status)).Take(10))
+            {
+                dashboard.Exceptions.Add(new SilaReceivingExceptionDto
+                {
+                    Severity = invoice.Status == Common.SILA_INVOICE_POSTING_UNKNOWN ? "CRITICAL" : "ACTION_REQUIRED",
+                    Exception = invoice.Status == Common.SILA_INVOICE_POSTING_UNKNOWN ? "Invoice posting unknown" : "Invoice posting failed",
+                    Document = invoice.InvoiceNumber ?? invoice.FileName,
+                    SupplierName = invoice.SupplierName,
+                    Age = AgeText(invoice.DateCreated, now),
+                    Status = invoice.Status,
+                    Action = "REVIEW",
+                    PurchaseOrderId = invoice.PurchaseOrderId,
+                    InvoiceId = invoice.Id
+                });
+            }
+
+            foreach (Invoice invoice in invoices.Where(x => x.Status == Common.SILA_INVOICE_PENDING_APPROVAL).Take(10))
+            {
+                dashboard.Approvals.Add(new SilaHomeApprovalDto
+                {
+                    Type = "Invoice Approval",
+                    Document = invoice.InvoiceNumber ?? invoice.FileName,
+                    SupplierName = invoice.SupplierName,
+                    Amount = invoice.GrossAmount,
+                    Age = AgeText(invoice.DateCreated, now),
+                    Status = invoice.Status,
+                    Action = "REVIEW",
+                    InvoiceId = invoice.Id
+                });
+            }
+
+            List<CreditMemo> memos = await _repository.CreditMemo
+                .FindByCondition(x => x.BuyerId == buyerId && x.IsActive)
+                .OrderByDescending(x => x.DateCreated)
+                .Take(200)
+                .ToListAsync(cancellationToken);
+            dashboard.CreditMemo.InProgress = memos.Count(x => SilaCreditMemoLifecycle.OpenStatuses.Contains(x.Status) || x.Status == Common.SILA_CREDIT_MEMO_POSTING);
+            dashboard.CreditMemo.PostingFailed = memos.Count(x =>
+                x.Status == Common.SILA_CREDIT_MEMO_POSTING_FAILED || x.Status == Common.SILA_CREDIT_MEMO_POSTING_UNKNOWN);
+            dashboard.CreditMemo.PostedRecently = memos.Count(x => x.Status == Common.SILA_CREDIT_MEMO_POSTED && x.DateCreated.Date == today);
+            foreach (CreditMemo memo in memos.Where(x =>
+                x.Status == Common.SILA_CREDIT_MEMO_POSTING_FAILED || x.Status == Common.SILA_CREDIT_MEMO_POSTING_UNKNOWN).Take(8))
+            {
+                dashboard.Exceptions.Add(new SilaReceivingExceptionDto
+                {
+                    Severity = memo.Status == Common.SILA_CREDIT_MEMO_POSTING_UNKNOWN ? "CRITICAL" : "ACTION_REQUIRED",
+                    Exception = memo.Status == Common.SILA_CREDIT_MEMO_POSTING_UNKNOWN ? "Credit memo posting unknown" : "Credit memo posting failed",
+                    Document = memo.CreditMemoNumber ?? memo.CreditMemoReference ?? "Credit memo",
+                    SupplierName = memo.SupplierName,
+                    Age = AgeText(memo.DateCreated, now),
+                    Status = memo.Status,
+                    Action = "REVIEW",
+                    PurchaseOrderId = memo.PurchaseOrderId,
+                    InvoiceId = memo.ReferenceInvoiceId
+                });
+                dashboard.Tasks.Add(new SilaReceivingTaskDto
+                {
+                    Priority = memo.Status == Common.SILA_CREDIT_MEMO_POSTING_UNKNOWN ? "CRITICAL" : "ACTION_REQUIRED",
+                    Type = "CREDIT_MEMO",
+                    Title = "Review credit memo",
+                    PoNumber = memo.PoNumber,
+                    SupplierName = memo.SupplierName,
+                    Age = AgeText(memo.DateCreated, now),
+                    Status = memo.Status,
+                    Action = "REVIEW",
+                    PurchaseOrderId = memo.PurchaseOrderId,
+                    InvoiceId = memo.ReferenceInvoiceId
+                });
+            }
+
+            if (locationIds.Count > 0)
+            {
+                List<InternalTransferOrder> transfers = await _repository.InternalTransferOrder
+                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive
+                        && locationIds.Contains(x.FromLocationId)
+                        && x.Status == Common.SILA_ITO_PENDING_APPROVAL)
+                    .OrderBy(x => x.DateCreated)
+                    .Take(10)
+                    .ToListAsync(cancellationToken);
+                foreach (InternalTransferOrder transfer in transfers)
+                {
+                    dashboard.Approvals.Add(new SilaHomeApprovalDto
+                    {
+                        Type = "Transfer Approval",
+                        Document = transfer.ItoNumber,
+                        Age = AgeText(transfer.DateCreated, now),
+                        Status = transfer.Status,
+                        Action = "REVIEW",
+                        TransferId = transfer.Id
+                    });
+                }
+            }
+
+            dashboard.Tasks = dashboard.Tasks
+                .OrderBy(x => x.Priority == "CRITICAL" ? 0 : 1)
+                .ThenBy(x => x.ExpectedDate)
+                .Take(TASKS)
+                .ToList();
         }
 
         private async Task<List<PurchaseOrder>> LoadOpenOrdersAsync(Guid buyerId, string? supplier, CancellationToken cancellationToken)

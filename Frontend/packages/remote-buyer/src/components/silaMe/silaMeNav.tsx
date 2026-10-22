@@ -1,5 +1,6 @@
 import { FileCheckIcon, HomeIcon, LayoutGridIcon } from "@vosox/shared-ui";
 import { silaMePermissions } from "./silaMePermissions";
+import { silaHomeCapabilities, type SilaHomeCapabilities } from "./silaHomeCapabilities";
 
 /** Who is using the SILA ME add-on; decides the menu and which actions the screens offer. */
 export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller" | "fnb-director";
@@ -70,13 +71,14 @@ interface NavGroup {
 const leaf = (show: boolean, key: SilaMeNavKey, label: string): NavLeaf[] => (show ? [{ key, label }] : []);
 
 /** The "SILA ME" sidebar entry for the role; a leaf is shown only when the role may use that screen. */
-export const buildSilaMeNavItem = (role: SilaMeRole) => {
+export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
   const can = silaMePermissions(role);
+  const home = access ?? silaHomeCapabilities(true, can);
   const manager = role === "admin" || role === "store-manager";
   const groups: NavGroup[] = [
     {
       label: "Inventory",
-      items: [
+      items: home.viewInventory ? [
         { key: "silaDashboard", label: "Dashboard" },
         { key: "silaLiveInventory", label: "Live Inventory" },
         { key: "silaTransfers", label: "Internal Transfers" },
@@ -89,7 +91,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
         { key: "silaAlerts", label: "Alerts" },
         ...leaf(can.requestPurchase, "silaPurchaseRequests", "Purchase Requests"),
         { key: "silaTransactions", label: "Inventory Transactions" },
-      ],
+      ] : [],
     },
     {
       label: "Recipe Management",
@@ -103,12 +105,12 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
     },
     {
       label: "Receiving",
-      items: [
+      items: home.viewReceiving ? [
         { key: "silaReceivingDashboard", label: "Dashboard" },
         { key: "silaPurchaseOrders", label: "Open Purchase Orders" },
         { key: "silaGoodsReceipts", label: "Goods Receipts" },
-        { key: "silaInvoices", label: "Invoices" },
-      ],
+        ...leaf(home.viewInvoices, "silaInvoices", "Invoices"),
+      ] : [],
     },
     {
       label: "Control",
@@ -142,8 +144,8 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
 /**
  * The SILA ME site menu. Home and Purchasing Dashboard leave this module and return to purchasing.
  */
-export const buildSilaMeModuleNav = (role: SilaMeRole) => {
-  const sections = (buildSilaMeNavItem(role).subItems ?? []).flatMap((entry) =>
+export const buildSilaMeModuleNav = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
+  const sections = (buildSilaMeNavItem(role, access).subItems ?? []).flatMap((entry) =>
     "items" in entry
       ? [{ key: `sila-section-${entry.label}`, icon: <LayoutGridIcon />, label: entry.label, subItems: entry.items }]
       : [],

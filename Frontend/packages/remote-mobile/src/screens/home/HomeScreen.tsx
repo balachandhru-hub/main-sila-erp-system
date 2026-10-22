@@ -1,16 +1,17 @@
 import React from 'react';
 import { getInventoryHome, getRecentAlerts } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
+import { getReceivingDashboard, type SilaReceivingTask } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
+import { silaHomeCapabilities } from '../../../../remote-buyer/src/components/silaMe/silaHomeCapabilities';
 import ScreenHeader from '../../components/ScreenHeader';
 import LocationPicker from '../../components/LocationPicker';
 import { MobileIcon, type MobileIconName } from '../../components/MobileIcons';
+import StatusBadge from '../../components/StatusBadge';
 import { Empty, ErrorNotice, Loading, OfflineBanner } from '../../components/StateViews';
 import { firstNameOf, initialsOf, useAccess } from '../../access';
+import { formatDateTime } from '../../format';
 import { useMyLocation } from '../../location';
 import { useGo } from '../../navigation';
 import { useLoad } from '../../useLoad';
-import { isGrnException, isGrnPending, loadRecentGrns } from '../receive/grnStatus';
-import { loadRecipeSuggestions } from '../recipes/recipeSuggestions';
-import HomeAttention from './HomeAttention';
 
 interface QuickAction {
   label: string;
@@ -19,13 +20,6 @@ interface QuickAction {
   show: boolean;
 }
 
-const AGENTS: { label: string; detail: string; to: string }[] = [
-  { label: 'Recipe', detail: 'Ready', to: 'recipes' },
-  { label: 'Inventory', detail: 'Ready', to: 'inventory' },
-  { label: 'Receiving', detail: 'Ready', to: 'receive' },
-];
-
-/** Same wording as the prototype (Good Morning / Afternoon / Evening). */
 const greeting = (): string => {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good Morning';
@@ -36,40 +30,60 @@ const greeting = (): string => {
 const HomeScreen: React.FC = () => {
   const go = useGo();
   const { person, can } = useAccess();
+  const caps = silaHomeCapabilities(true, can);
   const { locations, location, setLocationId, loading: locLoading, error: locError, reload: reloadLocations } = useMyLocation();
-  const summary = useLoad(() => getInventoryHome(location?.id), location ? `home-${location.id}` : null);
-  const alerts = useLoad(() => getRecentAlerts(5), 'alerts');
-  const grns = useLoad(() => loadRecentGrns(30), 'recent-grns');
-  const canRecipes = can.manageRecipe || can.approveRecipe;
-  const suggestions = useLoad(
-    () => loadRecipeSuggestions(location!.id),
-    location && canRecipes ? `suggest-${location.id}` : null,
+  const dashboard = useLoad(
+    () => getReceivingDashboard({ locationId: location?.id }),
+    caps.viewReceiving ? (location ? `home-recv-${location.id}` : 'home-recv') : null,
   );
+  const summary = useLoad(
+    () => getInventoryHome(location?.id),
+    caps.viewInventory ? (location ? `home-inv-${location.id}` : 'home-inv') : null,
+  );
+  const alerts = useLoad(() => getRecentAlerts(5), caps.viewInventory ? 'alerts' : null);
+  const data = dashboard.data;
+  const kpis = data?.kpis;
+  const tasks = (data?.tasks ?? []).filter((task) => task.type !== 'PROCESS_INVOICE' || caps.processInvoices);
+  const exceptions = (data?.exceptions ?? []).filter((row) => {
+    if (row.exception.toLowerCase().includes('invoice')) return caps.viewInvoices;
+    if (row.exception.toLowerCase().includes('credit memo')) return caps.viewCreditMemos;
+    return caps.viewReceiving;
+  });
+  const approvals = (data?.approvals ?? []).filter((row) => row.type !== 'Transfer Approval' || caps.approveTransfer || caps.viewInventory);
 
   const actions: QuickAction[] = [
-    { label: 'Scan Invoice', icon: 'scan', to: 'receive/scan', show: true },
-    { label: 'Receive Goods', icon: 'receive', to: 'receive/pos?mode=receive', show: true },
-    { label: 'Purchase orders', icon: 'purchaseOrders', to: 'receive/pos', show: true },
-    { label: 'Suppliers', icon: 'suppliers', to: 'more/suppliers', show: true },
-    { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: true },
-    { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: can.manageTransfer },
-    { label: 'Stock Count', icon: 'count', to: 'inventory/counts', show: can.manageCount || can.approveCount || can.initiateCount },
-    { label: 'Quick Transfer', icon: 'quickTransfer', to: 'inventory/transfers/new?mode=quick', show: can.manageTransfer },
-    { label: 'Recipes', icon: 'recipes', to: 'recipes', show: canRecipes },
-    { label: 'Approvals', icon: 'approvals', to: 'tasks', show: can.approveCount || can.approveTransfer || can.approveRecipe || can.approvePrice },
+    { label: 'Scan Invoice', icon: 'scan', to: 'receive/scan', show: caps.processInvoices },
+    { label: 'Receive Goods', icon: 'receive', to: 'receive/pos?mode=receive', show: caps.receive },
+    { label: 'Find PO', icon: 'purchaseOrders', to: 'receive/pos', show: caps.viewReceiving },
+    { label: 'GRN History', icon: 'receive', to: 'receive/history', show: caps.viewReceiving },
+    { label: 'Invoices', icon: 'scan', to: 'receive/posted-invoices', show: caps.viewInvoices },
+    { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: caps.viewInventory },
+    { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: caps.viewInventory && can.manageTransfer },
+    { label: 'Approvals', icon: 'approvals', to: 'tasks', show: caps.approveCount || caps.approveTransfer || caps.approveRecipe || caps.approvePrice },
   ];
 
-  const count = (value: number | undefined, loading: boolean): string => (loading ? '…' : value === undefined ? '—' : String(value));
-  const pendingGrns = grns.data ? grns.data.filter(isGrnPending).length : undefined;
-  const cards: { label: string; value: string; to: string; alert?: boolean }[] = [
-    { label: 'Pending GRNs', value: count(pendingGrns, grns.loading), to: 'receive/pending', alert: (pendingGrns ?? 0) > 0 },
-    { label: 'Approvals', value: count(summary.data?.pendingTransferApprovals, summary.loading), to: 'inventory/transfers?tab=to-approve' },
-    { label: 'Stock Count Tasks', value: count(summary.data?.openStockCounts, summary.loading), to: 'inventory/counts' },
-    { label: 'Pending ITO', value: count(summary.data?.inTransitToReceive, summary.loading), to: 'inventory/transfers?tab=in-transit' },
-    { label: 'Enquiries', value: count(summary.data?.openEnquiries, summary.loading), to: 'tasks' },
-    { label: 'Low Stock Items', value: count(summary.data?.lowStockItems, summary.loading), to: 'tasks/alerts' },
-  ];
+  const openTask = (task: SilaReceivingTask) => {
+    if (task.action === 'PROCESS_INVOICE') {
+      go('receive/scan');
+      return;
+    }
+    if (task.goodsReceiptId && task.action === 'REVIEW') {
+      go(`receive/grns/${task.goodsReceiptId}`);
+      return;
+    }
+    if (task.invoiceId) {
+      go(`receive/invoices/${task.invoiceId}`);
+      return;
+    }
+    if (task.purchaseOrderId && (task.action === 'RECEIVE' || task.action === 'RECEIVE_BALANCE')) {
+      go(`receive/grn/new?poId=${encodeURIComponent(task.purchaseOrderId)}`);
+      return;
+    }
+    if (task.purchaseOrderId) go(`receive/pos/${task.purchaseOrderId}`);
+  };
+
   const name = firstNameOf(person);
+  const count = (value: number | undefined, loading: boolean): string => (loading ? '…' : value === undefined ? '—' : String(value));
 
   return (
     <>
@@ -97,87 +111,125 @@ const HomeScreen: React.FC = () => {
         {!locLoading && !locError && locations.length === 0 && (
           <Empty text="No location assigned." description="You are not assigned to a store or outlet yet. Ask your administrator to assign you." />
         )}
+        {dashboard.error && <ErrorNotice message={dashboard.error} onRetry={dashboard.reload} />}
+
+        <section className="sm-section" aria-labelledby="sm-home-tasks">
+          <h2 id="sm-home-tasks">My Tasks</h2>
+          {tasks.length === 0 && !dashboard.loading && <Empty text="You're all caught up." description="No receiving or invoice tasks in your scope." />}
+          <ul className="sm-list">
+            {tasks.slice(0, 8).map((task, index) => (
+              <li key={`${task.type}-${index}`}>
+                <button type="button" className="sm-list-btn" onClick={() => openTask(task)}>
+                  <span className="sm-row">
+                    <strong>{task.poNumber || task.grnNumber || task.title}</strong>
+                    <StatusBadge status={task.priority === 'CRITICAL' ? 'FAILED' : task.status || 'PENDING'} />
+                  </span>
+                  <span className="sm-meta">{task.title}{task.supplierName ? ` · ${task.supplierName}` : ''}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="sm-section" aria-labelledby="sm-home-approvals">
+          <h2 id="sm-home-approvals">Pending Approvals</h2>
+          {approvals.length === 0 && !dashboard.loading && <Empty text="No pending approvals." description="PO, GRN reversal and credit memo approvals are not in the current engine." />}
+          <ul className="sm-list">
+            {approvals.map((row, index) => (
+              <li key={`${row.document}-${index}`}>
+                <button type="button" className="sm-list-btn" onClick={() => row.invoiceId ? go(`receive/invoices/${row.invoiceId}`) : row.transferId ? go('inventory/transfers?tab=to-approve') : undefined}>
+                  <span className="sm-row"><strong>{row.document}</strong><StatusBadge status={row.status} /></span>
+                  <span className="sm-meta">{row.type}{row.supplierName ? ` · ${row.supplierName}` : ''} · {row.age}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="sm-section" aria-labelledby="sm-home-attn">
+          <h2 id="sm-home-attn">Attention Required</h2>
+          {exceptions.length === 0 && !dashboard.loading && <Empty text="No items require your attention." />}
+          <ul className="sm-list">
+            {exceptions.slice(0, 8).map((row, index) => (
+              <li key={`${row.document}-${index}`}>
+                <button
+                  type="button"
+                  className="sm-list-btn"
+                  onClick={() => row.invoiceId ? go(`receive/invoices/${row.invoiceId}`) : row.goodsReceiptId ? go(`receive/grns/${row.goodsReceiptId}`) : row.purchaseOrderId ? go(`receive/pos/${row.purchaseOrderId}`) : undefined}
+                >
+                  <span className="sm-row"><strong>{row.document}</strong><StatusBadge status={row.severity === 'CRITICAL' ? 'FAILED' : row.status || 'PENDING'} /></span>
+                  <span className="sm-meta">{row.exception} · {row.age}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <section className="sm-section" aria-labelledby="sm-quick">
           <h2 id="sm-quick">Quick actions</h2>
           <div className="sm-grid-3">
             {actions.filter((action) => action.show).map((action) => (
               <button key={action.label} type="button" className="sm-action" onClick={() => go(action.to)}>
-                <span className="sm-action__icon" aria-hidden="true">
-                  <MobileIcon name={action.icon} />
-                </span>
+                <span className="sm-action__icon" aria-hidden="true"><MobileIcon name={action.icon} /></span>
                 {action.label}
               </button>
             ))}
           </div>
         </section>
 
-        {canRecipes && (
-          <section className="sm-section" aria-labelledby="sm-suggest">
-            <h2 id="sm-suggest">Recipes from stock</h2>
-            {suggestions.loading && <Loading text="Checking recipes against stock…" />}
-            {suggestions.error && <ErrorNotice message={suggestions.error} onRetry={suggestions.reload} />}
-            {!suggestions.loading && !suggestions.error && (suggestions.data ?? []).length === 0 && (
-              <Empty text="No recipes to suggest" description="Approved recipes with ingredients show here when this location has stock." />
-            )}
-            {(suggestions.data ?? []).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`sm-suggest${item.canMake ? ' sm-suggest--ready' : ''}`}
-                onClick={() => go(`recipes/${item.id}`)}
-              >
-                <strong>{item.name}</strong>
-                <span className="sm-meta">{item.code} · {item.detail}</span>
-              </button>
-            ))}
+        {caps.viewReceiving && (
+          <section className="sm-section" aria-labelledby="sm-recv-sum">
+            <h2 id="sm-recv-sum">Receiving</h2>
+            <div className="sm-grid-2">
+              <button type="button" className="sm-stat" onClick={() => go('receive/pos')}><span className="sm-muted">Expected</span><strong>{count(kpis?.expectedToday, dashboard.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('receive/pos')}><span className="sm-muted">Pending</span><strong>{count(kpis?.pendingReceipt, dashboard.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('receive/pos')}><span className="sm-muted">Partial</span><strong>{count(kpis?.partiallyReceived, dashboard.loading)}</strong></button>
+              <button type="button" className={`sm-stat${(kpis?.attentionRequired ?? 0) > 0 ? ' sm-stat--alert' : ''}`} onClick={() => go('receive/pending')}><span className="sm-muted">Attention</span><strong>{count(kpis?.attentionRequired, dashboard.loading)}</strong></button>
+            </div>
           </section>
         )}
 
-        <section className="sm-section" aria-labelledby="sm-agents">
-          <h2 id="sm-agents">Agents</h2>
+        {caps.viewInvoices && (
+          <section className="sm-section" aria-labelledby="sm-inv-sum">
+            <h2 id="sm-inv-sum">Invoices</h2>
+            <div className="sm-grid-2">
+              <button type="button" className="sm-stat" onClick={() => go('receive/scan')}><span className="sm-muted">Ready</span><strong>{count(data?.invoice.readyForProcessing, dashboard.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">Posted</span><strong>{count(data?.invoice.postedRecently, dashboard.loading)}</strong></button>
+              <button type="button" className={`sm-stat${(data?.invoice.postingFailed ?? 0) > 0 ? ' sm-stat--alert' : ''}`} onClick={() => go('receive')}><span className="sm-muted">Failed</span><strong>{count(data?.invoice.postingFailed, dashboard.loading)}</strong></button>
+              {caps.viewCreditMemos && (
+                <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">Credit memos</span><strong>{count(data?.creditMemo.inProgress, dashboard.loading)}</strong></button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {caps.viewInventory && (
+          <section className="sm-section" aria-labelledby="sm-stock">
+            <h2 id="sm-stock">Inventory{location ? ` · ${location.locationName}` : ''}</h2>
+            {summary.error && <ErrorNotice message={summary.error} onRetry={summary.reload} />}
+            <div className="sm-grid-2">
+              <button type="button" className="sm-stat" onClick={() => go('tasks/alerts')}><span className="sm-muted">Low stock</span><strong>{count(summary.data?.lowStockItems, summary.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('tasks/alerts')}><span className="sm-muted">Alerts</span><strong>{count(summary.data?.openAlerts ?? alerts.data?.length, summary.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('inventory/counts')}><span className="sm-muted">Counts</span><strong>{count(summary.data?.openStockCounts, summary.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('inventory/transfers?tab=in-transit')}><span className="sm-muted">In-transit</span><strong>{count(summary.data?.inTransitToReceive, summary.loading)}</strong></button>
+            </div>
+          </section>
+        )}
+
+        <section className="sm-section" aria-labelledby="sm-home-activity">
+          <h2 id="sm-home-activity">Recent Activity</h2>
+          {(data?.activity ?? []).length === 0 && !dashboard.loading && <Empty text="No recent receiving activity." />}
           <ul className="sm-list">
-            {AGENTS.map((agent) => (
-              <li key={agent.label}>
-                <button type="button" className="sm-list-btn" onClick={() => go(agent.to)}>
-                  <span className="sm-row">
-                    <strong>{agent.label}</strong>
-                    <span className="sm-meta">{agent.detail}</span>
-                  </span>
+            {(data?.activity ?? []).slice(0, 8).map((item) => (
+              <li key={`${item.document}-${item.occurredOn}`}>
+                <button type="button" className="sm-list-btn" onClick={() => item.goodsReceiptId ? go(`receive/grns/${item.goodsReceiptId}`) : undefined}>
+                  <span className="sm-row"><strong>{item.document}</strong><StatusBadge status={item.status || item.action} /></span>
+                  <span className="sm-meta">{formatDateTime(item.occurredOn)} · {item.action}</span>
                 </button>
               </li>
             ))}
           </ul>
-          <p className="sm-muted">More hospitality agents will appear here later.</p>
         </section>
-
-        <section className="sm-section" aria-labelledby="sm-summary">
-          <h2 id="sm-summary">Today{location ? ` · ${location.locationName}` : ''}</h2>
-          {summary.error && <ErrorNotice message={summary.error} onRetry={summary.reload} />}
-          <div className="sm-grid-3">
-            {cards.map((card) => (
-              <button key={card.label} type="button" className={`sm-stat${card.alert ? ' sm-stat--alert' : ''}`} onClick={() => go(card.to)}>
-                <strong>{card.value}</strong>
-                <span className="sm-muted">{card.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <HomeAttention
-          failedGrns={(grns.data ?? []).filter(isGrnException).slice(0, 5)}
-          grnsError={grns.error}
-          onRetryGrns={grns.reload}
-          alerts={alerts.data ?? []}
-          alertsLoading={alerts.loading || grns.loading}
-          alertsError={alerts.error}
-          onRetryAlerts={alerts.reload}
-        />
-
-        <button type="button" className="sm-search-entry" aria-label="Global search" onClick={() => go('search')}>
-          <span aria-hidden="true">⌕</span>
-          <span>Search suppliers, POs, GRNs…</span>
-        </button>
       </div>
     </>
   );

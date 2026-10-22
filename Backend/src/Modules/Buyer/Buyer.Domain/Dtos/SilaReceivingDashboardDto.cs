@@ -10,6 +10,40 @@ namespace Buyer.Domain.Dtos
         public List<SilaReceivingExceptionDto> Exceptions { get; set; } = new();
         public List<SilaReceivingActivityDto> Activity { get; set; } = new();
         public SilaReceivingTeamDto Team { get; set; } = new();
+        public SilaHomeInvoiceKpisDto Invoice { get; set; } = new();
+        public SilaHomeCreditMemoKpisDto CreditMemo { get; set; } = new();
+        public List<SilaHomeApprovalDto> Approvals { get; set; } = new();
+    }
+
+    public class SilaHomeInvoiceKpisDto
+    {
+        public int ReadyForProcessing { get; set; }
+        public int InProgress { get; set; }
+        public int PostingFailed { get; set; }
+        public int PostedRecently { get; set; }
+    }
+
+    public class SilaHomeCreditMemoKpisDto
+    {
+        public int InProgress { get; set; }
+        public int PostingFailed { get; set; }
+        public int PostedRecently { get; set; }
+    }
+
+    public class SilaHomeApprovalDto
+    {
+        public string Type { get; set; } = string.Empty;
+        public string Document { get; set; } = string.Empty;
+        public string? SupplierName { get; set; }
+        public decimal? Amount { get; set; }
+        public string? RequestedBy { get; set; }
+        public string? Age { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string Action { get; set; } = "REVIEW";
+        public Guid? PurchaseOrderId { get; set; }
+        public Guid? GoodsReceiptId { get; set; }
+        public Guid? InvoiceId { get; set; }
+        public Guid? TransferId { get; set; }
     }
 
     public class SilaReceivingDashboardKpisDto
@@ -58,6 +92,7 @@ namespace Buyer.Domain.Dtos
         public string Action { get; set; } = string.Empty;
         public Guid? PurchaseOrderId { get; set; }
         public Guid? GoodsReceiptId { get; set; }
+        public Guid? InvoiceId { get; set; }
         public int? OpenLineCount { get; set; }
     }
 
@@ -96,6 +131,7 @@ namespace Buyer.Domain.Dtos
         public string Action { get; set; } = string.Empty;
         public Guid? PurchaseOrderId { get; set; }
         public Guid? GoodsReceiptId { get; set; }
+        public Guid? InvoiceId { get; set; }
         public string? Message { get; set; }
     }
 

@@ -42,6 +42,8 @@ import { silaMePermissions } from "./silaMe/silaMePermissions";
 import { SILA_ME_MODEL_KEY, buildSilaMeModuleNav, isSilaMeNav, type SilaMeRole } from "./silaMe/silaMeNav";
 import { useSilaMeAddon } from "./silaMe/useSilaMeAddon";
 import { silaMeRoleOf } from "./silaMe/silaMeRoles";
+import { silaHomeCapabilities } from "./silaMe/silaHomeCapabilities";
+import SilaHomeDashboard from "./silaMe/SilaHomeDashboard";
 import { ChatPanel, CompanyProfile, CreateRFQ, useAsyncData, useRouteNav } from '@vosox/shared-ui';
 
 const BuyersDashboard: React.FC = () => {
@@ -128,6 +130,7 @@ const BuyersDashboard: React.FC = () => {
   const silaAddon = useSilaMeAddon();
   const hasSilaMe = silaAddon.enabled;
   const silaMeRole: SilaMeRole = silaMeRoleOf(buyerProfile?.roleName ?? "", false);
+  const homeCaps = silaHomeCapabilities(hasSilaMe, silaMePermissions(silaMeRole));
   // How this user works with the weekly bucket, for the dashboards' suggested actions.
   const bucketRole: BucketRole = isStoreManager ? "freezer" : isOutletManager ? "requester" : null;
 
@@ -217,9 +220,9 @@ const BuyersDashboard: React.FC = () => {
 
   const headerNavItems = useMemo(
     () => isSilaMeNav(activeNav)
-      ? buildSilaMeModuleNav(silaMeRole)
+      ? buildSilaMeModuleNav(silaMeRole, homeCaps)
       : buildHeaderNavItems(rfqPageView, fullPageRfq?.rfqNumber, isOutletManager, isStoreManager, silaMeRole),
-    [activeNav, rfqPageView, fullPageRfq, isOutletManager, isStoreManager, silaMeRole],
+    [activeNav, rfqPageView, fullPageRfq, isOutletManager, isStoreManager, silaMeRole, homeCaps],
   );
 
   return (
@@ -353,6 +356,9 @@ const BuyersDashboard: React.FC = () => {
                 fetchProfile={getBuyerProfile}
               />
             ) : (
+              hasSilaMe ? (
+              <SilaHomeDashboard capabilities={homeCaps} onNavigate={handleNavClick} />
+              ) : (
               <DashboardHome
                 attention={
                   <NeedsAttentionPanel
@@ -373,6 +379,7 @@ const BuyersDashboard: React.FC = () => {
                 onOpenRfq={handleViewRfqDetailsFullPage}
                 onViewProfile={setSelectedProfile}
               />
+              )}
             )}
           </div>
         </div>
