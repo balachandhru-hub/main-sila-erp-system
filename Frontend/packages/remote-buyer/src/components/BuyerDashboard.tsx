@@ -43,7 +43,6 @@ import { SILA_ME_MODEL_KEY, buildSilaMeModuleNav, isSilaMeNav, type SilaMeRole }
 import { useSilaMeAddon } from "./silaMe/useSilaMeAddon";
 import { silaMeRoleOf } from "./silaMe/silaMeRoles";
 import { silaHomeCapabilities } from "./silaMe/silaHomeCapabilities";
-import SilaHomeDashboard from "./silaMe/SilaHomeDashboard";
 import { ChatPanel, CompanyProfile, CreateRFQ, useAsyncData, useRouteNav } from '@vosox/shared-ui';
 
 const BuyersDashboard: React.FC = () => {
@@ -230,7 +229,7 @@ const BuyersDashboard: React.FC = () => {
         <div className="pud-main">
           <div className="pud-content">
             {isSilaMeNav(activeNav) ? (
-              <SilaMeWorkspace navKey={activeNav} role={silaMeRole} onNavigate={handleNavClick} />
+              <SilaMeWorkspace navKey={activeNav} role={silaMeRole} capabilities={homeCaps} onNavigate={handleNavClick} />
             ) : activeNav === "purchasing" ? (
               <PurchasingDashboard
                 currentUserId={currentUserId}
@@ -356,9 +355,6 @@ const BuyersDashboard: React.FC = () => {
                 fetchProfile={getBuyerProfile}
               />
             ) : (
-              hasSilaMe ? (
-              <SilaHomeDashboard capabilities={homeCaps} onNavigate={handleNavClick} />
-              ) : (
               <DashboardHome
                 attention={
                   <NeedsAttentionPanel
@@ -379,7 +375,6 @@ const BuyersDashboard: React.FC = () => {
                 onOpenRfq={handleViewRfqDetailsFullPage}
                 onViewProfile={setSelectedProfile}
               />
-              )}
             )}
           </div>
         </div>

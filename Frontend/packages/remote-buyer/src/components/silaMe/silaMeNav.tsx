@@ -11,6 +11,7 @@ export const SILA_ME_MODEL_KEY = "SILA_ME";
 /** Each SILA ME screen's URL segment (/sila-live-inventory …); merged into the dashboard's nav paths. */
 export const SILA_ME_NAV_PATHS = {
   silaDashboard: "sila-dashboard",
+  silaInventoryDashboard: "sila-inventory-dashboard",
   silaLiveInventory: "sila-live-inventory",
   silaTransfers: "sila-transfers",
   silaGoodsIssue: "sila-goods-issue",
@@ -77,9 +78,13 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
   const manager = role === "admin" || role === "store-manager";
   const groups: NavGroup[] = [
     {
+      label: "Home",
+      items: [{ key: "silaDashboard", label: "Dashboard" }],
+    },
+    {
       label: "Inventory",
       items: home.viewInventory ? [
-        { key: "silaDashboard", label: "Dashboard" },
+        { key: "silaInventoryDashboard", label: "Dashboard" },
         { key: "silaLiveInventory", label: "Live Inventory" },
         { key: "silaTransfers", label: "Internal Transfers" },
         ...leaf(can.postGoodsIssue, "silaGoodsIssue", "Goods Issue"),
@@ -142,7 +147,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
 };
 
 /**
- * The SILA ME site menu. Home and Purchasing Dashboard leave this module and return to purchasing.
+ * The SILA ME site menu. Home stays in the add-on. Purchasing Dashboard returns to purchasing.
  */
 export const buildSilaMeModuleNav = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
   const sections = (buildSilaMeNavItem(role, access).subItems ?? []).flatMap((entry) =>
@@ -151,7 +156,8 @@ export const buildSilaMeModuleNav = (role: SilaMeRole, access?: SilaHomeCapabili
       : [],
   );
   return [
-    { key: "dashboard", icon: <HomeIcon />, label: "Home" },
+    { key: "silaDashboard", icon: <HomeIcon />, label: "Home" },
+    { key: "dashboard", icon: <HomeIcon />, label: "Purchasing Home" },
     { key: "purchasing", icon: <FileCheckIcon />, label: "Purchasing Dashboard" },
     ...sections,
   ];
