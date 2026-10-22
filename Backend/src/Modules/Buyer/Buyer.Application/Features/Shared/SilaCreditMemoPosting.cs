@@ -303,7 +303,7 @@ namespace Buyer.Application.Features.Shared
                 return false;
             }
 
-            string? sap = ReadSupplierInvoice(posting.ErpResponsePayload);
+            string? sap = ReadSupplierInvoice(posting.ErpResponsePayload) ?? posting.ErpReference;
             string? fiscal = ReadFiscalYear(posting.ErpResponsePayload);
             if (string.IsNullOrWhiteSpace(sap))
             {
