@@ -21,6 +21,7 @@ import {
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
 import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../components/StateViews';
+import { useAccess } from '../../access';
 import { useGo } from '../../navigation';
 import { errorText, useLoad } from '../../useLoad';
 import DocumentTrackCard from './DocumentTrackCard';
@@ -41,6 +42,7 @@ const postingField = (invoice: SilaInvoiceDetail | null, name: string): string |
 const CreditMemoScreen: React.FC = () => {
   const { invoiceId = '', creditMemoId = '' } = useParams();
   const go = useGo();
+  const { can } = useAccess();
   const memoLoad = useLoad(() => getCreditMemo(creditMemoId), creditMemoId || null);
   const resolvedInvoiceId = invoiceId || memoLoad.data?.referenceInvoiceId || '';
   const invoiceLoad = useLoad(() => getInvoice(resolvedInvoiceId), resolvedInvoiceId || null);
@@ -193,13 +195,19 @@ const CreditMemoScreen: React.FC = () => {
             {pendingApproval && (
               <section className="sm-section">
                 <h2>Approval</h2>
-                <p className="sm-meta">Waiting for approval. The API decides eligibility.</p>
-                <label className="sm-label" htmlFor="sm-cm-approval-comment">Comment</label>
-                <input id="sm-cm-approval-comment" className="sm-input" value={comment} onChange={(event) => setComment(event.target.value)} />
-                <div className="sm-actions">
-                  <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void decide(true)}>Approve</button>
-                  <button type="button" className="sm-btn" disabled={busy} onClick={() => void decide(false)}>Reject</button>
-                </div>
+                <p className="sm-meta">Waiting for approval. Permission and the active approval step are both required.</p>
+                {can.approveCreditMemo ? (
+                  <>
+                    <label className="sm-label" htmlFor="sm-cm-approval-comment">Comment</label>
+                    <input id="sm-cm-approval-comment" className="sm-input" value={comment} onChange={(event) => setComment(event.target.value)} />
+                    <div className="sm-actions">
+                      <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void decide(true)}>Approve</button>
+                      <button type="button" className="sm-btn" disabled={busy} onClick={() => void decide(false)}>Reject</button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="sm-notice">This user cannot decide this credit memo.</p>
+                )}
               </section>
             )}
             <div className="sm-field">
@@ -273,7 +281,7 @@ const CreditMemoScreen: React.FC = () => {
                 </section>
               );
             })}
-            {!unknown && !pendingApproval && (
+            {can.processCreditMemo && !unknown && !pendingApproval && (
               <div className="sm-actions">
                 <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void submit()}>
                   {busy ? 'Submitting…' : loadedMemo?.canRetry ? 'Retry Credit Memo Posting' : 'Post credit memo'}

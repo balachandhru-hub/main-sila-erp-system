@@ -29,10 +29,11 @@ const takeSilaCreditMemoSearch = (): SilaCreditMemoSearchIntent => {
 const STATUSES = ["IN_PROGRESS", "FAILED", "POSTED", "DRAFT", "READY_TO_POST", "POSTING", "ERP_POSTING_FAILED", "POSTING_UNKNOWN"];
 
 interface SilaCreditMemosProps {
-  canPost: boolean;
+  canProcess: boolean;
+  canApprove?: boolean;
 }
 
-const SilaCreditMemos: React.FC<SilaCreditMemosProps> = ({ canPost }) => {
+const SilaCreditMemos: React.FC<SilaCreditMemosProps> = ({ canProcess, canApprove = false }) => {
   const [intent] = useState(takeSilaCreditMemoSearch);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState(intent.status ?? "");
@@ -54,7 +55,7 @@ const SilaCreditMemos: React.FC<SilaCreditMemosProps> = ({ canPost }) => {
         className="pud-page-header"
         title="Credit memos"
         description="Search credit memos by number, invoice, supplier, PO or SAP document."
-        actions={canPost ? (
+        actions={canProcess ? (
           <button type="button" className="sila-btn sila-btn--primary" onClick={() => setCreating(true)}>
             New credit memo
           </button>
@@ -132,6 +133,8 @@ const SilaCreditMemos: React.FC<SilaCreditMemosProps> = ({ canPost }) => {
       {(openId || creating) && (
         <SilaCreditMemoDialog
           creditMemoId={openId}
+          canProcess={canProcess}
+          canApprove={canApprove}
           onClose={close}
           onChanged={list.reload}
         />

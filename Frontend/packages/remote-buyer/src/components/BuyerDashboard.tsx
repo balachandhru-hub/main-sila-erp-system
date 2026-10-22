@@ -38,11 +38,12 @@ import WeeklyBucketSection from "./weeklyBucket/WeeklyBucketSection";
 import CartSection from "./cart/CartSection";
 import SilaMeWorkspace from "./silaMe/SilaMeWorkspace";
 import SilaConsolidatedTracker from "./silaMe/trackers/SilaConsolidatedTracker";
-import { silaMePermissions } from "./silaMe/silaMePermissions";
+import { silaMePermissions, type SilaMePermissions } from "./silaMe/silaMePermissions";
 import { SILA_ME_MODEL_KEY, buildSilaMeModuleNav, isSilaMeNav, type SilaMeRole } from "./silaMe/silaMeNav";
 import { useSilaMeAddon } from "./silaMe/useSilaMeAddon";
 import { silaMeRoleOf } from "./silaMe/silaMeRoles";
 import { silaHomeCapabilities } from "./silaMe/silaHomeCapabilities";
+import { loadSilaMePermissions } from "../api/silaMe/silaPermissionApi";
 import { ChatPanel, CompanyProfile, CreateRFQ, useAsyncData, useRouteNav } from '@vosox/shared-ui';
 
 const BuyersDashboard: React.FC = () => {
@@ -129,7 +130,20 @@ const BuyersDashboard: React.FC = () => {
   const silaAddon = useSilaMeAddon();
   const hasSilaMe = silaAddon.enabled;
   const silaMeRole: SilaMeRole = silaMeRoleOf(buyerProfile?.roleName ?? "", false);
-  const homeCaps = silaHomeCapabilities(hasSilaMe, silaMePermissions(silaMeRole));
+  const [silaPerms, setSilaPerms] = useState<SilaMePermissions>(() => silaMePermissions(silaMeRole));
+  useEffect(() => {
+    let active = true;
+    const fallback = silaMePermissions(silaMeRole);
+    setSilaPerms(fallback);
+    if (!hasSilaMe) return undefined;
+    loadSilaMePermissions(silaMeRole).then((next) => {
+      if (active) setSilaPerms(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, [hasSilaMe, silaMeRole, buyerProfile?.roleName]);
+  const homeCaps = silaHomeCapabilities(hasSilaMe, silaPerms);
   // How this user works with the weekly bucket, for the dashboards' suggested actions.
   const bucketRole: BucketRole = isStoreManager ? "freezer" : isOutletManager ? "requester" : null;
 
@@ -229,7 +243,7 @@ const BuyersDashboard: React.FC = () => {
         <div className="pud-main">
           <div className="pud-content">
             {isSilaMeNav(activeNav) ? (
-              <SilaMeWorkspace navKey={activeNav} role={silaMeRole} capabilities={homeCaps} onNavigate={handleNavClick} />
+              <SilaMeWorkspace navKey={activeNav} role={silaMeRole} permissions={silaPerms} capabilities={homeCaps} onNavigate={handleNavClick} />
             ) : activeNav === "purchasing" ? (
               <PurchasingDashboard
                 currentUserId={currentUserId}
@@ -240,7 +254,7 @@ const BuyersDashboard: React.FC = () => {
                 onNavigate={handleNavClick}
               />
             ) : activeNav === "purchasingTransactions" ? (
-              <SilaConsolidatedTracker tracker="PURCHASING" canReprocess={silaMePermissions(silaMeRole).manageErpPosting} />
+              <SilaConsolidatedTracker tracker="PURCHASING" canReprocess={silaPerms.manageErpPosting} />
             ) : activeNav === "purchaseOrders" ? (
               <PurchaseOrderList />
             ) : activeNav === "documents" ? (

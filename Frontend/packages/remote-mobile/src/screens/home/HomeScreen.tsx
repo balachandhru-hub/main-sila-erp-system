@@ -35,7 +35,9 @@ const HomeScreen: React.FC = () => {
   const { locations, location, setLocationId, loading: locLoading, error: locError, reload: reloadLocations } = useMyLocation();
   const dashboard = useLoad(
     () => getReceivingDashboard({ locationId: location?.id }),
-    caps.viewReceiving ? (location ? `home-recv-${location.id}` : 'home-recv') : null,
+    caps.viewReceiving || caps.viewInvoices || caps.viewCreditMemos
+      ? (location ? `home-ops-${location.id}` : 'home-ops')
+      : null,
   );
   const summary = useLoad(
     () => getInventoryHome(location?.id),
@@ -48,7 +50,13 @@ const HomeScreen: React.FC = () => {
   );
   const data = dashboard.data;
   const kpis = data?.kpis;
-  const tasks = (data?.tasks ?? []).filter((task) => task.type !== 'PROCESS_INVOICE' || caps.processInvoices);
+  const tasks = (data?.tasks ?? []).filter((task) => {
+    if (task.type === 'PROCESS_INVOICE') return caps.processInvoices;
+    if (task.type === 'APPROVE_INVOICE') return caps.approveInvoices;
+    if (task.type === 'INVOICE') return caps.viewInvoices;
+    if (task.type === 'CREDIT_MEMO') return caps.viewCreditMemos || caps.processCreditMemos;
+    return caps.viewReceiving;
+  });
   const exceptions = (data?.exceptions ?? []).filter((row) => {
     if (row.exception.toLowerCase().includes('invoice')) return caps.viewInvoices;
     if (row.exception.toLowerCase().includes('credit memo')) return caps.viewCreditMemos;
@@ -56,9 +64,9 @@ const HomeScreen: React.FC = () => {
   });
   const approvals = (data?.approvals ?? []).filter((row) => {
     if (row.type === 'Transfer Approval') return caps.approveTransfer || caps.viewInventory;
-    if (row.type === 'Credit Memo Approval') return caps.viewCreditMemos;
-    if (row.type === 'Invoice Approval') return caps.viewInvoices;
-    return true;
+    if (row.type === 'Credit Memo Approval') return caps.approveCreditMemos;
+    if (row.type === 'Invoice Approval') return caps.approveInvoices;
+    return caps.approvals;
   });
 
   const actions: QuickAction[] = [
@@ -71,7 +79,7 @@ const HomeScreen: React.FC = () => {
     { label: 'Recommendations', icon: 'purchaseOrders', to: 'inventory/recommendations', show: caps.recommendation },
     { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: caps.viewInventory },
     { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: caps.viewInventory && can.manageTransfer },
-    { label: 'Approvals', icon: 'approvals', to: 'tasks', show: caps.approveCount || caps.approveTransfer || caps.approveRecipe || caps.approvePrice },
+    { label: 'Approvals', icon: 'approvals', to: 'tasks', show: caps.approveCount || caps.approveTransfer || caps.approveRecipe || caps.approvePrice || caps.approveInvoices || caps.approveCreditMemos },
   ];
 
   const openTask = (task: SilaReceivingTask) => {
@@ -248,9 +256,9 @@ const HomeScreen: React.FC = () => {
 
         <section className="sm-section" aria-labelledby="sm-home-activity">
           <h2 id="sm-home-activity">Recent Activity</h2>
-          {(data?.activity ?? []).length === 0 && !dashboard.loading && <Empty text="No recent receiving activity." />}
+          {(data?.activity ?? []).filter((item) => item.creditMemoId ? caps.viewCreditMemos : item.invoiceId ? caps.viewInvoices : caps.viewReceiving).length === 0 && !dashboard.loading && <Empty text="No recent receiving activity." />}
           <ul className="sm-list">
-            {(data?.activity ?? []).slice(0, 8).map((item) => (
+            {(data?.activity ?? []).filter((item) => item.creditMemoId ? caps.viewCreditMemos : item.invoiceId ? caps.viewInvoices : caps.viewReceiving).slice(0, 8).map((item) => (
               <li key={`${item.document}-${item.occurredOn}`}>
                 <button type="button" className="sm-list-btn" onClick={() => item.creditMemoId ? go(`receive/credit-memos/${item.creditMemoId}`) : item.invoiceId ? go(`receive/invoices/${item.invoiceId}`) : item.goodsReceiptId ? go(`receive/grns/${item.goodsReceiptId}`) : undefined}>
                   <span className="sm-row"><strong>{item.document}</strong><StatusBadge status={item.status || item.action} /></span>

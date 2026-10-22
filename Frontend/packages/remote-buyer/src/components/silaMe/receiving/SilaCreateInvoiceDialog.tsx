@@ -296,6 +296,7 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     return (
       <SilaCreditMemoDialog
         showKindToggle
+        canProcess
         onSelectInvoice={() => setDocumentKind("INVOICE")}
         onClose={onClose}
         onChanged={onCreditMemoDone}

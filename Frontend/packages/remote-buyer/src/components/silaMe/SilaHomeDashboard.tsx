@@ -104,13 +104,17 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
 
   const kpis = data?.kpis;
   const previewing = previewPersona !== "self";
-  const title = caps.recommendation && !caps.receiving
+  const title = caps.recommendation && !caps.receiving && !caps.invoice
     ? "Purchasing Home"
-    : caps.supervisor
-      ? "Receiving Supervisor Home"
-      : caps.receiving
-        ? "Receiving Home"
-        : "Home";
+    : caps.processInvoices && !caps.receiving
+      ? "Accounts Payable Home"
+      : caps.approveInvoices && !caps.processInvoices && !caps.receiving
+        ? "Finance Home"
+        : caps.supervisor
+          ? "Receiving Supervisor Home"
+          : caps.receiving
+            ? "Receiving Home"
+            : "Home";
   const sections = silaHomeSectionOrder(previewPersona);
 
   const renderSection = (section: SilaHomeSection): React.ReactNode => {
@@ -374,7 +378,7 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
     }
 
     if (section === "quick") {
-      const hasQuick = caps.receive || caps.receiving || caps.processInvoices || caps.inventory || caps.recommendation || caps.admin;
+      const hasQuick = caps.receive || caps.receiving || caps.processInvoices || caps.processCreditMemos || caps.inventory || caps.recommendation || caps.admin;
       if (!hasQuick) return null;
       return (
         <section className="sila-card" key="quick">
@@ -384,6 +388,7 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
             {caps.receiving && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaPurchaseOrders")}>Find PO</button>}
             {caps.receiving && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaGoodsReceipts")}>GRN history</button>}
             {!readOnly && caps.processInvoices && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaInvoices")}>Scan / upload invoice</button>}
+            {!readOnly && caps.processCreditMemos && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaCreditMemos")}>New credit memo</button>}
             {caps.recommendation && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaRecommendations")}>Review recommendations</button>}
             {caps.inventory && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaLiveInventory")}>Live stock</button>}
             {caps.admin && <button type="button" className="sila-btn sila-btn--secondary" onClick={() => go("silaApprovalFlows")}>Approval setup</button>}
@@ -475,8 +480,9 @@ const taskLabel = (action: string, readOnly: boolean): string => {
 
 const showTask = (task: SilaReceivingTask, caps: SilaHomeCapabilities): boolean => {
   if (task.type === "PROCESS_INVOICE") return caps.processInvoices;
+  if (task.type === "APPROVE_INVOICE") return caps.approveInvoices;
   if (task.type === "INVOICE") return caps.invoice;
-  if (task.type === "CREDIT_MEMO") return caps.creditMemo;
+  if (task.type === "CREDIT_MEMO") return caps.processCreditMemos || caps.viewCreditMemos;
   if (task.action === "REVIEW" && !caps.receiving) return false;
   return caps.receiving;
 };
@@ -488,8 +494,8 @@ const showException = (row: SilaReceivingException, caps: SilaHomeCapabilities):
 };
 
 const showApproval = (row: SilaHomeApproval, caps: SilaHomeCapabilities): boolean => {
-  if (row.type === "Invoice Approval") return caps.invoice;
-  if (row.type === "Credit Memo Approval") return caps.creditMemo;
+  if (row.type === "Invoice Approval") return caps.approveInvoices;
+  if (row.type === "Credit Memo Approval") return caps.approveCreditMemos;
   if (row.type === "Transfer Approval") return caps.approveTransfer || caps.inventory;
   return caps.approvals;
 };

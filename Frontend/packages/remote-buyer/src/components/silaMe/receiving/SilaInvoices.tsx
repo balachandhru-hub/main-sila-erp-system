@@ -12,8 +12,11 @@ import "../silaMeTheme.css";
 import "./SilaReceiving.css";
 
 interface SilaInvoicesProps {
-  /** POST_SILA_GRN: may upload, read, review invoices and receive goods. */
-  canPost: boolean;
+  canProcess: boolean;
+  canApprove?: boolean;
+  canReceive?: boolean;
+  canManageErp?: boolean;
+  canProcessCreditMemo?: boolean;
 }
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -23,7 +26,7 @@ const SUBMIT_STATUSES = ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "REVIEWED
 const RESUBMIT_STATUSES = ["ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"];
 
 /** Supplier invoices: upload, OCR, review, and "Create GRN from invoice". */
-const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
+const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = false, canReceive = false, canManageErp = false, canProcessCreditMemo = false }) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const term = useDebounced(search);
@@ -102,7 +105,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
         className="pud-page-header"
         title="Invoices"
         description="A single control queue for uploaded documents, extraction, matching, and receipt readiness."
-        actions={canPost ? (
+        actions={canProcess ? (
           <>
             <input ref={fileInput} type="file" accept={ACCEPT} hidden aria-label="Invoice file" onChange={handleFile} />
             <button type="button" className="sila-btn sila-btn--primary" onClick={() => setCreating(true)}>
@@ -173,17 +176,17 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
                         <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" aria-label={`Open invoice ${row.invoiceNumber || row.fileName}`} onClick={() => setOpenId(row.id)}>
                           Open
                         </button>
-                        {canPost && (
+                        {canProcess && (
                           <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" aria-label={`Copy invoice ${row.invoiceNumber || row.fileName}`} disabled={copying === row.id} onClick={() => handleCopy(row.id)}>
                             {copying === row.id ? "Copying..." : "Copy"}
                           </button>
                         )}
-                        {canPost && SUBMIT_STATUSES.includes(row.status) && (
+                        {canProcess && SUBMIT_STATUSES.includes(row.status) && (
                           <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" onClick={() => setOpenId(row.id)}>
                             Submit
                           </button>
                         )}
-                        {canPost && RESUBMIT_STATUSES.includes(row.status) && (
+                        {canProcess && RESUBMIT_STATUSES.includes(row.status) && (
                           <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" onClick={() => setOpenId(row.id)}>
                             Resubmit
                           </button>
@@ -212,9 +215,20 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
         />
       )}
       {openId && (
-        <SilaInvoiceReviewDialog invoiceId={openId} canPost={canPost} onClose={closeReview} onChanged={list.reload} onReceive={handleReceive} onCopied={setOpenId} />
+        <SilaInvoiceReviewDialog
+          invoiceId={openId}
+          canProcess={canProcess}
+          canApprove={canApprove}
+          canReceive={canReceive}
+          canManageErp={canManageErp}
+          canProcessCreditMemo={canProcessCreditMemo}
+          onClose={closeReview}
+          onChanged={list.reload}
+          onReceive={handleReceive}
+          onCopied={setOpenId}
+        />
       )}
-      {receive && <SilaReceiveGoodsDialog prefill={receive} onClose={closeReceive} onPosted={handlePosted} />}
+      {receive && canReceive && <SilaReceiveGoodsDialog prefill={receive} onClose={closeReceive} onPosted={handlePosted} />}
     </div>
   );
 };
