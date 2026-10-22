@@ -84,7 +84,7 @@ namespace Buyer.Application.Features.Shared
                 ["CompanyCode"] = SilaCreditMemoPostingData.Header(prepared, "CompanyCode"),
                 ["DocumentDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "DocumentDate")),
                 ["PostingDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "PostingDate")),
-                ["SupplierInvoiceIDByInvoicingParty"] = SilaCreditMemoPostingData.Header(prepared, "SupplierInvoiceIDByInvoicingParty"),
+                ["SupplierInvoiceIDByInvcgParty"] = SilaCreditMemoPostingData.Header(prepared, "SupplierInvoiceIDByInvoicingParty"),
                 ["InvoicingParty"] = SilaCreditMemoPostingData.Header(prepared, "InvoicingParty"),
                 ["DocumentCurrency"] = SilaCreditMemoPostingData.Header(prepared, "DocumentCurrency"),
                 ["InvoiceGrossAmount"] = SilaCreditMemoPostingData.Header(prepared, "InvoiceGrossAmount"),
