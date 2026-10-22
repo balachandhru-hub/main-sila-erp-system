@@ -152,7 +152,10 @@ namespace Buyer.Application.Features.Shared
             List<string> missing = Missing(prepared);
             prepared.PreparationStatus = missing.Count == 0 ? READY : INVALID;
             memo.PostingData = Write(prepared);
-            repository.CreditMemo.Update(memo);
+            if (!repository.CreditMemo.IsAdded(memo))
+            {
+                repository.CreditMemo.Update(memo);
+            }
         }
 
         public static Prepared Compose(
