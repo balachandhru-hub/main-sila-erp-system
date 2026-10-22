@@ -14,6 +14,7 @@ namespace Buyer.Application.Features.Shared
         public const string KIND_PO = "PO";
         public const string KIND_GRN = "GRN";
         public const string KIND_INVOICE = "INVOICE";
+        public const string KIND_CREDIT_MEMO = "CREDIT_MEMO";
         public const string KIND_ATTACHMENT = "ATTACHMENT";
         public const string KIND_PAYMENT = "PAYMENT";
         public const string KIND_SOA = "SOA";
@@ -25,7 +26,7 @@ namespace Buyer.Application.Features.Shared
                 .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && x.PurchaseOrderId == order.Id)
                 .OrderByDescending(x => x.DateCreated)
                 .ToListAsync(cancellationToken);
-            return await BuildAsync(repository, buyerId, KIND_PO, order.Id, order, grns, null, cancellationToken);
+            return await BuildAsync(repository, buyerId, KIND_PO, order.Id, order, grns, null, null, cancellationToken);
         }
 
         public static async Task<SilaDocumentTrackDto> ForGoodsReceiptAsync(
@@ -45,7 +46,7 @@ namespace Buyer.Application.Features.Shared
                 grns.Insert(0, receipt);
             }
 
-            return await BuildAsync(repository, buyerId, KIND_GRN, receipt.Id, order, grns, null, cancellationToken);
+            return await BuildAsync(repository, buyerId, KIND_GRN, receipt.Id, order, grns, null, null, cancellationToken);
         }
 
         public static async Task<SilaDocumentTrackDto> ForInvoiceAsync(
@@ -77,7 +78,22 @@ namespace Buyer.Application.Features.Shared
                     .OrderByDescending(x => x.DateCreated)
                     .ToListAsync(cancellationToken);
 
-            return await BuildAsync(repository, buyerId, KIND_INVOICE, invoice.Id, order, grns, invoice, cancellationToken);
+            return await BuildAsync(repository, buyerId, KIND_INVOICE, invoice.Id, order, grns, invoice, null, cancellationToken);
+        }
+
+        public static async Task<SilaDocumentTrackDto> ForCreditMemoAsync(
+            IRepositoryWrapper repository, Guid buyerId, CreditMemo memo, Invoice invoice, CancellationToken cancellationToken)
+        {
+            List<GoodsReceipt> linked = await repository.GoodsReceipt
+                .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && x.InvoiceId == invoice.Id)
+                .OrderByDescending(x => x.DateCreated)
+                .ToListAsync(cancellationToken);
+            PurchaseOrder? order = invoice.PurchaseOrderId == null
+                ? null
+                : await repository.PurchaseOrder
+                    .FindByCondition(x => x.Id == invoice.PurchaseOrderId.Value && x.BuyerId == buyerId)
+                    .FirstOrDefaultAsync(cancellationToken);
+            return await BuildAsync(repository, buyerId, KIND_CREDIT_MEMO, memo.Id, order, linked, invoice, memo, cancellationToken);
         }
 
         private static async Task<SilaDocumentTrackDto> BuildAsync(
@@ -88,6 +104,7 @@ namespace Buyer.Application.Features.Shared
             PurchaseOrder? order,
             List<GoodsReceipt> grns,
             Invoice? focusInvoice,
+            CreditMemo? focusCreditMemo,
             CancellationToken cancellationToken)
         {
             List<Guid> invoiceIds = grns.Where(x => x.InvoiceId != null).Select(x => x.InvoiceId!.Value).Distinct().ToList();
@@ -116,8 +133,20 @@ namespace Buyer.Application.Features.Shared
                 : await repository.Invoice.FindByCondition(x => invoiceIds.Contains(x.Id) && x.IsActive)
                     .ToDictionaryAsync(x => x.Id, cancellationToken);
 
+            List<CreditMemo> creditMemos = invoiceIds.Count == 0
+                ? new List<CreditMemo>()
+                : await repository.CreditMemo
+                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && invoiceIds.Contains(x.ReferenceInvoiceId))
+                    .OrderBy(x => x.DateCreated)
+                    .ToListAsync(cancellationToken);
+            if (focusCreditMemo != null && creditMemos.All(x => x.Id != focusCreditMemo.Id))
+            {
+                creditMemos.Add(focusCreditMemo);
+            }
+
             List<Guid> postingIds = grns.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value)
                 .Concat(invoices.Values.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value))
+                .Concat(creditMemos.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value))
                 .Distinct()
                 .ToList();
             Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
@@ -218,6 +247,21 @@ namespace Buyer.Application.Features.Shared
                     Status = paymentStatus,
                     Current = false
                 });
+
+                foreach (CreditMemo memo in creditMemos.Where(x => x.ReferenceInvoiceId == invoice.Id))
+                {
+                    InventoryErpPosting? cmPosting = memo.ErpPostingId != null && postings.TryGetValue(memo.ErpPostingId.Value, out InventoryErpPosting? cp) ? cp : null;
+                    nodes.Add(new SilaDocumentTrackNodeDto
+                    {
+                        Kind = KIND_CREDIT_MEMO,
+                        Id = memo.Id,
+                        Label = "Credit Memo",
+                        Number = memo.CreditMemoNumber ?? memo.CreditMemoReference,
+                        Status = memo.Status,
+                        ErpReference = cmPosting?.ErpReference,
+                        Current = rootKind == KIND_CREDIT_MEMO && memo.Id == rootId
+                    });
+                }
             }
 
             nodes.Add(new SilaDocumentTrackNodeDto
@@ -236,6 +280,7 @@ namespace Buyer.Application.Features.Shared
 
             historyIds.AddRange(grns.Select(x => x.Id));
             historyIds.AddRange(invoices.Keys);
+            historyIds.AddRange(creditMemos.Select(x => x.Id));
             historyIds.AddRange(attachments.Select(x => x.Id));
 
             List<InventoryWorkflowEvent> events = historyIds.Count == 0

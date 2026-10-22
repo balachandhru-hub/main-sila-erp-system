@@ -134,6 +134,8 @@ namespace Buyer.Infrastructure.DbContext
         public DbSet<StockCountPhoto> StockCountPhoto { get; set; }
         public DbSet<SilaDocumentSequence> SilaDocumentSequence { get; set; }
         public DbSet<InvoiceItem> InvoiceItem { get; set; }
+        public DbSet<CreditMemo> CreditMemo { get; set; }
+        public DbSet<CreditMemoItem> CreditMemoItem { get; set; }
 
 
         protected override void OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder)
@@ -359,6 +361,10 @@ namespace Buyer.Infrastructure.DbContext
             _ = modelBuilder.Entity<GoodsReceipt>().HasIndex(a => new { a.BuyerId, a.LocationId });
             _ = modelBuilder.Entity<PhysicalInventoryRequest>().HasIndex(a => new { a.BuyerId, a.LocationId, a.Status });
             _ = modelBuilder.Entity<InvoiceItem>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<CreditMemo>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<CreditMemo>().HasIndex(a => new { a.BuyerId, a.ReferenceInvoiceId });
+            _ = modelBuilder.Entity<CreditMemoItem>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<CreditMemoItem>().HasIndex(a => a.CreditMemoId);
 
             _ = modelBuilder.HasSequence<long>(
                 Common.PREDEFINED_CONTRACT_NUMBER_SEQUENCE,

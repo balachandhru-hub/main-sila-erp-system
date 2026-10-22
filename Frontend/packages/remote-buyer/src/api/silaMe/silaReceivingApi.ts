@@ -312,6 +312,9 @@ export interface SilaInvoice {
   poNumber?: string | null;
   /** Every purchase order billed by this invoice. */
   purchaseOrders?: { id: string; poNumber: string }[];
+  erpReference?: string | null;
+  fiscalYear?: string | null;
+  postingDate?: string | null;
   fileName: string;
   status: SilaInvoiceStatus;
   /** 0..1 */
@@ -396,6 +399,127 @@ export interface SilaInvoiceDetail extends SilaInvoice {
   documentTrack?: SilaDocumentTrack | null;
   /** Stored business values for FIVE S4-INVOICE POSTING. Null until the purchase order is read. */
   postingData?: SilaInvoicePostingData | null;
+  creditMemos?: SilaCreditMemoListItem[];
+}
+
+export interface SilaCreditMemoListItem {
+  id: string;
+  creditMemoNumber?: string | null;
+  referenceInvoiceId: string;
+  referenceSupplierInvoiceNumber?: string | null;
+  referenceErpInvoiceId?: string | null;
+  status: string;
+  grossAmount?: number | null;
+  currency?: string | null;
+  createdOn: string;
+  erpReference?: string | null;
+  fiscalYear?: string | null;
+}
+
+export interface SilaCreditMemoReferenceInvoice {
+  id: string;
+  invoiceNumber?: string | null;
+  erpInvoiceId?: string | null;
+  fiscalYear?: string | null;
+  supplierName?: string | null;
+  poNumber?: string | null;
+  companyCode?: string | null;
+  currency?: string | null;
+  originalGrossAmount?: number | null;
+  postingDate?: string | null;
+  invoiceDate?: string | null;
+  status: string;
+}
+
+export interface SilaCreditMemoEligibleLine {
+  invoiceLineId: string;
+  lineNumber: number;
+  poNumber?: string | null;
+  poItem?: string | null;
+  material?: string | null;
+  description: string;
+  originalQuantity: number;
+  originalAmount: number;
+  previouslyCreditedQuantity: number;
+  previouslyCreditedAmount: number;
+  remainingQuantity: number;
+  remainingAmount: number;
+  uom?: string | null;
+  taxCode?: string | null;
+}
+
+export interface SilaCreditMemoLineWrite {
+  invoiceLineId: string;
+  quantity?: number | null;
+  amount?: number | null;
+  reason?: string | null;
+}
+
+export interface SilaCreditMemoWrite {
+  referenceInvoiceId?: string | null;
+  invoiceNumber?: string | null;
+  erpInvoiceId?: string | null;
+  creditMemoReference?: string | null;
+  documentDate?: string | null;
+  postingDate?: string | null;
+  taxCalculationDate?: string | null;
+  reason?: string | null;
+  lines: SilaCreditMemoLineWrite[];
+}
+
+export interface SilaCreditMemoLine {
+  id: string;
+  referenceInvoiceLineId?: string | null;
+  lineNumber: number;
+  poNumber?: string | null;
+  poItem?: string | null;
+  material?: string | null;
+  description: string;
+  quantity?: number | null;
+  uom?: string | null;
+  amount?: number | null;
+  taxCode?: string | null;
+  reason?: string | null;
+  originalQuantity: number;
+  originalAmount: number;
+  previouslyCreditedQuantity: number;
+  previouslyCreditedAmount: number;
+  remainingQuantity: number;
+  remainingAmount: number;
+}
+
+export interface SilaCreditMemoDetail {
+  id: string;
+  creditMemoNumber?: string | null;
+  creditMemoReference?: string | null;
+  referenceInvoiceId: string;
+  referenceSupplierInvoiceNumber?: string | null;
+  referenceErpInvoiceId?: string | null;
+  referenceFiscalYear?: string | null;
+  supplierName?: string | null;
+  poNumber?: string | null;
+  companyCode?: string | null;
+  currency?: string | null;
+  documentDate?: string | null;
+  postingDate?: string | null;
+  taxCalculationDate?: string | null;
+  reason?: string | null;
+  grossAmount?: number | null;
+  status: string;
+  erpPostingId?: string | null;
+  erpStatus?: string | null;
+  erpReference?: string | null;
+  fiscalYear?: string | null;
+  erpMessage?: string | null;
+  integrationName?: string | null;
+  postedOn?: string | null;
+  canSubmit: boolean;
+  canRetry: boolean;
+  referenceLocked: boolean;
+  lines: SilaCreditMemoLine[];
+  referenceInvoice: SilaCreditMemoReferenceInvoice;
+  documentTrack?: SilaDocumentTrack | null;
+  history: SilaDocumentTrackEvent[];
 }
 
 export interface SilaInvoicePostingField {
@@ -490,6 +614,7 @@ const normalizeInvoice = (invoice: SilaInvoiceDetail): SilaInvoiceDetail => ({
   ...invoice,
   items: list(invoice.items),
   goodsReceipts: list(invoice.goodsReceipts),
+  creditMemos: list(invoice.creditMemos),
   documents: list(invoice.documents),
   timeline: list(invoice.timeline),
   canSubmitInvoice: Boolean(invoice.canSubmitInvoice),
@@ -960,3 +1085,42 @@ export const getInvoiceExtractions = async (invoiceId: string): Promise<SilaInvo
 export const reconcileErpPosting = async (postingId: string, posted: boolean, erpReference: string): Promise<void> => {
   await call(() => axiosInstance.post(`${BASE}/erp-postings/${postingId}/reconcile`, { posted, erpReference: erpReference.trim() || null }), "Could not reconcile the posting.");
 };
+
+export const lookupCreditMemoInvoice = async (params: {
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  erpInvoiceId?: string | null;
+}): Promise<SilaCreditMemoReferenceInvoice[]> =>
+  list(await call(() => axiosInstance.get<SilaCreditMemoReferenceInvoice[]>(`${BASE}/credit-memos/reference-invoices`, {
+    params: {
+      invoiceId: params.invoiceId || undefined,
+      invoiceNumber: params.invoiceNumber?.trim() || undefined,
+      erpInvoiceId: params.erpInvoiceId?.trim() || undefined,
+    },
+  }), "Could not look up the reference invoice."));
+
+export const getCreditMemoLines = async (invoiceId: string): Promise<SilaCreditMemoEligibleLine[]> =>
+  list(await call(() => axiosInstance.get<SilaCreditMemoEligibleLine[]>(`${BASE}/invoices/${invoiceId}/credit-memo-lines`), "Could not load credit memo lines."));
+
+const normalizeCreditMemo = (memo: SilaCreditMemoDetail): SilaCreditMemoDetail => ({
+  ...memo,
+  lines: list(memo.lines),
+  history: list(memo.history),
+  canSubmit: Boolean(memo.canSubmit),
+  canRetry: Boolean(memo.canRetry),
+});
+
+export const createCreditMemo = async (request: SilaCreditMemoWrite): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos`, request), "Could not create the credit memo."));
+
+export const getCreditMemo = async (creditMemoId: string): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.get<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}`), "Could not load the credit memo."));
+
+export const updateCreditMemo = async (creditMemoId: string, request: SilaCreditMemoWrite): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.put<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}`, request), "Could not save the credit memo."));
+
+export const submitCreditMemo = async (creditMemoId: string): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}/submit`), "Could not submit the credit memo."));
+
+export const retryCreditMemo = async (creditMemoId: string): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}/retry`), "Could not retry credit memo posting."));

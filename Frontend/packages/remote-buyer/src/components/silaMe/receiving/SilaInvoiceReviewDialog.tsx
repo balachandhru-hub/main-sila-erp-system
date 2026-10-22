@@ -32,6 +32,7 @@ import SilaInvoiceSupplierMatch from "./SilaInvoiceSupplierMatch";
 import { INVOICE_TYPES, toInvoiceForm, toInvoiceWrite, toReceivePrefill, validateInvoiceForm, type InvoiceForm } from "./invoiceForm";
 import { billableQuantity, invoiceHoldsGoodsReceipt, selectGoodsReceipts } from "./goodsReceiptMatch";
 import { formatAmount, formatConfidence, receivingBadgeClass, receivingLabel } from "./receivingFormat";
+import SilaCreditMemoDialog from "./SilaCreditMemoDialog";
 import SilaDocumentTrackPanel from "./SilaDocumentTrack";
 import type { ReceivePrefill } from "./SilaReceiveGoodsDialog";
 
@@ -59,7 +60,7 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
 ];
 
 type Tab = "review" | "matching" | "posting" | "history";
-type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment" | "copy";
+type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment" | "copy" | "credit";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
@@ -106,6 +107,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const [grnNote, setGrnNote] = useState<string | null>(null);
   const [matchReason, setMatchReason] = useState<string | null>(null);
   const [heldStatus, setHeldStatus] = useState<Record<string, { status?: string | null; erp?: string | null }>>({});
+  const [creditMemoOpen, setCreditMemoOpen] = useState(false);
+  const [creditMemoId, setCreditMemoId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKind, setPreviewKind] = useState<"pdf" | "image">("pdf");
   const [previewTitle, setPreviewTitle] = useState("Invoice file");
@@ -444,6 +447,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     : orders;
 
   return (
+    <>
     <Modal
       isOpen
       onClose={busy ? () => undefined : onClose}
@@ -527,6 +531,11 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   {resubmitLabel}
                 </button>
               )}
+              {canPost && posted && (
+                <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => { setCreditMemoId(null); setCreditMemoOpen(true); }}>
+                  Credit Memo
+                </button>
+              )}
             </div>
             {askSubmit && !deferred && grn && (
               <div className="sila-alert sila-alert--success" role="status">
@@ -550,6 +559,21 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p>SAP Invoice: {invoice.erpReference || "—"}</p>
                 <p>Status: {receivingLabel(invoice.paymentStatus || invoice.status)}</p>
               </div>
+            )}
+            {(invoice.creditMemos ?? []).length > 0 && (
+              <section className="srcv-stack">
+                <h3 className="sila-form-section-title">Credit Memo</h3>
+                <ul>
+                  {(invoice.creditMemos ?? []).map((row) => (
+                    <li key={row.id}>
+                      <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => { setCreditMemoId(row.id); setCreditMemoOpen(true); }}>
+                        {row.creditMemoNumber || "Credit Memo"} · {receivingLabel(row.status)}
+                        {row.erpReference ? ` · SAP ${row.erpReference}` : ""}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
             {invoice.status === "GET_PO_FAILED" && (
               <div className="sila-alert sila-alert--warning" role="status">
@@ -695,7 +719,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               <div id="srcv-panel-history" role="tabpanel" aria-labelledby="srcv-tab-history" className="srcv-stack">
                 <SilaDocumentTrackPanel
                   track={invoice.documentTrack}
-                  kinds={["PO", "GRN", "ATTACHMENT"]}
+                  kinds={["PO", "GRN", "INVOICE", "CREDIT_MEMO", "ATTACHMENT"]}
                   showHistory
                   attachmentsOpenByDefault
                   startCollapsed={false}
@@ -906,6 +930,18 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
         )}
       </div>
     </Modal>
+    {creditMemoOpen && (
+      <SilaCreditMemoDialog
+        invoiceId={creditMemoId ? undefined : invoiceId}
+        creditMemoId={creditMemoId}
+        onClose={() => setCreditMemoOpen(false)}
+        onChanged={() => {
+          onChanged();
+          void getInvoice(invoiceId).then(show);
+        }}
+      />
+    )}
+    </>
   );
 };
 

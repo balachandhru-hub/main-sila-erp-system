@@ -27,6 +27,7 @@ namespace Buyer.Application.Features.Shared
         public const string PHYSICAL_INVENTORY = "PI";
         public const string SUBSTITUTION = "RS";
         public const string PURCHASE_ORDER = "PO";
+        public const string CREDIT_MEMO = "CM";
 
         private const int SEED_CANDIDATES = 50;
 

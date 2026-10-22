@@ -96,8 +96,44 @@ const InvoiceReviewScreen: React.FC = () => {
                 {invoice.fiscalYear ? ` · FY ${invoice.fiscalYear}` : ''}
               </p>
             )}
+            {invoicePosted(invoice) && (
+              <section className="sm-section">
+                <p className="sm-meta">Invoice Number {invoice.invoiceNumber || invoice.fileName}</p>
+                <p className="sm-meta">Supplier {invoice.supplierName || '—'}</p>
+                <p className="sm-meta">PO {invoice.poNumber || '—'}</p>
+                <p className="sm-meta">Invoice Date {formatDate(invoice.invoiceDate)}</p>
+                <p className="sm-meta">Gross Amount {invoice.grossAmount ?? '—'} {invoice.currency || ''}</p>
+                <p className="sm-meta">ERP/SAP Invoice ID {invoice.erpReference || '—'}</p>
+                <p className="sm-meta">Fiscal Year {invoice.fiscalYear || '—'}</p>
+                <p className="sm-meta">Posting Date {invoice.postingData?.preparedAt ? formatDate(invoice.postingData.preparedAt) : '—'}</p>
+                <p className="sm-meta">Status {invoice.status}</p>
+                <div className="sm-actions">
+                  <button type="button" className="sm-btn sm-btn--primary" onClick={() => go(`receive/invoices/${invoice.id}/credit-memo`)}>
+                    Credit Memo
+                  </button>
+                </div>
+              </section>
+            )}
             <DocumentTrackCard track={invoice.documentTrack} linkedInvoiceId={invoice.id} />
             <InvoiceHistoryCard invoice={invoice} />
+            {(invoice.creditMemos ?? []).length > 0 && (
+              <section className="sm-section">
+                <h2>Credit Memo</h2>
+                <ul className="sm-list">
+                  {(invoice.creditMemos ?? []).map((row) => (
+                    <li key={row.id}>
+                      <button type="button" className="sm-list-btn" onClick={() => go(`receive/invoices/${invoice.id}/credit-memos/${row.id}`)}>
+                        <span className="sm-row">
+                          <strong>{row.creditMemoNumber || 'Credit Memo'}</strong>
+                          <StatusBadge status={row.status} />
+                        </span>
+                        <span className="sm-meta">{row.erpReference ? `SAP ${row.erpReference}` : 'Not posted'}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <InvoiceDocumentCard
               invoice={invoice}
               extraction={reading}

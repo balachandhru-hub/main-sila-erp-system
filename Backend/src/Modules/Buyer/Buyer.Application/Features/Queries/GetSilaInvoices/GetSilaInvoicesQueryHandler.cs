@@ -30,21 +30,38 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoices
             IQueryable<Invoice> query = _repository.Invoice.FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive);
             if (!string.IsNullOrWhiteSpace(request.Status))
             {
-                string status = SilaInputRules.OneOf(_logger, request.Status, new[]
+                if (request.Status.Equals(Common.SILA_INVOICE_POSTED, StringComparison.OrdinalIgnoreCase))
                 {
-                    Common.SILA_INVOICE_UPLOADED, Common.SILA_INVOICE_EXTRACTED, Common.SILA_INVOICE_OCR_FAILED,
-                    Common.SILA_INVOICE_REVIEWED, Common.SILA_INVOICE_GRN_POSTED
-                }, "invoice status");
-                query = query.Where(x => x.Status == status);
+                    string[] posted = SilaInvoiceLifecycle.PostedStatuses;
+                    query = query.Where(x => posted.Contains(x.Status));
+                }
+                else
+                {
+                    string status = SilaInputRules.OneOf(_logger, request.Status, new[]
+                    {
+                        Common.SILA_INVOICE_UPLOADED, Common.SILA_INVOICE_EXTRACTED, Common.SILA_INVOICE_OCR_FAILED,
+                        Common.SILA_INVOICE_REVIEWED, Common.SILA_INVOICE_GRN_POSTED,
+                        Common.SILA_INVOICE_AWAITING_PAYMENT, Common.SILA_INVOICE_PARTIALLY_PAID,
+                        Common.SILA_INVOICE_PAID, Common.SILA_INVOICE_OVERDUE, Common.SILA_INVOICE_LOCAL_FAILED
+                    }, "invoice status");
+                    query = query.Where(x => x.Status == status);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 string search = request.Search.Trim();
+                List<Guid> erpInvoiceIds = await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive
+                        && x.ReferenceType == Common.SILA_REF_INVOICE
+                        && x.ErpReference != null && x.ErpReference.Contains(search))
+                    .Select(x => x.ReferenceId)
+                    .ToListAsync(cancellationToken);
                 query = query.Where(x => (x.InvoiceNumber != null && x.InvoiceNumber.Contains(search))
                     || (x.SupplierName != null && x.SupplierName.Contains(search))
                     || (x.PoNumber != null && x.PoNumber.Contains(search))
-                    || x.FileName.Contains(search));
+                    || x.FileName.Contains(search)
+                    || erpInvoiceIds.Contains(x.Id));
             }
 
             List<SilaInvoiceListItemDto> result = await query
@@ -75,6 +92,33 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoices
                     GoodsReceiptApplicable = x.InvoiceType != SilaReceivingRules.INVOICE_SERVICE
                 })
                 .ToListAsync(cancellationToken);
+
+            List<Guid> invoiceIds = result.Select(x => x.Id).ToList();
+            List<Invoice> rows = invoiceIds.Count == 0
+                ? new List<Invoice>()
+                : await _repository.Invoice.FindByCondition(x => invoiceIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            List<Guid> postingIds = rows.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await _repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            Dictionary<Guid, Invoice> byId = rows.ToDictionary(x => x.Id);
+            foreach (SilaInvoiceListItemDto item in result)
+            {
+                if (!byId.TryGetValue(item.Id, out Invoice? invoice) || invoice.ErpPostingId == null)
+                {
+                    continue;
+                }
+
+                if (!postings.TryGetValue(invoice.ErpPostingId.Value, out InventoryErpPosting? posting))
+                {
+                    continue;
+                }
+
+                item.ErpReference = posting.ErpReference;
+                item.FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting.ErpResponsePayload);
+                item.PostingDate = posting.PostedOn;
+            }
 
             _logger.LogInfo($"Invoices fetched. Count: {result.Count}, BuyerId: {buyer.Id}");
             return result;

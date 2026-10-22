@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Loader, Modal, toastService } from "@vosox/shared-ui";
 import { getSuppliers, type SilaSupplier } from "../../../api/silaMe/silaMasterDataApi";
+import SilaCreditMemoDialog from "./SilaCreditMemoDialog";
 import {
   createInvoiceDraft,
   getCreateInvoiceMasters,
@@ -20,6 +21,7 @@ import { useDebounced } from "./usePagedList";
 interface SilaCreateInvoiceDialogProps {
   onClose: () => void;
   onCreated: (invoiceId: string) => void;
+  onCreditMemoDone?: () => void;
 }
 
 type CreationType = "PO" | "NON_PO";
@@ -69,7 +71,8 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 /** Create Invoice: PO (supplier → PO → GRN → lines) or Non-PO (GL lines). Both post through FIVE S4-INVOICE POSTING. */
-const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClose, onCreated }) => {
+const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClose, onCreated, onCreditMemoDone }) => {
+  const [documentKind, setDocumentKind] = useState<"INVOICE" | "CREDIT_MEMO">("INVOICE");
   const [creationType, setCreationType] = useState<CreationType>("PO");
   const [masters, setMasters] = useState<SilaCreateInvoiceMasters | null>(null);
   const [mastersError, setMastersError] = useState<string | null>(null);
@@ -289,6 +292,17 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     setSelectedGrns((current) => current.includes(id) ? current.filter((row) => row !== id) : [...current, id]);
   };
 
+  if (documentKind === "CREDIT_MEMO") {
+    return (
+      <SilaCreditMemoDialog
+        showKindToggle
+        onSelectInvoice={() => setDocumentKind("INVOICE")}
+        onClose={onClose}
+        onChanged={onCreditMemoDone}
+      />
+    );
+  }
+
   return (
     <Modal
       isOpen
@@ -303,6 +317,14 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
       <div className="sila-root sila-me srcv-dialog">
         {mastersError && <p className="srcv-error" role="alert">{mastersError}</p>}
         {!masters && !mastersError && <Loader size={20} message="Loading masters..." />}
+
+        <section className="srcv-stack" aria-labelledby="srcv-create-kind">
+          <h3 id="srcv-create-kind" className="sila-form-section-title">Document</h3>
+          <div className="sila-btn-group">
+            <button type="button" className="sila-btn sila-btn--primary">Invoice</button>
+            <button type="button" className="sila-btn sila-btn--secondary" onClick={() => setDocumentKind("CREDIT_MEMO")}>Credit Memo</button>
+          </div>
+        </section>
 
         <section className="srcv-stack" aria-labelledby="srcv-create-type">
           <h3 id="srcv-create-type" className="sila-form-section-title">Invoice type</h3>

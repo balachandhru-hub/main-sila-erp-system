@@ -23,7 +23,7 @@ interface SilaDocumentTrackProps {
   title?: string;
 }
 
-const KIND_ORDER = ["PO", "GRN", "INVOICE", "ATTACHMENT", "PAYMENT", "SOA"];
+const KIND_ORDER = ["PO", "GRN", "INVOICE", "CREDIT_MEMO", "ATTACHMENT", "PAYMENT", "SOA"];
 
 const dateFor = (track: Track, nodeId?: string | null): string | null => {
   if (!nodeId) return null;

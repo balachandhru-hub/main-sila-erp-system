@@ -32,22 +32,29 @@ const DocumentTrackCard: React.FC<DocumentTrackCardProps> = ({ track, linkedInvo
       || (linkedInvoiceId && node.id === linkedInvoiceId)
       || (track.rootKind === 'INVOICE' && node.id === track.rootId)),
   );
-  const currentNodes = [currentGrn, purchaseOrder, currentInvoice].filter((node): node is SilaDocumentTrackNode => Boolean(node));
+  const currentCreditMemo = track.nodes.find((node) =>
+    node.kind === 'CREDIT_MEMO' && (node.current || (track.rootKind === 'CREDIT_MEMO' && node.id === track.rootId)),
+  );
+  const currentNodes = [currentCreditMemo, currentInvoice, purchaseOrder, currentGrn].filter((node): node is SilaDocumentTrackNode => Boolean(node));
   const currentIds = new Set(currentNodes.map(nodeId));
   const related = track.nodes.filter((node) => !currentIds.has(nodeId(node)));
-  const showGroups = Boolean(currentGrn || (track.rootKind === 'GRN' || track.rootKind === 'INVOICE'));
+  const showGroups = Boolean(currentGrn || currentCreditMemo || (track.rootKind === 'GRN' || track.rootKind === 'INVOICE' || track.rootKind === 'CREDIT_MEMO'));
 
   const open = (kind: string, id?: string | null) => {
     if (!id) return;
     if (kind === 'PO') go(`receive/pos/${id}`);
     if (kind === 'GRN') go(`receive/grns/${id}`);
     if (kind === 'INVOICE') go(`receive/invoices/${id}`);
+    if (kind === 'CREDIT_MEMO') {
+      const invoiceNode = track.nodes.find((node) => node.kind === 'INVOICE');
+      if (invoiceNode?.id) go(`receive/invoices/${invoiceNode.id}/credit-memos/${id}`);
+    }
   };
 
   const list = (nodes: SilaDocumentTrackNode[]) => (
     <ol className="sm-list">
       {nodes.map((node, index) => {
-        const nav = Boolean(node.id && (node.kind === 'PO' || node.kind === 'GRN' || node.kind === 'INVOICE'));
+        const nav = Boolean(node.id && (node.kind === 'PO' || node.kind === 'GRN' || node.kind === 'INVOICE' || node.kind === 'CREDIT_MEMO'));
         return (
           <li key={nodeKey(node, index)} className={`sm-card${node.current ? ' sm-card--current' : ''}`}>
             <button

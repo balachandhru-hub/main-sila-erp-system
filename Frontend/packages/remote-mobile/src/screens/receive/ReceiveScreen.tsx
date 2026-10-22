@@ -9,6 +9,7 @@ const ENTRIES: { label: string; detail: string; to: string }[] = [
   { label: 'View Open PO', detail: 'Search eligible open purchase orders for receiving.', to: 'receive/pos' },
   { label: 'Pending GRN', detail: 'Posting, failed, and unknown goods receipts.', to: 'receive/pending' },
   { label: 'Receiving History', detail: 'Posted and historical GRN documents.', to: 'receive/history' },
+  { label: 'Posted Invoices', detail: 'Previously posted invoices. Open one to create a Credit Memo.', to: 'receive/posted-invoices' },
 ];
 
 const ReceiveScreen: React.FC = () => {
