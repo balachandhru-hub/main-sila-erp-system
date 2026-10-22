@@ -20,6 +20,10 @@ export interface SilaMePermissions {
   approveRecipe: boolean;
   approvePrice: boolean;
   managePos: boolean;
+  /** VIEW_SILA_RECEIVING — Home / workbench visibility. */
+  viewReceiving: boolean;
+  /** VIEW_SILA_INVENTORY — inventory Home visibility. */
+  viewInventory: boolean;
   postGrn: boolean;
   manageErpPosting: boolean;
   viewAudit: boolean;
@@ -28,26 +32,33 @@ export interface SilaMePermissions {
 const NONE: SilaMePermissions = {
   manageLocation: false, manageMasterData: false, manageTransfer: false, approveTransfer: false, postGoodsIssue: false,
   postAdjustment: false, manageCount: false, initiateCount: false, approveCount: false, requestPurchase: false, manageRecipe: false,
-  approveRecipe: false, approvePrice: false, managePos: false, postGrn: false, manageErpPosting: false, viewAudit: false,
+  approveRecipe: false, approvePrice: false, managePos: false, viewReceiving: false, viewInventory: false, postGrn: false,
+  manageErpPosting: false, viewAudit: false,
 };
 
 const BY_ROLE: Record<SilaMeRole, SilaMePermissions> = {
   admin: Object.fromEntries(Object.keys(NONE).map((key) => [key, true])) as unknown as SilaMePermissions,
   "store-manager": {
     ...NONE, manageTransfer: true, approveTransfer: true, postGoodsIssue: true, postAdjustment: true, manageCount: true,
-    approveCount: true, requestPurchase: true, manageRecipe: true, approveRecipe: true, approvePrice: true, postGrn: true,
-    manageErpPosting: true,
+    approveCount: true, requestPurchase: true, manageRecipe: true, approveRecipe: true, approvePrice: true,
+    viewReceiving: true, viewInventory: true, postGrn: true, manageErpPosting: true,
   },
   "outlet-manager": {
     ...NONE, manageTransfer: true, approveTransfer: true, postAdjustment: true, manageCount: true, requestPurchase: true,
-    manageRecipe: true, approveRecipe: true, approvePrice: true,
+    manageRecipe: true, approveRecipe: true, approvePrice: true, viewInventory: true,
   },
-  "buyer-user": { ...NONE, manageTransfer: true, manageCount: true, approveRecipe: true, approvePrice: true, postGrn: true },
+  "buyer-user": {
+    ...NONE, manageTransfer: true, manageCount: true, approveRecipe: true, approvePrice: true,
+    viewReceiving: true, viewInventory: true, postGrn: true,
+  },
   "cost-controller": {
-    ...NONE, manageTransfer: true, initiateCount: true, manageCount: true, approveCount: true, approveRecipe: true, approvePrice: true, postGrn: true,
-    viewAudit: true,
+    ...NONE, manageTransfer: true, initiateCount: true, manageCount: true, approveCount: true, approveRecipe: true, approvePrice: true,
+    viewReceiving: true, viewInventory: true, postGrn: true, viewAudit: true,
   },
-  "fnb-director": { ...NONE, manageTransfer: true, manageCount: true, initiateCount: true, approveRecipe: true, approvePrice: true, postGrn: true },
+  "fnb-director": {
+    ...NONE, manageTransfer: true, manageCount: true, initiateCount: true, approveRecipe: true, approvePrice: true,
+    viewReceiving: true, viewInventory: true, postGrn: true,
+  },
 };
 
 export const silaMePermissions = (role: SilaMeRole): SilaMePermissions => BY_ROLE[role];

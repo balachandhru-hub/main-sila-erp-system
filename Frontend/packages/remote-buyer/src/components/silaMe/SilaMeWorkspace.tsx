@@ -14,6 +14,7 @@ import SilaInventoryTransactions from "./inventory/SilaInventoryTransactions";
 import SilaLocationMaster from "./inventory/SilaLocationMaster";
 import SilaMaterialInventory from "./inventory/SilaMaterialInventory";
 import SilaPurchaseRequests from "./inventory/SilaPurchaseRequests";
+import SilaRecommendations from "./purchasing/SilaRecommendations";
 import SilaQuickTransferPolicy from "./inventory/SilaQuickTransferPolicy";
 import SilaTransfers from "./movements/SilaTransfers";
 import SilaGoodsIssue from "./movements/SilaGoodsIssue";
@@ -117,6 +118,13 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, capabil
       case "silaAlerts":
         return (
           <SilaAlerts onCountRequested={openCount} onPhysicalInventoryRequested={() => onNavigate("silaPhysicalInventory")} />
+        );
+      case "silaRecommendations":
+        return (
+          <SilaRecommendations
+            readOnly={role === "admin" && previewPersona !== "self"}
+            onOpenPurchaseRequests={() => onNavigate("silaPurchaseRequests")}
+          />
         );
       case "silaPurchaseRequests":
         return <SilaPurchaseRequests canAddToBucket={role === "admin" || role === "store-manager"} />;

@@ -190,7 +190,7 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
                     PurchaseOrderId = receipt.PurchaseOrderId,
                     GoodsReceiptId = receipt.Id
                 };
-            }).ToList();
+            }).Concat(dashboard.Activity).OrderByDescending(x => x.OccurredOn).Take(ACTIVITY).ToList();
 
             _logger.LogInfo($"Receiving dashboard fetched. OpenPos: {open.Count}, Grns: {receipts.Count}, BuyerId: {buyer.Id}");
             return dashboard;
@@ -288,6 +288,7 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
                 Common.SILA_INVOICE_PENDING_APPROVAL, Common.SILA_INVOICE_READY_TO_POST, Common.SILA_INVOICE_POSTING
             };
             dashboard.Invoice.InProgress = invoices.Count(x => inProgressInvoice.Contains(x.Status));
+            dashboard.Invoice.PendingApproval = invoices.Count(x => x.Status == Common.SILA_INVOICE_PENDING_APPROVAL);
             dashboard.Invoice.PostingFailed = invoices.Count(x => failedInvoice.Contains(x.Status));
             dashboard.Invoice.PostedRecently = invoices.Count(x => posted.Contains(x.Status) && x.DateCreated.Date == today);
 
@@ -365,6 +366,7 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
                 .Take(200)
                 .ToListAsync(cancellationToken);
             dashboard.CreditMemo.InProgress = memos.Count(x => SilaCreditMemoLifecycle.OpenStatuses.Contains(x.Status) || x.Status == Common.SILA_CREDIT_MEMO_POSTING);
+            dashboard.CreditMemo.PendingApproval = memos.Count(x => x.Status == Common.SILA_CREDIT_MEMO_PENDING_APPROVAL);
             dashboard.CreditMemo.PostingFailed = memos.Count(x =>
                 x.Status == Common.SILA_CREDIT_MEMO_POSTING_FAILED || x.Status == Common.SILA_CREDIT_MEMO_POSTING_UNKNOWN);
             dashboard.CreditMemo.PostedRecently = memos.Count(x => x.Status == Common.SILA_CREDIT_MEMO_POSTED && x.DateCreated.Date == today);
@@ -447,6 +449,33 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
                 .ThenBy(x => x.ExpectedDate)
                 .Take(TASKS)
                 .ToList();
+
+            foreach (Invoice invoice in invoices.Where(x => posted.Contains(x.Status)).Take(8))
+            {
+                dashboard.Activity.Add(new SilaReceivingActivityDto
+                {
+                    OccurredOn = invoice.DateUpdated != default ? invoice.DateUpdated : invoice.DateCreated,
+                    Document = invoice.InvoiceNumber ?? invoice.FileName,
+                    Action = "Invoice posted",
+                    Status = invoice.Status,
+                    PurchaseOrderId = invoice.PurchaseOrderId,
+                    InvoiceId = invoice.Id
+                });
+            }
+
+            foreach (CreditMemo memo in memos.Where(x => x.Status == Common.SILA_CREDIT_MEMO_POSTED).Take(8))
+            {
+                dashboard.Activity.Add(new SilaReceivingActivityDto
+                {
+                    OccurredOn = memo.DateUpdated != default ? memo.DateUpdated : memo.DateCreated,
+                    Document = memo.CreditMemoNumber ?? memo.CreditMemoReference ?? "Credit memo",
+                    Action = "Credit memo posted",
+                    Status = memo.Status,
+                    PurchaseOrderId = memo.PurchaseOrderId,
+                    InvoiceId = memo.ReferenceInvoiceId,
+                    CreditMemoId = memo.Id
+                });
+            }
         }
 
         private async Task<List<PurchaseOrder>> LoadOpenOrdersAsync(Guid buyerId, string? supplier, CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 import React from 'react';
 import { getInventoryHome, getRecentAlerts } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
+import { getPurchaseRecommendations } from '../../../../remote-buyer/src/api/silaMe/silaInventoryControlApi';
 import { getReceivingDashboard, type SilaReceivingTask } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { silaHomeCapabilities } from '../../../../remote-buyer/src/components/silaMe/silaHomeCapabilities';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -41,6 +42,10 @@ const HomeScreen: React.FC = () => {
     caps.viewInventory ? (location ? `home-inv-${location.id}` : 'home-inv') : null,
   );
   const alerts = useLoad(() => getRecentAlerts(5), caps.viewInventory ? 'alerts' : null);
+  const recommendations = useLoad(
+    () => getPurchaseRecommendations({ locationId: location?.id }),
+    caps.recommendation ? (location ? `home-rec-${location.id}` : 'home-rec') : null,
+  );
   const data = dashboard.data;
   const kpis = data?.kpis;
   const tasks = (data?.tasks ?? []).filter((task) => task.type !== 'PROCESS_INVOICE' || caps.processInvoices);
@@ -63,6 +68,7 @@ const HomeScreen: React.FC = () => {
     { label: 'GRN History', icon: 'receive', to: 'receive/history', show: caps.viewReceiving },
     { label: 'Invoices', icon: 'scan', to: 'receive/posted-invoices', show: caps.viewInvoices },
     { label: 'Credit memos', icon: 'scan', to: 'receive/credit-memos', show: caps.viewCreditMemos },
+    { label: 'Recommendations', icon: 'purchaseOrders', to: 'inventory/recommendations', show: caps.recommendation },
     { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: caps.viewInventory },
     { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: caps.viewInventory && can.manageTransfer },
     { label: 'Approvals', icon: 'approvals', to: 'tasks', show: caps.approveCount || caps.approveTransfer || caps.approveRecipe || caps.approvePrice },
@@ -204,6 +210,7 @@ const HomeScreen: React.FC = () => {
             <h2 id="sm-inv-sum">Invoices</h2>
             <div className="sm-grid-2">
               <button type="button" className="sm-stat" onClick={() => go('receive/scan')}><span className="sm-muted">Ready</span><strong>{count(data?.invoice.readyForProcessing, dashboard.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">In progress</span><strong>{count(data?.invoice.inProgress, dashboard.loading)}</strong></button>
               <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">Posted</span><strong>{count(data?.invoice.postedRecently, dashboard.loading)}</strong></button>
               <button type="button" className={`sm-stat${(data?.invoice.postingFailed ?? 0) > 0 ? ' sm-stat--alert' : ''}`} onClick={() => go('receive')}><span className="sm-muted">Failed</span><strong>{count(data?.invoice.postingFailed, dashboard.loading)}</strong></button>
               {caps.viewCreditMemos && (
@@ -213,15 +220,28 @@ const HomeScreen: React.FC = () => {
           </section>
         )}
 
+        {caps.recommendation && (
+          <section className="sm-section" aria-labelledby="sm-rec">
+            <h2 id="sm-rec">Recommendations</h2>
+            {recommendations.error && <ErrorNotice message={recommendations.error} onRetry={recommendations.reload} />}
+            <div className="sm-grid-2">
+              <button type="button" className="sm-stat" onClick={() => go('inventory/recommendations')}><span className="sm-muted">Stock-out</span><strong>{count(recommendations.data?.stockOut, recommendations.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('inventory/recommendations')}><span className="sm-muted">Below min</span><strong>{count(recommendations.data?.belowMinimum, recommendations.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('inventory/recommendations')}><span className="sm-muted">Recommended</span><strong>{count(recommendations.data?.recommendedPurchase, recommendations.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('inventory/recommendations')}><span className="sm-muted">Est. value</span><strong>{recommendations.loading ? '…' : recommendations.data?.estimatedValue ?? '—'}</strong></button>
+            </div>
+            <button type="button" className="sm-btn" onClick={() => go('inventory/recommendations')}>Review recommendations</button>
+          </section>
+        )}
+
         {caps.viewInventory && (
           <section className="sm-section" aria-labelledby="sm-stock">
             <h2 id="sm-stock">Inventory{location ? ` · ${location.locationName}` : ''}</h2>
             {summary.error && <ErrorNotice message={summary.error} onRetry={summary.reload} />}
             <div className="sm-grid-2">
               <button type="button" className="sm-stat" onClick={() => go('tasks/alerts')}><span className="sm-muted">Low stock</span><strong>{count(summary.data?.lowStockItems, summary.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('inventory/recommendations')}><span className="sm-muted">Stock-out</span><strong>{count(recommendations.data?.stockOut ?? summary.data?.lowStockItems, recommendations.loading || summary.loading)}</strong></button>
               <button type="button" className="sm-stat" onClick={() => go('tasks/alerts')}><span className="sm-muted">Alerts</span><strong>{count(summary.data?.openAlerts ?? alerts.data?.length, summary.loading)}</strong></button>
-              <button type="button" className="sm-stat" onClick={() => go('inventory/counts')}><span className="sm-muted">Counts</span><strong>{count(summary.data?.openStockCounts, summary.loading)}</strong></button>
-              <button type="button" className="sm-stat" onClick={() => go('inventory/transfers?tab=in-transit')}><span className="sm-muted">In-transit</span><strong>{count(summary.data?.inTransitToReceive, summary.loading)}</strong></button>
             </div>
           </section>
         )}
@@ -232,7 +252,7 @@ const HomeScreen: React.FC = () => {
           <ul className="sm-list">
             {(data?.activity ?? []).slice(0, 8).map((item) => (
               <li key={`${item.document}-${item.occurredOn}`}>
-                <button type="button" className="sm-list-btn" onClick={() => item.goodsReceiptId ? go(`receive/grns/${item.goodsReceiptId}`) : undefined}>
+                <button type="button" className="sm-list-btn" onClick={() => item.creditMemoId ? go(`receive/credit-memos/${item.creditMemoId}`) : item.invoiceId ? go(`receive/invoices/${item.invoiceId}`) : item.goodsReceiptId ? go(`receive/grns/${item.goodsReceiptId}`) : undefined}>
                   <span className="sm-row"><strong>{item.document}</strong><StatusBadge status={item.status || item.action} /></span>
                   <span className="sm-meta">{formatDateTime(item.occurredOn)} · {item.action}</span>
                 </button>
