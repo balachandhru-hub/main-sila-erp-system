@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import {
   createCreditMemo,
-  creditMemoAmountForQuantity,
+  creditMemoAmountTextForQuantity,
   creditMemoDraftFromLine,
+  creditMemoExcludeDraft,
   creditMemoHeaderText,
+  creditMemoIncludeDraft,
   getCreditMemo,
   getCreditMemoLines,
   lookupCreditMemoInvoice,
+  mergeCreditMemoEligibleLines,
   retryCreditMemo,
   submitCreditMemo,
   updateCreditMemo,
@@ -77,10 +80,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
     setTaxDate(today());
     setCmReference("");
     setLines(eligible);
-    setDrafts(Object.fromEntries(eligible.map((line) => {
-      const draft = creditMemoDraftFromLine(line);
-      return [line.invoiceLineId, { invoiceLineId: line.invoiceLineId, ...draft }];
-    })));
+    setDrafts(Object.fromEntries(eligible.map((line) => [line.invoiceLineId, { invoiceLineId: line.invoiceLineId, ...creditMemoDraftFromLine(line) }])));
   };
 
   useEffect(() => {
@@ -97,24 +97,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
           setPostingDate((data.postingDate || today()).slice(0, 10));
           setTaxDate((data.taxCalculationDate || today()).slice(0, 10));
           setCmReference(data.creditMemoReference || data.creditMemoNumber || "");
-          const eligible = data.lines.length > 0
-            ? data.lines.map((line) => ({
-                invoiceLineId: line.referenceInvoiceLineId || line.id,
-                lineNumber: line.lineNumber,
-                poNumber: line.poNumber,
-                poItem: line.poItem,
-                material: line.material,
-                description: line.description,
-                originalQuantity: line.originalQuantity,
-                originalAmount: line.originalAmount,
-                previouslyCreditedQuantity: line.previouslyCreditedQuantity,
-                previouslyCreditedAmount: line.previouslyCreditedAmount,
-                remainingQuantity: line.remainingQuantity,
-                remainingAmount: line.remainingAmount,
-                uom: line.uom,
-                taxCode: line.taxCode,
-              }))
-            : await getCreditMemoLines(data.referenceInvoiceId);
+          const eligible = mergeCreditMemoEligibleLines(await getCreditMemoLines(data.referenceInvoiceId), data.lines);
           setLines(eligible);
           setDrafts(Object.fromEntries(eligible.map((line) => {
             const saved = data.lines.find((item) => item.referenceInvoiceLineId === line.invoiceLineId);
@@ -153,8 +136,8 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
       const previous = current[line.invoiceLineId] ?? { invoiceLineId: line.invoiceLineId, ...creditMemoDraftFromLine(line) };
       const next = { ...previous, ...patch };
       if (recalcAmount && patch.quantity != null) {
-        const quantity = Number(patch.quantity);
-        if (!Number.isNaN(quantity)) next.amount = String(creditMemoAmountForQuantity(line, quantity));
+        const amount = creditMemoAmountTextForQuantity(line, patch.quantity);
+        if (amount != null) next.amount = amount;
       }
       return { ...current, [line.invoiceLineId]: next };
     });
@@ -349,8 +332,8 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
                             disabled={posted}
                             checked={draft.included}
                             onChange={(event) => changeDraft(line, event.target.checked
-                              ? { included: true, quantity: String(line.remainingQuantity), amount: String(line.remainingAmount) }
-                              : { included: false, quantity: "0", amount: "0" })}
+                              ? { invoiceLineId: line.invoiceLineId, ...creditMemoIncludeDraft(line, draft.reason) }
+                              : { invoiceLineId: line.invoiceLineId, ...creditMemoExcludeDraft(draft.reason) })}
                           />
                         </td>
                         <td>{line.poNumber || reference.poNumber || "—"}</td>

@@ -1,6 +1,20 @@
 import axiosInstance from "../axiosInstance";
 import axios from "axios";
 import { readBody, readError } from "../readError";
+import { normalizeCreditMemoEligibleLine } from "./silaCreditMemoAmounts";
+
+export {
+  creditMemoAmountForQuantity,
+  creditMemoAmountTextForQuantity,
+  creditMemoDraftFromLine,
+  creditMemoExcludeDraft,
+  creditMemoIncludeDraft,
+  creditMemoUnitValue,
+  formatCreditAmount,
+  formatCreditQuantity,
+  mergeCreditMemoEligibleLines,
+  normalizeCreditMemoEligibleLine,
+} from "./silaCreditMemoAmounts";
 
 export interface SilaOpenPurchaseOrder {
   id: string;
@@ -1270,38 +1284,6 @@ export const creditMemoHeaderText = (invoiceNumber?: string | null): string => {
   return number ? `Return of ${number}` : 'Return of invoice';
 };
 
-export const creditMemoAmountForQuantity = (
-  line: Pick<SilaCreditMemoEligibleLine, 'originalQuantity' | 'originalAmount' | 'remainingAmount'>,
-  quantity: number,
-): number => {
-  if (!(quantity > 0)) return 0;
-  if (!(line.originalQuantity > 0)) return line.remainingAmount;
-  const suggested = (line.originalAmount / line.originalQuantity) * quantity;
-  const rounded = Math.round(suggested * 100) / 100;
-  return Math.min(rounded, line.remainingAmount);
-};
-
-export const creditMemoDraftFromLine = (
-  line: SilaCreditMemoEligibleLine,
-  saved?: { quantity?: number | null; amount?: number | null; reason?: string | null },
-): { included: boolean; quantity: string; amount: string; reason: string } => {
-  if (saved && ((saved.quantity ?? 0) > 0 || (saved.amount ?? 0) > 0)) {
-    return {
-      included: true,
-      quantity: saved.quantity != null ? String(saved.quantity) : '',
-      amount: saved.amount != null ? String(saved.amount) : '',
-      reason: saved.reason || '',
-    };
-  }
-  const remaining = line.remainingQuantity > 0 || line.remainingAmount > 0;
-  return {
-    included: remaining,
-    quantity: remaining ? String(line.remainingQuantity) : '0',
-    amount: remaining ? String(line.remainingAmount) : '0',
-    reason: '',
-  };
-};
-
 export const lookupCreditMemoInvoice = async (params: {
   invoiceId?: string | null;
   invoiceNumber?: string | null;
@@ -1316,11 +1298,30 @@ export const lookupCreditMemoInvoice = async (params: {
   }), "Could not look up the reference invoice."));
 
 export const getCreditMemoLines = async (invoiceId: string): Promise<SilaCreditMemoEligibleLine[]> =>
-  list(await call(() => axiosInstance.get<SilaCreditMemoEligibleLine[]>(`${BASE}/invoices/${invoiceId}/credit-memo-lines`), "Could not load credit memo lines."));
+  list(await call(() => axiosInstance.get<SilaCreditMemoEligibleLine[]>(`${BASE}/invoices/${invoiceId}/credit-memo-lines`), "Could not load credit memo lines."))
+    .map((line) => normalizeCreditMemoEligibleLine(line));
 
 const normalizeCreditMemo = (memo: SilaCreditMemoDetail): SilaCreditMemoDetail => ({
   ...memo,
-  lines: list(memo.lines),
+  lines: list(memo.lines).map((line) => ({
+    ...line,
+    ...normalizeCreditMemoEligibleLine({
+      invoiceLineId: line.referenceInvoiceLineId || line.id,
+      lineNumber: line.lineNumber,
+      poNumber: line.poNumber,
+      poItem: line.poItem,
+      material: line.material,
+      description: line.description,
+      originalQuantity: line.originalQuantity,
+      originalAmount: line.originalAmount,
+      previouslyCreditedQuantity: line.previouslyCreditedQuantity,
+      previouslyCreditedAmount: line.previouslyCreditedAmount,
+      remainingQuantity: line.remainingQuantity,
+      remainingAmount: line.remainingAmount,
+      uom: line.uom,
+      taxCode: line.taxCode,
+    }),
+  })),
   history: list(memo.history),
   canSubmit: Boolean(memo.canSubmit),
   canRetry: Boolean(memo.canRetry),

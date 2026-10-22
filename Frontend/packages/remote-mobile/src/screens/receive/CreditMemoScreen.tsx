@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   createCreditMemo,
-  creditMemoAmountForQuantity,
+  creditMemoAmountTextForQuantity,
   creditMemoDraftFromLine,
+  creditMemoExcludeDraft,
   creditMemoHeaderText,
+  creditMemoIncludeDraft,
   getCreditMemo,
   getCreditMemoLines,
   getInvoice,
+  mergeCreditMemoEligibleLines,
   retryCreditMemo,
   submitCreditMemo,
   type SilaCreditMemoDetail,
@@ -56,15 +59,21 @@ const CreditMemoScreen: React.FC = () => {
   useEffect(() => {
     if (!invoiceId) return;
     let active = true;
-    getCreditMemoLines(invoiceId)
-      .then((rows) => {
-        if (!active) return;
-        setLines(rows);
-        setDrafts(Object.fromEntries(rows.map((line) => [line.invoiceLineId, creditMemoDraftFromLine(line)])));
-      })
-      .catch((caught: unknown) => setNotice({ tone: 'error', text: errorText(caught, 'Could not load credit memo lines.') }));
+    const load = async () => {
+      if (creditMemoId && !memo && !memoLoad.data && memoLoad.loading) return;
+      const rows = await getCreditMemoLines(invoiceId);
+      if (!active) return;
+      const saved = creditMemoId ? (memo ?? memoLoad.data)?.lines : undefined;
+      const merged = mergeCreditMemoEligibleLines(rows, saved);
+      setLines(merged);
+      setDrafts(Object.fromEntries(merged.map((line) => {
+        const item = saved?.find((row) => row.referenceInvoiceLineId === line.invoiceLineId);
+        return [line.invoiceLineId, creditMemoDraftFromLine(line, item)];
+      })));
+    };
+    load().catch((caught: unknown) => setNotice({ tone: 'error', text: errorText(caught, 'Could not load credit memo lines.') }));
     return () => { active = false; };
-  }, [invoiceId]);
+  }, [invoiceId, creditMemoId, memo, memoLoad.data]);
 
   useEffect(() => {
     if (!invoice) return;
@@ -80,30 +89,6 @@ const CreditMemoScreen: React.FC = () => {
     setPostingDate((data.postingDate || today()).slice(0, 10));
     setTaxDate((data.taxCalculationDate || today()).slice(0, 10));
     setReference(data.creditMemoReference || data.creditMemoNumber || '');
-    if (data.lines.length === 0) return;
-    setDrafts((current) => {
-      const next = { ...current };
-      data.lines.forEach((item) => {
-        const id = item.referenceInvoiceLineId || item.id;
-        next[id] = creditMemoDraftFromLine({
-          invoiceLineId: id,
-          lineNumber: item.lineNumber,
-          poNumber: item.poNumber,
-          poItem: item.poItem,
-          material: item.material,
-          description: item.description,
-          originalQuantity: item.originalQuantity,
-          originalAmount: item.originalAmount,
-          previouslyCreditedQuantity: item.previouslyCreditedQuantity,
-          previouslyCreditedAmount: item.previouslyCreditedAmount,
-          remainingQuantity: item.remainingQuantity,
-          remainingAmount: item.remainingAmount,
-          uom: item.uom,
-          taxCode: item.taxCode,
-        }, item);
-      });
-      return next;
-    });
   }, [memoLoad.data]);
 
   const changeDraft = (line: SilaCreditMemoEligibleLine, patch: Partial<LineDraft>, recalcAmount = false) => {
@@ -111,8 +96,8 @@ const CreditMemoScreen: React.FC = () => {
       const previous = current[line.invoiceLineId] ?? creditMemoDraftFromLine(line);
       const next = { ...previous, ...patch };
       if (recalcAmount && patch.quantity != null) {
-        const quantity = Number(patch.quantity);
-        if (!Number.isNaN(quantity)) next.amount = String(creditMemoAmountForQuantity(line, quantity));
+        const amount = creditMemoAmountTextForQuantity(line, patch.quantity);
+        if (amount != null) next.amount = amount;
       }
       return { ...current, [line.invoiceLineId]: next };
     });
@@ -212,8 +197,8 @@ const CreditMemoScreen: React.FC = () => {
                       type="checkbox"
                       checked={draft.included}
                       onChange={(event) => changeDraft(line, event.target.checked
-                        ? { included: true, quantity: String(line.remainingQuantity), amount: String(line.remainingAmount) }
-                        : { included: false, quantity: '0', amount: '0' })}
+                        ? creditMemoIncludeDraft(line, draft.reason)
+                        : creditMemoExcludeDraft(draft.reason))}
                     />
                     {' '}Included
                   </label>
