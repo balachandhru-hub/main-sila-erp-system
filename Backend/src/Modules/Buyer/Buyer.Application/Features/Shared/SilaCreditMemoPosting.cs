@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Buyer.Application.Features.Commands.PostPendingErpPostings;
 using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
@@ -33,6 +34,11 @@ namespace Buyer.Application.Features.Shared
         };
 
         private static readonly string[] FiscalYearNames = { "FiscalYear", "fiscalYear", "Fiscalyear" };
+
+        private static readonly Regex ODataSupplierInvoiceKey = new Regex(
+            @"A_SupplierInvoice\(SupplierInvoice='([^']+)',FiscalYear='([^']+)'\)",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled,
+            TimeSpan.FromSeconds(1));
 
         public static async Task<ApiIntegrationConfiguration?> FindCreditMemoApiAsync(
             IRepositoryWrapper repository, Guid organizationId, string? companyCode, CancellationToken cancellationToken)
@@ -233,6 +239,8 @@ namespace Buyer.Application.Features.Shared
                 return;
             }
 
+            await ApplyStoredSuccessAsync(repository, memo, posting, cancellationToken);
+
             string next = status switch
             {
                 Common.SILA_POSTING_POSTED => Common.SILA_CREDIT_MEMO_POSTED,
@@ -251,11 +259,8 @@ namespace Buyer.Application.Features.Shared
             memo.ErpPostingId ??= posting.Id;
             if (status == Common.SILA_POSTING_POSTED)
             {
-                string? fiscal = ReadFiscalYear(posting.ErpResponsePayload);
-                string comment = "SAP Credit Memo " + (posting.ErpReference ?? string.Empty)
-                    + (string.IsNullOrWhiteSpace(fiscal) ? string.Empty : " / " + fiscal);
-                Remember(repository, memo, posting.UpdatedBy, ACTION_POSTED, comment);
-                RememberInvoice(repository, memo, posting.UpdatedBy, ACTION_POSTED, "Credit Memo Posted. " + comment);
+                Remember(repository, memo, posting.UpdatedBy, ACTION_POSTED, PostedComment(posting));
+                RememberInvoice(repository, memo, posting.UpdatedBy, ACTION_POSTED, "Credit Memo Posted. " + PostedComment(posting));
             }
             else if (status is Common.SILA_POSTING_FAILED or Common.SILA_POSTING_SKIPPED)
             {
@@ -276,6 +281,85 @@ namespace Buyer.Application.Features.Shared
         public static string? ReadFiscalYear(string? body)
         {
             return ReadNamed(body, FiscalYearNames);
+        }
+
+        /// <summary>
+        /// Fills a missing ERP reference from the stored SAP 201 body. Never calls SAP.
+        /// Does not overwrite an existing different reference or create another posting.
+        /// </summary>
+        public static async Task<bool> ApplyStoredSuccessAsync(
+            IRepositoryWrapper repository,
+            CreditMemo memo,
+            InventoryErpPosting? posting,
+            CancellationToken cancellationToken)
+        {
+            if (posting == null
+                || posting.ReferenceType != Common.SILA_REF_CREDIT_MEMO
+                || posting.ReferenceId != memo.Id
+                || (posting.Status != Common.SILA_POSTING_POSTED
+                    && posting.Status != Common.SILA_POSTING_ERP_ACCEPTED
+                    && posting.Status != Common.SILA_POSTING_FAILED_LOCAL))
+            {
+                return false;
+            }
+
+            string? sap = ReadSupplierInvoice(posting.ErpResponsePayload);
+            string? fiscal = ReadFiscalYear(posting.ErpResponsePayload);
+            if (string.IsNullOrWhiteSpace(sap))
+            {
+                return false;
+            }
+
+            bool changed = false;
+            if (string.IsNullOrWhiteSpace(posting.ErpReference))
+            {
+                posting.ErpReference = sap;
+                repository.InventoryErpPosting.Update(posting);
+                changed = true;
+            }
+            else if (!posting.ErpReference.Trim().Equals(sap.Trim(), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string comment = PostedComment(posting.ErpReference, fiscal);
+            List<InventoryWorkflowEvent> events = await repository.InventoryWorkflowEvent
+                .FindByCondition(x => x.BuyerId == memo.BuyerId && x.IsActive && x.Action == ACTION_POSTED
+                    && ((x.ReferenceType == Common.SILA_REF_CREDIT_MEMO && x.ReferenceId == memo.Id)
+                        || (x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == memo.ReferenceInvoiceId)))
+                .ToListAsync(cancellationToken);
+            foreach (InventoryWorkflowEvent row in events)
+            {
+                if (!string.IsNullOrWhiteSpace(row.Comment) && row.Comment.Contains(sap, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (row.ReferenceType == Common.SILA_REF_CREDIT_MEMO)
+                {
+                    row.Comment = Truncate(comment);
+                }
+                else
+                {
+                    row.Comment = Truncate("Credit Memo Posted. " + comment);
+                }
+
+                repository.InventoryWorkflowEvent.Update(row);
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static string PostedComment(InventoryErpPosting posting)
+        {
+            return PostedComment(posting.ErpReference, ReadFiscalYear(posting.ErpResponsePayload));
+        }
+
+        private static string PostedComment(string? sap, string? fiscal)
+        {
+            return "SAP Credit Memo " + (sap ?? string.Empty)
+                + (string.IsNullOrWhiteSpace(fiscal) ? string.Empty : " / " + fiscal);
         }
 
         public static string SafeFailure(int? httpStatus, string? responseBody, string? fallback)
@@ -363,11 +447,59 @@ namespace Buyer.Application.Features.Shared
                 return null;
             }
 
+            string? json = ReadNamedJson(body, names);
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                return json;
+            }
+
+            bool supplier = names.Any(x => InvoiceReferenceNames.Contains(x, StringComparer.Ordinal));
+            bool fiscal = names.Any(x => FiscalYearNames.Contains(x, StringComparer.Ordinal));
+            if (!supplier && !fiscal)
+            {
+                return null;
+            }
+
+            try
+            {
+                Match key = ODataSupplierInvoiceKey.Match(body);
+                if (key.Success)
+                {
+                    string value = fiscal && !supplier ? key.Groups[2].Value : key.Groups[1].Value;
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value.Trim();
+                    }
+                }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return null;
+            }
+
+            foreach (string name in names)
+            {
+                Match property = Regex.Match(
+                    body,
+                    "(?<![A-Za-z])\"" + Regex.Escape(name) + "\"\\s*:\\s*\"([^\"]+)\"",
+                    RegexOptions.CultureInvariant,
+                    TimeSpan.FromSeconds(1));
+                if (property.Success && !string.IsNullOrWhiteSpace(property.Groups[1].Value))
+                {
+                    return property.Groups[1].Value.Trim();
+                }
+            }
+
+            return null;
+        }
+
+        private static string? ReadNamedJson(string body, IReadOnlyList<string> names)
+        {
             try
             {
                 using JsonDocument document = JsonDocument.Parse(body);
                 JsonElement root = document.RootElement;
-                if (root.TryGetProperty("d", out JsonElement wrapped))
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("d", out JsonElement wrapped) && wrapped.ValueKind == JsonValueKind.Object)
                 {
                     root = wrapped;
                 }

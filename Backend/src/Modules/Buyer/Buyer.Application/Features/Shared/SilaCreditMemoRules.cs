@@ -216,6 +216,11 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting? posting = memo.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == memo.ErpPostingId && x.BuyerId == memo.BuyerId);
+            if (await SilaCreditMemoPosting.ApplyStoredSuccessAsync(repository, memo, posting, cancellationToken))
+            {
+                await repository.SaveAsync();
+            }
+
             List<InventoryWorkflowEvent> events = await repository.InventoryWorkflowEvent
                 .FindByCondition(x => x.BuyerId == memo.BuyerId && x.IsActive
                     && ((x.ReferenceType == Common.SILA_REF_CREDIT_MEMO && x.ReferenceId == memo.Id)
