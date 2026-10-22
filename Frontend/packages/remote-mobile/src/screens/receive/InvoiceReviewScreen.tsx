@@ -69,7 +69,7 @@ const InvoiceReviewScreen: React.FC = () => {
 
   return (
     <>
-      <ScreenHeader title="Invoice Review" eyebrow="Invoice receiving · OCR then supplier then open PO" back />
+      <ScreenHeader title="Invoice Review" back />
       <div className="sm-screen">
         {loading && !invoice && <Loading />}
         {error && <ErrorNotice message={error} onRetry={reload} />}
