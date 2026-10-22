@@ -1351,3 +1351,6 @@ export const submitCreditMemo = async (creditMemoId: string): Promise<SilaCredit
 
 export const retryCreditMemo = async (creditMemoId: string): Promise<SilaCreditMemoDetail> =>
   normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}/retry`), "Could not retry credit memo posting."));
+
+export const decideCreditMemo = async (creditMemoId: string, approve: boolean, comment: string): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}/approval`, { approve, comment: comment.trim() || null }), "Could not record the credit memo approval."));
