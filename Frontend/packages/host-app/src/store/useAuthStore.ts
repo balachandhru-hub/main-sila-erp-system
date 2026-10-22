@@ -17,6 +17,7 @@ export const ROLE_MAPPING: Record<string, UserRole> = {
   // F&B director / finance manager use the buyer shell. SILA screens still read the role name.
   '8d2a6c40-1f7e-4b9a-9c55-6e3a1d8b4f02': 'cost-controller', // FNB_DIRECTOR
   '9e3b7d51-2a8f-4c0b-8d66-7f4b2e9c5a13': 'cost-controller', // FINANCE_MANAGER
+  '0a7c4e82-3b1f-4d6a-9e28-5c8f1a2b3d40': 'buyer', // AP_PROCESSOR
 };
 
 /** Supplier roles stay on supplier screens. Network admin is stored as platform-user, so the role id is the check. */
