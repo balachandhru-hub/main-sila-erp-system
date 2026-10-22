@@ -43,6 +43,7 @@ namespace Buyer.Domain.Dtos
         public Guid? PurchaseOrderId { get; set; }
         public Guid? GoodsReceiptId { get; set; }
         public Guid? InvoiceId { get; set; }
+        public Guid? CreditMemoId { get; set; }
         public Guid? TransferId { get; set; }
     }
 
@@ -93,6 +94,7 @@ namespace Buyer.Domain.Dtos
         public Guid? PurchaseOrderId { get; set; }
         public Guid? GoodsReceiptId { get; set; }
         public Guid? InvoiceId { get; set; }
+        public Guid? CreditMemoId { get; set; }
         public int? OpenLineCount { get; set; }
     }
 
@@ -132,6 +134,7 @@ namespace Buyer.Domain.Dtos
         public Guid? PurchaseOrderId { get; set; }
         public Guid? GoodsReceiptId { get; set; }
         public Guid? InvoiceId { get; set; }
+        public Guid? CreditMemoId { get; set; }
         public string? Message { get; set; }
     }
 

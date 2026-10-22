@@ -34,6 +34,7 @@ export const SILA_ME_NAV_PATHS = {
   silaPurchaseOrders: "sila-purchase-orders",
   silaGoodsReceipts: "sila-goods-receipts",
   silaInvoices: "sila-invoices",
+  silaCreditMemos: "sila-credit-memos",
   silaErpPostings: "sila-erp-postings",
   silaPriceApprovals: "sila-price-approvals",
   silaAuditLog: "sila-audit-log",
@@ -115,6 +116,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
         { key: "silaPurchaseOrders", label: "Open Purchase Orders" },
         { key: "silaGoodsReceipts", label: "Goods Receipts" },
         ...leaf(home.viewInvoices, "silaInvoices", "Invoices"),
+        ...leaf(home.viewCreditMemos, "silaCreditMemos", "Credit Memos"),
       ] : [],
     },
     {

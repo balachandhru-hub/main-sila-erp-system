@@ -92,6 +92,8 @@ namespace Buyer.Domain.Dtos
         public DateTime CreatedOn { get; set; }
         public string? ErpReference { get; set; }
         public string? FiscalYear { get; set; }
+        public string? SupplierName { get; set; }
+        public string? PoNumber { get; set; }
     }
 
     public class SilaCreditMemoDetailDto

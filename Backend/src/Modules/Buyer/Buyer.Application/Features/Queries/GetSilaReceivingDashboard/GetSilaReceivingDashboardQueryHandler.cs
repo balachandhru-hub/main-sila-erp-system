@@ -310,7 +310,8 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
                     Status = memo.Status,
                     Action = "REVIEW",
                     PurchaseOrderId = memo.PurchaseOrderId,
-                    InvoiceId = memo.ReferenceInvoiceId
+                    InvoiceId = memo.ReferenceInvoiceId,
+                    CreditMemoId = memo.Id
                 });
                 dashboard.Tasks.Add(new SilaReceivingTaskDto
                 {
@@ -323,7 +324,8 @@ namespace Buyer.Application.Features.Queries.GetSilaReceivingDashboard
                     Status = memo.Status,
                     Action = "REVIEW",
                     PurchaseOrderId = memo.PurchaseOrderId,
-                    InvoiceId = memo.ReferenceInvoiceId
+                    InvoiceId = memo.ReferenceInvoiceId,
+                    CreditMemoId = memo.Id
                 });
             }
 

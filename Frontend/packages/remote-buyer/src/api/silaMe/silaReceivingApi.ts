@@ -428,6 +428,8 @@ export interface SilaCreditMemoListItem {
   createdOn: string;
   erpReference?: string | null;
   fiscalYear?: string | null;
+  supplierName?: string | null;
+  poNumber?: string | null;
 }
 
 export interface SilaCreditMemoReferenceInvoice {
@@ -695,6 +697,7 @@ export interface SilaReceivingTask {
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
   invoiceId?: string | null;
+  creditMemoId?: string | null;
   openLineCount?: number | null;
 }
 
@@ -732,6 +735,7 @@ export interface SilaReceivingException {
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
   invoiceId?: string | null;
+  creditMemoId?: string | null;
   message?: string | null;
 }
 
@@ -777,6 +781,7 @@ export interface SilaHomeApproval {
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
   invoiceId?: string | null;
+  creditMemoId?: string | null;
   transferId?: string | null;
 }
 
@@ -1296,6 +1301,11 @@ export const lookupCreditMemoInvoice = async (params: {
       erpInvoiceId: params.erpInvoiceId?.trim() || undefined,
     },
   }), "Could not look up the reference invoice."));
+
+export const getCreditMemos = async (search: string, status: string, page: SilaPage): Promise<SilaCreditMemoListItem[]> =>
+  list(await call(() => axiosInstance.get<SilaCreditMemoListItem[]>(`${BASE}/credit-memos`, {
+    params: { search: search.trim() || undefined, status: status || undefined, ...page },
+  }), "Could not load the credit memos."));
 
 export const getCreditMemoLines = async (invoiceId: string): Promise<SilaCreditMemoEligibleLine[]> =>
   list(await call(() => axiosInstance.get<SilaCreditMemoEligibleLine[]>(`${BASE}/invoices/${invoiceId}/credit-memo-lines`), "Could not load credit memo lines."))

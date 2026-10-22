@@ -258,7 +258,7 @@ namespace Buyer.Application.Features.Shared
                 ErpStatus = posting?.Status,
                 ErpReference = posting?.ErpReference,
                 FiscalYear = SilaCreditMemoPosting.ReadFiscalYear(posting?.ErpResponsePayload),
-                ErpMessage = posting == null ? null : SilaCreditMemoPosting.SafeFailure(posting.ErpHttpStatus, posting.ErpResponsePayload, posting.ErrorMessage),
+                ErpMessage = SilaCreditMemoPosting.DisplayMessage(memo.Status, posting),
                 IntegrationName = posting?.IntegrationSystem,
                 PostedOn = posting?.PostedOn,
                 CanSubmit = SilaCreditMemoLifecycle.CanSubmit(memo.Status),

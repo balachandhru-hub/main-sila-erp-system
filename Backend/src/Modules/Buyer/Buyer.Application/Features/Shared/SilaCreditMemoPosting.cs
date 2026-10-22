@@ -362,6 +362,45 @@ namespace Buyer.Application.Features.Shared
                 + (string.IsNullOrWhiteSpace(fiscal) ? string.Empty : " / " + fiscal);
         }
 
+        public static bool IsStoredSuccess(string? memoStatus, string? postingStatus)
+        {
+            return memoStatus == Common.SILA_CREDIT_MEMO_POSTED
+                || postingStatus == Common.SILA_POSTING_POSTED
+                || postingStatus == Common.SILA_POSTING_ERP_ACCEPTED
+                || postingStatus == Common.SILA_POSTING_FAILED_LOCAL;
+        }
+
+        public static string SuccessMessage(string? sap, string? fiscal)
+        {
+            string id = string.IsNullOrWhiteSpace(sap) ? string.Empty : sap.Trim();
+            string year = string.IsNullOrWhiteSpace(fiscal) ? string.Empty : fiscal.Trim();
+            if (id.Length == 0)
+            {
+                return "Posted successfully.";
+            }
+
+            return year.Length == 0
+                ? "Posted successfully. SAP Credit Memo " + id + "."
+                : "Posted successfully. SAP Credit Memo " + id + " / " + year + ".";
+        }
+
+        public static string? DisplayMessage(string? memoStatus, InventoryErpPosting? posting)
+        {
+            if (posting == null)
+            {
+                return null;
+            }
+
+            string? sap = posting.ErpReference ?? ReadSupplierInvoice(posting.ErpResponsePayload);
+            string? fiscal = ReadFiscalYear(posting.ErpResponsePayload);
+            if (IsStoredSuccess(memoStatus, posting.Status))
+            {
+                return SuccessMessage(sap, fiscal);
+            }
+
+            return SafeFailure(posting.ErpHttpStatus, posting.ErpResponsePayload, posting.ErrorMessage);
+        }
+
         public static string SafeFailure(int? httpStatus, string? responseBody, string? fallback)
         {
             string? sap = ReadNamed(responseBody, new[] { "message", "Message", "error", "Error", "value" });

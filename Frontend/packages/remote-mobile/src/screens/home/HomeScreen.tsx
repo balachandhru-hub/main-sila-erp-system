@@ -57,6 +57,7 @@ const HomeScreen: React.FC = () => {
     { label: 'Find PO', icon: 'purchaseOrders', to: 'receive/pos', show: caps.viewReceiving },
     { label: 'GRN History', icon: 'receive', to: 'receive/history', show: caps.viewReceiving },
     { label: 'Invoices', icon: 'scan', to: 'receive/posted-invoices', show: caps.viewInvoices },
+    { label: 'Credit memos', icon: 'scan', to: 'receive/credit-memos', show: caps.viewCreditMemos },
     { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: caps.viewInventory },
     { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: caps.viewInventory && can.manageTransfer },
     { label: 'Approvals', icon: 'approvals', to: 'tasks', show: caps.approveCount || caps.approveTransfer || caps.approveRecipe || caps.approvePrice },
@@ -65,6 +66,10 @@ const HomeScreen: React.FC = () => {
   const openTask = (task: SilaReceivingTask) => {
     if (task.action === 'PROCESS_INVOICE') {
       go('receive/scan');
+      return;
+    }
+    if (task.type === 'CREDIT_MEMO' || task.creditMemoId) {
+      go(task.creditMemoId ? `receive/credit-memos/${task.creditMemoId}` : 'receive/credit-memos');
       return;
     }
     if (task.goodsReceiptId && task.action === 'REVIEW') {
@@ -155,7 +160,7 @@ const HomeScreen: React.FC = () => {
                 <button
                   type="button"
                   className="sm-list-btn"
-                  onClick={() => row.invoiceId ? go(`receive/invoices/${row.invoiceId}`) : row.goodsReceiptId ? go(`receive/grns/${row.goodsReceiptId}`) : row.purchaseOrderId ? go(`receive/pos/${row.purchaseOrderId}`) : undefined}
+                  onClick={() => row.creditMemoId ? go(`receive/credit-memos/${row.creditMemoId}`) : row.invoiceId ? go(`receive/invoices/${row.invoiceId}`) : row.goodsReceiptId ? go(`receive/grns/${row.goodsReceiptId}`) : row.purchaseOrderId ? go(`receive/pos/${row.purchaseOrderId}`) : undefined}
                 >
                   <span className="sm-row"><strong>{row.document}</strong><StatusBadge status={row.severity === 'CRITICAL' ? 'FAILED' : row.status || 'PENDING'} /></span>
                   <span className="sm-meta">{row.exception} · {row.age}</span>
@@ -197,7 +202,7 @@ const HomeScreen: React.FC = () => {
               <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">Posted</span><strong>{count(data?.invoice.postedRecently, dashboard.loading)}</strong></button>
               <button type="button" className={`sm-stat${(data?.invoice.postingFailed ?? 0) > 0 ? ' sm-stat--alert' : ''}`} onClick={() => go('receive')}><span className="sm-muted">Failed</span><strong>{count(data?.invoice.postingFailed, dashboard.loading)}</strong></button>
               {caps.viewCreditMemos && (
-                <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">Credit memos</span><strong>{count(data?.creditMemo.inProgress, dashboard.loading)}</strong></button>
+                <button type="button" className="sm-stat" onClick={() => go('receive/credit-memos?status=IN_PROGRESS')}><span className="sm-muted">Credit memos</span><strong>{count(data?.creditMemo.inProgress, dashboard.loading)}</strong></button>
               )}
             </div>
           </section>

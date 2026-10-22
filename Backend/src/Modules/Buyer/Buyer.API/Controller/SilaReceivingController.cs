@@ -17,6 +17,7 @@ using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
 using Buyer.Application.Features.Queries.GetSilaCreditMemo;
 using Buyer.Application.Features.Queries.GetSilaCreditMemoEligibleLines;
+using Buyer.Application.Features.Queries.GetSilaCreditMemos;
 using Buyer.Application.Features.Queries.GetSilaCreateInvoiceMasters;
 using Buyer.Application.Features.Queries.LookupSilaCreditMemoInvoice;
 using Buyer.Application.Features.Queries.GetSilaEligibleGoodsReceipts;
@@ -653,6 +654,26 @@ namespace Buyer.API.Controllers
                 OrganizationId = GetOrganizationId(),
                 InvoiceId = invoiceId
             }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/credit-memos")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaCreditMemos")]
+        [SwaggerResponse(200, type: typeof(List<SilaCreditMemoListItemDto>))]
+        public async Task<IActionResult> ListCreditMemos([FromQuery] string? search, [FromQuery] string? status, [FromQuery] int index = 0, [FromQuery] int limit = 20)
+        {
+            _logger.LogDebug($"Fetching credit memos. Search: {search}, Status: {status}");
+            List<SilaCreditMemoListItemDto> result = await _mediator.Send(new GetSilaCreditMemosQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                Search = search,
+                Status = status,
+                Index = index,
+                Limit = limit
+            });
+            _logger.LogDebug($"Credit memos fetched. Count: {result.Count}");
+            return Ok(result);
         }
 
         [HttpPost]

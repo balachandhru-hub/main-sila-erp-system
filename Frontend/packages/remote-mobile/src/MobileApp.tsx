@@ -11,6 +11,7 @@ import ScanInvoiceScreen from './screens/receive/ScanInvoiceScreen';
 import InvoiceFileScreen from './screens/receive/InvoiceFileScreen';
 import InvoiceReviewScreen from './screens/receive/InvoiceReviewScreen';
 import PostedInvoicesScreen from './screens/receive/PostedInvoicesScreen';
+import CreditMemosScreen from './screens/receive/CreditMemosScreen';
 import CreditMemoScreen from './screens/receive/CreditMemoScreen';
 import GrnFormScreen from './screens/receive/GrnFormScreen';
 import GrnDetailScreen from './screens/receive/GrnDetailScreen';
@@ -110,6 +111,8 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="receive/invoices/:invoiceId/credit-memos/:creditMemoId" element={<CreditMemoScreen />} />
                 <Route path="receive/invoices/:invoiceId/file" element={<InvoiceFileScreen />} />
                 <Route path="receive/posted-invoices" element={<PostedInvoicesScreen />} />
+                <Route path="receive/credit-memos" element={<CreditMemosScreen />} />
+                <Route path="receive/credit-memos/:creditMemoId" element={<CreditMemoScreen />} />
                 <Route path="receive/grn/new" element={<GrnFormScreen />} />
                 <Route path="receive/grns/:grnId" element={<GrnDetailScreen />} />
                 <Route path="receive/grns/:grnId/reverse" element={<GrnReverseScreen />} />

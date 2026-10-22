@@ -35,6 +35,7 @@ import SilaReceivingDashboard from "./receiving/SilaReceivingDashboard";
 import SilaPurchaseOrdersOpen from "./receiving/SilaPurchaseOrdersOpen";
 import SilaGoodsReceipts from "./receiving/SilaGoodsReceipts";
 import SilaInvoices from "./receiving/SilaInvoices";
+import SilaCreditMemos from "./receiving/SilaCreditMemos";
 import SilaSuppliers from "./receiving/SilaSuppliers";
 import SilaCompanyCodes from "./receiving/SilaCompanyCodes";
 import SilaPoImport from "./receiving/SilaPoImport";
@@ -168,6 +169,8 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, capabil
         return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
       case "silaInvoices":
         return <SilaInvoices canPost={can.postGrn} />;
+      case "silaCreditMemos":
+        return <SilaCreditMemos canPost={can.postGrn} />;
       case "silaPriceApprovals":
         return <SilaPriceApprovals />;
       case "silaAuditLog":

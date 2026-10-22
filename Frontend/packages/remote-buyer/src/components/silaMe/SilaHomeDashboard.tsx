@@ -10,6 +10,7 @@ import {
 } from "../../api/silaMe/silaReceivingApi";
 import { formatDate, formatDateTime } from "../cart/lineFormat";
 import { implementedHomePersonas, type SilaHomeCapabilities, type SilaHomePersona } from "./silaHomeCapabilities";
+import { queueSilaCreditMemoSearch } from "./receiving/SilaCreditMemos";
 import { receivingBadgeClass, receivingLabel } from "./receiving/receivingFormat";
 import "./silaMeTheme.css";
 import "./receiving/SilaReceiving.css";
@@ -61,8 +62,16 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
     onNavigate(key);
   };
 
+  const openCreditMemos = (intent: { status?: string; creditMemoId?: string } = {}) => {
+    queueSilaCreditMemoSearch(intent);
+    go("silaCreditMemos");
+  };
+
   const openTask = (task: SilaReceivingTask | SilaReceivingException | SilaHomeApproval) => {
+    const creditMemoId = "creditMemoId" in task ? task.creditMemoId : undefined;
+    const creditMemoTask = ("type" in task && task.type === "CREDIT_MEMO") || Boolean(creditMemoId);
     if (readOnly) {
+      if (creditMemoTask) { openCreditMemos({ creditMemoId: creditMemoId ?? undefined }); return; }
       if ("invoiceId" in task && task.invoiceId) { go("silaInvoices"); return; }
       if ("goodsReceiptId" in task && task.goodsReceiptId) { go("silaGoodsReceipts"); return; }
       if ("purchaseOrderId" in task && task.purchaseOrderId) { go("silaPurchaseOrders"); return; }
@@ -71,6 +80,10 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
     }
     if ("action" in task && task.action === "PROCESS_INVOICE") {
       go("silaInvoices");
+      return;
+    }
+    if (creditMemoTask) {
+      openCreditMemos({ creditMemoId: creditMemoId ?? undefined });
       return;
     }
     if ("goodsReceiptId" in task && task.goodsReceiptId && (task.action === "REVIEW" || "exception" in task)) {
@@ -303,12 +316,12 @@ const SilaHomeDashboard: React.FC<SilaHomeDashboardProps> = ({
             <section className="sila-card">
               <h2 className="sila-form-section-title">Credit memos</h2>
               <div className="sila-kpi-grid">
-                <KpiCard label="In progress" value={data?.creditMemo.inProgress ?? 0} onClick={() => go("silaInvoices")} />
-                <KpiCard label="Posting failed" value={data?.creditMemo.postingFailed ?? 0} tone="danger" onClick={() => go("silaInvoices")} />
-                <KpiCard label="Recently posted" value={data?.creditMemo.postedRecently ?? 0} tone="success" onClick={() => go("silaInvoices")} />
+                <KpiCard label="In progress" value={data?.creditMemo.inProgress ?? 0} onClick={() => openCreditMemos({ status: "IN_PROGRESS" })} />
+                <KpiCard label="Posting failed" value={data?.creditMemo.postingFailed ?? 0} tone="danger" onClick={() => openCreditMemos({ status: "FAILED" })} />
+                <KpiCard label="Recently posted" value={data?.creditMemo.postedRecently ?? 0} tone="success" onClick={() => openCreditMemos({ status: "POSTED" })} />
               </div>
               <div className="srcv-actions">
-                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => go("silaInvoices")}>Posted invoices / Credit memo</button>
+                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => openCreditMemos()}>Credit memos</button>
               </div>
             </section>
           )}

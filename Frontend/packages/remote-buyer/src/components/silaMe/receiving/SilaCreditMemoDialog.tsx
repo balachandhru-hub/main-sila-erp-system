@@ -275,6 +275,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
               <p>Status: {receivingLabel(reference.status)}</p>
             </section>
             {memo && <p><span className={receivingBadgeClass(memo.status)}>{receivingLabel(memo.status)}</span> Credit Memo {memo.creditMemoNumber}</p>}
+            {posted && memo?.erpMessage && <p className="sila-alert sila-alert--success">{memo.erpMessage}</p>}
             {failed && memo?.erpMessage && <p className="srcv-error">{memo.erpMessage}</p>}
             {unknown && <p className="sila-alert sila-alert--warning">Credit memo posting is unknown. Reconcile it. Do not retry blindly.</p>}
             <div className="sila-form-grid">
@@ -375,7 +376,12 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
                 )}
               </div>
             )}
-            {memo && <EmptyState title={memo.creditMemoNumber || "Credit Memo"} description={`Status ${receivingLabel(memo.status)}${memo.erpReference ? ` · SAP ${memo.erpReference}` : ""}`} />}
+            {memo && (
+              <EmptyState
+                title={memo.creditMemoNumber || "Credit Memo"}
+                description={`Status ${receivingLabel(memo.status)}${memo.erpReference ? ` · SAP ${memo.erpReference}` : ""}${memo.fiscalYear ? ` / ${memo.fiscalYear}` : ""}`}
+              />
+            )}
             <SilaDocumentTrackPanel track={memo?.documentTrack} />
           </>
         )}

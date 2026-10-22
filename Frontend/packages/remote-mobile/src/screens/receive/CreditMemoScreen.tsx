@@ -40,8 +40,9 @@ const postingField = (invoice: SilaInvoiceDetail | null, name: string): string |
 const CreditMemoScreen: React.FC = () => {
   const { invoiceId = '', creditMemoId = '' } = useParams();
   const go = useGo();
-  const invoiceLoad = useLoad(() => getInvoice(invoiceId), invoiceId || null);
   const memoLoad = useLoad(() => getCreditMemo(creditMemoId), creditMemoId || null);
+  const resolvedInvoiceId = invoiceId || memoLoad.data?.referenceInvoiceId || '';
+  const invoiceLoad = useLoad(() => getInvoice(resolvedInvoiceId), resolvedInvoiceId || null);
   const [lines, setLines] = useState<SilaCreditMemoEligibleLine[]>([]);
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
   const [headerText, setHeaderText] = useState('');
@@ -57,11 +58,11 @@ const CreditMemoScreen: React.FC = () => {
   const loadedMemo = memo ?? memoLoad.data;
 
   useEffect(() => {
-    if (!invoiceId) return;
+    if (!resolvedInvoiceId) return;
     let active = true;
     const load = async () => {
       if (creditMemoId && !memo && !memoLoad.data && memoLoad.loading) return;
-      const rows = await getCreditMemoLines(invoiceId);
+      const rows = await getCreditMemoLines(resolvedInvoiceId);
       if (!active) return;
       const saved = creditMemoId ? (memo ?? memoLoad.data)?.lines : undefined;
       const merged = mergeCreditMemoEligibleLines(rows, saved);
@@ -73,7 +74,7 @@ const CreditMemoScreen: React.FC = () => {
     };
     load().catch((caught: unknown) => setNotice({ tone: 'error', text: errorText(caught, 'Could not load credit memo lines.') }));
     return () => { active = false; };
-  }, [invoiceId, creditMemoId, memo, memoLoad.data]);
+  }, [resolvedInvoiceId, creditMemoId, memo, memoLoad.data]);
 
   useEffect(() => {
     if (!invoice) return;
@@ -104,7 +105,7 @@ const CreditMemoScreen: React.FC = () => {
   };
 
   const payload = () => ({
-    referenceInvoiceId: invoiceId,
+    referenceInvoiceId: resolvedInvoiceId,
     creditMemoReference: reference.trim() || null,
     documentDate,
     postingDate,
@@ -139,12 +140,13 @@ const CreditMemoScreen: React.FC = () => {
   };
 
   const unknown = loadedMemo?.status === 'POSTING_UNKNOWN' || loadedMemo?.erpStatus === 'UNKNOWN';
+  const posted = loadedMemo?.status === 'POSTED';
   const company = invoice?.companyCode || postingField(invoice, 'CompanyCode') || loadedMemo?.companyCode || loadedMemo?.referenceInvoice?.companyCode;
   const currency = invoice?.currency || postingField(invoice, 'DocumentCurrency') || '—';
 
   return (
     <>
-      <ScreenHeader title="Credit Memo" eyebrow="Posted invoice" back />
+      <ScreenHeader title="Credit Memo" eyebrow={invoiceId ? 'Posted invoice' : 'Credit memos'} back />
       <div className="sm-screen">
         {invoiceLoad.loading && !invoice && <Loading />}
         {invoiceLoad.error && <ErrorNotice message={invoiceLoad.error} onRetry={invoiceLoad.reload} />}
@@ -161,7 +163,9 @@ const CreditMemoScreen: React.FC = () => {
               <p className="sm-meta">Credit Memo: {loadedMemo.creditMemoNumber || '—'}</p>
             )}
             {loadedMemo && <StatusBadge status={loadedMemo.status} />}
-            {loadedMemo?.erpMessage && <p className="sm-notice sm-notice--error">{safeErpMessage(loadedMemo.erpMessage)}</p>}
+            {loadedMemo?.erpMessage && (
+              <p className={posted ? 'sm-notice sm-notice--success' : 'sm-notice sm-notice--error'}>{safeErpMessage(loadedMemo.erpMessage)}</p>
+            )}
             {unknown && <p className="sm-notice sm-notice--warning">Posting status unknown. Reconcile before SAP is called again.</p>}
             <div className="sm-field">
               <label htmlFor="sm-cm-ref">Credit memo number</label>

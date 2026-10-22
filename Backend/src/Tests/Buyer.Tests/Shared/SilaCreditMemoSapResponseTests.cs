@@ -16,6 +16,34 @@ namespace Buyer.Tests.Shared
         }
 
         [Fact]
+        public void DisplayMessage_SuccessUsesCreditMemoIdAndFiscalYear()
+        {
+            string message = SilaCreditMemoPosting.DisplayMessage("POSTED", new Buyer.Domain.Entities.InventoryErpPosting
+            {
+                Status = "POSTED",
+                ErpReference = "5105601149",
+                ErpHttpStatus = 201,
+                ErpResponsePayload = Complete
+            });
+            Assert.Equal("Posted successfully. SAP Credit Memo 5105601149 / 2026.", message);
+        }
+
+        [Fact]
+        public void DisplayMessage_DoesNotDumpSuccessfulSapJson()
+        {
+            string truncated = Complete + new string('x', 5000);
+            truncated = truncated[..4000];
+            string message = SilaCreditMemoPosting.DisplayMessage("POSTED", new Buyer.Domain.Entities.InventoryErpPosting
+            {
+                Status = "POSTED",
+                ErpHttpStatus = 201,
+                ErpResponsePayload = truncated
+            });
+            Assert.Equal("Posted successfully. SAP Credit Memo 5105601149 / 2026.", message);
+            Assert.DoesNotContain("{", message);
+        }
+
+        [Fact]
         public void ReadSupplierInvoice_ReadsTruncatedSanitisedPayload()
         {
             string truncated = Complete + new string('x', 5000);

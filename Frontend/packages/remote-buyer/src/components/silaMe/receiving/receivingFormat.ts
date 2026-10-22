@@ -31,6 +31,8 @@ const LABELS: Record<string, string> = {
   POSTING_DATA_STALE: "Posting data needs a refresh",
   LOCAL_FINALIZATION_FAILED: "Local finalization failed",
   POSTING_UNKNOWN: "Posting unknown",
+  IN_PROGRESS: "In progress",
+  DRAFT: "Draft",
   AWAITING_PAYMENT: "Awaiting payment",
   PARTIALLY_PAID: "Partially paid",
   PAID: "Paid",
