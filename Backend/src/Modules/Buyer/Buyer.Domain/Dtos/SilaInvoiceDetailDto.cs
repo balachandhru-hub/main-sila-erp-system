@@ -74,6 +74,8 @@ namespace Buyer.Domain.Dtos
         /// <summary>PO → GRN → Invoice → Attachment → Payment → SOA.</summary>
         public SilaDocumentTrackDto? DocumentTrack { get; set; }
 
+        public List<SilaCreditMemoListItemDto> CreditMemos { get; set; } = new();
+
         /// <summary>The stored S/4 posting values. Null until the purchase order has been read for this invoice.</summary>
         public SilaInvoicePostingDataDto? PostingData { get; set; }
     }

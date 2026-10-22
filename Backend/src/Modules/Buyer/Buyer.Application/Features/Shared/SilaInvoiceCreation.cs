@@ -353,6 +353,10 @@ namespace Buyer.Application.Features.Shared
             return items;
         }
 
+        /// <summary>Posted goods receipt that may still be converted to an invoice.</summary>
+        public static bool IsPostedForInvoice(GoodsReceipt receipt, IReadOnlyDictionary<Guid, InventoryErpPosting> postings)
+            => EligibleReceipt(receipt, postings);
+
         private static bool EligibleReceipt(GoodsReceipt receipt, IReadOnlyDictionary<Guid, InventoryErpPosting> postings)
         {
             if (string.Equals(receipt.Status, "FAILED", StringComparison.OrdinalIgnoreCase)

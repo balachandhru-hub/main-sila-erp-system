@@ -44,6 +44,7 @@ namespace Buyer.Application.Features.Shared
                 posting.ErrorMessage = null;
                 posting.PostedOn ??= DateTime.UtcNow;
                 await SilaInvoicePosting.OnFinishedAsync(repository, logger, basePath, posting, posting.Status, cancellationToken);
+                await SilaCreditMemoPosting.OnFinishedAsync(repository, posting, posting.Status, cancellationToken);
                 Record(repository, posting, userId, SilaTrackerRules.FROM_LOCAL, previousError, false, true, "Local finalization completed. SAP was not called.");
                 await repository.SaveAsync();
                 logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
@@ -67,6 +68,7 @@ namespace Buyer.Application.Features.Shared
                 posting.Status = Common.SILA_POSTING_FAILED_LOCAL;
                 posting.ErrorMessage = SilaTrackerRules.LocalFailureMessage(posting.ErpReference);
                 await SilaInvoicePosting.OnFinishedAsync(repository, logger, basePath, posting, posting.Status, cancellationToken);
+                await SilaCreditMemoPosting.OnFinishedAsync(repository, posting, posting.Status, cancellationToken);
                 Record(repository, posting, userId, SilaTrackerRules.FROM_LOCAL, previousError, false, true, posting.ErrorMessage);
                 try
                 {

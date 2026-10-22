@@ -60,6 +60,8 @@ namespace Buyer.Infrastructure.Repository
         private IGoodsReceiptItemRepository? _goodsReceiptItem;
         private IInvoiceRepository? _invoice;
         private IInvoiceItemRepository? _invoiceItem;
+        private ICreditMemoRepository? _creditMemo;
+        private ICreditMemoItemRepository? _creditMemoItem;
         private IBuyerBusinessProfileRepository _buyerBusinessProfileRepository;
         private IBuyerCategoryRepository _buyerCategoryRepository;
         private IAssetRepository _assetRepository;
@@ -1162,6 +1164,24 @@ namespace Buyer.Infrastructure.Repository
             {
                 _invoiceItem ??= new InvoiceItemRepository(_context);
                 return _invoiceItem;
+            }
+        }
+
+        public ICreditMemoRepository CreditMemo
+        {
+            get
+            {
+                _creditMemo ??= new CreditMemoRepository(_context);
+                return _creditMemo;
+            }
+        }
+
+        public ICreditMemoItemRepository CreditMemoItem
+        {
+            get
+            {
+                _creditMemoItem ??= new CreditMemoItemRepository(_context);
+                return _creditMemoItem;
             }
         }
 

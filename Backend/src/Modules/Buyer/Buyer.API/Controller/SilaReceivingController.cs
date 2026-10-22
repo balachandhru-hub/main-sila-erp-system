@@ -6,13 +6,20 @@ using Buyer.Application.Features.Commands.ExtractSilaInvoice;
 using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
 using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
 using Buyer.Application.Features.Commands.ReprocessSilaInvoiceAttachment;
+using Buyer.Application.Features.Commands.CreateSilaCreditMemo;
+using Buyer.Application.Features.Commands.SubmitSilaCreditMemo;
 using Buyer.Application.Features.Commands.SubmitSilaInvoice;
+using Buyer.Application.Features.Commands.UpdateSilaCreditMemo;
 using Buyer.Application.Features.Commands.PostSilaGoodsReceipt;
 using Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal;
 using Buyer.Application.Features.Commands.UpdateSilaInvoice;
 using Buyer.Application.Features.Commands.UploadSilaInvoice;
+using Buyer.Application.Features.Queries.GetSilaCreditMemo;
+using Buyer.Application.Features.Queries.GetSilaCreditMemoEligibleLines;
+using Buyer.Application.Features.Queries.GetSilaCreditMemos;
 using Buyer.Application.Features.Queries.GetSilaCreateInvoiceMasters;
+using Buyer.Application.Features.Queries.LookupSilaCreditMemoInvoice;
 using Buyer.Application.Features.Queries.GetSilaEligibleGoodsReceipts;
 using Buyer.Application.Features.Queries.GetSilaEligiblePurchaseOrders;
 using Buyer.Application.Features.Queries.GetSilaGoodsReceipt;
@@ -22,6 +29,7 @@ using Buyer.Application.Features.Queries.GetSilaInvoiceFile;
 using Buyer.Application.Features.Queries.GetSilaInvoiceGrnFile;
 using Buyer.Application.Features.Queries.GetSilaInvoices;
 using Buyer.Application.Features.Queries.GetSilaOpenPurchaseOrders;
+using Buyer.Application.Features.Queries.GetSilaReceivingDashboard;
 using Buyer.Application.Features.Queries.GetSilaPurchaseOrder;
 using Buyer.Application.Features.Queries.ValidateSilaGoodsReceipt;
 using Buyer.Domain.Dtos;
@@ -53,6 +61,28 @@ namespace Buyer.API.Controllers
         {
             _mediator = mediator;
             _logger = logger;
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/receiving/dashboard")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaReceivingDashboard")]
+        [SwaggerResponse(200, type: typeof(SilaReceivingDashboardDto))]
+        public async Task<IActionResult> GetReceivingDashboard(
+            [FromQuery] Guid? locationId,
+            [FromQuery] Guid? propertyId,
+            [FromQuery] string? supplier)
+        {
+            SilaReceivingDashboardDto result = await _mediator.Send(new GetSilaReceivingDashboardQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                LocationId = locationId,
+                PropertyId = propertyId,
+                Supplier = supplier
+            });
+            return Ok(result);
         }
 
         [HttpGet]
@@ -593,6 +623,133 @@ namespace Buyer.API.Controllers
             });
             _logger.LogDebug($"Invoice approval finished. InvoiceId: {invoiceId}, Status: {result.Status}");
             return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/credit-memos/reference-invoices")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("LookupSilaCreditMemoInvoice")]
+        [SwaggerResponse(200, type: typeof(List<SilaCreditMemoReferenceInvoiceDto>))]
+        public async Task<IActionResult> LookupCreditMemoInvoice([FromQuery] Guid? invoiceId, [FromQuery] string? invoiceNumber, [FromQuery] string? erpInvoiceId, [FromQuery] int limit = 20)
+        {
+            return Ok(await _mediator.Send(new LookupSilaCreditMemoInvoiceQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                InvoiceId = invoiceId,
+                InvoiceNumber = invoiceNumber,
+                ErpInvoiceId = erpInvoiceId,
+                Limit = limit
+            }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/credit-memo-lines")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaCreditMemoEligibleLines")]
+        [SwaggerResponse(200, type: typeof(List<SilaCreditMemoEligibleLineDto>))]
+        public async Task<IActionResult> CreditMemoLines([FromRoute] Guid invoiceId)
+        {
+            return Ok(await _mediator.Send(new GetSilaCreditMemoEligibleLinesQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                InvoiceId = invoiceId
+            }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/credit-memos")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaCreditMemos")]
+        [SwaggerResponse(200, type: typeof(List<SilaCreditMemoListItemDto>))]
+        public async Task<IActionResult> ListCreditMemos([FromQuery] string? search, [FromQuery] string? status, [FromQuery] int index = 0, [FromQuery] int limit = 20)
+        {
+            _logger.LogDebug($"Fetching credit memos. Search: {search}, Status: {status}");
+            List<SilaCreditMemoListItemDto> result = await _mediator.Send(new GetSilaCreditMemosQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                Search = search,
+                Status = status,
+                Index = index,
+                Limit = limit
+            });
+            _logger.LogDebug($"Credit memos fetched. Count: {result.Count}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/credit-memos")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("CreateSilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> CreateCreditMemo([FromBody] SilaCreditMemoWriteDto request)
+        {
+            return Ok(await _mediator.Send(new CreateSilaCreditMemoCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                Request = request ?? new SilaCreditMemoWriteDto()
+            }));
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> GetCreditMemo([FromRoute] Guid creditMemoId)
+        {
+            return Ok(await _mediator.Send(new GetSilaCreditMemoQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                CreditMemoId = creditMemoId
+            }));
+        }
+
+        [HttpPut]
+        [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("UpdateSilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> UpdateCreditMemo([FromRoute] Guid creditMemoId, [FromBody] SilaCreditMemoWriteDto request)
+        {
+            return Ok(await _mediator.Send(new UpdateSilaCreditMemoCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                CreditMemoId = creditMemoId,
+                Request = request ?? new SilaCreditMemoWriteDto()
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}/submit")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("SubmitSilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> SubmitCreditMemo([FromRoute] Guid creditMemoId)
+        {
+            return Ok(await _mediator.Send(new SubmitSilaCreditMemoCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                CreditMemoId = creditMemoId
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}/retry")]
+        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [SwaggerOperation("RetrySilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> RetryCreditMemo([FromRoute] Guid creditMemoId)
+        {
+            return Ok(await _mediator.Send(new SubmitSilaCreditMemoCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                CreditMemoId = creditMemoId,
+                Retry = true
+            }));
         }
     }
 }

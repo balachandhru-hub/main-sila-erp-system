@@ -5,6 +5,10 @@ const LABELS: Record<string, string> = {
   CREATED: "Open",
   PARTIALLY_RECEIVED: "Partially received",
   RECEIVED: "Received",
+  EXPECTED_TODAY: "Expected today",
+  PENDING: "Pending",
+  PARTIAL: "Partial",
+  OVERDUE: "Overdue",
   // Goods receipt
   POSTED: "Posted",
   // Invoice
@@ -27,6 +31,8 @@ const LABELS: Record<string, string> = {
   POSTING_DATA_STALE: "Posting data needs a refresh",
   LOCAL_FINALIZATION_FAILED: "Local finalization failed",
   POSTING_UNKNOWN: "Posting unknown",
+  IN_PROGRESS: "In progress",
+  DRAFT: "Draft",
   AWAITING_PAYMENT: "Awaiting payment",
   PARTIALLY_PAID: "Partially paid",
   PAID: "Paid",
@@ -61,7 +67,7 @@ const LABELS: Record<string, string> = {
 // Tones of the prototype: good, bad and warn; everything else is blue (info).
 const DANGER = ["FAILED", "OCR_FAILED", "CANCELLED", "INACTIVE", "REJECTED", "BLOCKED", "GRN_FAILED", "ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "APPROVAL_REJECTED", "LOCAL_FINALIZATION_FAILED", "FAILED_LOCAL", "POSTING_UNKNOWN"];
 const SUCCESS = ["POSTED", "RECEIVED", "GRN_POSTED", "REVIEWED", "CLOSED", "ACTIVE", "PROCESSED", "APPROVED", "MATCHED", "AWAITING_PAYMENT", "PAID", "READY_FOR_INVOICE_SUBMISSION", "ERP_ACCEPTED"];
-const WARNING = ["PENDING", "PARTIALLY_RECEIVED", "SKIPPED", "UNKNOWN", "REVIEW_REQUIRED", "READY_TO_POST", "PROCESSING", "SUGGESTED", "GRN_IN_PROGRESS", "PENDING_APPROVAL", "POSTING", "PARTIALLY_PAID", "OVERDUE"];
+const WARNING = ["PENDING", "PARTIALLY_RECEIVED", "PARTIAL", "EXPECTED_TODAY", "SKIPPED", "UNKNOWN", "REVIEW_REQUIRED", "READY_TO_POST", "PROCESSING", "SUGGESTED", "GRN_IN_PROGRESS", "PENDING_APPROVAL", "POSTING", "PARTIALLY_PAID", "OVERDUE"];
 
 export const receivingLabel = (code?: string | null): string => (code ? LABELS[code] ?? silaLabel(code) : "—");
 

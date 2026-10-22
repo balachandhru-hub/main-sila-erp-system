@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import type { SilaMeNavKey, SilaMeRole } from "./silaMeNav";
 import { silaMePermissions } from "./silaMePermissions";
+import SilaHomeDashboard from "./SilaHomeDashboard";
+import {
+  silaHomeCapabilities,
+  silaHomePersonaCapabilities,
+  type SilaHomeCapabilities,
+  type SilaHomePersona,
+} from "./silaHomeCapabilities";
 import SilaInventoryDashboard from "./inventory/SilaInventoryDashboard";
 import SilaLiveInventory from "./inventory/SilaLiveInventory";
 import SilaInventoryTransactions from "./inventory/SilaInventoryTransactions";
@@ -24,9 +31,11 @@ import SilaRecipeMasterData from "./recipes/SilaRecipeMasterData";
 import SilaSubstitutions from "./substitutions/SilaSubstitutions";
 import SilaPosIntegration from "./pos/SilaPosIntegration";
 import SilaConsolidatedTracker from "./trackers/SilaConsolidatedTracker";
+import SilaReceivingDashboard from "./receiving/SilaReceivingDashboard";
 import SilaPurchaseOrdersOpen from "./receiving/SilaPurchaseOrdersOpen";
 import SilaGoodsReceipts from "./receiving/SilaGoodsReceipts";
 import SilaInvoices from "./receiving/SilaInvoices";
+import SilaCreditMemos from "./receiving/SilaCreditMemos";
 import SilaSuppliers from "./receiving/SilaSuppliers";
 import SilaCompanyCodes from "./receiving/SilaCompanyCodes";
 import SilaPoImport from "./receiving/SilaPoImport";
@@ -38,6 +47,7 @@ import "./SilaMeWorkspace.css";
 interface SilaMeWorkspaceProps {
   navKey: SilaMeNavKey;
   role: SilaMeRole;
+  capabilities?: SilaHomeCapabilities;
   /** Opens another SILA ME screen or navigation route (e.g. 'models'). */
   onNavigate: (key: any) => void;
 }
@@ -46,8 +56,10 @@ interface SilaMeWorkspaceProps {
  * The SILA ME (hospitality add-on) screens. The role decides which actions a screen offers (silaMePermissions);
  * every action is authorised again by the API.
  */
-const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavigate }) => {
+const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, capabilities, onNavigate }) => {
   const can = silaMePermissions(role);
+  const homeCaps = capabilities ?? silaHomeCapabilities(true, can);
+  const [previewPersona, setPreviewPersona] = useState<SilaHomePersona>("self");
   // Screens that open a specific record in another screen pass it through here.
   const [countToOpen, setCountToOpen] = useState<string | null>(null);
   const [recipeToOpen, setRecipeToOpen] = useState<string | null>(null);
@@ -61,7 +73,19 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
 
   const renderContent = () => {
     switch (navKey) {
-      case "silaDashboard":
+      case "silaDashboard": {
+        const previewing = role === "admin" && previewPersona !== "self";
+        return (
+          <SilaHomeDashboard
+            capabilities={silaHomePersonaCapabilities(homeCaps, role === "admin" ? previewPersona : "self")}
+            previewPersona={role === "admin" ? previewPersona : "self"}
+            onPreviewPersona={role === "admin" ? setPreviewPersona : undefined}
+            onNavigate={onNavigate}
+            readOnly={previewing}
+          />
+        );
+      }
+      case "silaInventoryDashboard":
         return (
           <SilaInventoryDashboard
             canTransfer={can.manageTransfer}
@@ -131,12 +155,22 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       case "silaErpPostings":
       case "silaMeTracker":
         return <SilaConsolidatedTracker tracker="SILA_ME" canReprocess={can.manageErpPosting} />;
+      case "silaReceivingDashboard":
+        return (
+          <SilaReceivingDashboard
+            canPost={can.postGrn}
+            canReprocess={can.manageErpPosting}
+            supervisor={can.manageErpPosting || can.viewAudit}
+          />
+        );
       case "silaPurchaseOrders":
         return <SilaPurchaseOrdersOpen />;
       case "silaGoodsReceipts":
         return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
       case "silaInvoices":
         return <SilaInvoices canPost={can.postGrn} />;
+      case "silaCreditMemos":
+        return <SilaCreditMemos canPost={can.postGrn} />;
       case "silaPriceApprovals":
         return <SilaPriceApprovals />;
       case "silaAuditLog":

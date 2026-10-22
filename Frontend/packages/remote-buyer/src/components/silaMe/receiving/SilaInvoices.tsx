@@ -205,6 +205,10 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canPost }) => {
             list.reload();
             setOpenId(invoiceId);
           }}
+          onCreditMemoDone={() => {
+            setCreating(false);
+            list.reload();
+          }}
         />
       )}
       {openId && (

@@ -310,6 +310,15 @@ namespace Buyer.Domain.Common
                 public const string SILA_PROPOSAL_DISMISSED = "DISMISSED";
                 public const string SILA_REF_INVOICE = "INVOICE";
                 public const string SILA_REF_INVOICE_ATTACHMENT = "INVOICE_ATTACHMENT";
+                public const string SILA_REF_CREDIT_MEMO = "CREDIT_MEMO";
+                public const string SILA_MOVEMENT_CREDIT_MEMO = "CREDIT_MEMO";
+                public const string SILA_CREDIT_MEMO_DRAFT = "DRAFT";
+                public const string SILA_CREDIT_MEMO_READY_TO_POST = "READY_TO_POST";
+                public const string SILA_CREDIT_MEMO_POSTING = "POSTING";
+                public const string SILA_CREDIT_MEMO_POSTED = "POSTED";
+                public const string SILA_CREDIT_MEMO_POSTING_FAILED = "ERP_POSTING_FAILED";
+                public const string SILA_CREDIT_MEMO_POSTING_UNKNOWN = "POSTING_UNKNOWN";
+                public const string SILA_CREDIT_MEMO_LOCAL_FAILED = "LOCAL_FINALIZATION_FAILED";
                 public const string SILA_REF_MATERIAL_PRICE = "MATERIAL_PRICE";
                 public const string SILA_REF_PURCHASE_REQUEST = "PURCHASE_REQUEST";
                 public const string SILA_REF_PHYSICAL_INVENTORY = "PHYSICAL_INVENTORY";
