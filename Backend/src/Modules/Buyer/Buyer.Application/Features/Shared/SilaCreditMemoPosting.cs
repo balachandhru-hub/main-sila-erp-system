@@ -89,7 +89,6 @@ namespace Buyer.Application.Features.Shared
                 ["DocumentCurrency"] = SilaCreditMemoPostingData.Header(prepared, "DocumentCurrency"),
                 ["InvoiceGrossAmount"] = SilaCreditMemoPostingData.Header(prepared, "InvoiceGrossAmount"),
                 ["AccountingDocumentType"] = SilaCreditMemoLifecycle.DOCUMENT_TYPE,
-                ["BusinessPartnerPostingType"] = SilaCreditMemoLifecycle.PARTNER_POSTING_TYPE,
                 ["TaxCalculationDate"] = SapDate(SilaCreditMemoPostingData.Header(prepared, "TaxCalculationDate")),
                 ["To_SuplrInvcItemPurOrdRef"] = items
             };
