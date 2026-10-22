@@ -77,7 +77,12 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
                     .FirstOrDefaultAsync(cancellationToken);
             }
 
-            string invoiceGate = SilaReceivingReversal.InvoiceGate(invoice?.Status);
+            InventoryErpPosting? invoicePosting = invoice?.ErpPostingId == null
+                ? null
+                : await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.Id == invoice.ErpPostingId.Value)
+                    .FirstOrDefaultAsync(cancellationToken);
+            string invoiceGate = SilaReceivingReversal.ResolveInvoiceGate(invoice?.Status, invoicePosting);
             bool invoiceBlocks = SilaReceivingReversal.InvoiceBlocksGrn(invoiceGate);
             bool alreadyFullyReversed = string.Equals(receipt.Status, Common.SILA_GRN_REVERSED, StringComparison.OrdinalIgnoreCase);
             bool needsLocal = SilaReceivingReversal.NeedsLocalFinalization(
@@ -115,25 +120,21 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             if (invoiceBlocks)
             {
                 Record(buyer.Id, receipt.Id, request.UserId, EVENT_INVOICE_REVERSAL, $"Blocked: InvoiceGate={invoiceGate}");
-                if (invoiceGate is "INVOICE_REVERSAL_FAILED" or "INVOICE_REVERSAL_UNKNOWN")
+                if (invoiceGate == "INVOICE_REVERSAL_UNKNOWN")
                 {
                     throw new BadRequestCustomException(
                         "INVOICE_MUST_BE_REVERSED_FIRST",
-                        invoiceGate == "INVOICE_REVERSAL_UNKNOWN"
-                            ? "Invoice reversal outcome is unknown. Reconcile before reversing the Goods Receipt. FIVE S4-GRN REVERSAL was not called."
-                            : "Invoice reversal failed. Reprocess invoice reversal before reversing the Goods Receipt. FIVE S4-GRN REVERSAL was not called.");
-                }
-
-                if (!input.ReverseInvoiceAndGrn)
-                {
-                    throw new BadRequestCustomException(
-                        "INVOICE_MUST_BE_REVERSED_FIRST",
-                        "This Goods Receipt has already been invoiced. The SAP Supplier Invoice must be reversed before the Goods Receipt can be reversed.");
+                        "Invoice posting outcome is unknown. Reconcile the invoice before reversing this goods receipt.");
                 }
 
                 throw new BadRequestCustomException(
                     "INVOICE_MUST_BE_REVERSED_FIRST",
-                    "Invoice reversal is not configured on this tenant. Reverse the SAP Supplier Invoice first, then reprocess GRN reversal. FIVE S4-GRN REVERSAL was not called.");
+                    SilaReceivingReversal.POSTED_INVOICE_MESSAGE);
+            }
+
+            if (invoice != null)
+            {
+                await ReleaseUnpostedInvoiceAsync(buyer.Id, invoice, request.UserId, cancellationToken);
             }
 
             if (string.IsNullOrWhiteSpace(receipt.MaterialDocument) || string.IsNullOrWhiteSpace(receipt.MaterialDocumentYear))
@@ -720,6 +721,44 @@ namespace Buyer.Application.Features.Commands.ReverseSilaGoodsReceipt
             Record(buyer.Id, reversal.Id, original.ReversedBy ?? original.ReceivedBy, EVENT_GRN_REVERSAL,
                 "Linked to " + original.GrnNumber);
             return reversal;
+        }
+
+        /// <summary>
+        /// Invalidates a linked invoice that has not reached SAP success. Does not delete the invoice
+        /// or call SAP. Pending approval steps are cancelled so the document cannot continue posting.
+        /// </summary>
+        private async Task ReleaseUnpostedInvoiceAsync(
+            Guid buyerId, Invoice invoice, Guid userId, CancellationToken cancellationToken)
+        {
+            List<SilaApprovalStep> pending = await _repository.SilaApprovalStep
+                .FindByCondition(x => x.BuyerId == buyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == invoice.Id
+                    && x.Status == Common.SILA_APPROVAL_PENDING)
+                .ToListAsync(cancellationToken);
+            foreach (SilaApprovalStep step in pending)
+            {
+                step.Status = "CANCELLED";
+            }
+
+            if (pending.Count > 0)
+            {
+                _repository.SilaApprovalStep.UpdateRange(pending);
+            }
+
+            invoice.Status = Common.SILA_INVOICE_GRN_FAILED;
+            _repository.Invoice.Update(invoice);
+            _repository.InventoryWorkflowEvent.Create(new InventoryWorkflowEvent
+            {
+                Id = Guid.NewGuid(),
+                BuyerId = buyerId,
+                ReferenceType = Common.SILA_REF_INVOICE,
+                ReferenceId = invoice.Id,
+                Action = EVENT_INVOICE_REVERSAL,
+                Comment = "Invoice returned to GRN_FAILED. The invoice was not posted to SAP and was not deleted.",
+                ActorUserId = userId,
+                IsActive = true
+            });
+            await Task.CompletedTask;
         }
 
         private async Task InvalidateOpenInvoiceAsync(Invoice? invoice, CancellationToken cancellationToken)

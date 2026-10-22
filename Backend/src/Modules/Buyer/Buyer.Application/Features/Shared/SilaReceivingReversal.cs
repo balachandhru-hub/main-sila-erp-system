@@ -1,4 +1,5 @@
 using Buyer.Domain.Common;
+using Buyer.Domain.Entities;
 
 namespace Buyer.Application.Features.Shared
 {
@@ -32,6 +33,8 @@ namespace Buyer.Application.Features.Shared
                 Common.SILA_INVOICE_AWAITING_PAYMENT => "INVOICE_POSTED",
                 Common.SILA_INVOICE_PAID => "INVOICE_POSTED",
                 Common.SILA_INVOICE_PARTIALLY_PAID => "INVOICE_POSTED",
+                Common.SILA_INVOICE_OVERDUE => "INVOICE_POSTED",
+                Common.SILA_INVOICE_LOCAL_FAILED => "INVOICE_POSTED",
                 Common.SILA_INVOICE_POSTING => "INVOICE_POSTING",
                 Common.SILA_INVOICE_POSTING_FAILED => "INVOICE_POSTING_FAILED",
                 Common.SILA_INVOICE_POSTING_UNKNOWN => "INVOICE_REVERSAL_UNKNOWN",
@@ -49,6 +52,27 @@ namespace Buyer.Application.Features.Shared
                 _ when invoiceStatus.Contains("REVERS", StringComparison.OrdinalIgnoreCase) => "INVOICE_REVERSED",
                 _ => "INVOICE_DRAFT"
             };
+        }
+
+        public const string POSTED_INVOICE_MESSAGE =
+            "Invoice is already posted. Reverse the posted invoice before reversing this goods receipt.";
+
+        public static string ResolveInvoiceGate(string? invoiceStatus, InventoryErpPosting? invoicePosting)
+        {
+            if (invoicePosting != null && invoicePosting.Status == Common.SILA_POSTING_UNKNOWN)
+            {
+                return "INVOICE_REVERSAL_UNKNOWN";
+            }
+
+            if (invoicePosting != null
+                && (invoicePosting.Status == Common.SILA_POSTING_POSTED
+                    || invoicePosting.Status == Common.SILA_POSTING_ERP_ACCEPTED
+                    || invoicePosting.Status == Common.SILA_POSTING_FAILED_LOCAL))
+            {
+                return "INVOICE_POSTED";
+            }
+
+            return InvoiceGate(invoiceStatus);
         }
 
         public static bool InvoiceBlocksGrn(string invoiceGate)
