@@ -81,7 +81,9 @@ namespace Buyer.API.Controllers
                 RoleId = GetRoleId(),
                 LocationId = locationId,
                 PropertyId = propertyId,
-                Supplier = supplier
+                Supplier = supplier,
+                PermissionCodes = HttpContext.Items[ApiAuthorizationAttribute.PermissionItemsKey] as List<string>
+                    ?? new List<string>()
             });
             return Ok(result);
         }

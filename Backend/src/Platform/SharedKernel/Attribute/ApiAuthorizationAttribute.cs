@@ -49,6 +49,12 @@ namespace SharedKernel.Attributes
         /// </summary>
         public static string PermissionCacheKey(Guid roleId) => $"permissions:role:{roleId}";
 
+        /// <summary>
+        /// HttpContext.Items key for the authenticated role's permission codes.
+        /// Handlers that span modules (Home dashboard) filter rows from this list.
+        /// </summary>
+        public const string PermissionItemsKey = "sila.permissions";
+
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
         {
             if (!TokenOnly && string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(AnyOf))
@@ -149,6 +155,7 @@ namespace SharedKernel.Attributes
                 context,
                 token,
                 parsedRoleId);
+            context.HttpContext.Items[PermissionItemsKey] = permissions;
 
             string[] accepted = !string.IsNullOrWhiteSpace(AnyOf)
                 ? AnyOf.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
