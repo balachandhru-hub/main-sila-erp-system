@@ -46,6 +46,24 @@ namespace Buyer.Application.Features.Commands.SubmitSilaCreditMemo
             List<CreditMemoItem> items = await _repository.CreditMemoItem
                 .FindByCondition(x => x.CreditMemoId == memo.Id && x.IsActive)
                 .ToListAsync(cancellationToken);
+            List<SilaCreditMemoEligibleLineDto> eligible = await SilaCreditMemoRules.EligibleLinesAsync(
+                _repository, invoice, memo.Id, cancellationToken);
+            List<SilaCreditMemoLineWriteDto> writes = items
+                .Where(x => x.ReferenceInvoiceLineId != null)
+                .Select(x => new SilaCreditMemoLineWriteDto
+                {
+                    InvoiceLineId = x.ReferenceInvoiceLineId!.Value,
+                    Quantity = x.Quantity,
+                    Amount = x.Amount,
+                    Reason = x.Reason
+                })
+                .ToList();
+            if (writes.Count == 0)
+            {
+                throw new BadRequestCustomException("Credit memo has no lines.", "Enter a credit quantity or amount on at least one line.");
+            }
+
+            SilaCreditMemoRules.GuardQuantities(eligible, writes);
             if (request.Retry)
             {
                 if (SilaCreditMemoPostingData.Read(memo.PostingData) == null)

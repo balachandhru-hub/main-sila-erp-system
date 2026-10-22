@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
 import {
   createCreditMemo,
+  creditMemoAmountForQuantity,
+  creditMemoDraftFromLine,
+  creditMemoHeaderText,
   getCreditMemo,
   getCreditMemoLines,
   lookupCreditMemoInvoice,
@@ -28,6 +31,7 @@ const today = (): string => new Date().toISOString().slice(0, 10);
 
 interface LineDraft {
   invoiceLineId: string;
+  included: boolean;
   quantity: string;
   amount: string;
   reason: string;
@@ -49,7 +53,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
   const [reference, setReference] = useState<SilaCreditMemoReferenceInvoice | null>(null);
   const [lines, setLines] = useState<SilaCreditMemoEligibleLine[]>([]);
   const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
-  const [headerReason, setHeaderReason] = useState("");
+  const [headerText, setHeaderText] = useState("");
   const [documentDate, setDocumentDate] = useState(today);
   const [postingDate, setPostingDate] = useState(today);
   const [taxDate, setTaxDate] = useState(today);
@@ -67,13 +71,16 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
     }
     const eligible = await getCreditMemoLines(row.id);
     setReference(row);
+    setHeaderText(creditMemoHeaderText(row.invoiceNumber));
+    setDocumentDate(today());
+    setPostingDate(today());
+    setTaxDate(today());
+    setCmReference("");
     setLines(eligible);
-    setDrafts(Object.fromEntries(eligible.map((line) => [line.invoiceLineId, {
-      invoiceLineId: line.invoiceLineId,
-      quantity: "",
-      amount: "",
-      reason: "",
-    }])));
+    setDrafts(Object.fromEntries(eligible.map((line) => {
+      const draft = creditMemoDraftFromLine(line);
+      return [line.invoiceLineId, { invoiceLineId: line.invoiceLineId, ...draft }];
+    })));
   };
 
   useEffect(() => {
@@ -85,7 +92,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
           if (!active) return;
           setMemo(data);
           setReference(data.referenceInvoice);
-          setHeaderReason(data.reason || "");
+          setHeaderText(data.headerText || data.reason || creditMemoHeaderText(data.referenceSupplierInvoiceNumber));
           setDocumentDate((data.documentDate || today()).slice(0, 10));
           setPostingDate((data.postingDate || today()).slice(0, 10));
           setTaxDate((data.taxCalculationDate || today()).slice(0, 10));
@@ -111,12 +118,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
           setLines(eligible);
           setDrafts(Object.fromEntries(eligible.map((line) => {
             const saved = data.lines.find((item) => item.referenceInvoiceLineId === line.invoiceLineId);
-            return [line.invoiceLineId, {
-              invoiceLineId: line.invoiceLineId,
-              quantity: saved?.quantity != null ? String(saved.quantity) : "",
-              amount: saved?.amount != null ? String(saved.amount) : "",
-              reason: saved?.reason || "",
-            }];
+            return [line.invoiceLineId, { invoiceLineId: line.invoiceLineId, ...creditMemoDraftFromLine(line, saved) }];
           })));
           return;
         }
@@ -146,19 +148,36 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
     }
   };
 
+  const changeDraft = (line: SilaCreditMemoEligibleLine, patch: Partial<LineDraft>, recalcAmount = false) => {
+    setDrafts((current) => {
+      const previous = current[line.invoiceLineId] ?? { invoiceLineId: line.invoiceLineId, ...creditMemoDraftFromLine(line) };
+      const next = { ...previous, ...patch };
+      if (recalcAmount && patch.quantity != null) {
+        const quantity = Number(patch.quantity);
+        if (!Number.isNaN(quantity)) next.amount = String(creditMemoAmountForQuantity(line, quantity));
+      }
+      return { ...current, [line.invoiceLineId]: next };
+    });
+  };
+
   const writePayload = () => ({
     referenceInvoiceId: reference?.id,
     creditMemoReference: cmReference.trim() || null,
     documentDate,
     postingDate,
     taxCalculationDate: taxDate,
-    reason: headerReason.trim() || null,
-    lines: Object.values(drafts).map((line) => ({
-      invoiceLineId: line.invoiceLineId,
-      quantity: line.quantity.trim() === "" ? 0 : Number(line.quantity),
-      amount: line.amount.trim() === "" ? 0 : Number(line.amount),
-      reason: line.reason.trim() || null,
-    })),
+    headerText: headerText.trim() || creditMemoHeaderText(reference?.invoiceNumber),
+    reason: headerText.trim() || null,
+    lines: lines.map((line) => {
+      const draft = drafts[line.invoiceLineId];
+      const included = draft?.included !== false;
+      return {
+        invoiceLineId: line.invoiceLineId,
+        quantity: included && draft?.quantity ? Number(draft.quantity) : 0,
+        amount: included && draft?.amount ? Number(draft.amount) : 0,
+        reason: included ? (draft?.reason?.trim() || null) : null,
+      };
+    }),
   });
 
   const run = async (label: string, work: () => Promise<SilaCreditMemoDetail>) => {
@@ -263,27 +282,26 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
             <section className="sila-alert sila-alert--info">
               <p><strong>Reference Invoice</strong> {locked ? "(locked)" : ""}</p>
               <p>Invoice Number: {reference.invoiceNumber || "—"}</p>
-              <p>ERP Invoice ID: {reference.erpInvoiceId || "—"}</p>
+              <p>SAP Invoice: {reference.erpInvoiceId || "—"}</p>
               <p>Fiscal Year: {reference.fiscalYear || "—"}</p>
               <p>Supplier: {reference.supplierName || "—"}</p>
               <p>PO: {reference.poNumber || "—"}</p>
               <p>Company Code: {reference.companyCode || "—"}</p>
               <p>Currency: {reference.currency || "—"}</p>
               <p>Original Gross Amount: {formatAmount(reference.originalGrossAmount, reference.currency)}</p>
-              <p>Posting Date: {reference.postingDate ? String(reference.postingDate).slice(0, 10) : "—"}</p>
               <p>Status: {receivingLabel(reference.status)}</p>
             </section>
-            {memo && <p><span className={receivingBadgeClass(memo.status)}>{receivingLabel(memo.status)}</span> {memo.creditMemoNumber}</p>}
+            {memo && <p><span className={receivingBadgeClass(memo.status)}>{receivingLabel(memo.status)}</span> Credit Memo {memo.creditMemoNumber}</p>}
             {failed && memo?.erpMessage && <p className="srcv-error">{memo.erpMessage}</p>}
             {unknown && <p className="sila-alert sila-alert--warning">Credit memo posting is unknown. Reconcile it. Do not retry blindly.</p>}
             <div className="sila-form-grid">
               <div className="sila-field">
-                <label className="sila-label" htmlFor="srcv-cm-ref">Credit memo reference</label>
-                <input id="srcv-cm-ref" className="sila-input" value={cmReference} onChange={(event) => setCmReference(event.target.value)} disabled={posted} />
+                <label className="sila-label" htmlFor="srcv-cm-ref">Credit memo number</label>
+                <input id="srcv-cm-ref" className="sila-input" value={memo?.creditMemoNumber || cmReference || "Assigned on save"} readOnly />
               </div>
               <div className="sila-field">
-                <label className="sila-label" htmlFor="srcv-cm-reason">Reason</label>
-                <input id="srcv-cm-reason" className="sila-input" value={headerReason} onChange={(event) => setHeaderReason(event.target.value)} disabled={posted} />
+                <label className="sila-label" htmlFor="srcv-cm-header">Header text</label>
+                <input id="srcv-cm-header" className="sila-input" value={headerText} onChange={(event) => setHeaderText(event.target.value)} disabled={posted} />
               </div>
               <div className="sila-field">
                 <label className="sila-label" htmlFor="srcv-cm-doc">Document date</label>
@@ -302,9 +320,13 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
               <table className="sila-table">
                 <thead>
                   <tr>
+                    <th>Include</th>
+                    <th>PO</th>
                     <th>PO Item</th>
                     <th>Material</th>
                     <th>Description</th>
+                    <th>UOM</th>
+                    <th>Tax</th>
                     <th>Original qty</th>
                     <th>Original amount</th>
                     <th>Previously credited qty</th>
@@ -318,12 +340,25 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
                 </thead>
                 <tbody>
                   {lines.map((line) => {
-                    const draft = drafts[line.invoiceLineId];
+                    const draft = drafts[line.invoiceLineId] ?? { invoiceLineId: line.invoiceLineId, ...creditMemoDraftFromLine(line) };
                     return (
                       <tr key={line.invoiceLineId}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            disabled={posted}
+                            checked={draft.included}
+                            onChange={(event) => changeDraft(line, event.target.checked
+                              ? { included: true, quantity: String(line.remainingQuantity), amount: String(line.remainingAmount) }
+                              : { included: false, quantity: "0", amount: "0" })}
+                          />
+                        </td>
+                        <td>{line.poNumber || reference.poNumber || "—"}</td>
                         <td>{line.poItem || line.lineNumber}</td>
                         <td>{line.material || "—"}</td>
                         <td>{line.description}</td>
+                        <td>{line.uom || "—"}</td>
+                        <td>{line.taxCode || "—"}</td>
                         <td>{line.originalQuantity}</td>
                         <td>{formatAmount(line.originalAmount, reference.currency)}</td>
                         <td>{line.previouslyCreditedQuantity}</td>
@@ -331,22 +366,13 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
                         <td>{line.remainingQuantity}</td>
                         <td>{formatAmount(line.remainingAmount, reference.currency)}</td>
                         <td>
-                          <input className="sila-input" inputMode="decimal" disabled={posted} value={draft?.quantity ?? ""} onChange={(event) => setDrafts((current) => ({
-                            ...current,
-                            [line.invoiceLineId]: { ...(current[line.invoiceLineId] ?? { invoiceLineId: line.invoiceLineId, quantity: "", amount: "", reason: "" }), quantity: event.target.value },
-                          }))} />
+                          <input className="sila-input" inputMode="decimal" disabled={posted || !draft.included} value={draft.quantity} onChange={(event) => changeDraft(line, { quantity: event.target.value }, true)} />
                         </td>
                         <td>
-                          <input className="sila-input" inputMode="decimal" disabled={posted} value={draft?.amount ?? ""} onChange={(event) => setDrafts((current) => ({
-                            ...current,
-                            [line.invoiceLineId]: { ...(current[line.invoiceLineId] ?? { invoiceLineId: line.invoiceLineId, quantity: "", amount: "", reason: "" }), amount: event.target.value },
-                          }))} />
+                          <input className="sila-input" inputMode="decimal" disabled={posted || !draft.included} value={draft.amount} onChange={(event) => changeDraft(line, { amount: event.target.value })} />
                         </td>
                         <td>
-                          <input className="sila-input" disabled={posted} value={draft?.reason ?? ""} onChange={(event) => setDrafts((current) => ({
-                            ...current,
-                            [line.invoiceLineId]: { ...(current[line.invoiceLineId] ?? { invoiceLineId: line.invoiceLineId, quantity: "", amount: "", reason: "" }), reason: event.target.value },
-                          }))} />
+                          <input className="sila-input" disabled={posted || !draft.included} value={draft.reason} onChange={(event) => changeDraft(line, { reason: event.target.value })} />
                         </td>
                       </tr>
                     );

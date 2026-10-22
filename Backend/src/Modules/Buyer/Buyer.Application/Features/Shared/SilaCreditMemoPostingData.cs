@@ -199,6 +199,12 @@ namespace Buyer.Application.Features.Shared
             prepared.Header.Add(FieldOf("AccountingDocumentType", "Accounting document type", SilaCreditMemoLifecycle.DOCUMENT_TYPE, SOURCE_CONFIGURATION, true));
             prepared.Header.Add(FieldOf("BusinessPartnerPostingType", "Business partner posting type", SilaCreditMemoLifecycle.PARTNER_POSTING_TYPE, SOURCE_CONFIGURATION, true));
             prepared.Header.Add(FieldOf("TaxCalculationDate", "Tax calculation date", taxDate, SOURCE_LINE, true));
+            prepared.Header.Add(FieldOf(
+                "HeaderText",
+                "Header text",
+                First(memo.Reason, SilaCreditMemoRules.DefaultHeaderText(invoice.InvoiceNumber ?? memo.ReferenceSupplierInvoiceNumber)),
+                SOURCE_LINE,
+                false));
 
             foreach (CreditMemoItem item in items.Where(x => (x.Quantity ?? 0) > 0 || (x.Amount ?? 0) > 0).OrderBy(x => x.LineNumber))
             {

@@ -32,14 +32,7 @@ namespace Buyer.Application.Features.Commands.UpdateSilaCreditMemo
 
             Invoice invoice = await SilaCreditMemoRules.RequirePostedInvoiceAsync(_repository, _logger, buyer.Id, memo.ReferenceInvoiceId, cancellationToken);
             List<SilaCreditMemoEligibleLineDto> eligible = await SilaCreditMemoRules.EligibleLinesAsync(_repository, invoice, memo.Id, cancellationToken);
-            SilaCreditMemoRules.GuardQuantities(eligible, request.Request.Lines);
-            List<SilaCreditMemoLineWriteDto> included = request.Request.Lines
-                .Where(x => (x.Quantity ?? 0) > 0 || (x.Amount ?? 0) > 0)
-                .ToList();
-            if (included.Count == 0)
-            {
-                throw new BadRequestCustomException("Credit memo has no lines.", "Enter a credit quantity or amount on at least one line.");
-            }
+            List<SilaCreditMemoLineWriteDto> included = SilaCreditMemoRules.IncludedWrites(eligible, request.Request.Lines);
 
             List<CreditMemoItem> existing = await _repository.CreditMemoItem
                 .FindByCondition(x => x.CreditMemoId == memo.Id && x.IsActive)
@@ -53,14 +46,16 @@ namespace Buyer.Application.Features.Commands.UpdateSilaCreditMemo
             memo.CreditMemoReference = string.IsNullOrWhiteSpace(request.Request.CreditMemoReference)
                 ? memo.CreditMemoReference ?? memo.CreditMemoNumber
                 : request.Request.CreditMemoReference.Trim();
-            memo.DocumentDate = request.Request.DocumentDate ?? memo.DocumentDate;
-            memo.PostingDate = request.Request.PostingDate ?? memo.PostingDate;
-            memo.TaxCalculationDate = request.Request.TaxCalculationDate ?? memo.TaxCalculationDate;
-            memo.Reason = request.Request.Reason ?? memo.Reason;
+            memo.DocumentDate = SilaCreditMemoRules.TransactionDate(request.Request.DocumentDate ?? memo.DocumentDate);
+            memo.PostingDate = SilaCreditMemoRules.TransactionDate(request.Request.PostingDate ?? memo.PostingDate);
+            memo.TaxCalculationDate = SilaCreditMemoRules.TransactionDate(request.Request.TaxCalculationDate ?? memo.TaxCalculationDate);
+            memo.Reason = SilaCreditMemoRules.ResolveHeaderText(
+                request.Request.HeaderText, request.Request.Reason, memo.ReferenceSupplierInvoiceNumber);
             memo.Status = Common.SILA_CREDIT_MEMO_DRAFT;
             memo.PostingData = null;
             int lineNumber = 0;
             decimal gross = 0;
+            List<CreditMemoItem> lines = new List<CreditMemoItem>();
             foreach (SilaCreditMemoLineWriteDto write in included)
             {
                 SilaCreditMemoEligibleLineDto source = eligible.First(x => x.InvoiceLineId == write.InvoiceLineId);
@@ -80,14 +75,16 @@ namespace Buyer.Application.Features.Commands.UpdateSilaCreditMemo
                     Uom = source.Uom,
                     Amount = write.Amount,
                     TaxCode = source.TaxCode,
-                    Reason = write.Reason ?? memo.Reason,
+                    Reason = write.Reason,
                     IsActive = true
                 };
+                lines.Add(item);
                 _repository.CreditMemoItem.Create(item);
             }
 
             memo.GrossAmount = gross;
             _repository.CreditMemo.Update(memo);
+            await SilaCreditMemoPostingData.StoreAsync(_repository, memo, invoice, lines, request.UserId, cancellationToken);
             await _repository.SaveAsync();
             return await SilaCreditMemoRules.ToDetailAsync(_repository, memo, cancellationToken);
         }

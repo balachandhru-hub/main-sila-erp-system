@@ -100,12 +100,41 @@ namespace Buyer.Application.Features.Shared
             return await repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == buyerId && x.IsActive);
         }
 
+        public static string DefaultHeaderText(string? invoiceNumber)
+        {
+            string number = invoiceNumber?.Trim() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(number) ? "Return of invoice" : "Return of " + number;
+        }
+
+        public static string ResolveHeaderText(string? headerText, string? reason, string? invoiceNumber)
+        {
+            if (!string.IsNullOrWhiteSpace(headerText))
+            {
+                return headerText.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                return reason.Trim();
+            }
+
+            return DefaultHeaderText(invoiceNumber);
+        }
+
+        public static DateTime TransactionDate(DateTime? requested)
+        {
+            return requested?.Date ?? DateTime.UtcNow.Date;
+        }
+
         public static async Task<SilaCreditMemoReferenceInvoiceDto> ToReferenceAsync(
             IRepositoryWrapper repository, Invoice invoice, CancellationToken cancellationToken)
         {
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == invoice.ErpPostingId && x.BuyerId == invoice.BuyerId);
+            SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
+            string? postingCompany = prepared?.Header
+                .LastOrDefault(x => x.ApiField.Equals("CompanyCode", StringComparison.OrdinalIgnoreCase))?.Value;
             return new SilaCreditMemoReferenceInvoiceDto
             {
                 Id = invoice.Id,
@@ -114,12 +143,15 @@ namespace Buyer.Application.Features.Shared
                 FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting?.ErpResponsePayload),
                 SupplierName = invoice.SupplierName,
                 PoNumber = invoice.PoNumber,
-                CompanyCode = invoice.CompanyCode ?? posting?.CompanyCode,
-                Currency = invoice.Currency,
+                CompanyCode = FirstNonEmpty(invoice.CompanyCode, postingCompany, posting?.CompanyCode),
+                Currency = invoice.Currency ?? prepared?.Header
+                    .LastOrDefault(x => x.ApiField.Equals("DocumentCurrency", StringComparison.OrdinalIgnoreCase)
+                        || x.ApiField.Equals("Currency", StringComparison.OrdinalIgnoreCase))?.Value,
                 OriginalGrossAmount = invoice.GrossAmount,
                 PostingDate = posting?.PostedOn,
                 InvoiceDate = invoice.InvoiceDate,
-                Status = invoice.Status
+                Status = invoice.Status,
+                HeaderText = DefaultHeaderText(invoice.InvoiceNumber)
             };
         }
 
@@ -131,6 +163,10 @@ namespace Buyer.Application.Features.Shared
                 .OrderBy(x => x.LineNumber)
                 .ToListAsync(cancellationToken);
             SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
+            List<Guid> poItemIds = items.Where(x => x.PurchaseOrderItemId != null).Select(x => x.PurchaseOrderItemId!.Value).Distinct().ToList();
+            List<PurchaseOrderItem> poItems = poItemIds.Count == 0
+                ? new List<PurchaseOrderItem>()
+                : await repository.PurchaseOrderItem.FindByCondition(x => poItemIds.Contains(x.Id)).ToListAsync(cancellationToken);
             Dictionary<(Guid? LineId, int LineNumber), (decimal Qty, decimal Amount)> credited = await CreditedAsync(
                 repository, invoice.Id, excludeCreditMemoId, cancellationToken);
             List<SilaCreditMemoEligibleLineDto> result = new List<SilaCreditMemoEligibleLineDto>();
@@ -138,6 +174,9 @@ namespace Buyer.Application.Features.Shared
             {
                 SilaInvoicePostingData.Line? preparedLine = prepared?.Lines.FirstOrDefault(x => x.InvoiceItemId == item.Id)
                     ?? prepared?.Lines.FirstOrDefault(x => x.InvoiceLine == item.LineNumber);
+                PurchaseOrderItem? poItem = item.PurchaseOrderItemId == null
+                    ? null
+                    : poItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId);
                 decimal originalQty = DecimalOf(LineField(preparedLine, "QuantityInPurchaseOrderUnit")) ?? item.Quantity ?? 0;
                 decimal originalAmt = DecimalOf(LineField(preparedLine, "SupplierInvoiceItemAmount")) ?? item.Amount ?? 0;
                 credited.TryGetValue((item.Id, item.LineNumber), out (decimal Qty, decimal Amount) previous);
@@ -146,8 +185,9 @@ namespace Buyer.Application.Features.Shared
                     InvoiceLineId = item.Id,
                     LineNumber = item.LineNumber,
                     PoNumber = LineField(preparedLine, "PurchaseOrder") ?? invoice.PoNumber,
-                    PoItem = LineField(preparedLine, "PurchaseOrderItem"),
-                    Material = LineField(preparedLine, "Material") ?? item.SupplierMaterialCode,
+                    PoItem = LineField(preparedLine, "PurchaseOrderItem")
+                        ?? (poItem == null ? null : poItem.LineNumber.ToString("00000", System.Globalization.CultureInfo.InvariantCulture)),
+                    Material = LineField(preparedLine, "Material") ?? item.SupplierMaterialCode ?? poItem?.MaterialCode,
                     Description = item.Description,
                     OriginalQuantity = originalQty,
                     OriginalAmount = originalAmt,
@@ -155,8 +195,8 @@ namespace Buyer.Application.Features.Shared
                     PreviouslyCreditedAmount = previous.Amount,
                     RemainingQuantity = Math.Max(0, originalQty - previous.Qty),
                     RemainingAmount = Math.Max(0, originalAmt - previous.Amount),
-                    Uom = LineField(preparedLine, "PurchaseOrderQuantityUnit") ?? item.Uom,
-                    TaxCode = LineField(preparedLine, "TaxCode") ?? item.TaxCode
+                    Uom = LineField(preparedLine, "PurchaseOrderQuantityUnit") ?? item.Uom ?? poItem?.UnitOfMeasure,
+                    TaxCode = LineField(preparedLine, "TaxCode") ?? item.TaxCode ?? poItem?.TaxCode
                 });
             }
 
@@ -204,6 +244,9 @@ namespace Buyer.Application.Features.Shared
                 PostingDate = memo.PostingDate,
                 TaxCalculationDate = memo.TaxCalculationDate,
                 Reason = memo.Reason,
+                HeaderText = SilaCreditMemoPostingData.Header(SilaCreditMemoPostingData.Read(memo.PostingData), "HeaderText")
+                    ?? memo.Reason
+                    ?? DefaultHeaderText(memo.ReferenceSupplierInvoiceNumber),
                 GrossAmount = memo.GrossAmount,
                 Status = memo.Status,
                 ErpPostingId = memo.ErpPostingId,
@@ -254,6 +297,32 @@ namespace Buyer.Application.Features.Shared
             };
         }
 
+        public static List<SilaCreditMemoLineWriteDto> IncludedWrites(
+            IReadOnlyList<SilaCreditMemoEligibleLineDto> eligible, IReadOnlyList<SilaCreditMemoLineWriteDto>? requested)
+        {
+            List<SilaCreditMemoLineWriteDto> writes = requested == null || requested.Count == 0
+                ? eligible
+                    .Where(x => x.RemainingQuantity > 0 || x.RemainingAmount > 0)
+                    .Select(x => new SilaCreditMemoLineWriteDto
+                    {
+                        InvoiceLineId = x.InvoiceLineId,
+                        Quantity = x.RemainingQuantity,
+                        Amount = x.RemainingAmount
+                    })
+                    .ToList()
+                : requested.ToList();
+            GuardQuantities(eligible, writes);
+            List<SilaCreditMemoLineWriteDto> included = writes
+                .Where(x => (x.Quantity ?? 0) > 0 || (x.Amount ?? 0) > 0)
+                .ToList();
+            if (included.Count == 0)
+            {
+                throw new BadRequestCustomException("Credit memo has no lines.", "Enter a credit quantity or amount on at least one line.");
+            }
+
+            return included;
+        }
+
         public static void GuardQuantities(IReadOnlyList<SilaCreditMemoEligibleLineDto> eligible, IReadOnlyList<SilaCreditMemoLineWriteDto> writes)
         {
             foreach (SilaCreditMemoLineWriteDto write in writes)
@@ -301,6 +370,11 @@ namespace Buyer.Application.Features.Shared
             }
 
             return result;
+        }
+
+        private static string? FirstNonEmpty(params string?[] values)
+        {
+            return values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))?.Trim();
         }
 
         private static string? LineField(SilaInvoicePostingData.Line? line, string name)

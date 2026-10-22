@@ -429,6 +429,7 @@ export interface SilaCreditMemoReferenceInvoice {
   postingDate?: string | null;
   invoiceDate?: string | null;
   status: string;
+  headerText?: string | null;
 }
 
 export interface SilaCreditMemoEligibleLine {
@@ -464,6 +465,7 @@ export interface SilaCreditMemoWrite {
   postingDate?: string | null;
   taxCalculationDate?: string | null;
   reason?: string | null;
+  headerText?: string | null;
   lines: SilaCreditMemoLineWrite[];
 }
 
@@ -504,6 +506,7 @@ export interface SilaCreditMemoDetail {
   postingDate?: string | null;
   taxCalculationDate?: string | null;
   reason?: string | null;
+  headerText?: string | null;
   grossAmount?: number | null;
   status: string;
   erpPostingId?: string | null;
@@ -1084,6 +1087,43 @@ export const getInvoiceExtractions = async (invoiceId: string): Promise<SilaInvo
 /** Settles an UNKNOWN posting: posted (with the ERP number) or not posted (sent again). */
 export const reconcileErpPosting = async (postingId: string, posted: boolean, erpReference: string): Promise<void> => {
   await call(() => axiosInstance.post(`${BASE}/erp-postings/${postingId}/reconcile`, { posted, erpReference: erpReference.trim() || null }), "Could not reconcile the posting.");
+};
+
+export const creditMemoHeaderText = (invoiceNumber?: string | null): string => {
+  const number = invoiceNumber?.trim();
+  return number ? `Return of ${number}` : 'Return of invoice';
+};
+
+export const creditMemoAmountForQuantity = (
+  line: Pick<SilaCreditMemoEligibleLine, 'originalQuantity' | 'originalAmount' | 'remainingAmount'>,
+  quantity: number,
+): number => {
+  if (!(quantity > 0)) return 0;
+  if (!(line.originalQuantity > 0)) return line.remainingAmount;
+  const suggested = (line.originalAmount / line.originalQuantity) * quantity;
+  const rounded = Math.round(suggested * 100) / 100;
+  return Math.min(rounded, line.remainingAmount);
+};
+
+export const creditMemoDraftFromLine = (
+  line: SilaCreditMemoEligibleLine,
+  saved?: { quantity?: number | null; amount?: number | null; reason?: string | null },
+): { included: boolean; quantity: string; amount: string; reason: string } => {
+  if (saved && ((saved.quantity ?? 0) > 0 || (saved.amount ?? 0) > 0)) {
+    return {
+      included: true,
+      quantity: saved.quantity != null ? String(saved.quantity) : '',
+      amount: saved.amount != null ? String(saved.amount) : '',
+      reason: saved.reason || '',
+    };
+  }
+  const remaining = line.remainingQuantity > 0 || line.remainingAmount > 0;
+  return {
+    included: remaining,
+    quantity: remaining ? String(line.remainingQuantity) : '0',
+    amount: remaining ? String(line.remainingAmount) : '0',
+    reason: '',
+  };
 };
 
 export const lookupCreditMemoInvoice = async (params: {

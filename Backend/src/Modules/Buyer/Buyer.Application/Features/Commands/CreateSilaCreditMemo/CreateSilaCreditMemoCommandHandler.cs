@@ -35,14 +35,7 @@ namespace Buyer.Application.Features.Commands.CreateSilaCreditMemo
             invoice = await SilaCreditMemoRules.RequirePostedInvoiceAsync(_repository, _logger, buyer.Id, invoice.Id, cancellationToken);
             SilaCreditMemoReferenceInvoiceDto reference = await SilaCreditMemoRules.ToReferenceAsync(_repository, invoice, cancellationToken);
             List<SilaCreditMemoEligibleLineDto> eligible = await SilaCreditMemoRules.EligibleLinesAsync(_repository, invoice, null, cancellationToken);
-            SilaCreditMemoRules.GuardQuantities(eligible, request.Request.Lines);
-            List<SilaCreditMemoLineWriteDto> included = request.Request.Lines
-                .Where(x => (x.Quantity ?? 0) > 0 || (x.Amount ?? 0) > 0)
-                .ToList();
-            if (included.Count == 0)
-            {
-                throw new BadRequestCustomException("Credit memo has no lines.", "Enter a credit quantity or amount on at least one line.");
-            }
+            List<SilaCreditMemoLineWriteDto> included = SilaCreditMemoRules.IncludedWrites(eligible, request.Request.Lines);
 
             CreditMemo memo = new CreditMemo
             {
@@ -62,11 +55,12 @@ namespace Buyer.Application.Features.Commands.CreateSilaCreditMemo
                 PurchaseOrderId = invoice.PurchaseOrderId,
                 PoNumber = invoice.PoNumber,
                 CompanyCode = reference.CompanyCode ?? invoice.CompanyCode,
-                Currency = invoice.Currency,
-                DocumentDate = request.Request.DocumentDate ?? DateTime.UtcNow.Date,
-                PostingDate = request.Request.PostingDate ?? request.Request.DocumentDate ?? DateTime.UtcNow.Date,
-                TaxCalculationDate = request.Request.TaxCalculationDate ?? request.Request.PostingDate ?? DateTime.UtcNow.Date,
-                Reason = request.Request.Reason,
+                Currency = reference.Currency ?? invoice.Currency,
+                DocumentDate = SilaCreditMemoRules.TransactionDate(request.Request.DocumentDate),
+                PostingDate = SilaCreditMemoRules.TransactionDate(request.Request.PostingDate ?? request.Request.DocumentDate),
+                TaxCalculationDate = SilaCreditMemoRules.TransactionDate(
+                    request.Request.TaxCalculationDate ?? request.Request.PostingDate ?? request.Request.DocumentDate),
+                Reason = SilaCreditMemoRules.ResolveHeaderText(request.Request.HeaderText, request.Request.Reason, invoice.InvoiceNumber),
                 Status = Common.SILA_CREDIT_MEMO_DRAFT,
                 CreatedByUserId = request.UserId,
                 IsActive = true
@@ -94,7 +88,7 @@ namespace Buyer.Application.Features.Commands.CreateSilaCreditMemo
                     Uom = source.Uom,
                     Amount = write.Amount,
                     TaxCode = source.TaxCode,
-                    Reason = write.Reason ?? request.Request.Reason,
+                    Reason = write.Reason,
                     IsActive = true
                 });
             }
@@ -108,6 +102,7 @@ namespace Buyer.Application.Features.Commands.CreateSilaCreditMemo
 
             SilaCreditMemoPosting.Remember(_repository, memo, request.UserId, SilaCreditMemoPosting.ACTION_CREATED, memo.CreditMemoNumber);
             SilaCreditMemoPosting.RememberInvoice(_repository, memo, request.UserId, SilaCreditMemoPosting.ACTION_CREATED, "Credit Memo Created. " + memo.CreditMemoNumber);
+            await SilaCreditMemoPostingData.StoreAsync(_repository, memo, invoice, lines, request.UserId, cancellationToken);
             await _repository.SaveAsync();
             return await SilaCreditMemoRules.ToDetailAsync(_repository, memo, cancellationToken);
         }

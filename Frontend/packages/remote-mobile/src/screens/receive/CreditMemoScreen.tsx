@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   createCreditMemo,
+  creditMemoAmountForQuantity,
+  creditMemoDraftFromLine,
+  creditMemoHeaderText,
   getCreditMemo,
   getCreditMemoLines,
   getInvoice,
@@ -17,9 +20,19 @@ import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../componen
 import { useGo } from '../../navigation';
 import { errorText, useLoad } from '../../useLoad';
 import DocumentTrackCard from './DocumentTrackCard';
-import { invoicePosted, safeErpMessage } from './invoicePosting';
+import { safeErpMessage } from './invoicePosting';
 
 const today = (): string => new Date().toISOString().slice(0, 10);
+
+interface LineDraft {
+  included: boolean;
+  quantity: string;
+  amount: string;
+  reason: string;
+}
+
+const postingField = (invoice: SilaInvoiceDetail | null, name: string): string | null =>
+  invoice?.postingData?.header?.find((field) => field.apiField.toLowerCase() === name.toLowerCase())?.value || null;
 
 const CreditMemoScreen: React.FC = () => {
   const { invoiceId = '', creditMemoId = '' } = useParams();
@@ -27,8 +40,8 @@ const CreditMemoScreen: React.FC = () => {
   const invoiceLoad = useLoad(() => getInvoice(invoiceId), invoiceId || null);
   const memoLoad = useLoad(() => getCreditMemo(creditMemoId), creditMemoId || null);
   const [lines, setLines] = useState<SilaCreditMemoEligibleLine[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, { quantity: string; amount: string; reason: string }>>({});
-  const [reason, setReason] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
+  const [headerText, setHeaderText] = useState('');
   const [documentDate, setDocumentDate] = useState(today);
   const [postingDate, setPostingDate] = useState(today);
   const [taxDate, setTaxDate] = useState(today);
@@ -47,15 +60,63 @@ const CreditMemoScreen: React.FC = () => {
       .then((rows) => {
         if (!active) return;
         setLines(rows);
-        setDrafts(Object.fromEntries(rows.map((line) => [line.invoiceLineId, { quantity: '', amount: '', reason: '' }])));
+        setDrafts(Object.fromEntries(rows.map((line) => [line.invoiceLineId, creditMemoDraftFromLine(line)])));
       })
       .catch((caught: unknown) => setNotice({ tone: 'error', text: errorText(caught, 'Could not load credit memo lines.') }));
     return () => { active = false; };
   }, [invoiceId]);
 
   useEffect(() => {
-    if (memoLoad.data) setMemo(memoLoad.data);
+    if (!invoice) return;
+    if (!creditMemoId) setHeaderText((current) => current || creditMemoHeaderText(invoice.invoiceNumber));
+  }, [invoice, creditMemoId]);
+
+  useEffect(() => {
+    if (!memoLoad.data) return;
+    const data = memoLoad.data;
+    setMemo(data);
+    setHeaderText(data.headerText || data.reason || creditMemoHeaderText(data.referenceSupplierInvoiceNumber));
+    setDocumentDate((data.documentDate || today()).slice(0, 10));
+    setPostingDate((data.postingDate || today()).slice(0, 10));
+    setTaxDate((data.taxCalculationDate || today()).slice(0, 10));
+    setReference(data.creditMemoReference || data.creditMemoNumber || '');
+    if (data.lines.length === 0) return;
+    setDrafts((current) => {
+      const next = { ...current };
+      data.lines.forEach((item) => {
+        const id = item.referenceInvoiceLineId || item.id;
+        next[id] = creditMemoDraftFromLine({
+          invoiceLineId: id,
+          lineNumber: item.lineNumber,
+          poNumber: item.poNumber,
+          poItem: item.poItem,
+          material: item.material,
+          description: item.description,
+          originalQuantity: item.originalQuantity,
+          originalAmount: item.originalAmount,
+          previouslyCreditedQuantity: item.previouslyCreditedQuantity,
+          previouslyCreditedAmount: item.previouslyCreditedAmount,
+          remainingQuantity: item.remainingQuantity,
+          remainingAmount: item.remainingAmount,
+          uom: item.uom,
+          taxCode: item.taxCode,
+        }, item);
+      });
+      return next;
+    });
   }, [memoLoad.data]);
+
+  const changeDraft = (line: SilaCreditMemoEligibleLine, patch: Partial<LineDraft>, recalcAmount = false) => {
+    setDrafts((current) => {
+      const previous = current[line.invoiceLineId] ?? creditMemoDraftFromLine(line);
+      const next = { ...previous, ...patch };
+      if (recalcAmount && patch.quantity != null) {
+        const quantity = Number(patch.quantity);
+        if (!Number.isNaN(quantity)) next.amount = String(creditMemoAmountForQuantity(line, quantity));
+      }
+      return { ...current, [line.invoiceLineId]: next };
+    });
+  };
 
   const payload = () => ({
     referenceInvoiceId: invoiceId,
@@ -63,13 +124,18 @@ const CreditMemoScreen: React.FC = () => {
     documentDate,
     postingDate,
     taxCalculationDate: taxDate,
-    reason: reason.trim() || null,
-    lines: lines.map((line) => ({
-      invoiceLineId: line.invoiceLineId,
-      quantity: drafts[line.invoiceLineId]?.quantity ? Number(drafts[line.invoiceLineId].quantity) : 0,
-      amount: drafts[line.invoiceLineId]?.amount ? Number(drafts[line.invoiceLineId].amount) : 0,
-      reason: drafts[line.invoiceLineId]?.reason || null,
-    })),
+    headerText: headerText.trim() || creditMemoHeaderText(invoice?.invoiceNumber),
+    reason: headerText.trim() || null,
+    lines: lines.map((line) => {
+      const draft = drafts[line.invoiceLineId];
+      const included = draft?.included !== false;
+      return {
+        invoiceLineId: line.invoiceLineId,
+        quantity: included && draft?.quantity ? Number(draft.quantity) : 0,
+        amount: included && draft?.amount ? Number(draft.amount) : 0,
+        reason: included ? (draft?.reason || null) : null,
+      };
+    }),
   });
 
   const submit = async () => {
@@ -87,8 +153,9 @@ const CreditMemoScreen: React.FC = () => {
     }
   };
 
-  const postedInvoice: SilaInvoiceDetail | null = invoice && invoicePosted(invoice) ? invoice : invoice;
   const unknown = loadedMemo?.status === 'POSTING_UNKNOWN' || loadedMemo?.erpStatus === 'UNKNOWN';
+  const company = invoice?.companyCode || postingField(invoice, 'CompanyCode') || loadedMemo?.companyCode || loadedMemo?.referenceInvoice?.companyCode;
+  const currency = invoice?.currency || postingField(invoice, 'DocumentCurrency') || '—';
 
   return (
     <>
@@ -96,24 +163,28 @@ const CreditMemoScreen: React.FC = () => {
       <div className="sm-screen">
         {invoiceLoad.loading && !invoice && <Loading />}
         {invoiceLoad.error && <ErrorNotice message={invoiceLoad.error} onRetry={invoiceLoad.reload} />}
-        {postedInvoice && (
+        {invoice && (
           <>
-            <p className="sm-meta">Reference Invoice: {postedInvoice.invoiceNumber || postedInvoice.fileName}</p>
-            <p className="sm-meta">SAP Invoice: {postedInvoice.erpReference || '—'}</p>
-            <p className="sm-meta">Supplier: {postedInvoice.supplierName || '—'}</p>
-            <p className="sm-meta">PO: {postedInvoice.poNumber || '—'}</p>
-            <p className="sm-meta">Company Code: {postedInvoice.companyCode || '—'}</p>
-            <p className="sm-meta">Currency: {postedInvoice.currency || '—'}</p>
+            <p className="sm-meta">Reference Invoice: {invoice.invoiceNumber || invoice.fileName}</p>
+            <p className="sm-meta">SAP Invoice: {invoice.erpReference || loadedMemo?.referenceErpInvoiceId || '—'}</p>
+            <p className="sm-meta">Fiscal Year: {invoice.fiscalYear || loadedMemo?.referenceFiscalYear || '—'}</p>
+            <p className="sm-meta">Supplier: {invoice.supplierName || '—'}</p>
+            <p className="sm-meta">PO: {invoice.poNumber || '—'}</p>
+            <p className="sm-meta">Company Code: {company || '—'}</p>
+            <p className="sm-meta">Currency: {currency}</p>
+            {loadedMemo && (
+              <p className="sm-meta">Credit Memo: {loadedMemo.creditMemoNumber || '—'}</p>
+            )}
             {loadedMemo && <StatusBadge status={loadedMemo.status} />}
             {loadedMemo?.erpMessage && <p className="sm-notice sm-notice--error">{safeErpMessage(loadedMemo.erpMessage)}</p>}
             {unknown && <p className="sm-notice sm-notice--warning">Posting status unknown. Reconcile before SAP is called again.</p>}
             <div className="sm-field">
-              <label htmlFor="sm-cm-ref">Credit memo reference</label>
-              <input id="sm-cm-ref" className="sm-input" value={reference} onChange={(event) => setReference(event.target.value)} />
+              <label htmlFor="sm-cm-ref">Credit memo number</label>
+              <input id="sm-cm-ref" className="sm-input" value={loadedMemo?.creditMemoNumber || reference || 'Assigned on save'} readOnly />
             </div>
             <div className="sm-field">
-              <label htmlFor="sm-cm-reason">Reason</label>
-              <input id="sm-cm-reason" className="sm-input" value={reason} onChange={(event) => setReason(event.target.value)} />
+              <label htmlFor="sm-cm-header">Header text</label>
+              <input id="sm-cm-header" className="sm-input" value={headerText} onChange={(event) => setHeaderText(event.target.value)} />
             </div>
             <div className="sm-field">
               <label htmlFor="sm-cm-doc">Document date</label>
@@ -127,36 +198,57 @@ const CreditMemoScreen: React.FC = () => {
               <label htmlFor="sm-cm-tax">Tax calculation date</label>
               <input id="sm-cm-tax" className="sm-input" type="date" value={taxDate} onChange={(event) => setTaxDate(event.target.value)} />
             </div>
-            {lines.map((line) => (
-              <section key={line.invoiceLineId} className="sm-section">
-                <h2>PO Item {line.poItem || line.lineNumber}</h2>
-                <p className="sm-meta">{line.material || '—'} · {line.description}</p>
-                <p className="sm-meta">Original Invoice Qty {line.originalQuantity} · Amount {line.originalAmount}</p>
-                <p className="sm-meta">Previously Credited Qty {line.previouslyCreditedQuantity} · Amount {line.previouslyCreditedAmount}</p>
-                <p className="sm-meta">Remaining Credit Eligible Qty {line.remainingQuantity} · Amount {line.remainingAmount}</p>
-                <div className="sm-field">
-                  <label>Credit Quantity</label>
-                  <input className="sm-input" inputMode="decimal" value={drafts[line.invoiceLineId]?.quantity ?? ''} onChange={(event) => setDrafts((current) => ({
-                    ...current,
-                    [line.invoiceLineId]: { ...(current[line.invoiceLineId] ?? { quantity: '', amount: '', reason: '' }), quantity: event.target.value },
-                  }))} />
-                </div>
-                <div className="sm-field">
-                  <label>Credit Amount</label>
-                  <input className="sm-input" inputMode="decimal" value={drafts[line.invoiceLineId]?.amount ?? ''} onChange={(event) => setDrafts((current) => ({
-                    ...current,
-                    [line.invoiceLineId]: { ...(current[line.invoiceLineId] ?? { quantity: '', amount: '', reason: '' }), amount: event.target.value },
-                  }))} />
-                </div>
-                <div className="sm-field">
-                  <label>Reason</label>
-                  <input className="sm-input" value={drafts[line.invoiceLineId]?.reason ?? ''} onChange={(event) => setDrafts((current) => ({
-                    ...current,
-                    [line.invoiceLineId]: { ...(current[line.invoiceLineId] ?? { quantity: '', amount: '', reason: '' }), reason: event.target.value },
-                  }))} />
-                </div>
-              </section>
-            ))}
+            {lines.map((line) => {
+              const draft = drafts[line.invoiceLineId] ?? creditMemoDraftFromLine(line);
+              return (
+                <section key={line.invoiceLineId} className="sm-section">
+                  <h2>ITEM {line.poItem || String(line.lineNumber).padStart(5, '0')}</h2>
+                  <p className="sm-meta">{line.material || '—'} · {line.description}</p>
+                  <p className="sm-meta">PO {line.poNumber || invoice.poNumber || '—'} · Tax {line.taxCode || '—'}</p>
+                  <p className="sm-meta">Original Qty {line.originalQuantity} {line.uom || ''} · Previously Credit {line.previouslyCreditedQuantity} {line.uom || ''} · Remaining {line.remainingQuantity} {line.uom || ''}</p>
+                  <p className="sm-meta">Original Amount {line.originalAmount} · Previously Credit {line.previouslyCreditedAmount} · Remaining {line.remainingAmount}</p>
+                  <label className="sm-field">
+                    <input
+                      type="checkbox"
+                      checked={draft.included}
+                      onChange={(event) => changeDraft(line, event.target.checked
+                        ? { included: true, quantity: String(line.remainingQuantity), amount: String(line.remainingAmount) }
+                        : { included: false, quantity: '0', amount: '0' })}
+                    />
+                    {' '}Included
+                  </label>
+                  <div className="sm-field">
+                    <label>Credit Quantity</label>
+                    <input
+                      className="sm-input"
+                      inputMode="decimal"
+                      disabled={!draft.included}
+                      value={draft.quantity}
+                      onChange={(event) => changeDraft(line, { quantity: event.target.value }, true)}
+                    />
+                  </div>
+                  <div className="sm-field">
+                    <label>Credit Amount</label>
+                    <input
+                      className="sm-input"
+                      inputMode="decimal"
+                      disabled={!draft.included}
+                      value={draft.amount}
+                      onChange={(event) => changeDraft(line, { amount: event.target.value })}
+                    />
+                  </div>
+                  <div className="sm-field">
+                    <label>Reason</label>
+                    <input
+                      className="sm-input"
+                      disabled={!draft.included}
+                      value={draft.reason}
+                      onChange={(event) => changeDraft(line, { reason: event.target.value })}
+                    />
+                  </div>
+                </section>
+              );
+            })}
             {!unknown && (
               <div className="sm-actions">
                 <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void submit()}>

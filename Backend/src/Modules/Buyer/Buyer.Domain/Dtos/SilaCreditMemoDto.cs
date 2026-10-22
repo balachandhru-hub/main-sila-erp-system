@@ -14,6 +14,7 @@ namespace Buyer.Domain.Dtos
         public DateTime? PostingDate { get; set; }
         public DateTime? InvoiceDate { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string? HeaderText { get; set; }
     }
 
     public class SilaCreditMemoEligibleLineDto
@@ -52,6 +53,7 @@ namespace Buyer.Domain.Dtos
         public DateTime? PostingDate { get; set; }
         public DateTime? TaxCalculationDate { get; set; }
         public string? Reason { get; set; }
+        public string? HeaderText { get; set; }
         public List<SilaCreditMemoLineWriteDto> Lines { get; set; } = new();
     }
 
@@ -113,6 +115,7 @@ namespace Buyer.Domain.Dtos
         public DateTime? PostingDate { get; set; }
         public DateTime? TaxCalculationDate { get; set; }
         public string? Reason { get; set; }
+        public string? HeaderText { get; set; }
         public decimal? GrossAmount { get; set; }
         public string Status { get; set; } = string.Empty;
         public Guid? ErpPostingId { get; set; }
