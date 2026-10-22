@@ -28,6 +28,7 @@ using Buyer.Application.Features.Queries.GetSilaInvoiceFile;
 using Buyer.Application.Features.Queries.GetSilaInvoiceGrnFile;
 using Buyer.Application.Features.Queries.GetSilaInvoices;
 using Buyer.Application.Features.Queries.GetSilaOpenPurchaseOrders;
+using Buyer.Application.Features.Queries.GetSilaReceivingDashboard;
 using Buyer.Application.Features.Queries.GetSilaPurchaseOrder;
 using Buyer.Application.Features.Queries.ValidateSilaGoodsReceipt;
 using Buyer.Domain.Dtos;
@@ -59,6 +60,28 @@ namespace Buyer.API.Controllers
         {
             _mediator = mediator;
             _logger = logger;
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/receiving/dashboard")]
+        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [SwaggerOperation("GetSilaReceivingDashboard")]
+        [SwaggerResponse(200, type: typeof(SilaReceivingDashboardDto))]
+        public async Task<IActionResult> GetReceivingDashboard(
+            [FromQuery] Guid? locationId,
+            [FromQuery] Guid? propertyId,
+            [FromQuery] string? supplier)
+        {
+            SilaReceivingDashboardDto result = await _mediator.Send(new GetSilaReceivingDashboardQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                LocationId = locationId,
+                PropertyId = propertyId,
+                Supplier = supplier
+            });
+            return Ok(result);
         }
 
         [HttpGet]

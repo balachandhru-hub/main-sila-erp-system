@@ -28,6 +28,7 @@ export const SILA_ME_NAV_PATHS = {
   silaPos: "sila-pos",
   silaTracker: "sila-transaction-tracker",
   silaMeTracker: "sila-me-transactions",
+  silaReceivingDashboard: "sila-receiving-dashboard",
   silaPurchaseOrders: "sila-purchase-orders",
   silaGoodsReceipts: "sila-goods-receipts",
   silaInvoices: "sila-invoices",
@@ -103,6 +104,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
     {
       label: "Receiving",
       items: [
+        { key: "silaReceivingDashboard", label: "Dashboard" },
         { key: "silaPurchaseOrders", label: "Open Purchase Orders" },
         { key: "silaGoodsReceipts", label: "Goods Receipts" },
         { key: "silaInvoices", label: "Invoices" },

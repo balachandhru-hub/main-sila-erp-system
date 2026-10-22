@@ -237,3 +237,102 @@
   margin: 0;
   padding-left: 1.25rem;
 }
+
+.srcv-task-list,
+.srcv-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sila-space-2);
+}
+
+.srcv-task {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-3);
+  padding: var(--sila-space-3);
+  border: 1px solid var(--sila-border, #d7e3f0);
+  border-radius: 0.4375rem;
+  background: #fff;
+}
+
+.srcv-task > div {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.srcv-priority {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: var(--sila-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--sila-border, #d7e3f0);
+  color: var(--sila-text, #1b2a3d);
+}
+
+.srcv-priority--critical {
+  border-color: #f1b4b4;
+  background: #fdecec;
+  color: #8a1f1f;
+}
+
+.srcv-priority--action_required {
+  border-color: #f0d39a;
+  background: #fff7e8;
+  color: #7a4b00;
+}
+
+.srcv-priority--information {
+  border-color: #c5d8ef;
+  background: #f3f8fd;
+}
+
+.srcv-team {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sila-space-3);
+  margin-bottom: var(--sila-space-2);
+}
+
+.srcv-team span {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--sila-border, #d7e3f0);
+  border-radius: 0.4375rem;
+  background: #fff;
+  color: var(--sila-text, #1b2a3d);
+  font-size: var(--sila-text-sm);
+}
+
+.srcv-activity-btn {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sila-space-3);
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--sila-border, #d7e3f0);
+  border-radius: 0.4375rem;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.srcv-activity-btn:hover {
+  border-color: var(--sila-primary-border, #8bb4e0);
+}
+
+.srcv-activity-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sila-focus-ring);
+}

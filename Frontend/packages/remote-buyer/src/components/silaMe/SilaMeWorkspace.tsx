@@ -24,6 +24,7 @@ import SilaRecipeMasterData from "./recipes/SilaRecipeMasterData";
 import SilaSubstitutions from "./substitutions/SilaSubstitutions";
 import SilaPosIntegration from "./pos/SilaPosIntegration";
 import SilaConsolidatedTracker from "./trackers/SilaConsolidatedTracker";
+import SilaReceivingDashboard from "./receiving/SilaReceivingDashboard";
 import SilaPurchaseOrdersOpen from "./receiving/SilaPurchaseOrdersOpen";
 import SilaGoodsReceipts from "./receiving/SilaGoodsReceipts";
 import SilaInvoices from "./receiving/SilaInvoices";
@@ -131,6 +132,14 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, onNavig
       case "silaErpPostings":
       case "silaMeTracker":
         return <SilaConsolidatedTracker tracker="SILA_ME" canReprocess={can.manageErpPosting} />;
+      case "silaReceivingDashboard":
+        return (
+          <SilaReceivingDashboard
+            canPost={can.postGrn}
+            canReprocess={can.manageErpPosting}
+            supervisor={can.manageErpPosting || can.viewAudit}
+          />
+        );
       case "silaPurchaseOrders":
         return <SilaPurchaseOrdersOpen />;
       case "silaGoodsReceipts":

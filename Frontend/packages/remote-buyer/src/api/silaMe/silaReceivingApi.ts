@@ -638,6 +638,146 @@ const call = async <T>(request: () => Promise<{ data: T }>, fallback: string): P
   }
 };
 
+export interface SilaReceivingDashboardKpis {
+  expectedToday: number;
+  pendingReceipt: number;
+  partiallyReceived: number;
+  receivedToday: number;
+  overdue: number;
+  grnPostingFailed: number;
+  reversalsToday: number;
+  attentionRequired: number;
+}
+
+export interface SilaReceivingAging {
+  pendingUnderOneDay: number;
+  pendingOneToTwoDays: number;
+  pendingThreePlusDays: number;
+  overdue: number;
+  openPartials: number;
+  unresolvedGrnFailures: number;
+}
+
+export interface SilaReceivingDashboardLocation {
+  id: string;
+  locationName: string;
+  propertyName?: string | null;
+  plantCode?: string | null;
+  storageLocationCode?: string | null;
+}
+
+export interface SilaReceivingTask {
+  priority: string;
+  type: string;
+  title: string;
+  poNumber?: string | null;
+  grnNumber?: string | null;
+  supplierName?: string | null;
+  locationName?: string | null;
+  expectedDate?: string | null;
+  age?: string | null;
+  status?: string | null;
+  action: string;
+  purchaseOrderId?: string | null;
+  goodsReceiptId?: string | null;
+  openLineCount?: number | null;
+}
+
+export interface SilaReceivingWorkbenchRow {
+  purchaseOrderId: string;
+  poNumber: string;
+  supplierName?: string | null;
+  expectedDate?: string | null;
+  propertyName?: string | null;
+  plantCode?: string | null;
+  storageLocation?: string | null;
+  lineCount: number;
+  openLineCount: number;
+  orderedQty: number;
+  receivedQty: number;
+  openQty: number;
+  receiptStatus: string;
+  latestGrnNumber?: string | null;
+  latestGoodsReceiptId?: string | null;
+  erpStatus?: string | null;
+  supplierSoNumber?: string | null;
+  lastActivity?: string | null;
+  action: string;
+}
+
+export interface SilaReceivingException {
+  severity: string;
+  exception: string;
+  document: string;
+  supplierName?: string | null;
+  locationName?: string | null;
+  age?: string | null;
+  status?: string | null;
+  action: string;
+  purchaseOrderId?: string | null;
+  goodsReceiptId?: string | null;
+  message?: string | null;
+}
+
+export interface SilaReceivingActivity {
+  occurredOn: string;
+  document: string;
+  action: string;
+  status?: string | null;
+  purchaseOrderId?: string | null;
+  goodsReceiptId?: string | null;
+}
+
+export interface SilaReceivingTeam {
+  receiptsCompleted: number;
+  grnsPosted: number;
+  partialReceipts: number;
+  reversals: number;
+  failures: number;
+}
+
+export interface SilaReceivingDashboard {
+  kpis: SilaReceivingDashboardKpis;
+  aging: SilaReceivingAging;
+  locations: SilaReceivingDashboardLocation[];
+  tasks: SilaReceivingTask[];
+  workbench: SilaReceivingWorkbenchRow[];
+  exceptions: SilaReceivingException[];
+  activity: SilaReceivingActivity[];
+  team: SilaReceivingTeam;
+}
+
+export const getReceivingDashboard = async (filter?: {
+  locationId?: string;
+  propertyId?: string;
+  supplier?: string;
+}): Promise<SilaReceivingDashboard> => {
+  const data = await call(() => axiosInstance.get<SilaReceivingDashboard>(`${BASE}/receiving/dashboard`, {
+    params: {
+      locationId: filter?.locationId || undefined,
+      propertyId: filter?.propertyId || undefined,
+      supplier: filter?.supplier?.trim() || undefined,
+    },
+  }), "Could not load the receiving dashboard.");
+  return {
+    ...data,
+    kpis: data.kpis ?? {
+      expectedToday: 0, pendingReceipt: 0, partiallyReceived: 0, receivedToday: 0,
+      overdue: 0, grnPostingFailed: 0, reversalsToday: 0, attentionRequired: 0,
+    },
+    aging: data.aging ?? {
+      pendingUnderOneDay: 0, pendingOneToTwoDays: 0, pendingThreePlusDays: 0,
+      overdue: 0, openPartials: 0, unresolvedGrnFailures: 0,
+    },
+    locations: list(data.locations),
+    tasks: list(data.tasks),
+    workbench: list(data.workbench),
+    exceptions: list(data.exceptions),
+    activity: list(data.activity),
+    team: data.team ?? { receiptsCompleted: 0, grnsPosted: 0, partialReceipts: 0, reversals: 0, failures: 0 },
+  };
+};
+
 /** Purchase orders that still have quantity to receive, searched by PO number or supplier. */
 export const getOpenPurchaseOrders = async (search: string, page: SilaPage): Promise<SilaOpenPurchaseOrder[]> =>
   list(await call(() => axiosInstance.get<SilaOpenPurchaseOrder[]>(`${BASE}/purchase-orders/open`, {
