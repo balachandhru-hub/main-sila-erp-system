@@ -955,6 +955,7 @@ export interface SilaEligiblePurchaseOrder {
   id: string;
   poNumber: string;
   orderDate?: string | null;
+  createdOn?: string | null;
   companyCode?: string | null;
   currency?: string | null;
   totalAmount?: number | null;
@@ -963,6 +964,7 @@ export interface SilaEligiblePurchaseOrder {
   grnCount: number;
   status: string;
   supplierName?: string | null;
+  supplierCode?: string | null;
   supplierId?: string | null;
   silaSupplierId?: string | null;
 }

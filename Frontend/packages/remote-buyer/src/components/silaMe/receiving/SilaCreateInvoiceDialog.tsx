@@ -94,6 +94,8 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
   const [reference, setReference] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [poSearch, setPoSearch] = useState("");
+  const poTerm = useDebounced(poSearch);
+  const [poOpen, setPoOpen] = useState(false);
   const [orders, setOrders] = useState<SilaEligiblePurchaseOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
@@ -129,11 +131,12 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
   const applyPurchaseOrder = (order: SilaEligiblePurchaseOrder) => {
     setPurchaseOrderId(order.id);
     setPoSearch(order.poNumber);
+    setPoOpen(false);
     if (order.companyCode) setCompanyCode(order.companyCode);
     const property = masters?.properties.find((row) => row.companyCode && row.companyCode === order.companyCode);
     if (property) setPropertyId(property.id);
     setSupplierName(order.supplierName || "");
-    setSupplierSearch(order.supplierName || "");
+    setSupplierSearch(order.supplierName || order.supplierCode || "");
     setSilaSupplierId(order.silaSupplierId || "");
     setSelectedSupplierId(order.supplierId || "");
     if (order.currency) setCurrency(order.currency);
@@ -141,25 +144,26 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     setReference((current) => current || order.poNumber);
   };
 
-  const findPurchaseOrders = (term = poSearch) => {
-    const search = term.trim();
-    if (!search) {
-      toastService.error("Enter a purchase order number.");
-      return;
-    }
+  useEffect(() => {
+    if (creationType !== "PO") return undefined;
+    let active = true;
     setOrdersLoading(true);
-    getEligiblePurchaseOrders({ search })
+    getEligiblePurchaseOrders({ search: poTerm.trim() || null })
       .then((rows) => {
+        if (!active) return;
         setOrders(rows);
-        if (rows.length === 1) applyPurchaseOrder(rows[0]);
-        else if (rows.length === 0) toastService.error("No eligible purchase order matches that number.");
+        const exact = rows.filter((row) => row.poNumber.toLowerCase() === poTerm.trim().toLowerCase());
+        if (exact.length === 1 && purchaseOrderId !== exact[0].id) applyPurchaseOrder(exact[0]);
       })
       .catch((err: unknown) => {
-        setOrders([]);
-        toastService.error(err instanceof Error ? err.message : "Could not load purchase orders.");
+        if (active) {
+          setOrders([]);
+          if (poTerm.trim()) toastService.error(err instanceof Error ? err.message : "Could not load purchase orders.");
+        }
       })
-      .finally(() => setOrdersLoading(false));
-  };
+      .finally(() => active && setOrdersLoading(false));
+    return () => { active = false; };
+  }, [creationType, poTerm]);
 
   useEffect(() => {
     if (!purchaseOrderId) {
@@ -280,7 +284,7 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     if (!taxDeterminationDate) return "Enter the tax determination date.";
     if (!currency.trim()) return "Enter the currency.";
     if (creationType === "PO") {
-      if (!purchaseOrderId) return "Enter a purchase order number and retrieve it.";
+      if (!purchaseOrderId) return "Select a purchase order from the dropdown.";
       if (selectedGrns.length === 0) return "Select at least one goods receipt.";
       if (poLines.length === 0) return "No invoiceable quantities remain on the selected goods receipts.";
     } else {
@@ -376,70 +380,70 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
         {creationType === "PO" && (
           <section className="srcv-stack" aria-labelledby="srcv-create-po-number">
             <h3 id="srcv-create-po-number" className="sila-form-section-title">Purchase order</h3>
-            <p className="srcv-sub">Enter the PO number first. Supplier, company code, amounts, tax codes and GRNs are retrieved from that order.</p>
-            <div className="sila-form-grid">
-              <div className="sila-field">
-                <label className="sila-label" htmlFor="srcv-create-po">PO number</label>
-                <input
-                  id="srcv-create-po"
-                  className="sila-input"
-                  value={poSearch}
-                  autoComplete="off"
-                  placeholder="Purchase order number"
-                  onChange={(event) => setPoSearch(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      findPurchaseOrders(event.currentTarget.value);
-                    }
-                  }}
-                />
-              </div>
-              <div className="sila-field sila-field--action">
-                <button type="button" className="sila-btn sila-btn--primary" disabled={ordersLoading} onClick={() => findPurchaseOrders()}>
-                  {ordersLoading ? "Finding…" : "Retrieve PO"}
-                </button>
-              </div>
+            <p className="srcv-sub">Search the dropdown by PO number, supplier ID / code, or creation date. Selecting a PO fills supplier, company, amounts, tax codes and GRNs.</p>
+            <div className="sila-field sila-field--full srcv-combo">
+              <label className="sila-label" htmlFor="srcv-create-po">PO number</label>
+              <input
+                id="srcv-create-po"
+                className="sila-input"
+                role="combobox"
+                aria-expanded={poOpen}
+                aria-controls="srcv-create-po-list"
+                aria-autocomplete="list"
+                value={poSearch}
+                autoComplete="off"
+                placeholder="Search PO, supplier ID or creation date"
+                onFocus={() => setPoOpen(true)}
+                onChange={(event) => {
+                  setPoSearch(event.target.value);
+                  setPoOpen(true);
+                  if (purchaseOrderId) setPurchaseOrderId("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setPoOpen(false);
+                  if (event.key === "Enter" && orders.length === 1) {
+                    event.preventDefault();
+                    applyPurchaseOrder(orders[0]);
+                  }
+                }}
+                onBlur={() => window.setTimeout(() => setPoOpen(false), 150)}
+              />
+              {poOpen && (
+                <ul id="srcv-create-po-list" className="srcv-combo__list" role="listbox">
+                  {ordersLoading && <li className="srcv-combo__empty">Searching…</li>}
+                  {!ordersLoading && orders.length === 0 && (
+                    <li className="srcv-combo__empty">No eligible purchase orders match that search.</li>
+                  )}
+                  {orders.map((order) => (
+                    <li key={order.id} role="none">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={purchaseOrderId === order.id}
+                        className={`srcv-combo__option${purchaseOrderId === order.id ? " srcv-combo__option--selected" : ""}`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => applyPurchaseOrder(order)}
+                      >
+                        <strong>{order.poNumber}</strong>
+                        <span>
+                          {order.supplierCode || order.supplierId || "—"}
+                          {order.supplierName ? ` · ${order.supplierName}` : ""}
+                          {` · ${formatDate(order.orderDate || order.createdOn)}`}
+                          {order.companyCode ? ` · ${order.companyCode}` : ""}
+                          {order.grnCount ? ` · ${order.grnCount} GRN` : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {purchaseOrderId && orders.length === 1 && (
+            {purchaseOrderId && (
               <p className="srcv-sub">
-                Retrieved {orders[0].poNumber}
-                {orders[0].supplierName ? ` · ${orders[0].supplierName}` : ""}
-                {orders[0].companyCode ? ` · ${orders[0].companyCode}` : ""}
-                {orders[0].totalAmount != null ? ` · ${formatAmount(orders[0].totalAmount, orders[0].currency)}` : ""}
+                Selected {poSearch}
+                {supplierName ? ` · ${supplierName}` : ""}
+                {companyCode ? ` · ${companyCode}` : ""}
               </p>
-            )}
-            {orders.length > 1 && (
-              <div className="sila-table-wrap">
-                <table className="sila-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">PO</th>
-                      <th scope="col">Supplier</th>
-                      <th scope="col">Company</th>
-                      <th scope="col">Value</th>
-                      <th scope="col">GRNs</th>
-                      <th scope="col"><span className="sila-visually-hidden">Select</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr key={order.id}>
-                        <td><span className="sila-cell-strong">{order.poNumber}</span></td>
-                        <td>{order.supplierName || "—"}</td>
-                        <td>{order.companyCode || "—"}</td>
-                        <td>{formatAmount(order.totalAmount, order.currency)}</td>
-                        <td>{order.grnCount}</td>
-                        <td>
-                          <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => applyPurchaseOrder(order)}>
-                            {purchaseOrderId === order.id ? "Selected" : "Select"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             )}
           </section>
         )}

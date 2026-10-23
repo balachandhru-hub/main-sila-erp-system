@@ -55,6 +55,7 @@ namespace Buyer.Domain.Dtos
         public Guid Id { get; set; }
         public string PoNumber { get; set; } = string.Empty;
         public DateTime? OrderDate { get; set; }
+        public DateTime? CreatedOn { get; set; }
         public string? CompanyCode { get; set; }
         public string? Currency { get; set; }
         public decimal? TotalAmount { get; set; }
@@ -63,6 +64,7 @@ namespace Buyer.Domain.Dtos
         public int GrnCount { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? SupplierName { get; set; }
+        public string? SupplierCode { get; set; }
         public Guid? SupplierId { get; set; }
         public Guid? SilaSupplierId { get; set; }
     }

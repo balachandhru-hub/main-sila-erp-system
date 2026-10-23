@@ -27,6 +27,58 @@
   align-items: flex-end;
 }
 
+.srcv-combo {
+  position: relative;
+}
+
+.srcv-combo__list {
+  position: absolute;
+  top: calc(100% + 0.125rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  border: 0.0625rem solid var(--sila-border, #d7e3f0);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.25rem rgba(32, 65, 92, 0.12);
+}
+
+.srcv-combo__option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.srcv-combo__option span {
+  color: var(--sila-text-muted, #647789);
+  font-size: 0.75rem;
+}
+
+.srcv-combo__option:hover,
+.srcv-combo__option:focus-visible,
+.srcv-combo__option--selected {
+  background: var(--sila-surface-hover, #edf5fb);
+}
+
+.srcv-combo__empty {
+  padding: 0.75rem;
+  color: var(--sila-text-muted, #647789);
+  font-size: 0.8125rem;
+}
+
 /* Second, quieter line inside a table cell */
 .srcv-sub {
   display: block;
