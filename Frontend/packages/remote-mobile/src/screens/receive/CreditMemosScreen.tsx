@@ -41,6 +41,7 @@ const CreditMemosScreen: React.FC = () => {
         <select className="sm-input" aria-label="Credit memo status" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="">All statuses</option>
           <option value="IN_PROGRESS">In progress</option>
+          <option value="PENDING_APPROVAL">Pending approval</option>
           <option value="FAILED">Posting failed</option>
           <option value="POSTED">Posted</option>
         </select>
