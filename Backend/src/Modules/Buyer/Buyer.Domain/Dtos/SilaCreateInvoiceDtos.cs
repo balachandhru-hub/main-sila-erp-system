@@ -21,7 +21,7 @@ namespace Buyer.Domain.Dtos
         public Guid? PurchaseOrderId { get; set; }
         public List<Guid> GoodsReceiptIds { get; set; } = new();
         public List<SilaCreateInvoiceLineDto> Lines { get; set; } = new();
-        /// <summary>Optional uploaded file for a new create. When omitted, the invoice can still be drafted.</summary>
+        /// <summary>One PDF, JPEG or PNG. Required on Create Invoice.</summary>
         public string? FileName { get; set; }
         public string? ContentType { get; set; }
         public byte[] Content { get; set; } = Array.Empty<byte>();
@@ -63,6 +63,8 @@ namespace Buyer.Domain.Dtos
         public int GrnCount { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? SupplierName { get; set; }
+        public Guid? SupplierId { get; set; }
+        public Guid? SilaSupplierId { get; set; }
     }
 
     public class SilaEligibleGoodsReceiptDto

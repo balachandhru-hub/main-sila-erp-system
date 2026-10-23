@@ -107,6 +107,7 @@ namespace Buyer.Application.Features.Shared
             Guid? silaSupplierId,
             Guid? supplierId,
             string? companyCode,
+            string? search,
             CancellationToken cancellationToken)
         {
             IQueryable<PurchaseOrder> query = repository.PurchaseOrder.FindByCondition(x =>
@@ -118,6 +119,14 @@ namespace Buyer.Application.Features.Shared
             {
                 string company = companyCode.Trim();
                 query = query.Where(x => x.CompanyCode == company);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string term = search.Trim();
+                query = query.Where(x =>
+                    x.PoNumber.Contains(term)
+                    || (x.ErpPurchaseOrderId != null && x.ErpPurchaseOrderId.Contains(term)));
             }
 
             List<PurchaseOrder> orders = await query.OrderByDescending(x => x.OrderDate).Take(200).ToListAsync(cancellationToken);
@@ -193,8 +202,27 @@ namespace Buyer.Application.Features.Shared
                     ReceivedQuantity = received,
                     GrnCount = orderReceipts.Count,
                     Status = order.Status,
-                    SupplierName = order.SupplierName
+                    SupplierName = order.SupplierName,
+                    SupplierId = order.SupplierId
                 });
+            }
+
+            if (result.Count > 0)
+            {
+                List<SilaSupplier> sila = await repository.SilaSupplier
+                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive)
+                    .ToListAsync(cancellationToken);
+                foreach (SilaEligiblePurchaseOrderDto row in result)
+                {
+                    SilaSupplier? match = sila.FirstOrDefault(supplier =>
+                        (!string.IsNullOrWhiteSpace(row.SupplierName)
+                            && string.Equals(supplier.Name.Trim(), row.SupplierName.Trim(), StringComparison.OrdinalIgnoreCase))
+                        || (!string.IsNullOrWhiteSpace(row.SupplierName)
+                            && !string.IsNullOrWhiteSpace(supplier.SupplierCode)
+                            && (row.SupplierName.Contains(supplier.SupplierCode, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(row.SupplierName.Trim(), supplier.SupplierCode, StringComparison.OrdinalIgnoreCase))));
+                    row.SilaSupplierId = match?.Id;
+                }
             }
 
             return result;

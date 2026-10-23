@@ -963,6 +963,8 @@ export interface SilaEligiblePurchaseOrder {
   grnCount: number;
   status: string;
   supplierName?: string | null;
+  supplierId?: string | null;
+  silaSupplierId?: string | null;
 }
 
 export interface SilaEligibleGoodsReceiptLine {
@@ -1019,6 +1021,7 @@ export const getEligiblePurchaseOrders = async (params: {
   supplierId?: string | null;
   companyCode?: string | null;
   propertyId?: string | null;
+  search?: string | null;
 }): Promise<SilaEligiblePurchaseOrder[]> =>
   list(await call(() => axiosInstance.get<SilaEligiblePurchaseOrder[]>(`${BASE}/invoices/create/purchase-orders`, {
     params: {
@@ -1026,6 +1029,7 @@ export const getEligiblePurchaseOrders = async (params: {
       supplierId: params.supplierId || undefined,
       companyCode: params.companyCode || undefined,
       propertyId: params.propertyId || undefined,
+      search: params.search?.trim() || undefined,
     },
   }), "Could not load purchase orders."));
 
