@@ -22,6 +22,11 @@
   min-width: 12rem;
 }
 
+.srcv-dialog .sila-field--action {
+  display: flex;
+  align-items: flex-end;
+}
+
 /* Second, quieter line inside a table cell */
 .srcv-sub {
   display: block;
