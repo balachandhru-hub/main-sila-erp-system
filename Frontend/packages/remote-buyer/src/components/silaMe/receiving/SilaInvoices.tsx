@@ -11,6 +11,23 @@ import { useDebounced, usePagedList } from "./usePagedList";
 import "../silaMeTheme.css";
 import "./SilaReceiving.css";
 
+export interface SilaInvoiceSearchIntent {
+  status?: string;
+  invoiceId?: string;
+}
+
+let pendingInvoiceSearch: SilaInvoiceSearchIntent = {};
+
+export const queueSilaInvoiceSearch = (intent: SilaInvoiceSearchIntent): void => {
+  pendingInvoiceSearch = intent;
+};
+
+const takeSilaInvoiceSearch = (): SilaInvoiceSearchIntent => {
+  const current = pendingInvoiceSearch;
+  pendingInvoiceSearch = {};
+  return current;
+};
+
 interface SilaInvoicesProps {
   canProcess: boolean;
   canApprove?: boolean;
@@ -21,16 +38,17 @@ interface SilaInvoicesProps {
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
-const STATUSES = ["UPLOADED", "EXTRACTED", "REVIEW_REQUIRED", "OCR_FAILED", "REVIEWED", "GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "ERP_POSTING_FAILED"];
+const STATUSES = ["UPLOADED", "EXTRACTED", "REVIEW_REQUIRED", "OCR_FAILED", "REVIEWED", "GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "PENDING_APPROVAL", "APPROVED", "ERP_POSTING_FAILED", "POSTED"];
 const SUBMIT_STATUSES = ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "REVIEWED", "EXTRACTED", "APPROVED"];
 const RESUBMIT_STATUSES = ["ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"];
 
 /** Supplier invoices: upload, OCR, review, and "Create GRN from invoice". */
 const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = false, canReceive = false, canManageErp = false, canProcessCreditMemo = false }) => {
+  const [intent] = useState(takeSilaInvoiceSearch);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(intent.status ?? "");
   const term = useDebounced(search);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(intent.invoiceId ?? null);
   const [creating, setCreating] = useState(false);
   const [receive, setReceive] = useState<ReceivePrefill | null>(null);
   const [uploading, setUploading] = useState(false);

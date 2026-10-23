@@ -14,6 +14,7 @@ namespace Buyer.Application.Features.Queries.GetSilaCreditMemos
         private static readonly string[] ExactStatuses =
         {
             Common.SILA_CREDIT_MEMO_DRAFT,
+            Common.SILA_CREDIT_MEMO_PENDING_APPROVAL,
             Common.SILA_CREDIT_MEMO_READY_TO_POST,
             Common.SILA_CREDIT_MEMO_POSTING,
             Common.SILA_CREDIT_MEMO_POSTED,
