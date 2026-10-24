@@ -316,8 +316,10 @@ namespace Buyer.Application.Features.Shared
                 foreach (GoodsReceiptItem line in receiptLines)
                 {
                     decimal received = line.AcceptedQty > 0 ? line.AcceptedQty : line.ReceivedQty;
+                    decimal reversed = SilaInvoiceableQuantity.ConfirmedReversedQty(receipt, line);
+                    decimal netReceived = Math.Max(0, received - reversed);
                     decimal invoiced = Math.Max(line.InvoiceQty ?? 0, invoicedByGrnLine.GetValueOrDefault(line.Id));
-                    decimal remaining = received - invoiced;
+                    decimal remaining = netReceived - invoiced;
                     if (remaining <= 0)
                     {
                         continue;
@@ -333,6 +335,8 @@ namespace Buyer.Application.Features.Shared
                         MaterialCode = line.MaterialCode ?? poItem?.MaterialCode,
                         Uom = line.Uom ?? poItem?.UnitOfMeasure,
                         ReceivedQuantity = received,
+                        ReversedQuantity = reversed,
+                        NetReceivedQuantity = netReceived,
                         InvoicedQuantity = invoiced,
                         RemainingQuantity = remaining,
                         UnitPrice = poItem?.UnitPrice,

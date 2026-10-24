@@ -5,6 +5,7 @@ using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.PrepareSilaCreateInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
 using Buyer.Application.Features.Commands.LinkSilaInvoiceGoodsReceipts;
+using Buyer.Application.Features.Commands.RemoveSilaInvoiceAttachment;
 using Buyer.Application.Features.Commands.RefreshSilaInvoicePosting;
 using Buyer.Application.Features.Commands.ReprocessSilaInvoiceAttachment;
 using Buyer.Application.Features.Commands.CreateSilaCreditMemo;
@@ -456,6 +457,22 @@ namespace Buyer.API.Controllers
             };
             Response.Headers.ContentDisposition = disposition.ToString();
             return File(result.Content, result.ContentType);
+        }
+
+        [HttpDelete]
+        [Route("api/v1/buyer/sila/invoices/{invoiceId}/attachment")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
+        [SwaggerOperation("RemoveSilaInvoiceAttachment")]
+        [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
+        public async Task<IActionResult> RemoveInvoiceAttachment([FromRoute] Guid invoiceId)
+        {
+            SilaInvoiceDetailDto result = await _mediator.Send(new RemoveSilaInvoiceAttachmentCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                InvoiceId = invoiceId
+            });
+            return Ok(result);
         }
 
         [HttpPost]

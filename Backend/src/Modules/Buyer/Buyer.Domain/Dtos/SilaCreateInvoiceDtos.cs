@@ -94,6 +94,8 @@ namespace Buyer.Domain.Dtos
         public string? MaterialCode { get; set; }
         public string? Uom { get; set; }
         public decimal ReceivedQuantity { get; set; }
+        public decimal ReversedQuantity { get; set; }
+        public decimal NetReceivedQuantity { get; set; }
         public decimal InvoicedQuantity { get; set; }
         public decimal RemainingQuantity { get; set; }
         public decimal? UnitPrice { get; set; }

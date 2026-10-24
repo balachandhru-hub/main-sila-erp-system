@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Buyer.Application.Features.Commands.PostPendingErpPostings;
 using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
@@ -29,10 +30,16 @@ namespace Buyer.Application.Features.Shared
 
         private static readonly string[] InvoiceReferenceNames =
         {
-            "SupplierInvoice", "supplierInvoice", "SupplierInvoiceID", "supplierInvoiceId", "SupplierInvoiceNumber"
+            "SupplierInvoice", "supplierInvoice", "SupplierInvoiceID", "supplierInvoiceId",
+            "SupplierInvoiceNumber", "supplierInvoiceNumber", "SuplrInvoice"
         };
 
-        private static readonly string[] FiscalYearNames = { "FiscalYear", "fiscalYear", "Fiscalyear" };
+        private static readonly string[] FiscalYearNames = { "FiscalYear", "fiscalYear", "Fiscalyear", "fiscalyear" };
+
+        private static readonly Regex ODataSupplierInvoiceKey = new Regex(
+            @"A_SupplierInvoice\(SupplierInvoice='([^']+)',FiscalYear='([^']+)'\)",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled,
+            TimeSpan.FromSeconds(1));
         private static readonly string[] AccountingDocumentNames = { "AccountingDocument", "accountingDocument", "AccountingDocumentNumber" };
 
         public sealed class Document
@@ -325,6 +332,11 @@ namespace Buyer.Application.Features.Shared
                 ? null
                 : await repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId);
             SilaInvoicePostingData.Prepared? prepared = SilaInvoicePostingData.Read(invoice.PostingData);
+            if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber))
+            {
+                throw new BadRequestCustomException("Supplier Reference is required.", "Supplier Reference is required.");
+            }
+
             List<string> missing = SilaInvoicePostingData.Missing(prepared);
             if (missing.Count > 0)
             {
@@ -587,6 +599,56 @@ namespace Buyer.Application.Features.Shared
             return ReadNamed(body, FiscalYearNames);
         }
 
+        /// <summary>
+        /// Fills a missing ERP invoice number from the stored SAP success body. Never calls SAP.
+        /// Does not overwrite an existing different reference or invent a local number.
+        /// </summary>
+        public static async Task<bool> ApplyStoredSuccessAsync(
+            IRepositoryWrapper repository,
+            Invoice invoice,
+            InventoryErpPosting? posting,
+            CancellationToken cancellationToken)
+        {
+            if (posting == null
+                || posting.ReferenceType != Common.SILA_REF_INVOICE
+                || posting.ReferenceId != invoice.Id
+                || (posting.Status != Common.SILA_POSTING_POSTED
+                    && posting.Status != Common.SILA_POSTING_ERP_ACCEPTED
+                    && posting.Status != Common.SILA_POSTING_FAILED_LOCAL))
+            {
+                return false;
+            }
+
+            string? sap = ReadSupplierInvoice(posting.ErpResponsePayload);
+            if (string.IsNullOrWhiteSpace(sap))
+            {
+                sap = posting.ErpReference;
+            }
+
+            if (string.IsNullOrWhiteSpace(sap))
+            {
+                return false;
+            }
+
+            sap = sap.Trim();
+            bool changed = false;
+            if (string.IsNullOrWhiteSpace(posting.ErpReference))
+            {
+                posting.ErpReference = sap;
+                repository.InventoryErpPosting.Update(posting);
+                changed = true;
+            }
+            else if (!posting.ErpReference.Trim().Equals(sap, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            invoice.ErpPostingId ??= posting.Id;
+            repository.Invoice.Update(invoice);
+            await Task.CompletedTask;
+            return changed;
+        }
+
         public static void RememberResponse(IRepositoryWrapper repository, InventoryErpPosting posting, Guid userId)
         {
             if (posting.ReferenceType != Common.SILA_REF_INVOICE)
@@ -780,6 +842,7 @@ namespace Buyer.Application.Features.Shared
                 return;
             }
 
+            await ApplyStoredSuccessAsync(repository, invoice, posting, cancellationToken);
             if (next == invoice.Status)
             {
                 return;
@@ -788,7 +851,7 @@ namespace Buyer.Application.Features.Shared
             invoice.Status = next;
             invoice.ErpPostingId ??= posting.Id;
             repository.Invoice.Update(invoice);
-            await Task.CompletedTask;
+            await ApplyStoredSuccessAsync(repository, invoice, posting, cancellationToken);
         }
 
         /// <summary>
@@ -921,35 +984,95 @@ namespace Buyer.Application.Features.Shared
                 return null;
             }
 
-            try
+            string? json = ReadNamedJson(body, names);
+            if (!string.IsNullOrWhiteSpace(json))
             {
-                using JsonDocument json = JsonDocument.Parse(body);
-                JsonElement root = json.RootElement;
-                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("d", out JsonElement wrapped) && wrapped.ValueKind == JsonValueKind.Object)
-                {
-                    root = wrapped;
-                }
+                return json;
+            }
 
-                if (root.ValueKind != JsonValueKind.Object)
+            bool supplier = names.Any(x => InvoiceReferenceNames.Contains(x, StringComparer.Ordinal));
+            bool fiscal = names.Any(x => FiscalYearNames.Contains(x, StringComparer.Ordinal));
+            if (supplier || fiscal)
+            {
+                try
                 {
-                    return null;
-                }
-
-                foreach (string name in names)
-                {
-                    if (root.TryGetProperty(name, out JsonElement value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
+                    Match key = ODataSupplierInvoiceKey.Match(body);
+                    if (key.Success)
                     {
-                        string text = value.ToString();
-                        if (!string.IsNullOrWhiteSpace(text))
+                        string value = fiscal && !supplier ? key.Groups[2].Value : key.Groups[1].Value;
+                        if (!string.IsNullOrWhiteSpace(value))
                         {
-                            return text;
+                            return value.Trim();
                         }
                     }
                 }
+                catch (RegexMatchTimeoutException)
+                {
+                    return null;
+                }
+            }
+
+            foreach (string name in names)
+            {
+                Match property = Regex.Match(
+                    body,
+                    "(?<![A-Za-z])\"" + Regex.Escape(name) + "\"\\s*:\\s*\"([^\"]+)\"",
+                    RegexOptions.CultureInvariant,
+                    TimeSpan.FromSeconds(1));
+                if (property.Success && !string.IsNullOrWhiteSpace(property.Groups[1].Value))
+                {
+                    return property.Groups[1].Value.Trim();
+                }
+
+                Match xml = Regex.Match(
+                    body,
+                    "<" + Regex.Escape(name) + "[^>]*>\\s*([^<]+)\\s*</" + Regex.Escape(name) + ">",
+                    RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+                    TimeSpan.FromSeconds(1));
+                if (xml.Success && !string.IsNullOrWhiteSpace(xml.Groups[1].Value))
+                {
+                    return xml.Groups[1].Value.Trim();
+                }
+            }
+
+            return null;
+        }
+
+        private static string? ReadNamedJson(string body, IReadOnlyList<string> names)
+        {
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(body);
+                return ReadNamedElement(document.RootElement, names);
             }
             catch (JsonException)
             {
                 return null;
+            }
+        }
+
+        private static string? ReadNamedElement(JsonElement root, IReadOnlyList<string> names)
+        {
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("d", out JsonElement wrapped) && wrapped.ValueKind == JsonValueKind.Object)
+            {
+                root = wrapped;
+            }
+
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (string name in names)
+            {
+                if (root.TryGetProperty(name, out JsonElement value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
+                {
+                    string text = value.ToString();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return text.Trim();
+                    }
+                }
             }
 
             return null;

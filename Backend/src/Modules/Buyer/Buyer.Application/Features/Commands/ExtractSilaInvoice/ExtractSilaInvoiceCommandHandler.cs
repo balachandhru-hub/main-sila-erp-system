@@ -9,6 +9,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
+using SharedKernel.Integration.Services;
 using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Commands.ExtractSilaInvoice
@@ -24,19 +25,22 @@ namespace Buyer.Application.Features.Commands.ExtractSilaInvoice
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly IMediator _mediator;
+        private readonly IIntegrationCredentialProtector _credentials;
 
         public ExtractSilaInvoiceCommandHandler(
             IRepositoryWrapper repository,
             ILoggerManager logger,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            IMediator mediator)
+            IMediator mediator,
+            IIntegrationCredentialProtector credentials)
         {
             _repository = repository;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _mediator = mediator;
+            _credentials = credentials;
         }
 
         public async Task<SilaInvoiceDetailDto> Handle(ExtractSilaInvoiceCommand request, CancellationToken cancellationToken)
@@ -74,6 +78,31 @@ namespace Buyer.Application.Features.Commands.ExtractSilaInvoice
             invoice.ContentHash = SilaOcrPolicy.ContentHash(content);
             Stopwatch watch = Stopwatch.StartNew();
             (SilaInvoiceReader.Reading reading, string provider) = await ReadAsync(request.OrganizationId, buyer.Id, invoice, content, settings, reread, cancellationToken);
+            string? fallbackNote = null;
+            decimal? originalConfidence = reading.Result?.Confidence;
+            if (reading.Result != null && reading.Result.Confidence == null)
+            {
+                fallbackNote = SilaOcrAiProviders.CONFIDENCE_UNAVAILABLE;
+            }
+            else if (reading.Result != null
+                && reading.Result.Confidence < settings.MinimumConfidence
+                && SilaOcrAiProviders.AiFallbackEnabled(settings))
+            {
+                (SilaInvoiceOcrResultDto? ai, string? aiProvider, string? aiModel, string? warning) = await SilaOcrAiProviders.TryFallbackAsync(
+                    _httpClientFactory, settings, _credentials, _logger, content, invoice.FileName, cancellationToken);
+                if (ai != null)
+                {
+                    reading.Result = ai;
+                    reading.Method = SilaOcrSettings.METHOD_EXTERNAL;
+                    provider = aiProvider ?? provider;
+                    fallbackNote = "FallbackTriggered=Yes; FallbackReason=OCR_BELOW_THRESHOLD; Provider=" + (aiProvider ?? "") + "; Model=" + (aiModel ?? "") + "; OriginalOcrConfidence=" + originalConfidence;
+                }
+                else
+                {
+                    fallbackNote = "FallbackTriggered=Yes; FallbackReason=OCR_BELOW_THRESHOLD; Result=KEPT_OCR; " + (warning ?? "");
+                }
+            }
+
             watch.Stop();
 
             List<InvoiceExtraction> history = await _repository.InvoiceExtraction
@@ -96,7 +125,7 @@ namespace Buyer.Application.Features.Commands.ExtractSilaInvoice
             if (reading.Result == null)
             {
                 extraction.Status = SilaOcrSettings.EXTRACTION_FAILED;
-                extraction.Message = Limit(reading.Failure);
+                extraction.Message = Limit(string.IsNullOrWhiteSpace(fallbackNote) ? reading.Failure : reading.Failure + " " + fallbackNote);
 
                 // A reviewed invoice keeps its fields when a re-read fails.
                 if (invoice.Status != Common.SILA_INVOICE_REVIEWED)
@@ -125,7 +154,13 @@ namespace Buyer.Application.Features.Commands.ExtractSilaInvoice
                     invoice.Status = SilaOcrSettings.INVOICE_REVIEW_REQUIRED;
                 }
 
-                extraction.Message = notes.Count == 0 ? null : Limit(string.Join(" ", notes));
+                string text = notes.Count == 0 ? null : string.Join(" ", notes);
+                if (!string.IsNullOrWhiteSpace(fallbackNote))
+                {
+                    text = string.IsNullOrWhiteSpace(text) ? fallbackNote : text + " " + fallbackNote;
+                }
+
+                extraction.Message = Limit(text);
                 extraction.FieldsJson = JsonSerializer.Serialize(new SilaInvoiceOcrResultDto
                 {
                     Confidence = reading.Result.Confidence,
@@ -156,6 +191,18 @@ namespace Buyer.Application.Features.Commands.ExtractSilaInvoice
         private async Task<(SilaInvoiceReader.Reading Reading, string Provider)> ReadAsync(
             Guid organizationId, Guid buyerId, Invoice invoice, byte[] content, SilaOcrConfiguration settings, bool reread, CancellationToken cancellationToken)
         {
+            if (!SilaOcrAiProviders.PrimaryEnabled(settings) && SilaOcrAiProviders.AiFallbackEnabled(settings))
+            {
+                (SilaInvoiceOcrResultDto? ai, string? aiProvider, _, string? warning) = await SilaOcrAiProviders.TryFallbackAsync(
+                    _httpClientFactory, settings, _credentials, _logger, content, invoice.FileName, cancellationToken);
+                if (ai != null)
+                {
+                    return (new SilaInvoiceReader.Reading { Result = ai, Method = SilaOcrSettings.METHOD_EXTERNAL }, aiProvider ?? SilaOcrSettings.METHOD_EXTERNAL);
+                }
+
+                return (new SilaInvoiceReader.Reading { Failure = warning ?? "Primary OCR is disabled and AI fallback did not return a result." }, SilaOcrSettings.METHOD_EXTERNAL);
+            }
+
             if (SilaOcrPolicy.ReuseCachedOcr(settings) && !(reread && SilaOcrPolicy.AlwaysBackendOnReread(settings)))
             {
                 SilaInvoiceReader.Reading? cached = await CachedReadingAsync(buyerId, invoice, cancellationToken);

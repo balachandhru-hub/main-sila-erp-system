@@ -68,5 +68,17 @@ namespace Buyer.Domain.Entities
         /// <summary>Folder inside the document library. Empty means the library root.</summary>
         [MaxLength(400)]
         public string? SharePointFolder { get; set; }
+
+        /// <summary>When false, the built-in / current OCR engine is skipped. Null = enabled.</summary>
+        public bool? PrimaryOcrEnabled { get; set; }
+
+        /// <summary>When true, configured AI providers run if OCR confidence is below the threshold.</summary>
+        public bool? AiFallbackEnabled { get; set; }
+
+        /// <summary>Safe provider rows (no secrets).</summary>
+        public string? AiProvidersJson { get; set; }
+
+        /// <summary>Encrypted provider-id to API key map. Never returned to the client.</summary>
+        public string? AiProviderSecrets { get; set; }
     }
 }

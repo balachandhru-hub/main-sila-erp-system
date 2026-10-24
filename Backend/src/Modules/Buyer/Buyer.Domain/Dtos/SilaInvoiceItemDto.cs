@@ -32,5 +32,7 @@ namespace Buyer.Domain.Dtos
         public string? DebitCreditCode { get; set; }
         public string? LineText { get; set; }
         public Guid? GoodsReceiptItemId { get; set; }
+        public decimal? NetReceivedQuantity { get; set; }
+        public decimal? RemainingInvoiceableQuantity { get; set; }
     }
 }

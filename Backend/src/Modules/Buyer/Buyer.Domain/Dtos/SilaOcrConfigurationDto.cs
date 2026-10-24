@@ -36,5 +36,21 @@ namespace Buyer.Domain.Dtos
         public bool AttachmentWritesLocally { get; set; } = true;
         /// <summary>The local folder invoice files are written to.</summary>
         public string? AttachmentLocalPath { get; set; }
+        public bool PrimaryOcrEnabled { get; set; } = true;
+        public bool AiFallbackEnabled { get; set; }
+        public List<SilaOcrAiProviderDto> Providers { get; set; } = new();
+    }
+
+    public class SilaOcrAiProviderDto
+    {
+        public Guid Id { get; set; }
+        public string Provider { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public bool Enabled { get; set; }
+        public int Priority { get; set; }
+        public string? Model { get; set; }
+        public string? BaseUrl { get; set; }
+        public bool CredentialConfigured { get; set; }
+        public string? ConnectionStatus { get; set; }
     }
 }

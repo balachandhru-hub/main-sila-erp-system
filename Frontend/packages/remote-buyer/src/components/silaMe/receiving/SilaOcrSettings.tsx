@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { EmptyState, Loader, PageHeader, toastService } from "@vosox/shared-ui";
-import { getOcrConfiguration, saveOcrConfiguration, type SilaOcrConfiguration } from "../../../api/silaMe/silaMasterDataApi";
+import { getOcrConfiguration, saveOcrConfiguration, type SilaOcrAiProvider, type SilaOcrConfiguration } from "../../../api/silaMe/silaMasterDataApi";
 import { formatDateTime } from "../../cart/lineFormat";
 import SilaOcrPolicyFields, { policyProblem, toPolicyForm, toPolicyWrite, type OcrPolicyForm } from "./SilaOcrPolicyFields";
 import "../silaMeTheme.css";
@@ -20,14 +20,63 @@ interface AttachmentForm {
   folder: string;
 }
 
+interface ProviderForm {
+  id: string;
+  provider: string;
+  displayName: string;
+  enabled: boolean;
+  priority: string;
+  model: string;
+  baseUrl: string;
+  apiKey: string;
+  credentialConfigured: boolean;
+  connectionStatus: string;
+}
+
 interface OcrForm {
   provider: string;
   autoExtractOnUpload: boolean;
   /** Percentage as typed, 0-100. */
   minimumConfidence: string;
+  primaryOcrEnabled: boolean;
+  aiFallbackEnabled: boolean;
+  providers: ProviderForm[];
   policy: OcrPolicyForm;
   attachment: AttachmentForm;
 }
+
+const PROVIDER_TYPES = [
+  { value: "GEMINI", label: "Gemini" },
+  { value: "OPENAI", label: "OpenAI" },
+  { value: "ANTHROPIC", label: "Anthropic Claude" },
+  { value: "CUSTOM", label: "Other / Custom" },
+];
+
+const toProviderForm = (row: SilaOcrAiProvider): ProviderForm => ({
+  id: row.id,
+  provider: row.provider,
+  displayName: row.displayName,
+  enabled: row.enabled,
+  priority: String(row.priority),
+  model: row.model || "",
+  baseUrl: row.baseUrl || "",
+  apiKey: "",
+  credentialConfigured: row.credentialConfigured,
+  connectionStatus: row.connectionStatus || (row.credentialConfigured ? "Configured" : "Not configured"),
+});
+
+const emptyProvider = (): ProviderForm => ({
+  id: "",
+  provider: "GEMINI",
+  displayName: "Gemini",
+  enabled: true,
+  priority: String(1),
+  model: "",
+  baseUrl: "",
+  apiKey: "",
+  credentialConfigured: false,
+  connectionStatus: "Not configured",
+});
 
 const attachmentOf = (data: SilaOcrConfiguration): AttachmentForm => ({
   storage: data.attachmentStorage || "LOCAL",
@@ -62,6 +111,9 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
       provider: data.provider,
       autoExtractOnUpload: data.autoExtractOnUpload,
       minimumConfidence: String(Math.round(data.minimumConfidence * 100)),
+      primaryOcrEnabled: data.primaryOcrEnabled ?? true,
+      aiFallbackEnabled: data.aiFallbackEnabled ?? false,
+      providers: (data.providers ?? []).map(toProviderForm),
       policy: toPolicyForm(data),
       attachment: data.attachmentStorage ? attachmentOf(data) : (form?.attachment ?? attachmentOf(data)),
     });
@@ -103,6 +155,18 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
         sharePointSiteUrl: form.attachment.siteUrl.trim() || null,
         sharePointLibrary: form.attachment.library.trim() || null,
         sharePointFolder: form.attachment.folder.trim() || null,
+        primaryOcrEnabled: form.primaryOcrEnabled,
+        aiFallbackEnabled: form.aiFallbackEnabled,
+        providers: form.providers.map((row) => ({
+          id: row.id || null,
+          provider: row.provider,
+          displayName: row.displayName,
+          enabled: row.enabled,
+          priority: Number(row.priority) || 0,
+          model: row.model.trim() || null,
+          baseUrl: row.baseUrl.trim() || null,
+          apiKey: row.apiKey.trim() || null,
+        })),
       }));
       toastService.success("OCR settings saved.");
     } catch (err: unknown) {
@@ -145,6 +209,87 @@ const SilaOcrSettings: React.FC<SilaOcrSettingsProps> = ({ canManage }) => {
                   <input id="srcv-ocr-auto" type="checkbox" checked={form.autoExtractOnUpload} onChange={(event) => setForm({ ...form, autoExtractOnUpload: event.target.checked })} /> Read invoices automatically on upload
                 </label>
               </div>
+              <div className="sila-field">
+                <label className="sila-label" htmlFor="srcv-ocr-primary">
+                  <input id="srcv-ocr-primary" type="checkbox" checked={form.primaryOcrEnabled} onChange={(event) => setForm({ ...form, primaryOcrEnabled: event.target.checked })} /> Primary OCR Enabled
+                </label>
+              </div>
+              <div className="sila-field">
+                <label className="sila-label" htmlFor="srcv-ocr-ai">
+                  <input id="srcv-ocr-ai" type="checkbox" checked={form.aiFallbackEnabled} onChange={(event) => setForm({ ...form, aiFallbackEnabled: event.target.checked })} /> AI Fallback Enabled
+                </label>
+                <span className="sila-help">Used only when OCR confidence is below the threshold. Existing OCR stays primary.</span>
+              </div>
+            </div>
+            <div className="srcv-stack">
+              <p className="srcv-sub"><strong>AI fallback providers</strong></p>
+              <div className="sila-table-wrap">
+                <table className="sila-table">
+                  <thead>
+                    <tr>
+                      <th>Provider</th>
+                      <th>Display Name</th>
+                      <th>Enabled</th>
+                      <th>Priority</th>
+                      <th>Model</th>
+                      <th>API/Base URL</th>
+                      <th>Credential</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.providers.map((row, index) => (
+                      <tr key={row.id || `new-${index}`}>
+                        <td>
+                          <select className="sila-select" value={row.provider} onChange={(event) => {
+                            const providers = form.providers.slice();
+                            providers[index] = { ...row, provider: event.target.value, displayName: row.displayName || event.target.value };
+                            setForm({ ...form, providers });
+                          }}>
+                            {PROVIDER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                          </select>
+                        </td>
+                        <td><input className="sila-input" value={row.displayName} onChange={(event) => {
+                          const providers = form.providers.slice();
+                          providers[index] = { ...row, displayName: event.target.value };
+                          setForm({ ...form, providers });
+                        }} /></td>
+                        <td><input type="checkbox" checked={row.enabled} onChange={(event) => {
+                          const providers = form.providers.slice();
+                          providers[index] = { ...row, enabled: event.target.checked };
+                          setForm({ ...form, providers });
+                        }} /></td>
+                        <td><input className="sila-input" type="number" value={row.priority} onChange={(event) => {
+                          const providers = form.providers.slice();
+                          providers[index] = { ...row, priority: event.target.value };
+                          setForm({ ...form, providers });
+                        }} /></td>
+                        <td><input className="sila-input" value={row.model} onChange={(event) => {
+                          const providers = form.providers.slice();
+                          providers[index] = { ...row, model: event.target.value };
+                          setForm({ ...form, providers });
+                        }} /></td>
+                        <td><input className="sila-input" value={row.baseUrl} onChange={(event) => {
+                          const providers = form.providers.slice();
+                          providers[index] = { ...row, baseUrl: event.target.value };
+                          setForm({ ...form, providers });
+                        }} /></td>
+                        <td>
+                          <input className="sila-input" type="password" autoComplete="new-password" placeholder={row.credentialConfigured ? "Configured" : "API key"} value={row.apiKey} onChange={(event) => {
+                            const providers = form.providers.slice();
+                            providers[index] = { ...row, apiKey: event.target.value };
+                            setForm({ ...form, providers });
+                          }} />
+                        </td>
+                        <td>{row.credentialConfigured ? "Configured" : row.connectionStatus}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setForm({ ...form, providers: [...form.providers, emptyProvider()] })}>
+                Add provider
+              </button>
             </div>
             <SilaOcrPolicyFields form={form.policy} onChange={(policy) => setForm({ ...form, policy })} />
             <div className="srcv-stack">

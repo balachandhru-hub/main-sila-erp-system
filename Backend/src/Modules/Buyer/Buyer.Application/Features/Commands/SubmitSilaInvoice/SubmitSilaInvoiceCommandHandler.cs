@@ -62,6 +62,8 @@ namespace Buyer.Application.Features.Commands.SubmitSilaInvoice
                 throw new BadRequestCustomException("Invoice cannot be submitted.", message);
             }
 
+            await SilaInvoiceableQuantity.EnsureWithinRemainingAsync(_repository, invoice, items, cancellationToken);
+
             string? duplicate = await SilaInvoicePosting.DuplicateMessageAsync(_repository, invoice, companyCode, cancellationToken);
             if (duplicate != null)
             {

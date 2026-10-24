@@ -117,7 +117,12 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoices
                     continue;
                 }
 
-                item.ErpReference = posting.ErpReference;
+                if (await SilaInvoicePosting.ApplyStoredSuccessAsync(_repository, invoice, posting, cancellationToken))
+                {
+                    await _repository.SaveAsync();
+                }
+
+                item.ErpReference = posting.ErpReference ?? SilaInvoicePosting.ReadSupplierInvoice(posting.ErpResponsePayload);
                 item.FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting.ErpResponsePayload);
                 item.PostingDate = posting.PostedOn;
             }
