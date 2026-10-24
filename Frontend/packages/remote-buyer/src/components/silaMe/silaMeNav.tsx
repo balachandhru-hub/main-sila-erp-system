@@ -71,6 +71,10 @@ interface NavGroup {
   items: NavChild[];
 }
 
+type NavEntry = NavLeaf | NavGroup;
+
+export const isSilaMeNavGroup = (entry: NavEntry): entry is NavGroup => "items" in entry;
+
 const leaf = (show: boolean, key: SilaMeNavKey, label: string): NavLeaf[] => (show ? [{ key, label }] : []);
 
 /** The "SILA ME" sidebar entry for the role; a leaf is shown only when the role may use that screen. */
@@ -78,11 +82,8 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
   const can = silaMePermissions(role);
   const home = access ?? silaHomeCapabilities(true, can);
   const setup = home.admin || can.manageLocation || can.manageMasterData;
-  const groups: NavGroup[] = [
-    {
-      label: "Home",
-      items: [{ key: "silaDashboard", label: "Dashboard" }],
-    },
+  const entries: NavEntry[] = [
+    { key: "silaDashboard", label: "SILA ME" },
     {
       label: "Inventory",
       items: home.viewInventory ? [
@@ -152,17 +153,22 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
     },
   ];
 
-  return { key: "silaMe", icon: <LayoutGridIcon />, label: "SILA ME - Hospitality", subItems: groups.filter((group) => group.items.length > 0) };
+  return {
+    key: "silaMe",
+    icon: <LayoutGridIcon />,
+    label: "SILA ME - Hospitality",
+    subItems: entries.filter((entry) => !isSilaMeNavGroup(entry) || entry.items.length > 0),
+  };
 };
 
 /**
- * The SILA ME site menu. Home stays in the add-on. Purchasing Dashboard returns to purchasing.
+ * The SILA ME site menu. SILA ME opens the add-on dashboard. Purchasing Dashboard returns to purchasing.
  */
 export const buildSilaMeModuleNav = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
   const sections = (buildSilaMeNavItem(role, access).subItems ?? []).flatMap((entry) =>
-    "items" in entry
+    isSilaMeNavGroup(entry)
       ? [{ key: `sila-section-${entry.label}`, icon: <LayoutGridIcon />, label: entry.label, subItems: entry.items }]
-      : [],
+      : [{ key: entry.key, icon: <HomeIcon />, label: entry.label }],
   );
   return [
     { key: "dashboard", icon: <HomeIcon />, label: "Purchasing Home" },

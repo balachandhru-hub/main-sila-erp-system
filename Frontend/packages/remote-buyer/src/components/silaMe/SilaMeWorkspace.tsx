@@ -168,6 +168,9 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, permiss
         return (
           <SilaReceivingDashboard
             canPost={can.postGrn}
+            canScan={can.processInvoice}
+            canApproveInvoice={can.approveInvoice}
+            canProcessCreditMemo={can.processCreditMemo}
             canReprocess={can.manageErpPosting}
             supervisor={can.manageErpPosting || can.viewAudit}
           />
