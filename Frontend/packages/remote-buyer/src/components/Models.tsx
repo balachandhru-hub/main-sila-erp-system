@@ -17,6 +17,7 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   "SILA ME": <FaHome />,
   "Home": <FaHome />,
   "Inventory": <FaBoxes />,
+  "Menu Engineering": <FaUtensils />,
   "Recipe Management": <FaUtensils />,
   "Receiving": <FaTruck />,
   "Setup": <FaCogs />,

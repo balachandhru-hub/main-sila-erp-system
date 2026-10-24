@@ -42,6 +42,20 @@ import TransferDetailScreen from './screens/inventory/TransferDetailScreen';
 import CountListScreen from './screens/count/CountListScreen';
 import RecipesScreen from './screens/recipes/RecipesScreen';
 import RecipeDetailScreen from './screens/recipes/RecipeDetailScreen';
+import MenuDashboardScreen from './screens/menu/MenuDashboardScreen';
+import MenuItemsScreen from './screens/menu/MenuItemsScreen';
+import MenuItemEditorScreen from './screens/menu/MenuItemEditorScreen';
+import MenuPlanningScreen from './screens/menu/MenuPlanningScreen';
+import DemandPlanningScreen from './screens/menu/DemandPlanningScreen';
+import { PosMappingScreen, PosSalesScreen } from './screens/menu/PosMenuScreens';
+import {
+  ConsumptionScreen,
+  CostMarginScreen,
+  MenuIntelligenceScreen,
+  MenuPerformanceScreen,
+  MenuRecommendationsScreen,
+  WhatIfScreen,
+} from './screens/menu/MenuAnalysisScreens';
 import CountSessionScreen from './screens/count/CountSessionScreen';
 import TasksScreen from './screens/tasks/TasksScreen';
 import EnquiryScreen from './screens/tasks/EnquiryScreen';
@@ -130,6 +144,20 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="inventory/transfers/:transferId" element={<TransferDetailScreen />} />
                 <Route path="recipes" element={<RecipesScreen />} />
                 <Route path="recipes/:recipeId" element={<RecipeDetailScreen />} />
+                <Route path="menu" element={<MenuDashboardScreen />} />
+                <Route path="menu/items" element={<MenuItemsScreen />} />
+                <Route path="menu/items/:itemId" element={<MenuItemEditorScreen />} />
+                <Route path="menu/planning" element={<MenuPlanningScreen />} />
+                <Route path="menu/portions" element={<MenuPlanningScreen portions />} />
+                <Route path="menu/demand" element={<DemandPlanningScreen />} />
+                <Route path="menu/pos" element={<PosSalesScreen />} />
+                <Route path="menu/mapping" element={<PosMappingScreen />} />
+                <Route path="menu/performance" element={<MenuPerformanceScreen />} />
+                <Route path="menu/consumption" element={<ConsumptionScreen />} />
+                <Route path="menu/cost" element={<CostMarginScreen />} />
+                <Route path="menu/recommendations" element={<MenuRecommendationsScreen />} />
+                <Route path="menu/intelligence" element={<MenuIntelligenceScreen />} />
+                <Route path="menu/what-if" element={<WhatIfScreen />} />
                 <Route path="inventory/counts" element={<CountListScreen />} />
                 <Route path="inventory/counts/:stockCountId" element={<CountSessionScreen />} />
                 <Route path="inventory/purchase-requests" element={<PurchaseRequestsScreen />} />

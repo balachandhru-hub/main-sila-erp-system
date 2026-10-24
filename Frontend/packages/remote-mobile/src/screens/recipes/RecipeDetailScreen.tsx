@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { searchLiveInventory } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
+import { getMenuEngineering, saveMenuEngineering } from '../../../../remote-buyer/src/api/silaMe/silaMenuEngineeringApi';
 import { getRecipe } from '../../../../remote-buyer/src/api/silaMe/silaRecipeApi';
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
 import { ErrorNotice, Loading } from '../../components/StateViews';
+import { useAccess } from '../../access';
 import { useMyLocation } from '../../location';
-import { useLoad } from '../../useLoad';
+import { errorText, useLoad } from '../../useLoad';
 
 /** One recipe and whether its ingredients are in stock at the working location. */
 const RecipeDetailScreen: React.FC = () => {
   const { recipeId = '' } = useParams();
+  const { can } = useAccess();
   const { location } = useMyLocation();
   const recipe = useLoad(() => getRecipe(recipeId), recipeId || null);
+  const menuItems = useLoad(
+    () => getMenuEngineering('items', { search: recipe.data?.name, limit: 30 }),
+    can.viewMenuEngineering && recipe.data?.name ? `recipe-menu-${recipe.data.name}` : null,
+  );
+  const [menuItemId, setMenuItemId] = useState('');
+  const [linking, setLinking] = useState(false);
+  const linked = (menuItems.data?.items?.items ?? []).find((row) => row.linkedRecipeId === recipeId);
   const stock = useLoad(
     () => (location ? searchLiveInventory('', location.id) : Promise.resolve([])),
     location ? `recipe-stock-${location.id}` : null,
@@ -35,6 +45,39 @@ const RecipeDetailScreen: React.FC = () => {
               </span>
               <StatusBadge status={recipe.data.readinessStatus || recipe.data.status} />
             </div>
+            {can.manageMenuEngineering && (
+              <section className="sm-section">
+                <h2>Link menu item</h2>
+                {linked && <p className="sm-meta">Linked to {linked.name} ({linked.menuItemCode})</p>}
+                <label className="sm-field">
+                  Menu item
+                  <select className="sm-input" value={menuItemId} onChange={(event) => setMenuItemId(event.target.value)}>
+                    <option value="">Select</option>
+                    {(menuItems.data?.items?.items ?? []).map((row) => (
+                      <option key={row.id} value={row.id}>{row.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="sm-btn"
+                  disabled={!menuItemId || linking}
+                  onClick={async () => {
+                    setLinking(true);
+                    try {
+                      await saveMenuEngineering({ action: 'LINK_RECIPE', menuItemId, recipeId });
+                      menuItems.reload();
+                    } catch (caught: unknown) {
+                      window.alert(errorText(caught, 'Could not link the menu item.'));
+                    } finally {
+                      setLinking(false);
+                    }
+                  }}
+                >
+                  Link menu item
+                </button>
+              </section>
+            )}
             <ul className="sm-list">
               {recipe.data.ingredients.map((ingredient) => {
                 const qty = ingredient.materialId ? onHand.get(ingredient.materialId.toLowerCase()) : undefined;

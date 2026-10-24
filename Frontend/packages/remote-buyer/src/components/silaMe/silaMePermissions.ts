@@ -33,6 +33,8 @@ export interface SilaMePermissions {
   viewCreditMemo: boolean;
   processCreditMemo: boolean;
   approveCreditMemo: boolean;
+  viewMenuEngineering: boolean;
+  manageMenuEngineering: boolean;
 }
 
 const NONE: SilaMePermissions = {
@@ -41,6 +43,7 @@ const NONE: SilaMePermissions = {
   approveRecipe: false, approvePrice: false, managePos: false, viewReceiving: false, viewInventory: false, postGrn: false,
   manageErpPosting: false, viewAudit: false, viewInvoice: false, processInvoice: false, approveInvoice: false,
   viewCreditMemo: false, processCreditMemo: false, approveCreditMemo: false,
+  viewMenuEngineering: false, manageMenuEngineering: false,
 };
 
 const allTrue = (): SilaMePermissions =>
@@ -56,23 +59,28 @@ const BY_ROLE: Record<SilaMeRole, SilaMePermissions> = {
     ...NONE, manageTransfer: true, approveTransfer: true, postGoodsIssue: true, postAdjustment: true, manageCount: true,
     approveCount: true, requestPurchase: true, manageRecipe: true, approveRecipe: true, approvePrice: true,
     viewReceiving: true, viewInventory: true, postGrn: true, manageErpPosting: true, ...invoiceAll,
+    viewMenuEngineering: true, manageMenuEngineering: true,
   },
   "outlet-manager": {
     ...NONE, manageTransfer: true, approveTransfer: true, postAdjustment: true, manageCount: true, requestPurchase: true,
     manageRecipe: true, approveRecipe: true, approvePrice: true, viewInventory: true, viewReceiving: true,
     viewInvoice: true, viewCreditMemo: true, approveInvoice: true, approveCreditMemo: true,
+    viewMenuEngineering: true, manageMenuEngineering: true,
   },
   "buyer-user": {
     ...NONE, manageTransfer: true, manageCount: true, approveRecipe: true, approvePrice: true,
     viewReceiving: true, viewInventory: true, postGrn: true, ...invoiceAll,
+    viewMenuEngineering: true,
   },
   "cost-controller": {
     ...NONE, manageTransfer: true, initiateCount: true, manageCount: true, approveCount: true, approveRecipe: true, approvePrice: true,
     viewReceiving: true, viewInventory: true, postGrn: true, viewAudit: true, ...invoiceAll,
+    viewMenuEngineering: true,
   },
   "fnb-director": {
     ...NONE, manageTransfer: true, manageCount: true, initiateCount: true, approveRecipe: true, approvePrice: true,
     viewReceiving: true, viewInventory: true, ...invoiceProcess,
+    viewMenuEngineering: true, manageMenuEngineering: true,
   },
   "finance-manager": {
     ...NONE, viewAudit: true, ...invoiceApprove,
@@ -108,6 +116,8 @@ const CODE_FLAGS: [keyof SilaMePermissions, string[]][] = [
   ["viewCreditMemo", ["VIEW_SILA_CREDIT_MEMO"]],
   ["processCreditMemo", ["PROCESS_SILA_CREDIT_MEMO"]],
   ["approveCreditMemo", ["APPROVE_SILA_CREDIT_MEMO"]],
+  ["viewMenuEngineering", ["VIEW_SILA_MENU_ENGINEERING", "MANAGE_SILA_MENU_ENGINEERING"]],
+  ["manageMenuEngineering", ["MANAGE_SILA_MENU_ENGINEERING"]],
 ];
 
 export const silaMePermissions = (role: SilaMeRole): SilaMePermissions => BY_ROLE[role] ?? NONE;

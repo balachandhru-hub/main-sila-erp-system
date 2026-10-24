@@ -43,6 +43,7 @@ import SilaPoImport from "./receiving/SilaPoImport";
 import SilaOcrSettings from "./receiving/SilaOcrSettings";
 import SilaApprovalFlows from "./setup/SilaApprovalFlows";
 import SilaPriceApprovals from "./materials/SilaPriceApprovals";
+import SilaMenuEngineeringApp from "./menuEngineering/SilaMenuEngineeringApp";
 import "./SilaMeWorkspace.css";
 
 interface SilaMeWorkspaceProps {
@@ -213,6 +214,29 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, permiss
         return <SilaOcrSettings canManage={can.manageMasterData} />;
       case "silaApprovalFlows":
         return <SilaApprovalFlows />;
+      case "silaMenuDashboard":
+      case "silaMenuItems":
+      case "silaMenuPlanning":
+      case "silaMenuPortions":
+      case "silaMenuDemand":
+      case "silaMenuPosSales":
+      case "silaMenuPosMapping":
+      case "silaMenuPerformance":
+      case "silaMenuConsumption":
+      case "silaMenuCost":
+      case "silaMenuRecommendations":
+      case "silaMenuIntelligence":
+      case "silaMenuWhatIf":
+      case "silaMenuSetup":
+        return (
+          <SilaMenuEngineeringApp
+            navKey={navKey}
+            canManage={can.manageMenuEngineering}
+            canRequestPurchase={can.requestPurchase}
+            canManageRecipe={can.manageRecipe}
+            onNavigate={onNavigate}
+          />
+        );
       default:
         return null;
     }
