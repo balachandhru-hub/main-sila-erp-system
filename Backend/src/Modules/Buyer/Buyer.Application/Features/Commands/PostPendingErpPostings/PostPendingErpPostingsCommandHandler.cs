@@ -346,7 +346,9 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             if (succeeded)
             {
                 string? reference = isInvoice
-                    ? SilaInvoicePosting.ReadSupplierInvoice(sent.ResponseBody) ?? ReadReference(sent.ResponseBody)
+                    ? SilaInvoicePosting.ReadSupplierInvoice(sent.ResponseBody)
+                        ?? SilaInvoicePosting.ReadSupplierInvoice(posting.ErpResponsePayload)
+                        ?? ReadReference(sent.ResponseBody)
                     : ReadReference(sent.ResponseBody);
                 return await FinishAsync(posting, Common.SILA_POSTING_POSTED, reference, null, cancellationToken);
             }

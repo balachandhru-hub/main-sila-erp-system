@@ -482,7 +482,7 @@ namespace Buyer.Application.Features.Shared
                 ErpStatus = grnConfirmed && SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(posting?.ErrorMessage)
                     ? null
                     : posting?.Status,
-                ErpReference = posting?.ErpReference,
+                ErpReference = posting?.ErpReference ?? SilaInvoicePosting.ReadSupplierInvoice(posting?.ErpResponsePayload),
                 FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting?.ErpResponsePayload),
                 ErpMessage = erpMessage,
                 Attachment = attachmentScreen,
