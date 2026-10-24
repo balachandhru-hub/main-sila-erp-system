@@ -178,15 +178,15 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
     "READY_TO_POST", "POSTING", "POSTED", "ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "LOCAL_FINALIZATION_FAILED",
     "POSTING_UNKNOWN", "AWAITING_PAYMENT", "PARTIALLY_PAID", "PAID", "OVERDUE",
   ].includes(invoice.status);
-  const retry = invoice != null && ["GET_PO_FAILED", "VALIDATION_FAILED", "ERP_POSTING_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"].includes(invoice.status);
+  const retry = invoice != null && ["GET_PO_FAILED", "VALIDATION_FAILED", "ERP_POSTING_FAILED", "APPROVAL_REJECTED"].includes(invoice.status);
   const canExtract = canProcess && invoice !== null && ["UPLOADED", "OCR_FAILED", "EXTRACTED", "REVIEW_REQUIRED"].includes(invoice.status);
   // A re-read keeps the fields the user corrected; it is the only reading of a reviewed invoice.
   const canReread = canProcess && invoice !== null && ["EXTRACTED", "REVIEW_REQUIRED", "REVIEWED"].includes(invoice.status);
   const grn = invoice?.goodsReceipts.find((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference)) ?? invoice?.goodsReceipts[0];
   const postedGrns = (invoice?.goodsReceipts ?? []).filter((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference));
-  const supplierKey = invoice?.silaSupplierId || invoice?.supplierId;
+  const supplierKey = invoice?.silaSupplierId || invoice?.supplierId || invoice?.supplierName?.trim();
   const erpAccepted = Boolean(invoice?.erpReference) || invoice?.erpStatus === "POSTED" || invoice?.erpStatus === "ERP_ACCEPTED";
-  const readyStatus = invoice != null && ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "APPROVED", "REVIEWED", "EXTRACTED"].includes(invoice.status);
+  const readyStatus = invoice != null && ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "READY_TO_POST", "APPROVED", "REVIEWED", "EXTRACTED"].includes(invoice.status);
   const serviceReady = invoice?.goodsReceiptApplicable === false && (invoice.status === "REVIEWED" || invoice.status === "READY_FOR_INVOICE_SUBMISSION");
   const receiptAlreadyConfirmed = invoice?.status === "GRN_POSTED" || invoice?.status === "READY_FOR_INVOICE_SUBMISSION" || invoice?.status === "APPROVED";
   const readyToSubmit = Boolean(
