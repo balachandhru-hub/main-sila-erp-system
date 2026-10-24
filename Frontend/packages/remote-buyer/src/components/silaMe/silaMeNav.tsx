@@ -128,28 +128,25 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
       ],
     },
     {
-      label: "Control",
+      label: "Setup",
       items: [
+        ...(setup
+          ? [
+              { key: "silaLocations" as const, label: "Location Master" },
+              { key: "silaMaterials" as const, label: "Material Inventory" },
+              { key: "silaRecipeMasterData" as const, label: "Recipe Master Data" },
+              { key: "silaSuppliers" as const, label: "Suppliers" },
+              { key: "silaCompanyCodes" as const, label: "Company Codes" },
+              ...leaf(can.manageMasterData, "silaPoImport", "Purchase Order Import"),
+              ...leaf(can.manageMasterData, "silaQuickTransferPolicy", "Quick Transfer Policy"),
+              ...leaf(can.manageMasterData, "silaOcrSettings", "Invoice OCR Settings"),
+              { key: "silaApprovalFlows" as const, label: "Approval flow" },
+              ...leaf(can.manageErpPosting, "silaMeTracker", "SILA ME Transactions"),
+            ]
+          : []),
         ...leaf(can.approvePrice, "silaPriceApprovals", "Price Approvals"),
         ...leaf(can.viewAudit, "silaAuditLog", "Audit Log"),
       ],
-    },
-    {
-      label: "Setup",
-      items: setup
-        ? [
-            { key: "silaLocations", label: "Location Master" },
-            { key: "silaMaterials", label: "Material Inventory" },
-            { key: "silaRecipeMasterData", label: "Recipe Master Data" },
-            { key: "silaSuppliers", label: "Suppliers" },
-            { key: "silaCompanyCodes", label: "Company Codes" },
-            ...leaf(can.manageMasterData, "silaPoImport", "Purchase Order Import"),
-            ...leaf(can.manageMasterData, "silaQuickTransferPolicy", "Quick Transfer Policy"),
-            ...leaf(can.manageMasterData, "silaOcrSettings", "Invoice OCR Settings"),
-            { key: "silaApprovalFlows", label: "Approval flow" },
-            ...leaf(can.manageErpPosting, "silaMeTracker", "SILA ME Transactions"),
-          ]
-        : [],
     },
   ];
 

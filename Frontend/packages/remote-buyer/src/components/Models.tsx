@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaArrowRight, FaCube, FaChevronDown, FaChevronUp, FaBoxes, FaUtensils, FaTruck, FaShieldAlt, FaCogs, FaCheckCircle, FaHome } from 'react-icons/fa';
+import { FaArrowRight, FaCube, FaChevronDown, FaChevronUp, FaBoxes, FaUtensils, FaTruck, FaCogs, FaCheckCircle, FaHome } from 'react-icons/fa';
 import { getMyOrganizationModels } from '../api/modelApi';
 import type { ModelDto } from '../api/modelApi';
 import { EmptyState, Loader, isErrorResponse } from '@vosox/shared-ui';
@@ -19,7 +19,6 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   "Inventory": <FaBoxes />,
   "Recipe Management": <FaUtensils />,
   "Receiving": <FaTruck />,
-  "Control": <FaShieldAlt />,
   "Setup": <FaCogs />,
 };
 
