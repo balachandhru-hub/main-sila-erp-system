@@ -66,7 +66,7 @@ const PostedInvoicesScreen: React.FC = () => {
                 <span className="sm-meta">
                   {formatDate(invoice.invoiceDate)} · {invoice.grossAmount ?? '—'} {invoice.currency || ''}
                 </span>
-                {invoice.erpReference ? <span className="sm-meta">SAP {invoice.erpReference}{invoice.fiscalYear ? ` / ${invoice.fiscalYear}` : ''}</span> : null}
+                <span className="sm-meta">ERP Invoice {invoice.erpReference?.trim() ? (invoice.fiscalYear?.trim() ? `${invoice.erpReference.trim()} / ${invoice.fiscalYear.trim()}` : invoice.erpReference.trim()) : '—'}</span>
               </button>
             </li>
           ))}

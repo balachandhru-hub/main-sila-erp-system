@@ -40,6 +40,11 @@ namespace Buyer.Application.Features.Commands.CreateSilaInvoice
                 throw new BadRequestCustomException("Supplier is required.", "Select a supplier.");
             }
 
+            if (string.IsNullOrWhiteSpace(body.InvoiceNumber))
+            {
+                throw new BadRequestCustomException("Supplier Reference is required.", "Supplier Reference is required.");
+            }
+
             if (body.Content == null || body.Content.Length == 0)
             {
                 throw new BadRequestCustomException("An invoice attachment is required.", "Upload one PDF, JPEG or PNG.");

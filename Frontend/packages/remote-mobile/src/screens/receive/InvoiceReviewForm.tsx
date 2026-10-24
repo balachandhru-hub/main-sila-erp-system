@@ -66,7 +66,7 @@ const InvoiceReviewForm: React.FC<InvoiceReviewFormProps> = ({ invoice, ocr, can
       return;
     }
     if (absent.length > 0) {
-      setNotice({ tone: 'error', text: 'Invoice number, date, currency and gross amount are required.' });
+      setNotice({ tone: 'error', text: invoiceNumber.trim() ? 'Invoice date, currency and gross amount are required.' : 'Supplier Reference is required.' });
       return;
     }
     if (!po) {
@@ -121,8 +121,8 @@ const InvoiceReviewForm: React.FC<InvoiceReviewFormProps> = ({ invoice, ocr, can
           Invoice
         </h2>
         <div className="sm-field">
-          <label htmlFor="sm-inv-number">{label('Invoice number', 'number')}</label>
-          <input id="sm-inv-number" className={inputClass('number')} placeholder="Invoice number" value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} />
+          <label htmlFor="sm-inv-number">{label('Supplier Reference', 'number')}</label>
+          <input id="sm-inv-number" className={inputClass('number')} required placeholder="Supplier Reference" value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} />
         </div>
         <div className="sm-grid-2">
           <div className="sm-field">

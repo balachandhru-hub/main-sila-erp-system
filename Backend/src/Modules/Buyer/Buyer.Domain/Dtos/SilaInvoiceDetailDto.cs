@@ -75,6 +75,8 @@ namespace Buyer.Domain.Dtos
         public SilaDocumentTrackDto? DocumentTrack { get; set; }
 
         public List<SilaCreditMemoListItemDto> CreditMemos { get; set; } = new();
+        /// <summary>User-added invoice file can be unlinked while the invoice is still open.</summary>
+        public bool CanRemoveUserAttachment { get; set; }
 
         /// <summary>The stored S/4 posting values. Null until the purchase order has been read for this invoice.</summary>
         public SilaInvoicePostingDataDto? PostingData { get; set; }
@@ -120,6 +122,7 @@ namespace Buyer.Domain.Dtos
         public DateTime? GeneratedOn { get; set; }
         public string FileName { get; set; } = string.Empty;
         public Guid? GoodsReceiptId { get; set; }
+        public bool Removable { get; set; }
     }
 
     /// <summary>The URL attachment of a posted S/4 supplier invoice.</summary>

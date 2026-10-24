@@ -158,6 +158,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = fa
                   <th scope="col">Supplier</th>
                   <th scope="col">Date</th>
                   <th scope="col">PO reference</th>
+                  <th scope="col">ERP Invoice</th>
                   <th scope="col">Gross</th>
                   <th scope="col">Type</th>
                   <th scope="col">Status</th>
@@ -174,6 +175,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = fa
                     <td>{row.supplierName || "Supplier pending"}</td>
                     <td>{row.invoiceDate ? formatDate(row.invoiceDate) : "—"}</td>
                     <td>{row.poNumber || "Not matched"}</td>
+                    <td>{row.erpReference?.trim() ? (row.fiscalYear?.trim() ? `${row.erpReference.trim()} / ${row.fiscalYear.trim()}` : row.erpReference.trim()) : "—"}</td>
                     <td>
                       {formatAmount(row.grossAmount, row.currency)}
                       {(row.netAmount != null || row.taxAmount != null) && (

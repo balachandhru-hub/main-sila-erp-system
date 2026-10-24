@@ -77,7 +77,7 @@ const leaf = (show: boolean, key: SilaMeNavKey, label: string): NavLeaf[] => (sh
 export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
   const can = silaMePermissions(role);
   const home = access ?? silaHomeCapabilities(true, can);
-  const manager = role === "admin" || role === "store-manager";
+  const setup = home.admin || can.manageLocation || can.manageMasterData;
   const groups: NavGroup[] = [
     {
       label: "Home",
@@ -135,7 +135,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
     },
     {
       label: "Setup",
-      items: manager
+      items: setup
         ? [
             { key: "silaLocations", label: "Location Master" },
             { key: "silaMaterials", label: "Material Inventory" },
@@ -165,7 +165,6 @@ export const buildSilaMeModuleNav = (role: SilaMeRole, access?: SilaHomeCapabili
       : [],
   );
   return [
-    { key: "silaDashboard", icon: <HomeIcon />, label: "Home" },
     { key: "dashboard", icon: <HomeIcon />, label: "Purchasing Home" },
     { key: "purchasing", icon: <FileCheckIcon />, label: "Purchasing Dashboard" },
     ...sections,

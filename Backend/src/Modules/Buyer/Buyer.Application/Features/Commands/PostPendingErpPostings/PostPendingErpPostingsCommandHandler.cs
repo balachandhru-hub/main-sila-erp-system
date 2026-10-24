@@ -723,7 +723,21 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             if (status == Common.SILA_POSTING_POSTED)
             {
                 // Persist the ERP document before any local completion. A later save failure must not send it again.
-                posting.ErpReference = erpReference;
+                if (string.IsNullOrWhiteSpace(erpReference) && posting.ReferenceType == Common.SILA_REF_INVOICE)
+                {
+                    erpReference = SilaInvoicePosting.ReadSupplierInvoice(posting.ErpResponsePayload);
+                }
+
+                if (string.IsNullOrWhiteSpace(erpReference) && !string.IsNullOrWhiteSpace(posting.ErpReference))
+                {
+                    erpReference = posting.ErpReference;
+                }
+
+                if (!string.IsNullOrWhiteSpace(erpReference))
+                {
+                    posting.ErpReference = erpReference;
+                }
+
                 posting.PostedOn = DateTime.UtcNow;
                 posting.Status = Common.SILA_POSTING_ERP_ACCEPTED;
                 posting.ErrorMessage = null;

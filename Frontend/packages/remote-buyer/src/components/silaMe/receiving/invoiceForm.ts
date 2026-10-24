@@ -51,6 +51,7 @@ export const toInvoiceForm = (invoice: SilaInvoiceDetail): InvoiceForm => ({
 
 /** The first problem of the form as user-facing text, or null when it can be saved. */
 export const validateInvoiceForm = (form: InvoiceForm): string | null => {
+  if (!form.invoiceNumber.trim()) return "Supplier Reference is required.";
   if (form.grossAmount.trim() !== "" && (parseNumber(form.grossAmount) ?? -1) < 0) return "Enter a valid gross amount.";
   if (form.netAmount.trim() !== "" && (parseNumber(form.netAmount) ?? -1) < 0) return "Enter a valid net amount.";
   if (form.taxAmount.trim() !== "" && (parseNumber(form.taxAmount) ?? -1) < 0) return "Enter a valid tax amount.";

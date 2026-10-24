@@ -66,6 +66,10 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             }
 
             string? invoiceNumber = string.IsNullOrWhiteSpace(input.InvoiceNumber) ? null : input.InvoiceNumber.Trim();
+            if (string.IsNullOrWhiteSpace(invoiceNumber))
+            {
+                throw new BadRequestCustomException("Supplier Reference is required.", "Supplier Reference is required.");
+            }
             Guid? supplierId = input.SupplierId ?? purchaseOrder?.SupplierId;
             string? supplierName = string.IsNullOrWhiteSpace(input.SupplierName) ? purchaseOrder?.SupplierName : input.SupplierName.Trim();
 
