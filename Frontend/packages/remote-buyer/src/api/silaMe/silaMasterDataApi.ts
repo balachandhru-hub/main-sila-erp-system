@@ -126,6 +126,21 @@ export interface SilaOcrConfiguration {
   sharePointFolder?: string | null;
   attachmentWritesLocally?: boolean;
   attachmentLocalPath?: string | null;
+  primaryOcrEnabled?: boolean;
+  aiFallbackEnabled?: boolean;
+  providers?: SilaOcrAiProvider[];
+}
+
+export interface SilaOcrAiProvider {
+  id: string;
+  provider: string;
+  displayName: string;
+  enabled: boolean;
+  priority: number;
+  model?: string | null;
+  baseUrl?: string | null;
+  credentialConfigured: boolean;
+  connectionStatus?: string | null;
 }
 
 export interface SilaOcrConfigurationWrite {
@@ -149,6 +164,20 @@ export interface SilaOcrConfigurationWrite {
   sharePointSiteUrl?: string | null;
   sharePointLibrary?: string | null;
   sharePointFolder?: string | null;
+  primaryOcrEnabled?: boolean;
+  aiFallbackEnabled?: boolean;
+  providers?: SilaOcrAiProviderWrite[];
+}
+
+export interface SilaOcrAiProviderWrite {
+  id?: string | null;
+  provider: string;
+  displayName?: string | null;
+  enabled: boolean;
+  priority: number;
+  model?: string | null;
+  baseUrl?: string | null;
+  apiKey?: string | null;
 }
 
 /** Which Excel file an import screen works with. */

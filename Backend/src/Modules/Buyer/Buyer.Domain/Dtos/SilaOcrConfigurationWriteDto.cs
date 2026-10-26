@@ -38,5 +38,21 @@ namespace Buyer.Domain.Dtos
         public string? SharePointLibrary { get; set; }
         /// <summary>Optional folder inside the SharePoint library.</summary>
         public string? SharePointFolder { get; set; }
+        public bool? PrimaryOcrEnabled { get; set; }
+        public bool? AiFallbackEnabled { get; set; }
+        public List<SilaOcrAiProviderWriteDto>? Providers { get; set; }
+    }
+
+    public class SilaOcrAiProviderWriteDto
+    {
+        public Guid? Id { get; set; }
+        public string Provider { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public bool Enabled { get; set; }
+        public int Priority { get; set; }
+        public string? Model { get; set; }
+        public string? BaseUrl { get; set; }
+        /// <summary>New secret only. Omitted keeps the stored credential.</summary>
+        public string? ApiKey { get; set; }
     }
 }

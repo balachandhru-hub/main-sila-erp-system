@@ -279,7 +279,7 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     if (!file) return "Upload one invoice attachment (PDF, JPEG or PNG).";
     if (!resolvedCompany) return "Select a property or company code.";
     if (!silaSupplierId && !selectedSupplierId && !supplierName.trim()) return "Select a supplier.";
-    if (!invoiceNumber.trim()) return "Enter the supplier invoice number.";
+    if (!invoiceNumber.trim()) return "Supplier Reference is required.";
     if (!invoiceDate) return "Enter the invoice date.";
     if (!taxDeterminationDate) return "Enter the tax determination date.";
     if (!currency.trim()) return "Enter the currency.";
@@ -507,8 +507,8 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
             </select>
           </div>
           <div className="sila-field">
-            <label className="sila-label" htmlFor="srcv-create-number">Supplier invoice number</label>
-            <input id="srcv-create-number" className="sila-input" value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} />
+            <label className="sila-label" htmlFor="srcv-create-number">Supplier Reference <span aria-hidden="true">*</span></label>
+            <input id="srcv-create-number" className="sila-input" required value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} />
           </div>
           <div className="sila-field">
             <label className="sila-label" htmlFor="srcv-create-date">Invoice date</label>

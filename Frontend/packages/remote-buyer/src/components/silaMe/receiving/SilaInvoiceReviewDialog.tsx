@@ -15,6 +15,7 @@ import {
   refreshInvoicePosting,
   reprocessErpPosting,
   reprocessInvoiceAttachment,
+  removeInvoiceAttachment,
   rereadInvoice,
   submitInvoice,
   updateInvoice,
@@ -53,7 +54,7 @@ interface SilaInvoiceReviewDialogProps {
 }
 
 const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderId" | "invoiceType">; label: string; type: string }[] = [
-  { key: "invoiceNumber", label: "Invoice number", type: "text" },
+  { key: "invoiceNumber", label: "Supplier Reference *", type: "text" },
   { key: "supplierName", label: "Supplier", type: "text" },
   { key: "supplierTaxNumber", label: "Supplier TRN", type: "text" },
   { key: "invoiceDate", label: "Invoice date", type: "date" },
@@ -64,7 +65,7 @@ const HEADER_FIELDS: { key: Exclude<keyof InvoiceForm, "lines" | "purchaseOrderI
 ];
 
 type Tab = "review" | "matching" | "posting" | "history";
-type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment" | "copy" | "credit";
+type Busy = "extract" | "reread" | "save" | "file" | "submit" | "decide" | "reprocess" | "reconcile" | "refresh" | "link" | "attachment" | "copy" | "credit" | "removeFile";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "review", label: "Review" },
@@ -177,15 +178,15 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
     "READY_TO_POST", "POSTING", "POSTED", "ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "LOCAL_FINALIZATION_FAILED",
     "POSTING_UNKNOWN", "AWAITING_PAYMENT", "PARTIALLY_PAID", "PAID", "OVERDUE",
   ].includes(invoice.status);
-  const retry = invoice != null && ["GET_PO_FAILED", "VALIDATION_FAILED", "ERP_POSTING_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"].includes(invoice.status);
+  const retry = invoice != null && ["GET_PO_FAILED", "VALIDATION_FAILED", "ERP_POSTING_FAILED", "APPROVAL_REJECTED"].includes(invoice.status);
   const canExtract = canProcess && invoice !== null && ["UPLOADED", "OCR_FAILED", "EXTRACTED", "REVIEW_REQUIRED"].includes(invoice.status);
   // A re-read keeps the fields the user corrected; it is the only reading of a reviewed invoice.
   const canReread = canProcess && invoice !== null && ["EXTRACTED", "REVIEW_REQUIRED", "REVIEWED"].includes(invoice.status);
   const grn = invoice?.goodsReceipts.find((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference)) ?? invoice?.goodsReceipts[0];
   const postedGrns = (invoice?.goodsReceipts ?? []).filter((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference));
-  const supplierKey = invoice?.silaSupplierId || invoice?.supplierId;
+  const supplierKey = invoice?.silaSupplierId || invoice?.supplierId || invoice?.supplierName?.trim();
   const erpAccepted = Boolean(invoice?.erpReference) || invoice?.erpStatus === "POSTED" || invoice?.erpStatus === "ERP_ACCEPTED";
-  const readyStatus = invoice != null && ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "APPROVED", "REVIEWED", "EXTRACTED"].includes(invoice.status);
+  const readyStatus = invoice != null && ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "READY_TO_POST", "APPROVED", "REVIEWED", "EXTRACTED"].includes(invoice.status);
   const serviceReady = invoice?.goodsReceiptApplicable === false && (invoice.status === "REVIEWED" || invoice.status === "READY_FOR_INVOICE_SUBMISSION");
   const receiptAlreadyConfirmed = invoice?.status === "GRN_POSTED" || invoice?.status === "READY_FOR_INVOICE_SUBMISSION" || invoice?.status === "APPROVED";
   const readyToSubmit = Boolean(
@@ -285,6 +286,15 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
 
   const handleFile = () => run("file", async () => showBlob(await getInvoiceFile(invoiceId), invoice?.fileName || "Invoice file"));
 
+  const handleRemoveAttachment = () => {
+    if (!window.confirm("Remove this invoice attachment?")) return;
+    run("removeFile", async () => {
+      show(await removeInvoiceAttachment(invoiceId));
+      onChanged();
+      toastService.success("Invoice attachment removed.");
+    });
+  };
+
   const hideFile = () => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = null;
@@ -294,6 +304,10 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
   useEffect(() => {
     if (!invoice || invoice.goodsReceiptApplicable === false || poNumbers.length === 0) {
       setCandidates([]);
+      return undefined;
+    }
+    if (invoice.goodsReceipts.length > 0) {
+      setCandidates(invoice.goodsReceipts);
       return undefined;
     }
     const allowed = new Set([
@@ -321,6 +335,10 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
 
   useEffect(() => {
     if (!canProcess || !invoice || invoice.goodsReceiptApplicable === false || grnLocked || grnPick !== null) return undefined;
+    if (invoice.goodsReceipts.length > 0) {
+      setMatchReason(null);
+      return undefined;
+    }
     if (candidates.length === 0) {
       setMatchReason(null);
       return undefined;
@@ -785,11 +803,20 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
                   </div>
                 </div>
                 <SilaInvoiceLinesEditor lines={form.lines} poLines={poLines} disabled={fieldsLocked || busy !== null} onChange={(lines) => setForm({ ...form, lines })} />
+                {invoice.items.some((item) => item.remainingInvoiceableQuantity != null) && (
+                  <p className="srcv-sub">
+                    Available after confirmed GRN reversal: {invoice.items.map((item, index) => (
+                      item.remainingInvoiceableQuantity == null ? null : `line ${index + 1} ${item.remainingInvoiceableQuantity}`
+                    )).filter(Boolean).join(" · ")}
+                  </p>
+                )}
                 {invoice.goodsReceiptApplicable !== false && (
                   <div className="srcv-stack">
                     <h3 className="sila-section-title">Goods receipts</h3>
                     <p className="srcv-sub">
-                      The goods receipt whose quantities equal the invoice lines is selected, including one that sits on an invoice that was not posted. Several receipts can be combined, and receipts from every purchase order on this invoice are included. Create a goods receipt when none of them match.
+                      {invoice.goodsReceipts.length > 0
+                        ? "This invoice uses the selected goods receipt only. Other receipts for the same PO stay in Document Track and Related PO History."
+                        : "Select the goods receipt for this invoice. After you save the selection, only that receipt is used."}
                     </p>
                     {matchReason && <p className="srcv-sub">{matchReason}</p>}
                     {!invoice.purchaseOrderId ? (
@@ -900,8 +927,15 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
                           {document.poNumber ? <span> · PO {document.poNumber}</span> : null}
                           {document.generatedOn ? <span> · {document.generatedOn.slice(0, 10)}</span> : null}
                           <span> · {document.fileName}</span>
-                          {document.documentType === "Original Supplier Invoice" && (
-                            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={handleFile}>View</button>
+                          {(document.documentType === "Invoice attachment" || document.documentType === "Original Supplier Invoice") && (
+                            <>
+                              <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={handleFile}>View</button>
+                              {document.removable && invoice.canRemoveUserAttachment && (
+                                <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={handleRemoveAttachment}>
+                                  {busy === "removeFile" ? "Removing..." : "Remove"}
+                                </button>
+                              )}
+                            </>
                           )}
                         </li>
                       ))}

@@ -321,6 +321,13 @@ const InvoiceReviewScreen: React.FC = () => {
             {invoiceFormVisible(invoice) && (
               <InvoiceReviewForm key={`${invoice.id}-${reread?.version ?? 0}`} invoice={invoice} ocr={reading?.fields ?? null} canProcess={can.processInvoice} />
             )}
+            {invoice.canSubmitInvoice && can.processInvoice && !invoicePosted(invoice) && !invoicePostingFailed(invoice) && (
+              <div className="sm-actions">
+                <button type="button" className="sm-btn sm-btn--primary" disabled={busy !== null} onClick={retry}>
+                  {busy === 'retry' ? 'Submitting…' : 'Submit'}
+                </button>
+              </div>
+            )}
             {invoicePostingFailed(invoice) && can.processInvoice && (
               <div className="sm-actions">
                 <button type="button" className="sm-btn sm-btn--primary" disabled={busy !== null} onClick={retry}>

@@ -327,7 +327,8 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindByCondition(x => x.Id == invoice.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
-            if (SilaInvoicePosting.AlignInvoiceStatus(invoice, posting))
+            bool recovered = await SilaInvoicePosting.ApplyStoredSuccessAsync(repository, invoice, posting, cancellationToken);
+            if (SilaInvoicePosting.AlignInvoiceStatus(invoice, posting) || recovered)
             {
                 repository.Invoice.Update(invoice);
                 await repository.SaveAsync();
@@ -353,15 +354,18 @@ namespace Buyer.Application.Features.Shared
             bool postingOpen = posting != null && (posting.Status is Common.SILA_POSTING_PENDING or Common.SILA_POSTING_UNKNOWN
                 or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_POSTED or Common.SILA_POSTING_FAILED_LOCAL
                 || !string.IsNullOrWhiteSpace(posting.ErpReference));
+            bool canRemoveAttachment = SilaInvoiceUserAttachment.CanRemove(invoice, posting);
+            Dictionary<Guid, (decimal Net, decimal Remaining)> invoiceable = await SilaInvoiceableQuantity.ForInvoiceLinesAsync(repository, invoice, items, cancellationToken);
             List<SilaInvoiceDocumentDto> documents = new List<SilaInvoiceDocumentDto>();
-            if (!string.IsNullOrWhiteSpace(invoice.FileName))
+            if (!string.IsNullOrWhiteSpace(invoice.FileName) && invoice.FilePath != SilaInvoiceUserAttachment.REMOVED_PATH)
             {
                 documents.Add(new SilaInvoiceDocumentDto
                 {
-                    DocumentType = "Original Supplier Invoice",
+                    DocumentType = "Invoice attachment",
                     PoNumber = invoice.PoNumber,
                     FileName = invoice.FileName,
-                    GeneratedOn = invoice.DateCreated
+                    GeneratedOn = invoice.DateCreated,
+                    Removable = canRemoveAttachment
                 });
             }
 
@@ -467,7 +471,9 @@ namespace Buyer.Application.Features.Shared
                     AssignmentReference = item.AssignmentReference,
                     DebitCreditCode = item.DebitCreditCode,
                     LineText = item.LineText,
-                    GoodsReceiptItemId = item.GoodsReceiptItemId
+                    GoodsReceiptItemId = item.GoodsReceiptItemId,
+                    NetReceivedQuantity = item.GoodsReceiptItemId != null && invoiceable.ContainsKey(item.GoodsReceiptItemId.Value) ? invoiceable[item.GoodsReceiptItemId.Value].Net : null,
+                    RemainingInvoiceableQuantity = item.GoodsReceiptItemId != null && invoiceable.ContainsKey(item.GoodsReceiptItemId.Value) ? invoiceable[item.GoodsReceiptItemId.Value].Remaining : null
                 }).ToList(),
                 GoodsReceipts = await ToGrnListAsync(repository, receipts, cancellationToken),
                 SilaSupplierId = invoice.SilaSupplierId,
@@ -476,7 +482,7 @@ namespace Buyer.Application.Features.Shared
                 ErpStatus = grnConfirmed && SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(posting?.ErrorMessage)
                     ? null
                     : posting?.Status,
-                ErpReference = posting?.ErpReference,
+                ErpReference = posting?.ErpReference ?? SilaInvoicePosting.ReadSupplierInvoice(posting?.ErpResponsePayload),
                 FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting?.ErpResponsePayload),
                 ErpMessage = erpMessage,
                 Attachment = attachmentScreen,
@@ -515,7 +521,8 @@ namespace Buyer.Application.Features.Shared
                     posting?.Status,
                     attachment?.Status),
                 DocumentTrack = await SilaDocumentTrack.ForInvoiceAsync(repository, invoice.BuyerId, invoice, cancellationToken),
-                CreditMemos = await CreditMemosOfInvoiceAsync(repository, invoice, cancellationToken)
+                CreditMemos = await CreditMemosOfInvoiceAsync(repository, invoice, cancellationToken),
+                CanRemoveUserAttachment = canRemoveAttachment
             };
         }
 

@@ -36,7 +36,7 @@ namespace Buyer.Application.Features.Shared
             List<string> missing = new List<string>();
             if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber))
             {
-                missing.Add("Supplier invoice number, from the SILA invoice");
+                missing.Add("Supplier Reference is required.");
             }
 
             if (invoice.InvoiceDate == null)

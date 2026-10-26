@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { FaArrowRight, FaCube, FaChevronDown, FaChevronUp, FaBoxes, FaUtensils, FaTruck, FaShieldAlt, FaCogs, FaCheckCircle, FaHome } from 'react-icons/fa';
+import { FaArrowRight, FaCube, FaChevronDown, FaChevronUp, FaBoxes, FaUtensils, FaTruck, FaCogs, FaCheckCircle, FaHome } from 'react-icons/fa';
 import { getMyOrganizationModels } from '../api/modelApi';
 import type { ModelDto } from '../api/modelApi';
 import { EmptyState, Loader, isErrorResponse } from '@vosox/shared-ui';
-import { SILA_ME_MODEL_KEY, buildSilaMeNavItem, type SilaMeRole } from './silaMe/silaMeNav';
+import { SILA_ME_MODEL_KEY, buildSilaMeNavItem, isSilaMeNavGroup, type SilaMeRole } from './silaMe/silaMeNav';
 import './Models.css';
 
 interface ModelsProps {
@@ -14,11 +14,12 @@ interface ModelsProps {
 }
 
 const SECTION_ICONS: Record<string, React.ReactNode> = {
+  "SILA ME": <FaHome />,
   "Home": <FaHome />,
   "Inventory": <FaBoxes />,
+  "Menu Engineering": <FaUtensils />,
   "Recipe Management": <FaUtensils />,
   "Receiving": <FaTruck />,
-  "Control": <FaShieldAlt />,
   "Setup": <FaCogs />,
 };
 
@@ -139,16 +140,17 @@ const Models: React.FC<ModelsProps> = ({ silaMeRole, onNavigate, onOpenModel }) 
                     <div className="models-modules-panel">
                       <div className="models-modules-title">Available Module Screens & Functions</div>
                       <div className="models-sections-grid">
-                        {silaMeNavData.subItems.map((group, groupIdx) => (
+                        {silaMeNavData.subItems.map((entry, groupIdx) => (
+                          isSilaMeNavGroup(entry) ? (
                           <div className="models-section-box" key={groupIdx}>
                             <div className="models-section-header">
                               <span className="models-section-icon">
-                                {SECTION_ICONS[group.label] || <FaCube />}
+                                {SECTION_ICONS[entry.label] || <FaCube />}
                               </span>
-                              <span className="models-section-label">{group.label}</span>
+                              <span className="models-section-label">{entry.label}</span>
                             </div>
                             <div className="models-feature-chips">
-                              {group.items.flatMap((item) => ("items" in item ? item.items : [item])).map((item) => (
+                              {entry.items.flatMap((item) => ("items" in item ? item.items : [item])).map((item) => (
                                 <button
                                   type="button"
                                   key={item.key}
@@ -160,6 +162,22 @@ const Models: React.FC<ModelsProps> = ({ silaMeRole, onNavigate, onOpenModel }) 
                               ))}
                             </div>
                           </div>
+                          ) : (
+                          <button
+                            type="button"
+                            className="models-section-box models-section-box--link"
+                            key={entry.key}
+                            onClick={() => onNavigate?.(entry.key)}
+                          >
+                            <div className="models-section-header">
+                              <span className="models-section-icon">
+                                {SECTION_ICONS[entry.label] || <FaHome />}
+                              </span>
+                              <span className="models-section-label">{entry.label}</span>
+                            </div>
+                            <span className="models-section-hint">Open dashboard</span>
+                          </button>
+                          )
                         ))}
                       </div>
                     </div>

@@ -1,0 +1,9 @@
+.sme-page { display: flex; flex-direction: column; gap: var(--sila-space-4); }
+.sme-filters { display: flex; flex-wrap: wrap; gap: var(--sila-space-3); padding: var(--sila-space-3) var(--sila-space-4); }
+.sme-filters .sila-field { min-width: 10rem; }
+.sme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--sila-space-3); }
+.sme-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.sme-row { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; }
+.sme-muted { color: var(--sila-me-muted); font-size: 0.8125rem; }
+.sme-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--sila-space-3); }
+.sme-wide { grid-column: 1 / -1; }

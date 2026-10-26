@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  removeInvoiceAttachment,
   rereadInvoice,
   type SilaInvoiceDetail,
   type SilaInvoiceExtraction,
@@ -20,7 +21,7 @@ interface InvoiceDocumentCardProps {
 /** "Invoice document": the stored file, its reading status, View document and Re-read invoice. */
 const InvoiceDocumentCard: React.FC<InvoiceDocumentCardProps> = ({ invoice, extraction, onReread }) => {
   const go = useGo();
-  const [busy, setBusy] = useState<'view' | 'reread' | null>(null);
+  const [busy, setBusy] = useState<'view' | 'reread' | 'remove' | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
   const posted = invoice.status === 'GRN_POSTED';
 
@@ -71,6 +72,26 @@ const InvoiceDocumentCard: React.FC<InvoiceDocumentCardProps> = ({ invoice, extr
         {!posted && (
           <button type="button" className="sm-btn sm-btn--small" disabled={busy !== null} onClick={reread}>
             {busy === 'reread' ? 'Re-reading…' : 'Re-read invoice'}
+          </button>
+        )}
+        {invoice.canRemoveUserAttachment && (
+          <button
+            type="button"
+            className="sm-btn sm-btn--small"
+            disabled={busy !== null}
+            onClick={async () => {
+              if (!window.confirm('Remove this invoice attachment?')) return;
+              setBusy('remove');
+              try {
+                onReread(await removeInvoiceAttachment(invoice.id));
+              } catch (caught: unknown) {
+                setNotice({ tone: 'error', text: errorText(caught, 'Could not remove the attachment.') });
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            {busy === 'remove' ? 'Removing…' : 'Remove'}
           </button>
         )}
       </div>

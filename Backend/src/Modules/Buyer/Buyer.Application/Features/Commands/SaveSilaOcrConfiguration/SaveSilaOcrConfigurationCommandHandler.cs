@@ -6,6 +6,7 @@ using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
+using SharedKernel.Integration.Services;
 using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Commands.SaveSilaOcrConfiguration
@@ -15,12 +16,18 @@ namespace Buyer.Application.Features.Commands.SaveSilaOcrConfiguration
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
         private readonly IConfiguration _configuration;
+        private readonly IIntegrationCredentialProtector _credentials;
 
-        public SaveSilaOcrConfigurationCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IConfiguration configuration)
+        public SaveSilaOcrConfigurationCommandHandler(
+            IRepositoryWrapper repository,
+            ILoggerManager logger,
+            IConfiguration configuration,
+            IIntegrationCredentialProtector credentials)
         {
             _repository = repository;
             _logger = logger;
             _configuration = configuration;
+            _credentials = credentials;
         }
 
         public async Task<SilaOcrConfigurationDto> Handle(SaveSilaOcrConfigurationCommand request, CancellationToken cancellationToken)
@@ -48,6 +55,7 @@ namespace Buyer.Application.Features.Commands.SaveSilaOcrConfiguration
             configuration.AutoExtractOnUpload = input.AutoExtractOnUpload;
             configuration.MinimumConfidence = Math.Round(input.MinimumConfidence, 4);
             SilaOcrPolicy.Apply(_logger, configuration, input);
+            SilaOcrAiProviders.Apply(configuration, input, _credentials);
             configuration.IsActive = true;
             if (isNew)
             {

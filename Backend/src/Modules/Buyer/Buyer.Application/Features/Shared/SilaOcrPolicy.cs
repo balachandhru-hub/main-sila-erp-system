@@ -195,6 +195,9 @@ namespace Buyer.Application.Features.Shared
             dto.SharePointFolder = settings.SharePointFolder;
             dto.AttachmentWritesLocally = true;
             dto.AttachmentLocalPath = AttachmentLocalFolder(localBasePath);
+            dto.PrimaryOcrEnabled = SilaOcrAiProviders.PrimaryEnabled(settings);
+            dto.AiFallbackEnabled = SilaOcrAiProviders.AiFallbackEnabled(settings);
+            dto.Providers = SilaOcrAiProviders.Describe(settings);
         }
 
         /// <summary>The local downloads folder invoice files are written to, or null when file storage is not configured.</summary>

@@ -28,6 +28,8 @@ namespace Buyer.Application.Features.Shared
         public const string SUBSTITUTION = "RS";
         public const string PURCHASE_ORDER = "PO";
         public const string CREDIT_MEMO = "CM";
+        public const string MENU_ITEM = "ME";
+        public const string MENU_PLAN = "MN";
 
         private const int SEED_CANDIDATES = 50;
 

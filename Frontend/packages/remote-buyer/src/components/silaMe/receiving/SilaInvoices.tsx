@@ -39,8 +39,8 @@ interface SilaInvoicesProps {
 const MAX_BYTES = 20 * 1024 * 1024;
 const ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
 const STATUSES = ["UPLOADED", "EXTRACTED", "REVIEW_REQUIRED", "OCR_FAILED", "REVIEWED", "GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "PENDING_APPROVAL", "APPROVED", "ERP_POSTING_FAILED", "POSTED"];
-const SUBMIT_STATUSES = ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "REVIEWED", "EXTRACTED", "APPROVED"];
-const RESUBMIT_STATUSES = ["ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"];
+const SUBMIT_STATUSES = ["GRN_POSTED", "READY_FOR_INVOICE_SUBMISSION", "READY_TO_POST", "REVIEWED", "EXTRACTED", "APPROVED"];
+const RESUBMIT_STATUSES = ["ERP_POSTING_FAILED", "GET_PO_FAILED", "VALIDATION_FAILED", "APPROVAL_REJECTED"];
 
 /** Supplier invoices: upload, OCR, review, and "Create GRN from invoice". */
 const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = false, canReceive = false, canManageErp = false, canProcessCreditMemo = false }) => {
@@ -158,6 +158,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = fa
                   <th scope="col">Supplier</th>
                   <th scope="col">Date</th>
                   <th scope="col">PO reference</th>
+                  <th scope="col">ERP Invoice</th>
                   <th scope="col">Gross</th>
                   <th scope="col">Type</th>
                   <th scope="col">Status</th>
@@ -174,6 +175,7 @@ const SilaInvoices: React.FC<SilaInvoicesProps> = ({ canProcess, canApprove = fa
                     <td>{row.supplierName || "Supplier pending"}</td>
                     <td>{row.invoiceDate ? formatDate(row.invoiceDate) : "—"}</td>
                     <td>{row.poNumber || "Not matched"}</td>
+                    <td>{row.erpReference?.trim() ? (row.fiscalYear?.trim() ? `${row.erpReference.trim()} / ${row.fiscalYear.trim()}` : row.erpReference.trim()) : "—"}</td>
                     <td>
                       {formatAmount(row.grossAmount, row.currency)}
                       {(row.netAmount != null || row.taxAmount != null) && (

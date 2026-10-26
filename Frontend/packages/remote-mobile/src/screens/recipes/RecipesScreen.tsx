@@ -16,7 +16,7 @@ const RecipesScreen: React.FC = () => {
 
   return (
     <>
-      <ScreenHeader title="Recipes" eyebrow="Menu engineering" back backTo="home" />
+      <ScreenHeader title="Recipes" eyebrow="Recipe Management" back backTo="home" />
       <div className="sm-screen">
         <form
           className="sm-field"

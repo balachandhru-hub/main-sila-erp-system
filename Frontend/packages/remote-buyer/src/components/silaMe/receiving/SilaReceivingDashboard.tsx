@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { EmptyState, KpiCard, Loader, PageHeader } from "@vosox/shared-ui";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EmptyState, KpiCard, Loader, PageHeader, toastService } from "@vosox/shared-ui";
 import {
+  extractInvoice,
+  getInvoice,
   getReceivingDashboard,
+  uploadInvoice,
   type SilaReceivingDashboard,
   type SilaReceivingException,
   type SilaReceivingTask,
@@ -10,16 +13,23 @@ import {
 import { formatDate, formatDateTime } from "../../cart/lineFormat";
 import { formatQty } from "../../../api/silaMe/silaInventoryApi";
 import SilaGoodsReceiptDialog from "./SilaGoodsReceiptDialog";
+import SilaInvoiceReviewDialog from "./SilaInvoiceReviewDialog";
 import SilaPurchaseOrderDialog from "./SilaPurchaseOrderDialog";
 import SilaReceiveGoodsDialog, { type ReceivePrefill } from "./SilaReceiveGoodsDialog";
 import { receivingBadgeClass, receivingLabel } from "./receivingFormat";
 import "../silaMeTheme.css";
 import "./SilaReceiving.css";
 
+const SCAN_MAX_BYTES = 20 * 1024 * 1024;
+const SCAN_ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+
 type WorkbenchTab = "EXPECTED_TODAY" | "PENDING" | "PARTIAL" | "OVERDUE" | "RECEIVED" | "EXCEPTIONS";
 
 interface SilaReceivingDashboardProps {
   canPost: boolean;
+  canScan?: boolean;
+  canApproveInvoice?: boolean;
+  canProcessCreditMemo?: boolean;
   canReprocess: boolean;
   supervisor: boolean;
 }
@@ -33,7 +43,14 @@ const TABS: { id: WorkbenchTab; label: string }[] = [
   { id: "EXCEPTIONS", label: "Exceptions" },
 ];
 
-const SilaReceivingDashboard: React.FC<SilaReceivingDashboardProps> = ({ canPost, canReprocess, supervisor }) => {
+const SilaReceivingDashboard: React.FC<SilaReceivingDashboardProps> = ({
+  canPost,
+  canScan = false,
+  canApproveInvoice = false,
+  canProcessCreditMemo = false,
+  canReprocess,
+  supervisor,
+}) => {
   const [locationId, setLocationId] = useState("");
   const [supplier, setSupplier] = useState("");
   const [query, setQuery] = useState("");
@@ -45,6 +62,9 @@ const SilaReceivingDashboard: React.FC<SilaReceivingDashboardProps> = ({ canPost
   const [poId, setPoId] = useState<string | null>(null);
   const [grnId, setGrnId] = useState<string | null>(null);
   const [receive, setReceive] = useState<ReceivePrefill | null>(null);
+  const [scanId, setScanId] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const scanInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(supplier.trim()), 350);
@@ -85,6 +105,38 @@ const SilaReceivingDashboard: React.FC<SilaReceivingDashboardProps> = ({ canPost
     if (purchaseOrderId) setPoId(purchaseOrderId);
   };
 
+  const handleScanFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > SCAN_MAX_BYTES) {
+      toastService.error("Upload an invoice of at most 20 MB.");
+      return;
+    }
+    setScanning(true);
+    try {
+      const id = await uploadInvoice(file);
+      try {
+        const created = await getInvoice(id);
+        const read = created.status === "UPLOADED" ? await extractInvoice(id) : created;
+        if (read.status === "OCR_FAILED") {
+          toastService.error(read.ocrMessage || "The invoice was uploaded, but it could not be read. Type the fields.");
+        } else if (read.status === "UPLOADED") {
+          toastService.success("Invoice uploaded. Read it with OCR or type the fields.");
+        } else {
+          toastService.success("Invoice scanned and read. Check the fields.");
+        }
+      } catch (err: unknown) {
+        toastService.error(err instanceof Error ? err.message : "The invoice was uploaded, but it could not be read. Type the fields.");
+      }
+      setScanId(id);
+    } catch (err: unknown) {
+      toastService.error(err instanceof Error ? err.message : "Could not scan the invoice.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const kpis = data?.kpis;
   const receiverKpis: { label: string; value: number; tab: WorkbenchTab; tone?: "primary" | "warning" | "danger" | "success" }[] = [
     { label: "Expected Today", value: kpis?.expectedToday ?? 0, tab: "EXPECTED_TODAY", tone: "primary" },
@@ -109,8 +161,22 @@ const SilaReceivingDashboard: React.FC<SilaReceivingDashboardProps> = ({ canPost
         description={supervisor
           ? "Expected receipts, exceptions and today's receiving activity across your locations."
           : "What you are expected to receive, what is pending, and what needs your action."}
-        actions={canPost ? (
-          <button type="button" className="sila-btn sila-btn--primary" onClick={() => setReceive({ purchaseOrderId: "" })}>Receive / Scan</button>
+        actions={(canPost || canScan) ? (
+          <div className="sila-btn-group">
+            {canPost && (
+              <button type="button" className="sila-btn sila-btn--primary" onClick={() => setReceive({ purchaseOrderId: "" })}>
+                Receive
+              </button>
+            )}
+            {canScan && (
+              <>
+                <input ref={scanInput} type="file" accept={SCAN_ACCEPT} hidden aria-label="Scan invoice" onChange={handleScanFile} />
+                <button type="button" className="sila-btn sila-btn--secondary" disabled={scanning} onClick={() => scanInput.current?.click()}>
+                  {scanning ? "Scanning..." : "Scan"}
+                </button>
+              </>
+            )}
+          </div>
         ) : undefined}
       />
 
@@ -399,6 +465,20 @@ const SilaReceivingDashboard: React.FC<SilaReceivingDashboardProps> = ({ canPost
           prefill={receive.purchaseOrderId ? receive : null}
           onClose={() => setReceive(null)}
           onPosted={(id) => { setReceive(null); setGrnId(id); load(); }}
+        />
+      )}
+      {scanId && (
+        <SilaInvoiceReviewDialog
+          invoiceId={scanId}
+          canProcess={canScan}
+          canApprove={canApproveInvoice}
+          canReceive={canPost}
+          canManageErp={canReprocess}
+          canProcessCreditMemo={canProcessCreditMemo}
+          onClose={() => setScanId(null)}
+          onChanged={load}
+          onReceive={(prefill) => { setScanId(null); setReceive(prefill); }}
+          onCopied={setScanId}
         />
       )}
     </div>

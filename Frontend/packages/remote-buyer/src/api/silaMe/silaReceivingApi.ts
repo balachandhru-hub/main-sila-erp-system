@@ -374,6 +374,8 @@ export interface SilaInvoiceItem {
   debitCreditCode?: string | null;
   lineText?: string | null;
   goodsReceiptItemId?: string | null;
+  netReceivedQuantity?: number | null;
+  remainingInvoiceableQuantity?: number | null;
 }
 
 export interface SilaInvoiceDetail extends SilaInvoice {
@@ -414,6 +416,7 @@ export interface SilaInvoiceDetail extends SilaInvoice {
   /** Stored business values for FIVE S4-INVOICE POSTING. Null until the purchase order is read. */
   postingData?: SilaInvoicePostingData | null;
   creditMemos?: SilaCreditMemoListItem[];
+  canRemoveUserAttachment?: boolean;
 }
 
 export interface SilaCreditMemoListItem {
@@ -577,6 +580,7 @@ export interface SilaInvoiceDocument {
   generatedOn?: string | null;
   fileName: string;
   goodsReceiptId?: string | null;
+  removable?: boolean;
 }
 
 export interface SilaInvoiceStep {
@@ -977,6 +981,8 @@ export interface SilaEligibleGoodsReceiptLine {
   materialCode?: string | null;
   uom?: string | null;
   receivedQuantity: number;
+  reversedQuantity?: number;
+  netReceivedQuantity?: number;
   invoicedQuantity: number;
   remainingQuantity: number;
   unitPrice?: number | null;
@@ -1104,6 +1110,15 @@ const fetchFile = async (url: string, fallback: string): Promise<Blob> => {
 /** The stored invoice file, to view in the invoice screen. */
 export const getInvoiceFile = async (invoiceId: string): Promise<Blob> =>
   fetchFile(`${BASE}/invoices/${invoiceId}/file`, "Could not open the invoice file.");
+
+export const removeInvoiceAttachment = async (invoiceId: string): Promise<SilaInvoiceDetail> => {
+  try {
+    const response = await axiosInstance.delete<SilaInvoiceDetail>(`${BASE}/invoices/${invoiceId}/attachment`);
+    return normalizeInvoice(response.data);
+  } catch (error: unknown) {
+    throw new Error(readError(error, "Could not remove the invoice attachment."));
+  }
+};
 
 /** The GRN PDF stored against the invoice. */
 export const getInvoiceGrnPdf = async (invoiceId: string, goodsReceiptId: string): Promise<Blob> =>
