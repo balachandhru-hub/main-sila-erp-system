@@ -26,7 +26,7 @@ const takeSilaCreditMemoSearch = (): SilaCreditMemoSearchIntent => {
   return current;
 };
 
-const STATUSES = ["IN_PROGRESS", "FAILED", "POSTED", "DRAFT", "READY_TO_POST", "POSTING", "ERP_POSTING_FAILED", "POSTING_UNKNOWN"];
+const STATUSES = ["IN_PROGRESS", "PENDING_APPROVAL", "FAILED", "POSTED", "DRAFT", "READY_TO_POST", "POSTING", "ERP_POSTING_FAILED", "POSTING_UNKNOWN"];
 
 interface SilaCreditMemosProps {
   canProcess: boolean;

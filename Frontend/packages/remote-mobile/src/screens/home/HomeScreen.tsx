@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { getInventoryHome, getRecentAlerts } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import { getPurchaseRecommendations } from '../../../../remote-buyer/src/api/silaMe/silaInventoryControlApi';
 import { getReceivingDashboard, type SilaReceivingTask } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { silaHomeCapabilities } from '../../../../remote-buyer/src/components/silaMe/silaHomeCapabilities';
+import { inboxItemsFromDashboard, rememberInboxItems } from '../../../../remote-buyer/src/components/silaMe/silaNotifications';
 import ScreenHeader from '../../components/ScreenHeader';
 import LocationPicker from '../../components/LocationPicker';
 import { MobileIcon, type MobileIconName } from '../../components/MobileIcons';
@@ -62,12 +63,11 @@ const HomeScreen: React.FC = () => {
     if (row.exception.toLowerCase().includes('credit memo')) return caps.viewCreditMemos;
     return caps.viewReceiving;
   });
-  const approvals = (data?.approvals ?? []).filter((row) => {
-    if (row.type === 'Transfer Approval') return caps.approveTransfer || caps.viewInventory;
-    if (row.type === 'Credit Memo Approval') return caps.approveCreditMemos;
-    if (row.type === 'Invoice Approval') return caps.approveInvoices;
-    return caps.approvals;
-  });
+  const approvals = data?.approvals ?? [];
+  const inbox = inboxItemsFromDashboard(data);
+  useEffect(() => {
+    if (data) rememberInboxItems(inboxItemsFromDashboard(data), location?.id);
+  }, [data, location?.id]);
 
   const actions: QuickAction[] = [
     { label: 'Scan Invoice', icon: 'scan', to: 'receive/scan', show: caps.processInvoices },
@@ -114,6 +114,7 @@ const HomeScreen: React.FC = () => {
       <ScreenHeader
         title={`${greeting()}${name ? `, ${name}` : ''}`}
         intro={person?.organizationName ?? undefined}
+        notifications={inbox}
         aside={
           <button type="button" className="sm-avatar" aria-label="Profile" onClick={() => go('more/profile')}>
             {initialsOf(person) || '•'}
@@ -218,8 +219,9 @@ const HomeScreen: React.FC = () => {
             <h2 id="sm-inv-sum">Invoices</h2>
             <div className="sm-grid-2">
               <button type="button" className="sm-stat" onClick={() => go('receive/scan')}><span className="sm-muted">Ready</span><strong>{count(data?.invoice.readyForProcessing, dashboard.loading)}</strong></button>
+              <button type="button" className={`sm-stat${(data?.invoice.pendingApproval ?? 0) > 0 ? ' sm-stat--alert' : ''}`} onClick={() => go('receive/posted-invoices?status=PENDING_APPROVAL')}><span className="sm-muted">Pending approval</span><strong>{count(data?.invoice.pendingApproval, dashboard.loading)}</strong></button>
               <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">In progress</span><strong>{count(data?.invoice.inProgress, dashboard.loading)}</strong></button>
-              <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices')}><span className="sm-muted">Posted</span><strong>{count(data?.invoice.postedRecently, dashboard.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('receive/posted-invoices?status=POSTED')}><span className="sm-muted">Posted</span><strong>{count(data?.invoice.postedRecently, dashboard.loading)}</strong></button>
               <button type="button" className={`sm-stat${(data?.invoice.postingFailed ?? 0) > 0 ? ' sm-stat--alert' : ''}`} onClick={() => go('receive')}><span className="sm-muted">Failed</span><strong>{count(data?.invoice.postingFailed, dashboard.loading)}</strong></button>
               {caps.viewCreditMemos && (
                 <button type="button" className="sm-stat" onClick={() => go('receive/credit-memos?status=IN_PROGRESS')}><span className="sm-muted">Credit memos</span><strong>{count(data?.creditMemo.inProgress, dashboard.loading)}</strong></button>
