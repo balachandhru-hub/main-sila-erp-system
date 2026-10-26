@@ -74,9 +74,14 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 }
             }
 
+            InventoryErpPosting? invoicePosting = invoice?.ErpPostingId == null
+                ? null
+                : await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.Id == invoice.ErpPostingId.Value)
+                    .FirstOrDefaultAsync(cancellationToken);
             string invoiceGate = invoiceLoadError != null
                 ? "GRN_INVOICE_DEPENDENCY_LOAD_FAILED"
-                : SilaReceivingReversal.InvoiceGate(invoice?.Status);
+                : SilaReceivingReversal.ResolveInvoiceGate(invoice?.Status, invoicePosting);
             bool invoiceBlocks = SilaReceivingReversal.InvoiceBlocksGrn(invoiceGate);
             bool grnEligible = SilaReceivingReversal.IsReversalEligibleStatus(receipt.Status);
             bool alreadyFullyReversed = string.Equals(receipt.Status, Common.SILA_GRN_REVERSED, StringComparison.OrdinalIgnoreCase);
@@ -215,10 +220,14 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceiptReversal
                 history[0].Reason = receipt.ReversalReason;
             }
 
+            string? invoiceFirstMessage = invoiceGate == "INVOICE_REVERSAL_UNKNOWN"
+                ? "Invoice posting outcome is unknown. Reconcile the invoice before reversing this goods receipt."
+                : invoiceGate is "INVOICE_POSTED" or "INVOICE_POSTING"
+                    ? SilaReceivingReversal.POSTED_INVOICE_MESSAGE
+                    : "Invoice Status: " + (invoice?.Status ?? "POSTED") + ". GRN reversal requires Invoice reversal first.";
             string? message = invoiceLoadError ?? decision switch
             {
-                SilaReceivingReversal.INVOICE_FIRST =>
-                    "Invoice Status: " + (invoice?.Status ?? "POSTED") + ". GRN reversal requires Invoice reversal first.",
+                SilaReceivingReversal.INVOICE_FIRST => invoiceFirstMessage,
                 SilaReceivingReversal.ALREADY_REVERSED => "This goods receipt is fully reversed. No reversible quantity remains.",
                 SilaReceivingReversal.UNKNOWN =>
                     "GRN_REVERSAL_POSTING_UNKNOWN. Reconcile with SAP before retrying. Do not reverse local inventory.",

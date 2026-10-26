@@ -46,6 +46,8 @@ import OutletManagement from "../../../remote-buyer/src/components/outlet/Outlet
 import SilaMeWorkspace from "../../../remote-buyer/src/components/silaMe/SilaMeWorkspace";
 import SilaConsolidatedTracker from "../../../remote-buyer/src/components/silaMe/trackers/SilaConsolidatedTracker";
 import { SILA_ME_MODEL_KEY, SILA_ME_NAV_PATHS, buildSilaMeModuleNav, isSilaMeNav } from "../../../remote-buyer/src/components/silaMe/silaMeNav";
+import { silaHomeCapabilities } from "../../../remote-buyer/src/components/silaMe/silaHomeCapabilities";
+import { silaMePermissions } from "../../../remote-buyer/src/components/silaMe/silaMePermissions";
 import { useSilaMeAddon } from "../../../remote-buyer/src/components/silaMe/useSilaMeAddon";
 import { PURCHASING_NAV_PATHS, buildBuyerNavItems, type BuyerNavItem } from "../../../remote-buyer/src/components/dashboard/navConfig";
 import NeedsAttentionPanel from "../../../remote-buyer/src/components/dashboard/attention/NeedsAttentionPanel";
@@ -321,11 +323,12 @@ const BuyerAdminDash: React.FC = () => {
   // The SILA ME (hospitality) add-on menu, for organizations that have the add-on.
   const silaAddon = useSilaMeAddon();
   const hasSilaMe = silaAddon.enabled;
+  const adminHomeCaps = silaHomeCapabilities(hasSilaMe, silaMePermissions("admin"));
   const inSilaModule = isSilaMeNav(activeNav);
   // Inside SILA ME the bar is that module. Outside it, the purchasing menu.
   const headerNavItems = useMemo(
     () => inSilaModule
-      ? buildSilaMeModuleNav("admin")
+      ? buildSilaMeModuleNav("admin", adminHomeCaps)
       : withContractPurchaseOrderNav(buildBuyerNavItems({
           isAdmin: true,
           showPurchasingTracker: true,
@@ -810,7 +813,7 @@ const BuyerAdminDash: React.FC = () => {
         <div className="bad-main">
           <div className="bad-content">
             {isSilaMeNav(activeNav) ? (
-              <SilaMeWorkspace navKey={activeNav} role="admin" onNavigate={handleNavClick} />
+              <SilaMeWorkspace navKey={activeNav} role="admin" capabilities={adminHomeCaps} onNavigate={handleNavClick} />
             ) : activeNav === "purchasing" ? (
               <PurchasingDashboard
                 currentUserId={currentUserId}

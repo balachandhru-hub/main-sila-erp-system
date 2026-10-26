@@ -10,6 +10,9 @@ import ReceiveScreen from './screens/receive/ReceiveScreen';
 import ScanInvoiceScreen from './screens/receive/ScanInvoiceScreen';
 import InvoiceFileScreen from './screens/receive/InvoiceFileScreen';
 import InvoiceReviewScreen from './screens/receive/InvoiceReviewScreen';
+import PostedInvoicesScreen from './screens/receive/PostedInvoicesScreen';
+import CreditMemosScreen from './screens/receive/CreditMemosScreen';
+import CreditMemoScreen from './screens/receive/CreditMemoScreen';
 import GrnFormScreen from './screens/receive/GrnFormScreen';
 import GrnDetailScreen from './screens/receive/GrnDetailScreen';
 import GrnReverseScreen from './screens/receive/GrnReverseScreen';
@@ -18,6 +21,7 @@ import PoDetailScreen from './screens/receive/PoDetailScreen';
 import HistoryScreen from './screens/receive/HistoryScreen';
 import PendingGrnScreen from './screens/receive/PendingGrnScreen';
 import PurchaseRequestsScreen from './screens/inventory/PurchaseRequestsScreen';
+import RecommendationsScreen from './screens/inventory/RecommendationsScreen';
 import GoodsIssuesScreen from './screens/inventory/GoodsIssuesScreen';
 import GoodsIssueFormScreen from './screens/inventory/GoodsIssueFormScreen';
 import GoodsIssueDetailScreen from './screens/inventory/GoodsIssueDetailScreen';
@@ -104,7 +108,12 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="receive" element={<ReceiveScreen />} />
                 <Route path="receive/scan" element={<ScanInvoiceScreen />} />
                 <Route path="receive/invoices/:invoiceId" element={<InvoiceReviewScreen />} />
+                <Route path="receive/invoices/:invoiceId/credit-memo" element={<CreditMemoScreen />} />
+                <Route path="receive/invoices/:invoiceId/credit-memos/:creditMemoId" element={<CreditMemoScreen />} />
                 <Route path="receive/invoices/:invoiceId/file" element={<InvoiceFileScreen />} />
+                <Route path="receive/posted-invoices" element={<PostedInvoicesScreen />} />
+                <Route path="receive/credit-memos" element={<CreditMemosScreen />} />
+                <Route path="receive/credit-memos/:creditMemoId" element={<CreditMemoScreen />} />
                 <Route path="receive/grn/new" element={<GrnFormScreen />} />
                 <Route path="receive/grns/:grnId" element={<GrnDetailScreen />} />
                 <Route path="receive/grns/:grnId/reverse" element={<GrnReverseScreen />} />
@@ -124,6 +133,7 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="inventory/counts" element={<CountListScreen />} />
                 <Route path="inventory/counts/:stockCountId" element={<CountSessionScreen />} />
                 <Route path="inventory/purchase-requests" element={<PurchaseRequestsScreen />} />
+                <Route path="inventory/recommendations" element={<RecommendationsScreen />} />
                 <Route path="inventory/goods-issues" element={<GoodsIssuesScreen />} />
                 <Route path="inventory/goods-issues/new" element={<GoodsIssueFormScreen />} />
                 <Route path="inventory/goods-issues/:goodsIssueId" element={<GoodsIssueDetailScreen />} />

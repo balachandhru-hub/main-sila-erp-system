@@ -1,8 +1,9 @@
 import { FileCheckIcon, HomeIcon, LayoutGridIcon } from "@vosox/shared-ui";
 import { silaMePermissions } from "./silaMePermissions";
+import { silaHomeCapabilities, type SilaHomeCapabilities } from "./silaHomeCapabilities";
 
 /** Who is using the SILA ME add-on; decides the menu and which actions the screens offer. */
-export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller" | "fnb-director";
+export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller" | "fnb-director" | "finance-manager" | "ap-processor";
 
 /** Model key of the SILA ME (hospitality) add-on in the organization's models. */
 export const SILA_ME_MODEL_KEY = "SILA_ME";
@@ -10,6 +11,7 @@ export const SILA_ME_MODEL_KEY = "SILA_ME";
 /** Each SILA ME screen's URL segment (/sila-live-inventory …); merged into the dashboard's nav paths. */
 export const SILA_ME_NAV_PATHS = {
   silaDashboard: "sila-dashboard",
+  silaInventoryDashboard: "sila-inventory-dashboard",
   silaLiveInventory: "sila-live-inventory",
   silaTransfers: "sila-transfers",
   silaGoodsIssue: "sila-goods-issue",
@@ -20,6 +22,7 @@ export const SILA_ME_NAV_PATHS = {
   silaPhysicalInventory: "sila-physical-inventory",
   silaAlerts: "sila-alerts",
   silaPurchaseRequests: "sila-purchase-requests",
+  silaRecommendations: "sila-recommendations",
   silaTransactions: "sila-transactions",
   silaRecipeDashboard: "sila-recipe-dashboard",
   silaRecipes: "sila-recipes",
@@ -28,9 +31,11 @@ export const SILA_ME_NAV_PATHS = {
   silaPos: "sila-pos",
   silaTracker: "sila-transaction-tracker",
   silaMeTracker: "sila-me-transactions",
+  silaReceivingDashboard: "sila-receiving-dashboard",
   silaPurchaseOrders: "sila-purchase-orders",
   silaGoodsReceipts: "sila-goods-receipts",
   silaInvoices: "sila-invoices",
+  silaCreditMemos: "sila-credit-memos",
   silaErpPostings: "sila-erp-postings",
   silaPriceApprovals: "sila-price-approvals",
   silaAuditLog: "sila-audit-log",
@@ -69,14 +74,19 @@ interface NavGroup {
 const leaf = (show: boolean, key: SilaMeNavKey, label: string): NavLeaf[] => (show ? [{ key, label }] : []);
 
 /** The "SILA ME" sidebar entry for the role; a leaf is shown only when the role may use that screen. */
-export const buildSilaMeNavItem = (role: SilaMeRole) => {
+export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
   const can = silaMePermissions(role);
+  const home = access ?? silaHomeCapabilities(true, can);
   const manager = role === "admin" || role === "store-manager";
   const groups: NavGroup[] = [
     {
+      label: "Home",
+      items: [{ key: "silaDashboard", label: "Dashboard" }],
+    },
+    {
       label: "Inventory",
-      items: [
-        { key: "silaDashboard", label: "Dashboard" },
+      items: home.viewInventory ? [
+        { key: "silaInventoryDashboard", label: "Dashboard" },
         { key: "silaLiveInventory", label: "Live Inventory" },
         { key: "silaTransfers", label: "Internal Transfers" },
         ...leaf(can.postGoodsIssue, "silaGoodsIssue", "Goods Issue"),
@@ -86,9 +96,10 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
         ...leaf(can.approveCount, "silaShortageReport", "Shortage Report"),
         { key: "silaPhysicalInventory", label: "Physical Inventory" },
         { key: "silaAlerts", label: "Alerts" },
+        ...leaf(home.recommendation, "silaRecommendations", "Recommendations"),
         ...leaf(can.requestPurchase, "silaPurchaseRequests", "Purchase Requests"),
         { key: "silaTransactions", label: "Inventory Transactions" },
-      ],
+      ] : [],
     },
     {
       label: "Recipe Management",
@@ -102,10 +113,17 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
     },
     {
       label: "Receiving",
-      items: [
+      items: home.viewReceiving ? [
+        { key: "silaReceivingDashboard", label: "Dashboard" },
         { key: "silaPurchaseOrders", label: "Open Purchase Orders" },
         { key: "silaGoodsReceipts", label: "Goods Receipts" },
-        { key: "silaInvoices", label: "Invoices" },
+      ] : [],
+    },
+    {
+      label: "Accounts Payable",
+      items: [
+        ...leaf(home.viewInvoices, "silaInvoices", "Invoices"),
+        ...leaf(home.viewCreditMemos, "silaCreditMemos", "Credit Memos"),
       ],
     },
     {
@@ -138,16 +156,17 @@ export const buildSilaMeNavItem = (role: SilaMeRole) => {
 };
 
 /**
- * The SILA ME site menu. Home and Purchasing Dashboard leave this module and return to purchasing.
+ * The SILA ME site menu. Home stays in the add-on. Purchasing Dashboard returns to purchasing.
  */
-export const buildSilaMeModuleNav = (role: SilaMeRole) => {
-  const sections = (buildSilaMeNavItem(role).subItems ?? []).flatMap((entry) =>
+export const buildSilaMeModuleNav = (role: SilaMeRole, access?: SilaHomeCapabilities) => {
+  const sections = (buildSilaMeNavItem(role, access).subItems ?? []).flatMap((entry) =>
     "items" in entry
       ? [{ key: `sila-section-${entry.label}`, icon: <LayoutGridIcon />, label: entry.label, subItems: entry.items }]
       : [],
   );
   return [
-    { key: "dashboard", icon: <HomeIcon />, label: "Home" },
+    { key: "silaDashboard", icon: <HomeIcon />, label: "Home" },
+    { key: "dashboard", icon: <HomeIcon />, label: "Purchasing Home" },
     { key: "purchasing", icon: <FileCheckIcon />, label: "Purchasing Dashboard" },
     ...sections,
   ];
