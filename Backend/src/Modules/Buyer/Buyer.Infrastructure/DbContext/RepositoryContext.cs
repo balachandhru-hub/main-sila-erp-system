@@ -134,6 +134,10 @@ namespace Buyer.Infrastructure.DbContext
         public DbSet<StockCountPhoto> StockCountPhoto { get; set; }
         public DbSet<SilaDocumentSequence> SilaDocumentSequence { get; set; }
         public DbSet<InvoiceItem> InvoiceItem { get; set; }
+        public DbSet<CreditMemo> CreditMemo { get; set; }
+        public DbSet<CreditMemoItem> CreditMemoItem { get; set; }
+        public DbSet<OperationalTask> OperationalTask { get; set; }
+        public DbSet<OperationalAlert> OperationalAlert { get; set; }
 
 
         protected override void OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder)
@@ -230,6 +234,8 @@ namespace Buyer.Infrastructure.DbContext
             _ = modelBuilder.Entity<PurchaseOrder>().HasIndex(a => a.ContractId);
             _ = modelBuilder.Entity<PurchaseOrderItem>().HasIndex(a => a.IsActive);
             _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => a.IsActive);
+            // Stored as text so a new API type such as POST_GRN_REVERSAL does not fail the whole list.
+            _ = modelBuilder.Entity<ApiIntegrationConfiguration>().Property(a => a.ProcessType).HasMaxLength(30).HasColumnType("nvarchar(30)");
             // A Buyer-side configuration belongs to a buyer (BuyerId); OrganizationId is the Supplier-side owner and has no column here.
             _ = modelBuilder.Entity<ApiIntegrationConfiguration>().Ignore(a => a.OrganizationId);
             _ = modelBuilder.Entity<ApiIntegrationConfiguration>().HasIndex(a => new { a.BuyerId, a.EntityCode, a.ProcessType }).IsUnique();
@@ -357,6 +363,14 @@ namespace Buyer.Infrastructure.DbContext
             _ = modelBuilder.Entity<GoodsReceipt>().HasIndex(a => new { a.BuyerId, a.LocationId });
             _ = modelBuilder.Entity<PhysicalInventoryRequest>().HasIndex(a => new { a.BuyerId, a.LocationId, a.Status });
             _ = modelBuilder.Entity<InvoiceItem>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<CreditMemo>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<CreditMemo>().HasIndex(a => new { a.BuyerId, a.ReferenceInvoiceId });
+            _ = modelBuilder.Entity<CreditMemoItem>().HasIndex(a => a.IsActive);
+            _ = modelBuilder.Entity<CreditMemoItem>().HasIndex(a => a.CreditMemoId);
+            _ = modelBuilder.Entity<OperationalTask>().HasIndex(a => new { a.BuyerId, a.DeduplicationKey }).IsUnique();
+            _ = modelBuilder.Entity<OperationalTask>().HasIndex(a => new { a.BuyerId, a.Status });
+            _ = modelBuilder.Entity<OperationalAlert>().HasIndex(a => new { a.BuyerId, a.DeduplicationKey }).IsUnique();
+            _ = modelBuilder.Entity<OperationalAlert>().HasIndex(a => new { a.BuyerId, a.Status });
 
             _ = modelBuilder.HasSequence<long>(
                 Common.PREDEFINED_CONTRACT_NUMBER_SEQUENCE,

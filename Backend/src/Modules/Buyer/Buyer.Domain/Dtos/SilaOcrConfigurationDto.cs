@@ -26,5 +26,15 @@ namespace Buyer.Domain.Dtos
         public bool PoValidation { get; set; }
         public bool FinancialReconciliation { get; set; }
         public bool ReuseCachedOcr { get; set; }
+        /// <summary>LOCAL, FILE_PATH, or SHAREPOINT. Files are written to the local downloads path.</summary>
+        public string AttachmentStorage { get; set; } = "LOCAL";
+        public string? AttachmentPath { get; set; }
+        public string? SharePointSiteUrl { get; set; }
+        public string? SharePointLibrary { get; set; }
+        public string? SharePointFolder { get; set; }
+        /// <summary>True while invoice files are written to the local downloads path.</summary>
+        public bool AttachmentWritesLocally { get; set; } = true;
+        /// <summary>The local folder invoice files are written to.</summary>
+        public string? AttachmentLocalPath { get; set; }
     }
 }

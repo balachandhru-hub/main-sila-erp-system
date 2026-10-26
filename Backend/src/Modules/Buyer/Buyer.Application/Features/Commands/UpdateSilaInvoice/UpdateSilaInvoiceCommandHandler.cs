@@ -28,10 +28,14 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             _logger.LogInfo($"Saving reviewed invoice. InvoiceId: {request.InvoiceId}, OrganizationId: {request.OrganizationId}, UserId: {request.UserId}");
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             Invoice invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
-            if (invoice.Status == Common.SILA_INVOICE_GRN_POSTED)
+            if (SilaInvoiceLifecycle.AlreadyPosted(invoice.Status, null)
+                || invoice.Status is Common.SILA_INVOICE_PENDING_APPROVAL
+                    or Common.SILA_INVOICE_POSTING_UNKNOWN or Common.SILA_INVOICE_LOCAL_FAILED
+                    or Common.SILA_INVOICE_GRN_IN_PROGRESS
+                || (invoice.Status == Common.SILA_INVOICE_POSTING && !await PostingFailedAsync(invoice, cancellationToken)))
             {
-                _logger.LogError($"Invoice already has a goods receipt. InvoiceId: {invoice.Id}");
-                throw new BadRequestCustomException("Invoice already received.", "Goods were received against this invoice; it can no longer be changed.");
+                _logger.LogError($"Invoice cannot be edited. InvoiceId: {invoice.Id}, Status: {invoice.Status}");
+                throw new BadRequestCustomException("Invoice cannot be changed.", "This invoice is already posted or waiting on SAP. It cannot be edited.");
             }
 
             List<SilaInvoiceItemDto> lines = input.Items ?? new List<SilaInvoiceItemDto>();
@@ -64,7 +68,6 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             string? invoiceNumber = string.IsNullOrWhiteSpace(input.InvoiceNumber) ? null : input.InvoiceNumber.Trim();
             Guid? supplierId = input.SupplierId ?? purchaseOrder?.SupplierId;
             string? supplierName = string.IsNullOrWhiteSpace(input.SupplierName) ? purchaseOrder?.SupplierName : input.SupplierName.Trim();
-            await EnsureNotDuplicateAsync(invoice.Id, buyer.Id, invoiceNumber, supplierId, supplierName, cancellationToken);
 
             // The Supplier Master row: the one sent, or the current one unless the supplier name changed.
             if (input.SilaSupplierId != null && input.SilaSupplierId != Guid.Empty)
@@ -89,6 +92,12 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             invoice.InvoiceNumber = invoiceNumber;
             invoice.SupplierId = supplierId;
             invoice.SupplierName = supplierName;
+            string? duplicate = await SilaInvoicePosting.DuplicateMessageAsync(_repository, invoice, purchaseOrder?.CompanyCode, cancellationToken);
+            if (duplicate != null)
+            {
+                _logger.LogError($"Duplicate supplier invoice. InvoiceNumber: {invoiceNumber}, SupplierId: {supplierId}");
+                throw new ConflictCustomException("Duplicate invoice.", duplicate);
+            }
             invoice.InvoiceDate = input.InvoiceDate?.Date;
             invoice.Currency = string.IsNullOrWhiteSpace(input.Currency) ? null : input.Currency.Trim().ToUpperInvariant();
             invoice.GrossAmount = input.GrossAmount;
@@ -123,10 +132,11 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
 
             await SilaReceivingRules.DeactivateInvoiceItemsAsync(_repository, invoice.Id, cancellationToken);
             int lineNumber = 0;
+            List<InvoiceItem> storedLines = new List<InvoiceItem>();
             foreach (SilaInvoiceItemDto line in lines)
             {
                 lineNumber++;
-                _repository.InvoiceItem.Create(new InvoiceItem
+                InvoiceItem storedLine = new InvoiceItem
                 {
                     Id = Guid.NewGuid(),
                     InvoiceId = invoice.Id,
@@ -141,13 +151,30 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
                     TaxRate = line.TaxRate,
                     MatchStatus = line.PurchaseOrderItemId == null ? SilaReceivingRules.MATCH_UNMATCHED : SilaReceivingRules.MATCH_MATCHED,
                     IsActive = true
-                });
+                };
+                storedLines.Add(storedLine);
+                _repository.InvoiceItem.Create(storedLine);
             }
+
+            SilaInvoicePostingData.MarkChanged(invoice, storedLines);
 
             await _repository.SaveAsync();
             SilaInvoiceDetailDto detail = await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
             _logger.LogInfo($"Invoice reviewed. InvoiceId: {invoice.Id}, Lines: {detail.Items.Count}");
             return detail;
+        }
+
+        // A Posting invoice whose ERP call already failed can be corrected and sent again.
+        private async Task<bool> PostingFailedAsync(Invoice invoice, CancellationToken cancellationToken)
+        {
+            if (invoice.ErpPostingId == null)
+            {
+                return false;
+            }
+
+            InventoryErpPosting? posting = await _repository.InventoryErpPosting.FindFirstByConditionAsync(
+                x => x.Id == invoice.ErpPostingId && x.BuyerId == invoice.BuyerId && x.IsActive);
+            return posting != null && posting.Status is Common.SILA_POSTING_FAILED or Common.SILA_POSTING_SKIPPED;
         }
 
         // Lengths, ranges and the invoice date of the reviewed invoice.
@@ -186,26 +213,5 @@ namespace Buyer.Application.Features.Commands.UpdateSilaInvoice
             }
         }
 
-        // One supplier invoice number is entered once per buyer.
-        private async Task EnsureNotDuplicateAsync(Guid invoiceId, Guid buyerId, string? invoiceNumber, Guid? supplierId, string? supplierName, CancellationToken cancellationToken)
-        {
-            if (invoiceNumber == null || (supplierId == null && supplierName == null))
-            {
-                return;
-            }
-
-            bool duplicate = await _repository.Invoice
-                .FindByCondition(x => x.BuyerId == buyerId
-                    && x.IsActive
-                    && x.Id != invoiceId
-                    && x.InvoiceNumber == invoiceNumber
-                    && ((supplierId != null && x.SupplierId == supplierId) || (supplierName != null && x.SupplierName == supplierName)))
-                .AnyAsync(cancellationToken);
-            if (duplicate)
-            {
-                _logger.LogError($"Duplicate supplier invoice. InvoiceNumber: {invoiceNumber}, SupplierId: {supplierId}, SupplierName: {supplierName}");
-                throw new ConflictCustomException("Duplicate invoice.", $"Invoice {invoiceNumber} of this supplier was already entered.");
-            }
-        }
     }
 }

@@ -33,6 +33,7 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             SilaTrackerDetailDto? detail = source switch
             {
                 SilaTrackerRules.SOURCE_ERP => await ErpAsync(buyer.Id, id, cancellationToken),
+                SilaTrackerRules.SOURCE_LEDGER => await LedgerAsync(buyer.Id, id, cancellationToken),
                 SilaTrackerRules.SOURCE_POS => await PosAsync(buyer.Id, id, cancellationToken),
                 SilaTrackerRules.SOURCE_PO => await PurchaseAsync(request.OrganizationId, buyer.Id, id, cancellationToken),
                 _ => await RunAsync(request.OrganizationId, buyer.Id, id, cancellationToken)
@@ -69,9 +70,39 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             }
 
             detail.SourceSystem = "SILA";
-            detail.TargetSystem = posting.IntegrationSystem ?? "SAP";
+            detail.TargetSystem = posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT ? "S4" : posting.IntegrationSystem ?? "SAP";
             detail.BusinessReference = posting.ReferenceNumber;
             detail.LocalReference = posting.ReferenceNumber;
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT)
+            {
+                Invoice? attached = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == buyerId);
+                detail.BusinessReference = attached?.InvoiceNumber ?? posting.ReferenceNumber;
+                detail.LocalReference = "SAP " + (string.IsNullOrWhiteSpace(posting.ErpReference) ? "—" : posting.ErpReference);
+            }
+
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE)
+            {
+                Invoice? invoice = await _repository.Invoice.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == buyerId);
+                if (invoice != null)
+                {
+                    List<string> grnNumbers = await _repository.GoodsReceipt
+                        .FindByCondition(x => x.InvoiceId == invoice.Id && x.BuyerId == buyerId && x.IsActive)
+                        .OrderBy(x => x.DateCreated)
+                        .Select(x => x.GrnNumber)
+                        .ToListAsync(cancellationToken);
+                    string creationType = SilaInvoiceCreation.IsNonPo(invoice.CreationType)
+                        ? Common.SILA_INVOICE_CREATION_NON_PO
+                        : Common.SILA_INVOICE_CREATION_PO;
+                    detail.TransactionType = creationType == Common.SILA_INVOICE_CREATION_NON_PO ? "NON_PO_INVOICE" : "PO_INVOICE";
+                    detail.CompanyCode ??= invoice.CompanyCode;
+                    detail.BusinessReference = invoice.InvoiceNumber ?? posting.ReferenceNumber;
+                    detail.LocalReference = "Type " + creationType
+                        + "; Supplier " + (invoice.SupplierName ?? "—")
+                        + "; Company " + (invoice.CompanyCode ?? "—")
+                        + "; PO " + (invoice.PoNumber ?? "—")
+                        + "; GRN " + (grnNumbers.Count == 0 ? "—" : string.Join(", ", grnNumbers));
+                }
+            }
             detail.UserId = posting.CreatedBy == Guid.Empty ? null : posting.CreatedBy;
             detail.RetryCount = posting.Attempts;
             detail.LastError = posting.ErrorMessage;
@@ -84,6 +115,89 @@ namespace Buyer.Application.Features.Queries.GetSilaTransactionTracker
             detail.TechnicalDetail = SilaErpPayload.Sanitise(posting.ErpRequestPayload);
             detail.ErpMessage = SilaErpPayload.Sanitise(posting.ErpResponsePayload);
             detail.Attempts = await AttemptsAsync(buyerId, posting.ReferenceType, posting.ReferenceId, cancellationToken);
+            if (SilaInvoiceTracker.IsInvoiceFamily(posting.ReferenceType))
+            {
+                SilaInvoiceTrackerView view = await SilaInvoiceTracker.ReadAsync(_repository, buyerId, posting.ReferenceId, cancellationToken);
+                detail.Flow = view.Steps;
+                if (!string.IsNullOrWhiteSpace(view.Message))
+                {
+                    detail.LastError = view.Message;
+                }
+
+                if (string.IsNullOrWhiteSpace(detail.ErpReference))
+                {
+                    detail.ErpReference = view.ErpInvoiceId;
+                }
+            }
+
+            return detail;
+        }
+
+        private async Task<SilaTrackerDetailDto?> LedgerAsync(Guid buyerId, Guid id, CancellationToken cancellationToken)
+        {
+            InventoryTransaction? line = await _repository.InventoryTransaction.FindFirstByConditionAsync(x => x.Id == id && x.BuyerId == buyerId && x.IsActive);
+            if (line == null)
+            {
+                return null;
+            }
+
+            InventoryErpPosting? posting = await _repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == buyerId && x.IsActive && x.ReferenceType == line.ReferenceType && x.ReferenceId == line.ReferenceId)
+                .OrderByDescending(x => x.DateCreated)
+                .FirstOrDefaultAsync(cancellationToken);
+            string movement = posting?.MovementType ?? string.Empty;
+            string? integration = posting?.IntegrationSystem;
+            string? error = posting?.ErrorMessage;
+            if (line.ReferenceType == Common.SILA_REF_ITO)
+            {
+                InternalTransferOrder? transfer = await _repository.InternalTransferOrder.FindFirstByConditionAsync(x => x.Id == line.ReferenceId && x.BuyerId == buyerId);
+                if (transfer != null)
+                {
+                    InventoryLocation? fromLocation = await _repository.InventoryLocation.FindFirstByConditionAsync(x => x.Id == transfer.FromLocationId);
+                    InventoryLocation? toLocation = await _repository.InventoryLocation.FindFirstByConditionAsync(x => x.Id == transfer.ToLocationId);
+                    BuyerProperty? fromProperty = fromLocation == null ? null : await _repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == fromLocation.PropertyId);
+                    BuyerProperty? toProperty = toLocation == null ? null : await _repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == toLocation.PropertyId);
+                    (movement, integration, error) = SilaTrackerRules.DescribeLegacyTransfer(
+                        movement, integration, error, posting?.Status,
+                        fromProperty?.PlantCode, fromLocation?.StorageLocationCode, toProperty?.PlantCode, toLocation?.StorageLocationCode,
+                        fromProperty?.CompanyCode, toProperty?.CompanyCode);
+                }
+            }
+
+            string transactionType = line.ReferenceType == Common.SILA_REF_ITO
+                ? SilaTrackerRules.TransactionTypeOfPosting(line.ReferenceType, movement)
+                : posting == null ? line.TransactionType : SilaTrackerRules.TransactionTypeOfPosting(posting.ReferenceType, movement);
+            SilaTrackerRules.Stages stages = SilaTrackerRules.OfLedger(posting?.Status, posting?.Attempts ?? 0, posting?.ErpReference);
+            SilaTrackerDetailDto detail = Base(SilaTrackerRules.SOURCE_LEDGER, line.Id, line.DateCreated, transactionType, stages);
+            detail.BusinessDate = line.BusinessDate;
+            detail.DataClass = SilaTrackerRules.DATA_TRANSACTION;
+            detail.Direction = line.Direction == Common.SILA_DIRECTION_IN ? SilaTrackerRules.DIRECTION_INBOUND : SilaTrackerRules.DIRECTION_OUTBOUND;
+            detail.CompanyCode = posting?.CompanyCode;
+            InventoryLocation? location = await _repository.InventoryLocation.FindFirstByConditionAsync(x => x.Id == line.LocationId);
+            BuyerProperty? property = location == null ? null : await _repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == location.PropertyId);
+            detail.PropertyName = property?.PropertyName;
+            detail.Plant = property?.PlantCode;
+            detail.StorageLocation = location?.StorageLocationCode;
+            detail.CompanyCode ??= property?.CompanyCode;
+            detail.SourceSystem = "SILA";
+            detail.TargetSystem = integration ?? "SAP";
+            detail.BusinessReference = line.TransactionNumber;
+            detail.LocalReference = line.ReferenceNumber;
+            detail.UserId = line.CreatedBy == Guid.Empty ? null : line.CreatedBy;
+            detail.RetryCount = posting?.Attempts ?? 0;
+            detail.LastError = error;
+            detail.ErpReference = posting?.ErpReference;
+            detail.ErpHttpStatus = posting?.ErpHttpStatus;
+            detail.IntegrationName = integration;
+            detail.MovementType = string.IsNullOrWhiteSpace(movement) ? null : movement;
+            detail.ErpPostingId = posting?.Id;
+            detail.Quantity = line.Quantity;
+            detail.Uom = line.BaseUom;
+            detail.TechnicalDetail = SilaErpPayload.Sanitise(posting?.ErpRequestPayload);
+            detail.ErpMessage = SilaErpPayload.Sanitise(posting?.ErpResponsePayload);
+            detail.Attempts = posting == null
+                ? new List<SilaTrackerAttemptDto>()
+                : await AttemptsAsync(buyerId, posting.ReferenceType, posting.ReferenceId, cancellationToken);
             return detail;
         }
 

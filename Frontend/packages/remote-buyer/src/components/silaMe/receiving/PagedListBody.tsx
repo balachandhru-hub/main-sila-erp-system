@@ -14,7 +14,7 @@ interface PagedListBodyProps<T> {
 
 /** Loading, error and empty states of a paged list, else the table and the pager. */
 const PagedListBody = <T,>({ list, noun, emptyTitle, emptyDescription, children }: PagedListBodyProps<T>): React.ReactElement => {
-  if (list.loading) return <Loader size={24} message={`Loading ${noun}...`} />;
+  if (list.loading && list.rows.length === 0) return <Loader size={24} message={`Loading ${noun}...`} />;
   if (list.error) {
     return (
       <EmptyState

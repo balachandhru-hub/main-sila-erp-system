@@ -74,9 +74,9 @@ const IntegrationSchemaPanel: React.FC<IntegrationSchemaPanelProps> = ({ configu
         )}
       </div>
       <div className="sila-card-body ops-stack">
-        {configuration.protocol !== "ODATA_V4" && (
+        {configuration.protocol !== "ODATA_V4" && configuration.protocol !== "ODATA_V2" && (
           <span className="sila-help">
-            Schema discovery reads OData V4 metadata. For a REST integration, type the source field names directly in the field mapping.
+            Schema discovery reads OData V2/V4 metadata. For REST or SOAP, type the source field names directly in the field mapping.
           </span>
         )}
         {loading ? (

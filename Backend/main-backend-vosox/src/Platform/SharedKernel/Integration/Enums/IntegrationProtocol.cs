@@ -9,6 +9,8 @@ namespace SharedKernel.Integration.Enums
     public enum IntegrationProtocol
     {
         REST,
-        ODATA_V4
+        ODATA_V2,
+        ODATA_V4,
+        SOAP
     }
 }

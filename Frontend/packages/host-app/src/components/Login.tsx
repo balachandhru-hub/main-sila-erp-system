@@ -15,8 +15,14 @@ import {
   FaUtensils,
   FaFileInvoice,
   FaCogs,
+  FaUsers,
+  FaSyncAlt,
+  FaBoxes,
+  FaShippingFast,
+  FaChartLine,
 } from 'react-icons/fa';
 import { login, getTokenClaims } from '../api/authApi';
+import { isSupplierRoleId } from '../store/useAuthStore';
 import './Login.css';
 
 type Role = 'supplier' | 'buyer' | 'platform-user';
@@ -35,6 +41,7 @@ const ROLE_IDS = {
   COST_CONTROLLER: '3f9d6c2e-5b1a-4e8f-9c7d-2a6b8e4f1c03',
   FNB_DIRECTOR: '8d2a6c40-1f7e-4b9a-9c55-6e3a1d8b4f02',
   FINANCE_MANAGER: '9e3b7d51-2a8f-4c0b-8d66-7f4b2e9c5a13',
+  AP_PROCESSOR: '0a7c4e82-3b1f-4d6a-9e28-5c8f1a2b3d40',
 } as const;
 
 // const CheckIcon = () => (
@@ -99,6 +106,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onCreateAccount, onCreate
       case ROLE_IDS.COST_CONTROLLER:
       case ROLE_IDS.FNB_DIRECTOR:
       case ROLE_IDS.FINANCE_MANAGER:
+      case ROLE_IDS.AP_PROCESSOR:
         return '/dashboard';
       default:
         return null;
@@ -130,7 +138,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onCreateAccount, onCreate
             organizationType: claims.organizationType,
           };
 
-          const redirectUrl = getRedirectUrl(claims.roleId);
+          const wantsMobile = new URLSearchParams(window.location.search).get('next') === '/mobile';
+          const redirectUrl = wantsMobile
+            ? (isSupplierRoleId(claims.roleId) ? '/mobile/supplier' : '/mobile')
+            : getRedirectUrl(claims.roleId);
           if (!redirectUrl) {
             setError('Unrecognized user role. Please contact support.');
             return;
@@ -205,10 +216,44 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onCreateAccount, onCreate
                   Workflow · Analytics · AI Automation
                 </span>
               </li>
+              <li>
+                <FaUsers aria-hidden="true" />
+                <span>
+                  <strong>Sales</strong>
+                  Customer Management
+                </span>
+              </li>
+              <li>
+                <FaSyncAlt aria-hidden="true" />
+                <span>
+                  <strong>Automated O2C</strong>
+                </span>
+              </li>
+              <li>
+                <FaBoxes aria-hidden="true" />
+                <span>
+                  <strong>Inventory</strong>
+                </span>
+              </li>
+              <li>
+                <FaShippingFast aria-hidden="true" />
+                <span>
+                  <strong>Shipment/Logistics</strong>
+                </span>
+              </li>
+              <li>
+                <FaChartLine aria-hidden="true" />
+                <span>
+                  <strong>Forecast</strong>
+                </span>
+              </li>
             </ul>
             <p className="vx-left-foot">
               <FaShieldAlt aria-hidden="true" />
-              <span>Connected operations. Intelligent decisions.</span>
+              <span>
+                Connected operations. Intelligent decisions.
+                <span className="vx-left-foot-next">Buyer &amp; Supplier Business Network.</span>
+              </span>
             </p>
           </aside>
 

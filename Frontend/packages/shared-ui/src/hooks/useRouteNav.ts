@@ -32,8 +32,11 @@ export function useRouteNav(paths: RouteNavPaths, fallbackKey: string): [string,
   const activeNav = override && override.pathname === pathname ? override.key : routedKey ?? fallbackKey;
 
   useEffect(() => {
-    if (routedKey === undefined) navigate(`/${paths[fallbackKey]}`, { replace: true });
-  }, [routedKey, paths, fallbackKey, navigate]);
+    if (routedKey !== undefined) return;
+    const target = `/${paths[fallbackKey] ?? ""}`;
+    if (pathname === target || pathname === `${target}/`) return;
+    navigate(target, { replace: true });
+  }, [routedKey, pathname, paths, fallbackKey, navigate]);
 
   const setActiveNav = useCallback(
     (key: string) => {

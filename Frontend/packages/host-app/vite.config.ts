@@ -6,12 +6,21 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { federationSafeAliases } from '../shared-ui/build/federationAliases';
 import { devCustomIntegrations } from './devCustomIntegrations';
+import { devGoodsReceiptLink } from './devGoodsReceiptLink';
+import { devInvoiceSubmit } from './devInvoiceSubmit';
+import { devGrnReversal } from './devGrnReversal';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootNodeModules = path.resolve(__dirname, '../../node_modules');
 
-const devProxy = (env) => ({
-  target: env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com',
+/** Local Cursor Buyer.API. Dev-only. Production/cloud proxy is unchanged. */
+const localBuyerApi = (env) =>
+  (env.VITE_LOCAL_BUYER_API || 'http://127.0.0.1:8004').replace(/\/$/, '');
+
+const cloudApi = (env) => env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com';
+
+const proxyTo = (target) => ({
+  target,
   changeOrigin: true,
   secure: false,
   configure: (proxy) => {
@@ -29,11 +38,19 @@ const devProxy = (env) => ({
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const buyerApi = localBuyerApi(env);
+  const otherApi = cloudApi(env);
 
   return {
     plugins: [
       react(),
-      ...(command === 'serve' ? [devCustomIntegrations(env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com', path.resolve(__dirname, '../../.data/custom-integrations.json'))] : []),
+      ...(command === 'serve' ? [
+        // Primary Buyer target is local :8004 so these plugins do not cloud-first.
+        devCustomIntegrations(buyerApi, path.resolve(__dirname, '../../.data/custom-integrations.json')),
+        devGoodsReceiptLink(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
+        devInvoiceSubmit(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
+        devGrnReversal(buyerApi),
+      ] : []),
       federation({
         remotes: command === 'serve' ? {} : {
           remoteBuyer: env.VITE_REMOTE_BUYER_URL || 'https://localhost:6002/assets/remoteEntry.js',
@@ -81,9 +98,10 @@ export default defineConfig(({ command, mode }) => {
       // Dev stays same-origin so the access_token cookie is not dropped as third-party.
       // The API sets Domain=.chervicaon.com; strip that so the cookie belongs to localhost.
       proxy: command === 'serve' ? {
-        '/api': devProxy(env),
-        '/buyermessageHub': { ...devProxy(env), ws: true },
-        '/suppliermessageHub': { ...devProxy(env), ws: true },
+        '/api/v1/buyer': proxyTo(buyerApi),
+        '/api': proxyTo(otherApi),
+        '/buyermessageHub': { ...proxyTo(otherApi), ws: true },
+        '/suppliermessageHub': { ...proxyTo(otherApi), ws: true },
       } : undefined,
     },
     build: {

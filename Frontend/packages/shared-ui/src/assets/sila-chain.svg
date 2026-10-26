@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- SILA interlocking chain mark — two oval links tilted like the brand logo -->
+  <g transform="translate(24 24) rotate(-40)" stroke="#000" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-20" y="-9" width="22" height="18" rx="9"/>
+    <rect x="-2" y="-9" width="22" height="18" rx="9"/>
+  </g>
+</svg>

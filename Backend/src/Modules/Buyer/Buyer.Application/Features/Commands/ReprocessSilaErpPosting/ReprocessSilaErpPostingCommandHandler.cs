@@ -4,22 +4,29 @@ using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
 {
+    /// <summary>
+    /// PROTECTED / FROZEN: GRN / invoice reprocessing. POSTING_UNKNOWN must reconcile.
+    /// SAP success + local failure finalizes locally and does not call SAP again.
+    /// </summary>
     public class ReprocessSilaErpPostingCommandHandler : IRequestHandler<ReprocessSilaErpPostingCommand, Guid>
     {
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
         private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
 
-        public ReprocessSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator)
+        public ReprocessSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator, IConfiguration configuration)
         {
             _repository = repository;
             _logger = logger;
             _mediator = mediator;
+            _configuration = configuration;
         }
 
         public async Task<Guid> Handle(ReprocessSilaErpPostingCommand request, CancellationToken cancellationToken)
@@ -50,7 +57,7 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
             if (SilaTrackerRules.ErpAlreadyAccepted(posting))
             {
                 string? previous = posting.ErrorMessage;
-                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken);
+                await SilaPostingRecovery.FinalizeLocalAsync(_repository, _logger, posting, request.UserId, previous, cancellationToken, _configuration[Common.BASE_FOLDER_PATH], _mediator, _configuration[SilaInvoiceAttachment.PUBLIC_BASE]);
                 _logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
                 return posting.Id;
             }
@@ -74,10 +81,19 @@ namespace Buyer.Application.Features.Commands.ReprocessSilaErpPosting
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                _logger.LogError($"Reprocess ERP send failed. PostingId: {posting.Id}, Error: {SilaLogText.Short(exception.Message)}");
+                _logger.LogError($"Reprocess ERP send failed. PostingId: {posting.Id}, Error: {SilaLogText.FromException(exception)}");
             }
 
-            _logger.LogInfo($"ERP posting reprocessed. PostingId: {posting.Id}, Reference: {posting.ReferenceNumber}");
+            InventoryErpPosting fresh = await _repository.InventoryErpPosting.FindFirstByConditionAsync(x => x.Id == posting.Id);
+            if (fresh.Status == Common.SILA_POSTING_FAILED
+                || fresh.Status == Common.SILA_POSTING_UNKNOWN
+                || fresh.Status == Common.SILA_POSTING_SKIPPED)
+            {
+                string error = string.IsNullOrWhiteSpace(fresh.ErrorMessage) ? "S4 posting failed." : fresh.ErrorMessage;
+                throw new BadRequestCustomException(error, error);
+            }
+
+            _logger.LogInfo($"ERP posting reprocessed. PostingId: {posting.Id}, Reference: {fresh.ReferenceNumber}");
             return posting.Id;
         }
     }

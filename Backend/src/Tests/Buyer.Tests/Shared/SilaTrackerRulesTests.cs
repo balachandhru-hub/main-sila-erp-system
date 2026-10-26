@@ -88,12 +88,63 @@ namespace Buyer.Tests.Shared
         }
 
         [Fact]
+        public void Ledger_SkippedPosting_KeepsTheStockLineAndRetriesErp()
+        {
+            SilaTrackerRules.Stages stages = SilaTrackerRules.OfLedger(Common.SILA_POSTING_SKIPPED, 0, null);
+
+            Assert.Equal(SilaTrackerRules.SUCCESS, stages.Receive);
+            Assert.Equal(SilaTrackerRules.FAILED, stages.Erp);
+            Assert.Equal(SilaTrackerRules.SUCCESS, stages.Local);
+            Assert.Equal(SilaTrackerRules.OVERALL_FAILED, stages.Overall);
+            Assert.Equal(SilaTrackerRules.FROM_ERP, stages.ReprocessFrom);
+            Assert.True(stages.ErpCallAllowed);
+        }
+
+        [Fact]
+        public void Ledger_PostedDocument_DoesNotCallErpAgain()
+        {
+            SilaTrackerRules.Stages stages = SilaTrackerRules.OfLedger(Common.SILA_POSTING_POSTED, 1, "5000123456");
+
+            Assert.Equal(SilaTrackerRules.SUCCESS, stages.Erp);
+            Assert.Equal(SilaTrackerRules.SUCCESS, stages.Local);
+            Assert.Equal(SilaTrackerRules.OVERALL_SUCCESS, stages.Overall);
+            Assert.Equal(SilaTrackerRules.ACTION_NONE, stages.Action);
+            Assert.False(stages.ErpCallAllowed);
+        }
+
+        [Fact]
+        public void LegacyTransfer_SamePlant_Is311TransferStock()
+        {
+            (string movement, string? api, string? error) = SilaTrackerRules.DescribeLegacyTransfer(
+                "TRANSFER",
+                null,
+                "No active POST_GOODS_MOVEMENT API is configured for company code 1050 (or ALL).",
+                Common.SILA_POSTING_SKIPPED,
+                "1050",
+                "FJ01",
+                "1050",
+                "FJ05",
+                "1050",
+                "1050");
+
+            Assert.Equal(SilaInventorySap.TYPE_311, movement);
+            Assert.Equal(SilaInventorySap.API_TRANSFER, api);
+            Assert.Contains("FIVE S4 - Transfer Stock", error);
+            Assert.DoesNotContain("POST_GOODS_MOVEMENT", error);
+            Assert.True(SilaTrackerRules.TryParseKey("LEDGER~04d701fe-03cc-40da-8e14-7abd582eaa0a", out string source, out Guid id));
+            Assert.Equal(SilaTrackerRules.SOURCE_LEDGER, source);
+            Assert.Equal(Guid.Parse("04d701fe-03cc-40da-8e14-7abd582eaa0a"), id);
+        }
+
+        [Fact]
         public void MovementNames_UseTheExistingTransferAndCountTypes()
         {
             Assert.Equal("INTERNAL_TRANSFER_311", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_ITO, "311"));
             Assert.Equal("PLANT_TRANSFER_301", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_ITO, "301"));
             Assert.Equal("PHYSICAL_COUNT_SHORTAGE", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_STOCK_COUNT, "Z02"));
             Assert.Equal("POSITIVE_STOCK_ADJUSTMENT", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_ADJUSTMENT, "Z01"));
+            Assert.Equal("INVOICE_POSTING", SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_INVOICE, Common.SILA_MOVEMENT_INVOICE));
+            Assert.Equal(Common.SILA_MOVEMENT_INVOICE_ATTACHMENT, SilaTrackerRules.TransactionTypeOfPosting(Common.SILA_REF_INVOICE_ATTACHMENT, Common.SILA_MOVEMENT_INVOICE_ATTACHMENT));
             Assert.Equal(SilaTrackerRules.DATA_MASTER, SilaTrackerRules.DataClassOfProcess("GET_MATERIAL"));
             Assert.Equal(SilaTrackerRules.DIRECTION_INBOUND, SilaTrackerRules.DirectionOfProcess("GET_SUPPLIER"));
             Assert.Equal(SilaTrackerRules.DIRECTION_OUTBOUND, SilaTrackerRules.DirectionOfProcess("POST_PO"));

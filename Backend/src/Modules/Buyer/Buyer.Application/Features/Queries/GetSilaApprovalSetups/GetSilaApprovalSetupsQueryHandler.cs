@@ -38,7 +38,9 @@ namespace Buyer.Application.Features.Queries.GetSilaApprovalSetups
             ("Recipe", "Deactivation", null, "Deactivating a recipe does not wait for approval."),
             ("Material", "Create", MATERIAL_CREATE, "A new material master, when that flow exists."),
             ("Material", "Change", Common.SILA_APPROVAL_TYPE_MATERIAL_PRICE, "A material price change. The buyer administrator can approve any level."),
-            ("Material", "Deactivation", null, "Deactivating a material does not wait for approval.")
+            ("Material", "Deactivation", null, "Deactivating a material does not wait for approval."),
+            ("Receiving", "Invoice", Common.SILA_APPROVAL_TYPE_INVOICE, "A submitted supplier invoice. Used only when this flow is configured."),
+            ("Receiving", "Credit memo", Common.SILA_APPROVAL_TYPE_CREDIT_MEMO, "A submitted credit memo. Used only when this flow is configured.")
         };
 
         private readonly IRepositoryWrapper _repository;

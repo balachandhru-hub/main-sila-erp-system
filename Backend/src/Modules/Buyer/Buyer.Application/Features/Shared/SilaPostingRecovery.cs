@@ -1,6 +1,7 @@
 using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SharedKernel.LoggerServices;
 
@@ -17,10 +18,15 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting posting,
             Guid userId,
             string? previousError,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string? basePath = null,
+            IMediator? mediator = null,
+            string? publicDocumentBase = null)
         {
             if (posting.Status == Common.SILA_POSTING_POSTED)
             {
+                await ApplyAcceptedDocumentsAsync(repository, logger, posting, Common.SILA_POSTING_POSTED, cancellationToken, basePath, mediator, publicDocumentBase, userId);
+                await repository.SaveAsync();
                 return posting.Status;
             }
 
@@ -39,6 +45,7 @@ namespace Buyer.Application.Features.Shared
                 posting.Status = Common.SILA_POSTING_POSTED;
                 posting.ErrorMessage = null;
                 posting.PostedOn ??= DateTime.UtcNow;
+                await ApplyAcceptedDocumentsAsync(repository, logger, posting, posting.Status, cancellationToken, basePath, mediator, publicDocumentBase, userId);
                 Record(repository, posting, userId, SilaTrackerRules.FROM_LOCAL, previousError, false, true, "Local finalization completed. SAP was not called.");
                 await repository.SaveAsync();
                 logger.LogInfo($"ERP posting finalized locally. PostingId: {posting.Id}, Reference: {posting.ErpReference}");
@@ -49,6 +56,8 @@ namespace Buyer.Application.Features.Shared
                 logger.LogError($"Local finalization failed. PostingId: {posting.Id}, Error: {SilaLogText.Short(exception.Message)}");
                 posting.Status = Common.SILA_POSTING_FAILED_LOCAL;
                 posting.ErrorMessage = SilaTrackerRules.LocalFailureMessage(posting.ErpReference);
+                await SilaInvoicePosting.OnFinishedAsync(repository, logger, basePath, posting, posting.Status, cancellationToken);
+                await SilaCreditMemoPosting.OnFinishedAsync(repository, posting, posting.Status, cancellationToken);
                 Record(repository, posting, userId, SilaTrackerRules.FROM_LOCAL, previousError, false, true, posting.ErrorMessage);
                 try
                 {
@@ -60,6 +69,45 @@ namespace Buyer.Application.Features.Shared
                 }
 
                 return posting.Status;
+            }
+        }
+
+        private static async Task ApplyAcceptedDocumentsAsync(
+            IRepositoryWrapper repository,
+            ILoggerManager logger,
+            InventoryErpPosting posting,
+            string status,
+            CancellationToken cancellationToken,
+            string? basePath,
+            IMediator? mediator,
+            string? publicDocumentBase,
+            Guid userId)
+        {
+            await SilaInvoicePosting.OnFinishedAsync(repository, logger, basePath, posting, status, cancellationToken);
+            await SilaCreditMemoPosting.OnFinishedAsync(repository, posting, status, cancellationToken);
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE)
+            {
+                bool remembered = await repository.InventoryWorkflowEvent
+                    .FindByCondition(x => x.BuyerId == posting.BuyerId && x.IsActive
+                        && x.ReferenceType == Common.SILA_REF_INVOICE && x.ReferenceId == posting.ReferenceId
+                        && x.Action == SilaInvoicePosting.ACTION_SAP)
+                    .AnyAsync(cancellationToken);
+                if (!remembered)
+                {
+                    SilaInvoicePosting.RememberResponse(repository, posting, userId);
+                }
+            }
+
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE && mediator != null)
+            {
+                try
+                {
+                    await SilaInvoiceAttachment.AfterInvoiceAsync(repository, logger, mediator, publicDocumentBase, posting, userId, cancellationToken);
+                }
+                catch (Exception attachmentException) when (attachmentException is not OperationCanceledException)
+                {
+                    logger.LogError($"Invoice attachment was not sent. PostingId: {posting.Id}, Error: {SilaLogText.Short(attachmentException.Message)}");
+                }
             }
         }
 

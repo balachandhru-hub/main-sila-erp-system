@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader, toastService } from "@vosox/shared-ui";
 import {
+  addInvoicePurchaseOrder,
   getPoCandidates,
   getPurchaseOrder,
   matchInvoiceLines,
@@ -25,7 +26,7 @@ const SilaInvoicePoMatch: React.FC<SilaInvoicePoMatchProps> = ({ invoice, disabl
   const [orders, setOrders] = useState<SilaOpenPurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [poLines, setPoLines] = useState<SilaPurchaseOrderLine[]>([]);
+  const [poLines, setPoLines] = useState<(SilaPurchaseOrderLine & { poNumber: string })[]>([]);
   const [matches, setMatches] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -48,11 +49,18 @@ const SilaInvoicePoMatch: React.FC<SilaInvoicePoMatchProps> = ({ invoice, disabl
       if (item.id) initial[item.id] = item.purchaseOrderItemId ?? "";
     });
     setMatches(initial);
-    setPoLines([]);
-    if (!invoice.purchaseOrderId) return undefined;
+    const poIds = Array.from(new Set([
+      invoice.purchaseOrderId,
+      ...(invoice.purchaseOrders ?? []).map((order) => order.id),
+      ...invoice.items.map((item) => item.purchaseOrderId),
+    ].filter((value): value is string => Boolean(value))));
+    if (poIds.length === 0) {
+      setPoLines([]);
+      return undefined;
+    }
     let active = true;
-    getPurchaseOrder(invoice.purchaseOrderId)
-      .then((order) => active && setPoLines(order.lines))
+    Promise.all(poIds.map((id) => getPurchaseOrder(id)))
+      .then((orders) => active && setPoLines(orders.flatMap((order) => order.lines.map((line) => ({ ...line, poNumber: order.poNumber })))))
       .catch((err: unknown) => toastService.error(err instanceof Error ? err.message : "Could not load the purchase order lines."));
     return () => {
       active = false;
@@ -85,7 +93,8 @@ const SilaInvoicePoMatch: React.FC<SilaInvoicePoMatchProps> = ({ invoice, disabl
   return (
     <section className="srcv-stack" aria-labelledby="srcv-match-po">
       <h3 id="srcv-match-po" className="sila-form-section-title">Purchase order</h3>
-      <p>{invoice.poNumber ? `Linked to ${invoice.poNumber}` : "Not linked to a purchase order"}</p>
+      <p>{(invoice.purchaseOrders ?? []).length > 0 ? `Linked to ${(invoice.purchaseOrders ?? []).map((order) => order.poNumber).join(", ")}` : invoice.poNumber ? `Linked to ${invoice.poNumber}` : "Not linked to a purchase order"}</p>
+      <p className="srcv-sub">One invoice can bill several purchase orders. Link the first, then add the others. Goods receipts from each of them can be combined when their quantities match.</p>
       <div className="sila-field">
         <label className="sila-label" htmlFor="srcv-match-po-search">Search purchase orders</label>
         <input id="srcv-match-po-search" className="sila-input" type="search" placeholder="PO number" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -119,18 +128,31 @@ const SilaInvoicePoMatch: React.FC<SilaInvoicePoMatchProps> = ({ invoice, disabl
                   <td>{order.openLineCount} / {order.lineCount}</td>
                   <td>{formatAmount(order.totalAmount, order.currency)}</td>
                   <td>
-                    {order.id === invoice.purchaseOrderId ? (
+                    {order.id === invoice.purchaseOrderId || (invoice.purchaseOrders ?? []).some((linked) => linked.id === order.id) ? (
                       <span className="sila-badge sila-badge--success">Linked</span>
                     ) : (
-                      <button
-                        type="button"
-                        className="sila-btn sila-btn--secondary sila-btn--sm"
-                        aria-label={`Link purchase order ${order.poNumber}`}
-                        disabled={disabled || busy !== null}
-                        onClick={() => run(order.id, () => matchInvoicePurchaseOrder(invoice.id, order.id), `Linked to ${order.poNumber}; lines matched again.`)}
-                      >
-                        {busy === order.id ? "Linking..." : "Link"}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="sila-btn sila-btn--secondary sila-btn--sm"
+                          aria-label={`Link purchase order ${order.poNumber}`}
+                          disabled={disabled || busy !== null}
+                          onClick={() => run(order.id, () => matchInvoicePurchaseOrder(invoice.id, order.id), `Linked to ${order.poNumber}; lines matched again.`)}
+                        >
+                          {busy === order.id ? "Linking..." : "Link"}
+                        </button>
+                        {invoice.purchaseOrderId && (
+                          <button
+                            type="button"
+                            className="sila-btn sila-btn--secondary sila-btn--sm"
+                            aria-label={`Add purchase order ${order.poNumber}`}
+                            disabled={disabled || busy !== null}
+                            onClick={() => run(`add-${order.id}`, () => addInvoicePurchaseOrder(invoice.id, order.id), `Added ${order.poNumber}. Unmatched lines were matched where the description fits.`)}
+                          >
+                            {busy === `add-${order.id}` ? "Adding..." : "Add"}
+                          </button>
+                        )}
+                      </>
                     )}
                   </td>
                 </tr>
@@ -167,7 +189,7 @@ const SilaInvoicePoMatch: React.FC<SilaInvoicePoMatchProps> = ({ invoice, disabl
                       >
                         <option value="">Not matched</option>
                         {poLines.map((line) => (
-                          <option key={line.id} value={line.id}>{line.lineNumber} — {line.productName} ({line.openQty} {line.uom || ""} open)</option>
+                          <option key={line.id} value={line.id}>{line.poNumber} · {line.lineNumber} — {line.productName} ({line.openQty} {line.uom || ""} open)</option>
                         ))}
                       </select>
                     </td>

@@ -118,6 +118,14 @@ export interface SilaOcrConfiguration {
   poValidation?: boolean;
   financialReconciliation?: boolean;
   reuseCachedOcr?: boolean;
+  /** LOCAL | FILE_PATH | SHAREPOINT. Files stay on the local downloads path. */
+  attachmentStorage?: string;
+  attachmentPath?: string | null;
+  sharePointSiteUrl?: string | null;
+  sharePointLibrary?: string | null;
+  sharePointFolder?: string | null;
+  attachmentWritesLocally?: boolean;
+  attachmentLocalPath?: string | null;
 }
 
 export interface SilaOcrConfigurationWrite {
@@ -135,6 +143,12 @@ export interface SilaOcrConfigurationWrite {
   poValidation?: boolean;
   financialReconciliation?: boolean;
   reuseCachedOcr?: boolean;
+  /** LOCAL | FILE_PATH | SHAREPOINT. Omitted on an older service. */
+  attachmentStorage?: string;
+  attachmentPath?: string | null;
+  sharePointSiteUrl?: string | null;
+  sharePointLibrary?: string | null;
+  sharePointFolder?: string | null;
 }
 
 /** Which Excel file an import screen works with. */
