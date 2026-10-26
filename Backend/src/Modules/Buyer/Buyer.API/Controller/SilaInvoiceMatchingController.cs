@@ -31,7 +31,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/supplier-candidates")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoiceSupplierCandidates")]
         [SwaggerResponse(200, type: typeof(List<SilaInvoiceSupplierCandidateDto>))]
         public async Task<IActionResult> SupplierCandidates([FromRoute] Guid invoiceId, [FromQuery] string? search)
@@ -49,7 +49,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/match-supplier")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("MatchSilaInvoiceSupplier")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> MatchSupplier([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceMatchSupplierDto request)
@@ -68,7 +68,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/po-candidates")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoicePoCandidates")]
         [SwaggerResponse(200, type: typeof(List<SilaReceivingPoListItemDto>))]
         public async Task<IActionResult> PoCandidates([FromRoute] Guid invoiceId, [FromQuery] string? search, [FromQuery] int index = 0, [FromQuery] int limit = 20)
@@ -88,7 +88,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/match-po")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("MatchSilaInvoicePurchaseOrder")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> MatchPurchaseOrder([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceMatchPoDto request)
@@ -107,7 +107,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/match-po/add")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("AddSilaInvoicePurchaseOrder")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> AddPurchaseOrder([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceMatchPoDto request)
@@ -127,7 +127,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/match-lines")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("MatchSilaInvoiceLines")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> MatchLines([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceMatchLinesDto request)
@@ -146,7 +146,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/extractions")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoiceExtractions")]
         [SwaggerResponse(200, type: typeof(List<SilaInvoiceExtractionDto>))]
         public async Task<IActionResult> Extractions([FromRoute] Guid invoiceId)

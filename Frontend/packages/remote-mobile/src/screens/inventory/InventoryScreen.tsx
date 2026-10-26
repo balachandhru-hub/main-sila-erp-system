@@ -16,9 +16,9 @@ interface MenuEntry {
 }
 
 const ENTRIES: MenuEntry[] = [
-  { label: 'Scan invoice', detail: 'Photograph the supplier invoice and read it', to: 'receive/scan' },
-  { label: 'Receive goods', detail: 'Select the supplier purchase order and post the receipt', to: 'receive/pos?mode=receive' },
-  { label: 'Purchase orders', detail: 'Open POs you can receive against', to: 'receive/pos' },
+  { label: 'Scan invoice', detail: 'Photograph the supplier invoice and read it', to: 'receive/scan', visible: (can) => can.processInvoice },
+  { label: 'Receive goods', detail: 'Select the supplier purchase order and post the receipt', to: 'receive/pos?mode=receive', visible: (can) => can.postGrn },
+  { label: 'Purchase orders', detail: 'Open POs you can receive against', to: 'receive/pos', visible: (can) => can.viewReceiving },
   { label: 'Suppliers', detail: 'Supplier master: code, name, tax number', to: 'more/suppliers' },
   { label: 'Live Inventory', detail: 'Search stock, see it per location and decide what to do', to: 'inventory/stock' },
   { label: 'Quick Transfer', detail: 'Send stock now; the receiver confirms', to: 'inventory/transfers/new?mode=quick' },

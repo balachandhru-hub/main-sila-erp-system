@@ -2,6 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/sila-logo.png';
 import { useGo } from '../navigation';
+import NotificationBell from './NotificationBell';
+import type { SilaInboxItem } from '../../../remote-buyer/src/components/silaMe/silaNotifications';
 
 interface ScreenHeaderProps {
   title: string;
@@ -16,10 +18,12 @@ interface ScreenHeaderProps {
   backTo?: string;
   /** Right side of the top bar (e.g. the profile avatar). */
   aside?: React.ReactNode;
+  /** Inbox items already loaded on the screen (Home). When omitted the bell reads the dashboard. */
+  notifications?: SilaInboxItem[] | boolean;
 }
 
 /** Top bar (back, brand) followed by the eyebrow and the screen title, like the SILA Store prototype. */
-const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, eyebrow, intro, summary, back = false, backTo, aside }) => {
+const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, eyebrow, intro, summary, back = false, backTo, aside, notifications = true }) => {
   const navigate = useNavigate();
   const go = useGo();
 
@@ -42,7 +46,10 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, eyebrow, intro, summ
         <span className="sm-brand" aria-label="SILA Store">
           SILA <span>Store</span>
         </span>
-        {aside ?? <span aria-hidden="true" />}
+        <span className="sm-topbar__aside">
+          {notifications !== false && <NotificationBell items={Array.isArray(notifications) ? notifications : undefined} />}
+          {aside ?? <span aria-hidden="true" />}
+        </span>
       </div>
       <div className={`sm-titleblock${summary ? ' sm-titleblock--with-summary' : ''}`}>
         {eyebrow && <span className="sm-eyebrow">{eyebrow}</span>}

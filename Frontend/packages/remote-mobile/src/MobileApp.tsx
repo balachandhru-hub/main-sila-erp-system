@@ -21,6 +21,7 @@ import PoDetailScreen from './screens/receive/PoDetailScreen';
 import HistoryScreen from './screens/receive/HistoryScreen';
 import PendingGrnScreen from './screens/receive/PendingGrnScreen';
 import PurchaseRequestsScreen from './screens/inventory/PurchaseRequestsScreen';
+import RecommendationsScreen from './screens/inventory/RecommendationsScreen';
 import GoodsIssuesScreen from './screens/inventory/GoodsIssuesScreen';
 import GoodsIssueFormScreen from './screens/inventory/GoodsIssueFormScreen';
 import GoodsIssueDetailScreen from './screens/inventory/GoodsIssueDetailScreen';
@@ -132,6 +133,7 @@ const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
                 <Route path="inventory/counts" element={<CountListScreen />} />
                 <Route path="inventory/counts/:stockCountId" element={<CountSessionScreen />} />
                 <Route path="inventory/purchase-requests" element={<PurchaseRequestsScreen />} />
+                <Route path="inventory/recommendations" element={<RecommendationsScreen />} />
                 <Route path="inventory/goods-issues" element={<GoodsIssuesScreen />} />
                 <Route path="inventory/goods-issues/new" element={<GoodsIssueFormScreen />} />
                 <Route path="inventory/goods-issues/:goodsIssueId" element={<GoodsIssueDetailScreen />} />

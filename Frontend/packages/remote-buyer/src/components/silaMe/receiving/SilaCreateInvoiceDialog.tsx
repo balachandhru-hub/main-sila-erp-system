@@ -70,7 +70,7 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-/** Create Invoice: PO (supplier → PO → GRN → lines) or Non-PO (GL lines). Both post through FIVE S4-INVOICE POSTING. */
+/** Create Invoice: PO number first fills supplier, company, amounts and GRNs. One attachment is required. */
 const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClose, onCreated, onCreditMemoDone }) => {
   const [documentKind, setDocumentKind] = useState<"INVOICE" | "CREDIT_MEMO">("INVOICE");
   const [creationType, setCreationType] = useState<CreationType>("PO");
@@ -93,9 +93,13 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
   const [taxAmount, setTaxAmount] = useState("");
   const [reference, setReference] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [poSearch, setPoSearch] = useState("");
+  const poTerm = useDebounced(poSearch);
+  const [poOpen, setPoOpen] = useState(false);
   const [orders, setOrders] = useState<SilaEligiblePurchaseOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [receipts, setReceipts] = useState<SilaEligibleGoodsReceipt[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [selectedGrns, setSelectedGrns] = useState<string[]>([]);
@@ -124,28 +128,42 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     return () => { active = false; };
   }, [supplierTerm]);
 
+  const applyPurchaseOrder = (order: SilaEligiblePurchaseOrder) => {
+    setPurchaseOrderId(order.id);
+    setPoSearch(order.poNumber);
+    setPoOpen(false);
+    if (order.companyCode) setCompanyCode(order.companyCode);
+    const property = masters?.properties.find((row) => row.companyCode && row.companyCode === order.companyCode);
+    if (property) setPropertyId(property.id);
+    setSupplierName(order.supplierName || "");
+    setSupplierSearch(order.supplierName || order.supplierCode || "");
+    setSilaSupplierId(order.silaSupplierId || "");
+    setSelectedSupplierId(order.supplierId || "");
+    if (order.currency) setCurrency(order.currency);
+    if (order.totalAmount != null) setGrossAmount(String(order.totalAmount));
+    setReference((current) => current || order.poNumber);
+  };
+
   useEffect(() => {
-    if (creationType !== "PO" || !silaSupplierId || !resolvedCompany) {
-      setOrders([]);
-      return;
-    }
+    if (creationType !== "PO") return undefined;
     let active = true;
     setOrdersLoading(true);
-    getEligiblePurchaseOrders({
-      silaSupplierId,
-      companyCode: resolvedCompany,
-      propertyId: propertyId || null,
-    })
-      .then((rows) => active && setOrders(rows))
+    getEligiblePurchaseOrders({ search: poTerm.trim() || null })
+      .then((rows) => {
+        if (!active) return;
+        setOrders(rows);
+        const exact = rows.filter((row) => row.poNumber.toLowerCase() === poTerm.trim().toLowerCase());
+        if (exact.length === 1 && purchaseOrderId !== exact[0].id) applyPurchaseOrder(exact[0]);
+      })
       .catch((err: unknown) => {
         if (active) {
           setOrders([]);
-          toastService.error(err instanceof Error ? err.message : "Could not load purchase orders.");
+          if (poTerm.trim()) toastService.error(err instanceof Error ? err.message : "Could not load purchase orders.");
         }
       })
       .finally(() => active && setOrdersLoading(false));
     return () => { active = false; };
-  }, [creationType, silaSupplierId, resolvedCompany, propertyId]);
+  }, [creationType, poTerm]);
 
   useEffect(() => {
     if (!purchaseOrderId) {
@@ -159,7 +177,7 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
       .then((rows) => {
         if (!active) return;
         setReceipts(rows);
-        setSelectedGrns(rows.length === 1 ? [rows[0].id] : []);
+        setSelectedGrns(rows.map((row) => row.id));
       })
       .catch((err: unknown) => {
         if (active) {
@@ -198,12 +216,25 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     return lines;
   }, [receipts, selectedGrns]);
 
+  useEffect(() => {
+    if (creationType !== "PO" || !purchaseOrderId) return;
+    const net = poLines.reduce((sum, line) => sum + (line.amount ?? 0), 0);
+    setNetAmount(net ? String(net) : "");
+    const order = orders.find((row) => row.id === purchaseOrderId);
+    if (order?.totalAmount != null && selectedGrns.length === receipts.length && receipts.length > 0) {
+      setGrossAmount(String(order.totalAmount));
+    } else if (net) {
+      setGrossAmount(String(net));
+    }
+  }, [creationType, purchaseOrderId, poLines, orders, selectedGrns, receipts.length]);
+
   const buildRequest = async (): Promise<SilaCreateInvoiceRequest> => {
     const request: SilaCreateInvoiceRequest = {
       creationType,
       propertyId: propertyId || null,
       companyCode: resolvedCompany || null,
       silaSupplierId: silaSupplierId || null,
+      supplierId: selectedSupplierId || null,
       supplierName: supplierName || selectedSupplier?.name || null,
       invoiceNumber: invoiceNumber.trim() || null,
       invoiceDate: invoiceDate || null,
@@ -245,14 +276,15 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
   };
 
   const validate = (): string | null => {
+    if (!file) return "Upload one invoice attachment (PDF, JPEG or PNG).";
     if (!resolvedCompany) return "Select a property or company code.";
-    if (!silaSupplierId && !supplierName.trim()) return "Select a supplier.";
+    if (!silaSupplierId && !selectedSupplierId && !supplierName.trim()) return "Select a supplier.";
     if (!invoiceNumber.trim()) return "Enter the supplier invoice number.";
     if (!invoiceDate) return "Enter the invoice date.";
     if (!taxDeterminationDate) return "Enter the tax determination date.";
     if (!currency.trim()) return "Enter the currency.";
     if (creationType === "PO") {
-      if (!purchaseOrderId) return "Select a purchase order.";
+      if (!purchaseOrderId) return "Select a purchase order from the dropdown.";
       if (selectedGrns.length === 0) return "Select at least one goods receipt.";
       if (poLines.length === 0) return "No invoiceable quantities remain on the selected goods receipts.";
     } else {
@@ -296,6 +328,7 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
     return (
       <SilaCreditMemoDialog
         showKindToggle
+        canProcess
         onSelectInvoice={() => setDocumentKind("INVOICE")}
         onClose={onClose}
         onChanged={onCreditMemoDone}
@@ -332,13 +365,102 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
             <button type="button" className={`sila-btn ${creationType === "PO" ? "sila-btn--primary" : "sila-btn--secondary"}`} onClick={() => setCreationType("PO")}>
               PO Invoice
             </button>
-            <button type="button" className={`sila-btn ${creationType === "NON_PO" ? "sila-btn--primary" : "sila-btn--secondary"}`} onClick={() => setCreationType("NON_PO")}>
+            <button type="button" className={`sila-btn ${creationType === "NON_PO" ? "sila-btn--primary" : "sila-btn--secondary"}`} onClick={() => {
+              setCreationType("NON_PO");
+              setPurchaseOrderId("");
+              setOrders([]);
+              setReceipts([]);
+              setSelectedGrns([]);
+            }}>
               Non-PO Invoice
             </button>
           </div>
         </section>
 
+        {creationType === "PO" && (
+          <section className="srcv-stack" aria-labelledby="srcv-create-po-number">
+            <h3 id="srcv-create-po-number" className="sila-form-section-title">Purchase order</h3>
+            <p className="srcv-sub">Search the dropdown by PO number, supplier ID / code, or creation date. Selecting a PO fills supplier, company, amounts, tax codes and GRNs.</p>
+            <div className="sila-field sila-field--full srcv-combo">
+              <label className="sila-label" htmlFor="srcv-create-po">PO number</label>
+              <input
+                id="srcv-create-po"
+                className="sila-input"
+                role="combobox"
+                aria-expanded={poOpen}
+                aria-controls="srcv-create-po-list"
+                aria-autocomplete="list"
+                value={poSearch}
+                autoComplete="off"
+                placeholder="Search PO, supplier ID or creation date"
+                onFocus={() => setPoOpen(true)}
+                onChange={(event) => {
+                  setPoSearch(event.target.value);
+                  setPoOpen(true);
+                  if (purchaseOrderId) setPurchaseOrderId("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setPoOpen(false);
+                  if (event.key === "Enter" && orders.length === 1) {
+                    event.preventDefault();
+                    applyPurchaseOrder(orders[0]);
+                  }
+                }}
+                onBlur={() => window.setTimeout(() => setPoOpen(false), 150)}
+              />
+              {poOpen && (
+                <ul id="srcv-create-po-list" className="srcv-combo__list" role="listbox">
+                  {ordersLoading && <li className="srcv-combo__empty">Searching…</li>}
+                  {!ordersLoading && orders.length === 0 && (
+                    <li className="srcv-combo__empty">No eligible purchase orders match that search.</li>
+                  )}
+                  {orders.map((order) => (
+                    <li key={order.id} role="none">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={purchaseOrderId === order.id}
+                        className={`srcv-combo__option${purchaseOrderId === order.id ? " srcv-combo__option--selected" : ""}`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => applyPurchaseOrder(order)}
+                      >
+                        <strong>{order.poNumber}</strong>
+                        <span>
+                          {order.supplierCode || order.supplierId || "—"}
+                          {order.supplierName ? ` · ${order.supplierName}` : ""}
+                          {` · ${formatDate(order.orderDate || order.createdOn)}`}
+                          {order.companyCode ? ` · ${order.companyCode}` : ""}
+                          {order.grnCount ? ` · ${order.grnCount} GRN` : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {purchaseOrderId && (
+              <p className="srcv-sub">
+                Selected {poSearch}
+                {supplierName ? ` · ${supplierName}` : ""}
+                {companyCode ? ` · ${companyCode}` : ""}
+              </p>
+            )}
+          </section>
+        )}
+
         <section className="sila-form-grid">
+          <div className="sila-field sila-field--full">
+            <label className="sila-label" htmlFor="srcv-create-file">Invoice attachment (required)</label>
+            <input
+              id="srcv-create-file"
+              className="sila-input"
+              type="file"
+              required
+              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+              onChange={(event) => setFile(event.target.files?.[0] || null)}
+            />
+            <p className="srcv-sub">{file ? file.name : "One PDF, JPEG or PNG is required."}</p>
+          </div>
           <div className="sila-field">
             <label className="sila-label" htmlFor="srcv-create-property">Property</label>
             <select id="srcv-create-property" className="sila-select" value={propertyId} onChange={(event) => {
@@ -376,6 +498,9 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
               }}
             >
               <option value="">Select supplier</option>
+              {silaSupplierId && !suppliers.some((row) => row.id === silaSupplierId) && (
+                <option value={silaSupplierId}>{supplierName || "Supplier from the purchase order"}</option>
+              )}
               {suppliers.map((row) => (
                 <option key={row.id} value={row.id}>{row.supplierCode} — {row.name}</option>
               ))}
@@ -415,63 +540,18 @@ const SilaCreateInvoiceDialog: React.FC<SilaCreateInvoiceDialogProps> = ({ onClo
           <div className="sila-field">
             <label className="sila-label" htmlFor="srcv-create-tax">Tax amount</label>
             <input id="srcv-create-tax" className="sila-input" inputMode="decimal" value={taxAmount} onChange={(event) => setTaxAmount(event.target.value)} />
+            {creationType === "PO" && poLines.some((line) => line.taxCode) && (
+              <p className="srcv-sub">Tax codes from the PO / GRN: {[...new Set(poLines.map((line) => line.taxCode).filter(Boolean))].join(", ")}</p>
+            )}
           </div>
           <div className="sila-field">
             <label className="sila-label" htmlFor="srcv-create-ref">Reference</label>
             <input id="srcv-create-ref" className="sila-input" value={reference} onChange={(event) => setReference(event.target.value)} />
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="srcv-create-file">Invoice document</label>
-            <input id="srcv-create-file" className="sila-input" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setFile(event.target.files?.[0] || null)} />
-          </div>
         </section>
 
         {creationType === "PO" && (
           <>
-            <section className="srcv-stack" aria-labelledby="srcv-create-pos">
-              <h3 id="srcv-create-pos" className="sila-form-section-title">Available purchase orders</h3>
-              {!silaSupplierId || !resolvedCompany ? (
-                <p className="srcv-sub">Select a supplier and company code to see eligible purchase orders.</p>
-              ) : ordersLoading ? (
-                <Loader size={20} message="Loading purchase orders..." />
-              ) : orders.length === 0 ? (
-                <p className="srcv-sub">No eligible purchase orders for this supplier and company code.</p>
-              ) : (
-                <div className="sila-table-wrap">
-                  <table className="sila-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">PO</th>
-                        <th scope="col">Date</th>
-                        <th scope="col">Company</th>
-                        <th scope="col">Value</th>
-                        <th scope="col">GRNs</th>
-                        <th scope="col">Status</th>
-                        <th scope="col"><span className="sila-visually-hidden">Select</span></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((order) => (
-                        <tr key={order.id}>
-                          <td><span className="sila-cell-strong">{order.poNumber}</span></td>
-                          <td>{order.orderDate ? formatDate(order.orderDate) : "—"}</td>
-                          <td>{order.companyCode || "—"}</td>
-                          <td>{formatAmount(order.totalAmount, order.currency)}</td>
-                          <td>{order.grnCount}</td>
-                          <td><span className={receivingBadgeClass(order.status)}>{receivingLabel(order.status)}</span></td>
-                          <td>
-                            <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" onClick={() => setPurchaseOrderId(order.id)}>
-                              {purchaseOrderId === order.id ? "Selected" : "Select"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
             {purchaseOrderId && (
               <section className="srcv-stack" aria-labelledby="srcv-create-grns">
                 <h3 id="srcv-create-grns" className="sila-form-section-title">Available GRNs</h3>

@@ -3,6 +3,7 @@ import { extractInvoice, uploadInvoice } from '../../../../remote-buyer/src/api/
 import PageScanner from '../../components/PageScanner';
 import ScreenHeader from '../../components/ScreenHeader';
 import { Notice, type NoticeMessage } from '../../components/StateViews';
+import { useAccess } from '../../access';
 import { useGo } from '../../navigation';
 import { errorText } from '../../useLoad';
 import { buildInvoicePdf, type ScannedPage } from './invoicePdf';
@@ -19,6 +20,7 @@ const STEP_TEXT: Record<Step, string> = {
 /** Photograph the invoice pages or pick a PDF, send them, and read with OCR. */
 const ScanInvoiceScreen: React.FC = () => {
   const go = useGo();
+  const { can } = useAccess();
   const [pages, setPages] = useState<ScannedPage[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [step, setStep] = useState<Step>('idle');
@@ -50,6 +52,17 @@ const ScanInvoiceScreen: React.FC = () => {
       setNotice({ tone: 'error', text: errorText(caught) });
     }
   };
+
+  if (!can.processInvoice) {
+    return (
+      <>
+        <ScreenHeader title="Scan invoice" eyebrow="Receive" back />
+        <div className="sm-screen">
+          <Notice notice={{ tone: 'error', text: 'Invoice processing is not assigned to this user.' }} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

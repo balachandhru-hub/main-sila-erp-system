@@ -3,7 +3,7 @@ import { silaMePermissions } from "./silaMePermissions";
 import { silaHomeCapabilities, type SilaHomeCapabilities } from "./silaHomeCapabilities";
 
 /** Who is using the SILA ME add-on; decides the menu and which actions the screens offer. */
-export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller" | "fnb-director";
+export type SilaMeRole = "admin" | "store-manager" | "outlet-manager" | "buyer-user" | "cost-controller" | "fnb-director" | "finance-manager" | "ap-processor";
 
 /** Model key of the SILA ME (hospitality) add-on in the organization's models. */
 export const SILA_ME_MODEL_KEY = "SILA_ME";
@@ -22,6 +22,7 @@ export const SILA_ME_NAV_PATHS = {
   silaPhysicalInventory: "sila-physical-inventory",
   silaAlerts: "sila-alerts",
   silaPurchaseRequests: "sila-purchase-requests",
+  silaRecommendations: "sila-recommendations",
   silaTransactions: "sila-transactions",
   silaRecipeDashboard: "sila-recipe-dashboard",
   silaRecipes: "sila-recipes",
@@ -95,6 +96,7 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
         ...leaf(can.approveCount, "silaShortageReport", "Shortage Report"),
         { key: "silaPhysicalInventory", label: "Physical Inventory" },
         { key: "silaAlerts", label: "Alerts" },
+        ...leaf(home.recommendation, "silaRecommendations", "Recommendations"),
         ...leaf(can.requestPurchase, "silaPurchaseRequests", "Purchase Requests"),
         { key: "silaTransactions", label: "Inventory Transactions" },
       ] : [],
@@ -115,9 +117,14 @@ export const buildSilaMeNavItem = (role: SilaMeRole, access?: SilaHomeCapabiliti
         { key: "silaReceivingDashboard", label: "Dashboard" },
         { key: "silaPurchaseOrders", label: "Open Purchase Orders" },
         { key: "silaGoodsReceipts", label: "Goods Receipts" },
+      ] : [],
+    },
+    {
+      label: "Accounts Payable",
+      items: [
         ...leaf(home.viewInvoices, "silaInvoices", "Invoices"),
         ...leaf(home.viewCreditMemos, "silaCreditMemos", "Credit Memos"),
-      ] : [],
+      ],
     },
     {
       label: "Control",
