@@ -55,16 +55,33 @@ namespace Buyer.Application.Features.Commands.MatchSilaInvoiceLines
                 throw new BadRequestCustomException("No purchase order.", "Match the invoice to a purchase order before matching its lines.");
             }
 
-            HashSet<Guid> poItemIds = invoice.PurchaseOrderId == null
-                ? new HashSet<Guid>()
-                : (await _repository.PurchaseOrderItem
-                    .FindByCondition(x => x.PurchaseOrderId == invoice.PurchaseOrderId.Value && x.IsActive)
-                    .Select(x => x.Id)
-                    .ToListAsync(cancellationToken)).ToHashSet();
-            if (chosen.Any(id => !poItemIds.Contains(id)))
+            List<PurchaseOrderItem> chosenItems = chosen.Count == 0
+                ? new List<PurchaseOrderItem>()
+                : await _repository.PurchaseOrderItem.FindByCondition(x => chosen.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken);
+            if (chosenItems.Count != chosen.Count)
             {
-                _logger.LogError($"Invoice line matched to a line of another purchase order. InvoiceId: {invoice.Id}");
-                throw new BadRequestCustomException("Purchase order line not found.", $"Match invoice lines only to lines of purchase order {invoice.PoNumber}.");
+                _logger.LogError($"Invoice line matched to a missing purchase order line. InvoiceId: {invoice.Id}");
+                throw new BadRequestCustomException("Purchase order line not found.", "Match invoice lines to lines of this supplier's purchase orders.");
+            }
+
+            List<Guid> chosenPoIds = chosenItems.Select(x => x.PurchaseOrderId).Distinct().ToList();
+            List<PurchaseOrder> chosenOrders = chosenPoIds.Count == 0
+                ? new List<PurchaseOrder>()
+                : await _repository.PurchaseOrder.FindByCondition(x => chosenPoIds.Contains(x.Id) && x.BuyerId == buyer.Id && x.IsActive).ToListAsync(cancellationToken);
+            if (chosenOrders.Count != chosenPoIds.Count)
+            {
+                _logger.LogError($"Invoice line matched to another buyer's purchase order. InvoiceId: {invoice.Id}");
+                throw new BadRequestCustomException("Purchase order line not found.", "Match invoice lines to lines of this supplier's purchase orders.");
+            }
+
+            PurchaseOrder? headerOrder = invoice.PurchaseOrderId == null
+                ? null
+                : await _repository.PurchaseOrder.FindFirstByConditionAsync(x => x.Id == invoice.PurchaseOrderId && x.BuyerId == buyer.Id);
+            Guid? supplierId = invoice.SupplierId ?? headerOrder?.SupplierId;
+            if (supplierId != null && chosenOrders.Any(x => x.SupplierId != supplierId))
+            {
+                _logger.LogError($"Invoice line matched to another supplier. InvoiceId: {invoice.Id}");
+                throw new BadRequestCustomException("Purchase order of another supplier.", "Match invoice lines only to purchase orders of this supplier.");
             }
 
             List<Guid> itemIds = matches.Select(x => x.InvoiceItemId).ToList();

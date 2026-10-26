@@ -1,9 +1,11 @@
+using Buyer.Application.Features.Commands.AcceptSilaPurchaseRecommendations;
 using Buyer.Application.Features.Commands.AddSilaPurchaseRequestToBucket;
 using Buyer.Application.Features.Commands.CancelSilaPurchaseRequest;
 using Buyer.Application.Features.Commands.CreateSilaPurchaseRequest;
 using Buyer.Application.Features.Commands.CreateSilaReplenishmentTransfers;
 using Buyer.Application.Features.Commands.UpdateSilaQuickTransferPolicy;
 using Buyer.Application.Features.Queries.GetSilaInventoryDashboard;
+using Buyer.Application.Features.Queries.GetSilaPurchaseRecommendations;
 using Buyer.Application.Features.Queries.GetSilaPurchaseRequests;
 using Buyer.Application.Features.Queries.GetSilaQuickTransferPolicy;
 using Buyer.Domain.Dtos;
@@ -74,6 +76,45 @@ namespace Buyer.API.Controllers
                 Request = request
             });
             _logger.LogDebug($"Replenishment transfers created. Transfers: {result.Transfers.Count}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/purchase-recommendations")]
+        [ApiAuthorization(Name = "REQUEST_SILA_PURCHASE")]
+        [SwaggerOperation("GetSilaPurchaseRecommendations")]
+        [SwaggerResponse(200, type: typeof(SilaPurchaseRecommendationListDto))]
+        public async Task<IActionResult> PurchaseRecommendations([FromQuery] Guid? propertyId, [FromQuery] Guid? locationId)
+        {
+            _logger.LogDebug($"Fetching purchase recommendations. PropertyId: {propertyId}, LocationId: {locationId}");
+            SilaPurchaseRecommendationListDto result = await _mediator.Send(new GetSilaPurchaseRecommendationsQuery
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                PropertyId = propertyId,
+                LocationId = locationId
+            });
+            _logger.LogDebug($"Purchase recommendations fetched. Count: {result.RecommendedPurchase}");
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/purchase-recommendations/accept")]
+        [ApiAuthorization(Name = "REQUEST_SILA_PURCHASE")]
+        [SwaggerOperation("AcceptSilaPurchaseRecommendations")]
+        [SwaggerResponse(200, type: typeof(SilaPurchaseRecommendationAcceptResultDto))]
+        public async Task<IActionResult> AcceptPurchaseRecommendations([FromBody] SilaPurchaseRecommendationAcceptWriteDto request)
+        {
+            _logger.LogDebug($"Accepting purchase recommendations. Lines: {request.Lines?.Count}");
+            SilaPurchaseRecommendationAcceptResultDto result = await _mediator.Send(new AcceptSilaPurchaseRecommendationsCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                Request = request
+            });
+            _logger.LogDebug($"Purchase recommendations accepted. Created: {result.PurchaseRequests.Count}");
             return Ok(result);
         }
 

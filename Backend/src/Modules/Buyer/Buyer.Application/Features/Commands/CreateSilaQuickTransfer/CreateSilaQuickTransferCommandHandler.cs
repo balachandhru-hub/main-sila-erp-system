@@ -165,6 +165,7 @@ namespace Buyer.Application.Features.Commands.CreateSilaQuickTransfer
                 _repository.InternalTransferOrderItem.Create(item);
             }
 
+            await SilaTransferSap.QueueAsync(_repository, _logger, ledger, transfer, items, buyer.OrganizationId, cancellationToken);
             await _repository.SaveAsync();
 
             _logger.LogInfo($"Quick transfer created. TransferId: {transfer.Id}, ItoNumber: {transfer.ItoNumber}, Status: {transfer.Status}, Lines: {items.Count}");

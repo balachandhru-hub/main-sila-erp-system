@@ -73,7 +73,7 @@ namespace Buyer.Application.Features.Shared
             }
         }
 
-        /// <summary>Both locations exist, differ, belong to the same property and allow transfers.</summary>
+        /// <summary>Both locations exist, differ, belong to the same company and allow transfers.</summary>
         public static async Task<(InventoryLocation From, InventoryLocation To)> ValidateLocationsAsync(
             IRepositoryWrapper repository, ILoggerManager logger, Guid buyerId, Guid fromLocationId, Guid toLocationId)
         {
@@ -87,10 +87,19 @@ namespace Buyer.Application.Features.Shared
             InventoryLocation to = await SilaAccess.GetLocationAsync(repository, logger, buyerId, toLocationId);
             if (from.PropertyId != to.PropertyId)
             {
-                logger.LogError($"Cross-property transfer. From: {from.Id} ({from.PropertyId}), To: {to.Id} ({to.PropertyId})");
-                throw new BadRequestCustomException(
-                    "Transfers across properties are not allowed",
-                    "Select a source and a destination of the same property.");
+                BuyerProperty? fromProperty = await repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == from.PropertyId);
+                BuyerProperty? toProperty = await repository.BuyerProperty.FindFirstByConditionAsync(x => x.Id == to.PropertyId);
+                bool sameCompany = fromProperty != null
+                    && toProperty != null
+                    && !string.IsNullOrWhiteSpace(fromProperty.CompanyCode)
+                    && string.Equals(fromProperty.CompanyCode.Trim(), toProperty.CompanyCode.Trim(), StringComparison.OrdinalIgnoreCase);
+                if (!sameCompany)
+                {
+                    logger.LogError($"Cross-company transfer. From: {from.Id} ({from.PropertyId}), To: {to.Id} ({to.PropertyId})");
+                    throw new BadRequestCustomException(
+                        SilaInventorySap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED,
+                        SilaInventorySap.Describe(SilaInventorySap.CROSS_COMPANY_TRANSFER_NOT_CONFIGURED));
+                }
             }
 
             if (!from.TransferEnabled || !to.TransferEnabled)
@@ -255,7 +264,7 @@ namespace Buyer.Application.Features.Shared
 
         /// <summary>
         /// Books stock the requester already collected: TRANSFER_OUT at the source and TRANSFER_IN at the destination of
-        /// the approved quantities (nothing goes in transit), and queues the transfer for the ERP. The caller sets the status.
+        /// the approved quantities (nothing goes in transit). The caller queues the SAP posting and sets the status.
         /// </summary>
         public static async Task PostCollectedAsync(
             InventoryLedger ledger,
@@ -296,8 +305,6 @@ namespace Buyer.Application.Features.Shared
                     }, cancellationToken);
                 }
             }
-
-            // ITO stays on the SILA ledger. It is not posted to SAP.
         }
 
         /// <summary>What the user may do with the transfer now, from its status and the user's locations.</summary>

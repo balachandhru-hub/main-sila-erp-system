@@ -51,6 +51,8 @@
   --sila-primary-soft-hover: #e1ebfb;
   --sila-primary-border: #c6d8f5;
   --sila-primary-ring: rgba(31, 92, 196, 0.22);
+  /* Interlocking chain mark green from sila-logo.png */
+  --sila-brand-chain: #5e9551;
 
   /* ---- Status -------------------------------------------------------- */
   --sila-success: #15803d;

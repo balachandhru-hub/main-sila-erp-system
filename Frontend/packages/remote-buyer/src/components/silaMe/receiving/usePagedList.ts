@@ -25,12 +25,12 @@ export const usePagedList = <T>(load: (page: SilaPage) => Promise<T[]>, fallback
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    setPage(1);
+    setPage((current) => (current === 1 ? current : 1));
   }, [load]);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    setLoading((current) => current || rows.length === 0);
     setError(null);
     load({ index: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE + 1 })
       .then((data) => {

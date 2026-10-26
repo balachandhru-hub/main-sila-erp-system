@@ -9,6 +9,8 @@ interface NeedsAttentionPanelProps {
   currentUserId: string | null;
   /** The organization has the SILA ME add-on: recipe approvals, alerts and invoices are checked too. */
   hasSilaMe: boolean;
+  /** False while the add-on check is still running, so the panel loads once that answer is known. */
+  ready?: boolean;
   /** How the user works with the weekly bucket; decides the suggested bucket action. */
   bucketRole: BucketRole;
   onNavigate: (navKey: string) => void;
@@ -22,8 +24,8 @@ const severityClass = (severity: string): string => {
 };
 
 /** "Needs your attention": approvals waiting for the user, SILA ME alerts and suggested next actions. */
-const NeedsAttentionPanel: React.FC<NeedsAttentionPanelProps> = ({ currentUserId, hasSilaMe, bucketRole, onNavigate }) => {
-  const attention = useAttention({ currentUserId, hasSilaMe });
+const NeedsAttentionPanel: React.FC<NeedsAttentionPanelProps> = ({ currentUserId, hasSilaMe, ready = true, bucketRole, onNavigate }) => {
+  const attention = useAttention({ currentUserId, hasSilaMe, ready });
   const actions = buildSuggestedActions({
     buckets: attention.buckets,
     bucketRole,

@@ -221,12 +221,13 @@ namespace Buyer.Application.Features.Shared
                     }
                 }
 
+                // The ledger lines are the recipe explosion (or the single DIRECT material). Z02 consumes, Z01 returns stock.
                 InventoryErpPosting posting = ledger.QueueErpPosting(
                     Common.SILA_REF_POS_SALE,
                     transaction.Id,
                     transaction.SourceTransactionId,
                     transaction.OutletLocationId,
-                    Common.SILA_MOVEMENT_CONSUMPTION);
+                    SilaInventorySap.MovementForSale(null, transaction.QuantitySold));
                 transaction.ErpPostingId = posting.Id;
                 transaction.Status = Common.SILA_POS_INVENTORY_DEDUCTED;
                 transaction.FailedStep = null;
@@ -288,7 +289,10 @@ namespace Buyer.Application.Features.Shared
             return null;
         }
 
-        /// <summary>Posts RECIPE_CONSUMPTION per stock material. A sale that already has POS_SALE ledger lines is left as it is. Returns the problem or null.</summary>
+        /// <summary>
+        /// Posts RECIPE_CONSUMPTION at the selling outlet for each stock material. A DIRECT item is its one material.
+        /// A RECIPE or BATCH item is exploded to ingredients first. A sale that already has POS_SALE ledger lines is left as it is.
+        /// </summary>
         private static async Task<string?> DeductAsync(SilaPosMatching context, InventoryLedger ledger, PosSalesTransaction transaction, CancellationToken cancellationToken)
         {
             if (transaction.RecipeId == null || transaction.OutletLocationId == null)

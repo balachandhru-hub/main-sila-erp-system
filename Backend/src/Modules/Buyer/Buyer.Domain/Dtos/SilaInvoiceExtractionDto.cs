@@ -16,6 +16,10 @@ namespace Buyer.Domain.Dtos
         public decimal? Confidence { get; set; }
         public string? Message { get; set; }
         public SilaInvoiceOcrFieldsDto? Fields { get; set; }
+        /// <summary>PO on this reading, or the invoice's matched purchase order when the reader left it blank.</summary>
+        public string? PoNumber { get; set; }
+        /// <summary>Goods receipts linked to this invoice.</summary>
+        public string? GrnNumber { get; set; }
         public int LineCount { get; set; }
         public Guid? CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }

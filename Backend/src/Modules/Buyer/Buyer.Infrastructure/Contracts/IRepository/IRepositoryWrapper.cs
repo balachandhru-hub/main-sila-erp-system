@@ -123,6 +123,10 @@ namespace Buyer.Infrastructure.Contracts.IRepository
         IStockCountPhotoRepository StockCountPhoto { get; }
         ISilaDocumentSequenceRepository SilaDocumentSequence { get; }
         IInvoiceItemRepository InvoiceItem { get; }
+        ICreditMemoRepository CreditMemo { get; }
+        ICreditMemoItemRepository CreditMemoItem { get; }
+        IOperationalTaskRepository OperationalTask { get; }
+        IOperationalAlertRepository OperationalAlert { get; }
         bool Save();
         Task<bool> SaveAsync();
     }

@@ -35,12 +35,15 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
             MaterialEntity? MaterialOf(PurchaseOrderItem item) =>
                 !string.IsNullOrWhiteSpace(item.MaterialCode) && materials.TryGetValue(item.MaterialCode.Trim(), out MaterialEntity? found) ? found : null;
 
+            string? supplierCode = await SilaReceivingRules.ErpSupplierCodeAsync(
+                _repository, purchaseOrder.SupplierId, null, null, cancellationToken);
             SilaReceivingPoDetailDto result = new SilaReceivingPoDetailDto
             {
                 Id = purchaseOrder.Id,
                 PoNumber = purchaseOrder.PoNumber,
                 SupplierId = purchaseOrder.SupplierId,
                 SupplierName = purchaseOrder.SupplierName,
+                SupplierCode = supplierCode,
                 OrderDate = purchaseOrder.OrderDate,
                 Status = purchaseOrder.Status,
                 CompanyCode = purchaseOrder.CompanyCode,
@@ -50,7 +53,15 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                 EntityCode = purchaseOrder.CompanyCode,
                 DeliveryDate = purchaseOrder.DeliveryDate,
                 TotalOrderedQuantity = items.Sum(x => x.Quantity),
+                TotalReceivedQuantity = items.Sum(x => x.ReceivedQuantity),
+                TotalOpenQuantity = items.Sum(x => SilaReceivingRules.OpenQuantity(x)),
+                LineCount = items.Count,
+                OpenLineCount = items.Count(x => SilaReceivingRules.OpenQuantity(x) > 0),
                 SourceSystem = purchaseOrder.SourceSystem ?? purchaseOrder.SourceType,
+                SourceType = purchaseOrder.SourceType,
+                ErpPurchaseOrderId = purchaseOrder.ErpPurchaseOrderId,
+                SupplierErpSalesOrderNumber = purchaseOrder.SupplierErpSalesOrderNumber,
+                BucketCode = purchaseOrder.BucketCode,
                 Lines = items.Select(item => new SilaReceivingPoLineDto
                 {
                     Id = item.Id,
@@ -59,6 +70,7 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                     MaterialId = !string.IsNullOrWhiteSpace(item.MaterialCode) && materials.TryGetValue(item.MaterialCode.Trim(), out MaterialEntity? material) ? material.Id : null,
                     ProductName = item.ProductName,
                     Uom = item.UnitOfMeasure,
+                    TaxCode = item.TaxCode,
                     UnitPrice = item.UnitPrice,
                     OrderedQty = item.Quantity,
                     ReceivedQty = item.ReceivedQuantity,
@@ -68,10 +80,17 @@ namespace Buyer.Application.Features.Queries.GetSilaPurchaseOrder
                     ItemNumber = SilaReceivingRules.ItemNumber(item),
                     BatchManaged = MaterialOf(item)?.BatchManaged ?? false,
                     ExpiryManaged = MaterialOf(item)?.ExpiryManaged ?? false,
-                    ShelfLifeDays = MaterialOf(item)?.ShelfLifeDays
+                    ShelfLifeDays = MaterialOf(item)?.ShelfLifeDays,
+                    DiscountPercent = item.DiscountPercent,
+                    LineAmount = item.LineAmount,
+                    Sku = item.Sku,
+                    StorageLocation = item.StorageLocation,
+                    CostCenter = item.CostCenter,
+                    MaterialGroup = item.MaterialGroup
                 }).ToList()
             };
 
+            result.DocumentTrack = await SilaDocumentTrack.ForPurchaseOrderAsync(_repository, buyer.Id, purchaseOrder, cancellationToken);
             _logger.LogInfo($"Purchase order for receiving fetched. PurchaseOrderId: {purchaseOrder.Id}, Lines: {result.Lines.Count}");
             return result;
         }

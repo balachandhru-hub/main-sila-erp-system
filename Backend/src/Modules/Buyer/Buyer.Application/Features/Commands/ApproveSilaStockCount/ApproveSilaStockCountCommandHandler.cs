@@ -111,9 +111,14 @@ namespace Buyer.Application.Features.Commands.ApproveSilaStockCount
                 }, cancellationToken);
             }
 
-            if (variances.Count > 0)
+            if (variances.Any(x => (x.VarianceQty ?? 0) < 0))
             {
-                ledger.QueueErpPosting(Common.SILA_REF_STOCK_COUNT, count.Id, count.CountNumber, count.LocationId, Common.SILA_MOVEMENT_STOCK_COUNT);
+                ledger.QueueErpPosting(Common.SILA_REF_STOCK_COUNT, count.Id, count.CountNumber, count.LocationId, SilaInventorySap.TYPE_Z02);
+            }
+
+            if (variances.Any(x => (x.VarianceQty ?? 0) > 0))
+            {
+                ledger.QueueErpPosting(Common.SILA_REF_STOCK_COUNT, count.Id, count.CountNumber, count.LocationId, SilaInventorySap.TYPE_Z01);
             }
 
             count.Status = Common.SILA_COUNT_POSTED;

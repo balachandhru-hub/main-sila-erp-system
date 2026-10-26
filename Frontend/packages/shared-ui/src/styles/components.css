@@ -137,19 +137,31 @@
 /* Spinner & loading                                                        */
 /* ======================================================================== */
 
+/* Rotating SILA interlocking-chain mark (replaces the circular border spinner). */
 .sila-spinner {
   display: inline-block;
   width: 1rem;
   height: 1rem;
-  border: 0.125rem solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: sila-spin 0.7s linear infinite;
-  opacity: 0.85;
+  border: none;
+  border-radius: 0;
+  /* Tintable brand chain: mask uses the logo mark; fill defaults to logo green. */
+  background-color: var(--sila-spinner-color, var(--sila-brand-chain, #5e9551));
+  -webkit-mask-image: url("../assets/sila-chain.png");
+  mask-image: url("../assets/sila-chain.png");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-source-type: alpha;
+  mask-mode: alpha;
+  animation: sila-spin 0.85s linear infinite;
+  opacity: 1;
   flex-shrink: 0;
 }
-.sila-spinner--md { width: 1.5rem; height: 1.5rem; border-width: 0.1562rem; }
-.sila-spinner--lg { width: 2.25rem; height: 2.25rem; border-width: 0.1875rem; }
+.sila-spinner--md { width: 1.5rem; height: 1.5rem; }
+.sila-spinner--lg { width: 2.25rem; height: 2.25rem; }
 
 @keyframes sila-spin {
   to { transform: rotate(360deg); }
@@ -168,7 +180,6 @@
 .sila-loader .sila-spinner {
   width: var(--sila-spinner-size, 2rem);
   height: var(--sila-spinner-size, 2rem);
-  border-width: var(--sila-spinner-stroke, 0.1875rem);
 }
 
 .sila-loader--fullscreen {

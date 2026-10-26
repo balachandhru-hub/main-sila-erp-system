@@ -58,6 +58,10 @@ namespace Buyer.Application.Features.Shared
                     item.Quantity = line.Quantity;
                     item.UnitOfMeasure = line.Uom;
                     item.UnitPrice = line.UnitPrice;
+                    if (!string.IsNullOrWhiteSpace(line.TaxCode))
+                    {
+                        item.TaxCode = line.TaxCode.Trim();
+                    }
                     item.LineAmount = line.Quantity * (line.UnitPrice ?? 0);
                     item.GoodsReceiptExpected = line.GoodsReceiptExpected ?? item.GoodsReceiptExpected;
                     item.Currency = plan.Currency;

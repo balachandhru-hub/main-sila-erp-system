@@ -20,10 +20,16 @@ namespace Buyer.Domain.Dtos
         public DateTime UploadedOn { get; set; }
         /// <summary>MATERIAL | SERVICE | MIXED; null when unknown.</summary>
         public string? InvoiceType { get; set; }
+        /// <summary>PO or NON_PO.</summary>
+        public string? CreationType { get; set; }
+        public string? CompanyCode { get; set; }
         public decimal? NetAmount { get; set; }
         public decimal? TaxAmount { get; set; }
         public string? SupplierTaxNumber { get; set; }
         /// <summary>False for a SERVICE invoice: no goods receipt can be posted for it.</summary>
         public bool GoodsReceiptApplicable { get; set; } = true;
+        public string? ErpReference { get; set; }
+        public string? FiscalYear { get; set; }
+        public DateTime? PostingDate { get; set; }
     }
 }
