@@ -157,6 +157,11 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 return await PostStockEffectAsync(posting, cancellationToken);
             }
 
+            if (posting.ReferenceType == Common.SILA_REF_CREDIT_MEMO)
+            {
+                return await PostCreditMemoAsync(posting, cancellationToken);
+            }
+
             BuyerBusinessProfile? buyer = await _repository.BuyerBusinessProfile
                 .FindByCondition(x => x.Id == posting.BuyerId)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -734,6 +739,7 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             }
 
             await SilaInvoicePosting.OnFinishedAsync(_repository, _logger, _configuration[Common.BASE_FOLDER_PATH], posting, status, cancellationToken);
+            await SilaCreditMemoPosting.OnFinishedAsync(_repository, posting, status, cancellationToken);
             await _repository.SaveAsync();
             if (status == Common.SILA_POSTING_POSTED)
             {
@@ -791,7 +797,8 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                 posting.Attempts++;
                 // An invoice is not retried in the dark: the same preparation error would only lock the document.
                 bool invoice = posting.ReferenceType == Common.SILA_REF_INVOICE;
-                posting.Status = invoice || posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
+                bool creditMemo = posting.ReferenceType == Common.SILA_REF_CREDIT_MEMO;
+                posting.Status = invoice || creditMemo || posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
                 string detail = SilaLogText.FromException(reason, ERROR_LIMIT);
                 posting.ErrorMessage = string.IsNullOrWhiteSpace(detail) ? reason?.GetType().Name ?? "Unknown error." : detail;
                 if (invoice)
@@ -801,6 +808,16 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
                     {
                         invoiceRow.Status = Common.SILA_INVOICE_POSTING_FAILED;
                         _repository.Invoice.Update(invoiceRow);
+                    }
+                }
+
+                if (creditMemo)
+                {
+                    CreditMemo? memo = await _repository.CreditMemo.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive);
+                    if (memo != null && memo.Status == Common.SILA_CREDIT_MEMO_POSTING)
+                    {
+                        memo.Status = Common.SILA_CREDIT_MEMO_POSTING_FAILED;
+                        _repository.CreditMemo.Update(memo);
                     }
                 }
 
@@ -1097,6 +1114,68 @@ namespace Buyer.Application.Features.Commands.PostPendingErpPostings
             }
 
             return SilaInvoiceLifecycle.MISSING + ". " + string.Join("; ", missing);
+        }
+
+        private async Task<string> PostCreditMemoAsync(InventoryErpPosting posting, CancellationToken cancellationToken)
+        {
+            BuyerBusinessProfile? buyer = await _repository.BuyerBusinessProfile
+                .FindByCondition(x => x.Id == posting.BuyerId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (buyer == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, "The buyer of this document no longer exists.", cancellationToken);
+            }
+
+            CreditMemo? memo = await _repository.CreditMemo.FindFirstByConditionAsync(x => x.Id == posting.ReferenceId && x.BuyerId == posting.BuyerId && x.IsActive);
+            if (memo == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null, "The credit memo no longer exists.", cancellationToken);
+            }
+
+            SilaCreditMemoPostingData.Prepared? prepared = SilaCreditMemoPostingData.Read(memo.PostingData);
+            (string? body, List<string> missing) = SilaCreditMemoPosting.Request(prepared);
+            if (missing.Count > 0 || string.IsNullOrWhiteSpace(body))
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_FAILED, null,
+                    SilaCreditMemoLifecycle.MISSING + ". " + string.Join("; ", missing), cancellationToken);
+            }
+
+            ApiIntegrationConfiguration? configuration = await SilaCreditMemoPosting.FindCreditMemoApiAsync(
+                _repository, buyer.OrganizationId, posting.CompanyCode ?? memo.CompanyCode, cancellationToken);
+            if (configuration == null)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_SKIPPED, null,
+                    "No active " + SilaCreditMemoLifecycle.API_CREDIT_MEMO + " API is configured.", cancellationToken);
+            }
+
+            posting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            posting.IntegrationSystem = configuration.Name;
+            await _repository.SaveAsync();
+            IntegrationSendResultDto sent = await SendAsync(buyer.OrganizationId, configuration.Id, posting, body, cancellationToken);
+            posting.IntegrationSystem = configuration.Name;
+            posting.ErpHttpStatus = sent.Answered ? sent.StatusCode : null;
+            posting.ErpRequestPayload = SilaErpPayload.Sanitise(body);
+            posting.ErpResponsePayload = SilaErpPayload.Sanitise(sent.ResponseBody);
+            bool succeeded = sent.Answered && sent.StatusCode >= 200 && sent.StatusCode < 300;
+            if (succeeded)
+            {
+                string? reference = SilaCreditMemoPosting.ReadSupplierInvoice(sent.ResponseBody) ?? ReadReference(sent.ResponseBody);
+                return await FinishAsync(posting, Common.SILA_POSTING_POSTED, reference, null, cancellationToken);
+            }
+
+            string error = sent.Answered
+                ? SilaCreditMemoPosting.SafeFailure(sent.StatusCode, sent.ResponseBody, sent.ErrorMessage)
+                : SilaCreditMemoPosting.SafeFailure(sent.StatusCode, sent.ResponseBody, sent.ErrorMessage ?? "The ERP could not be reached.");
+            posting.Attempts++;
+            if (sent.OutcomeUnknown)
+            {
+                return await FinishAsync(posting, Common.SILA_POSTING_UNKNOWN, null,
+                    error + " The ERP gave no clear answer: check whether " + posting.ReferenceNumber + " exists in the ERP, then reconcile this posting.",
+                    cancellationToken);
+            }
+
+            string status = posting.Attempts >= MAX_ATTEMPTS ? Common.SILA_POSTING_FAILED : Common.SILA_POSTING_PENDING;
+            return await FinishAsync(posting, status, null, error, cancellationToken);
         }
 
         /// <summary>A confirmed SAP invoice, or an unknown result, is not sent again.</summary>

@@ -791,6 +791,34 @@ namespace Buyer.Application.Features.Shared
             await Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Confirmed ERP posting outcome on a still-open invoice. PENDING stays POSTING;
+        /// FAILED becomes ERP_POSTING_FAILED. Payment statuses are not overwritten.
+        /// </summary>
+        public static bool AlignInvoiceStatus(Invoice invoice, InventoryErpPosting? posting)
+        {
+            if (posting == null || ProtectsPayment(invoice.Status))
+            {
+                return false;
+            }
+
+            string next = posting.Status switch
+            {
+                Common.SILA_POSTING_FAILED or Common.SILA_POSTING_SKIPPED => Common.SILA_INVOICE_POSTING_FAILED,
+                Common.SILA_POSTING_UNKNOWN => Common.SILA_INVOICE_POSTING_UNKNOWN,
+                Common.SILA_POSTING_PENDING => Common.SILA_INVOICE_POSTING,
+                _ => invoice.Status
+            };
+            if (next == invoice.Status)
+            {
+                return false;
+            }
+
+            invoice.Status = next;
+            invoice.ErpPostingId ??= posting.Id;
+            return true;
+        }
+
         private static string PaymentOrCurrent(string status)
         {
             return status is Common.SILA_INVOICE_PAID or Common.SILA_INVOICE_PARTIALLY_PAID or Common.SILA_INVOICE_OVERDUE

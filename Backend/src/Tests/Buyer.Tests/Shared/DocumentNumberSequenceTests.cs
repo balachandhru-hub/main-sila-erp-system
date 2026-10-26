@@ -42,6 +42,26 @@ namespace Buyer.Tests.Shared
             Assert.Equal(2, row.LastNumber);
         }
 
+        [Fact]
+        public async Task NextAsync_CreditMemoPrefix_SeedsFromExistingNumbers()
+        {
+            using TestDatabase db = new TestDatabase();
+            Guid buyerId = Guid.NewGuid();
+            db.Seed(new CreditMemo
+            {
+                Id = Guid.NewGuid(),
+                BuyerId = buyerId,
+                ReferenceInvoiceId = Guid.NewGuid(),
+                CreditMemoNumber = "CM000004",
+                Status = "DRAFT",
+                IsActive = true
+            });
+
+            string first = await DocumentNumber.NextAsync(db.Repository, buyerId, DocumentNumber.CREDIT_MEMO, 6, CancellationToken.None);
+
+            Assert.Equal("CM000005", first);
+        }
+
         [Theory]
         [InlineData("ITO000015", "ITO", 15)]
         [InlineData("RI00003", "RI", 3)]

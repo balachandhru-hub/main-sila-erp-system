@@ -327,6 +327,11 @@ namespace Buyer.Application.Features.Shared
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindByCondition(x => x.Id == invoice.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
+            if (SilaInvoicePosting.AlignInvoiceStatus(invoice, posting))
+            {
+                repository.Invoice.Update(invoice);
+                await repository.SaveAsync();
+            }
             List<Guid> grnPostingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
             Dictionary<Guid, InventoryErpPosting> grnPostings = grnPostingIds.Count == 0
                 ? new Dictionary<Guid, InventoryErpPosting>()
@@ -509,8 +514,41 @@ namespace Buyer.Application.Features.Shared
                     grnConfirmed,
                     posting?.Status,
                     attachment?.Status),
-                DocumentTrack = await SilaDocumentTrack.ForInvoiceAsync(repository, invoice.BuyerId, invoice, cancellationToken)
+                DocumentTrack = await SilaDocumentTrack.ForInvoiceAsync(repository, invoice.BuyerId, invoice, cancellationToken),
+                CreditMemos = await CreditMemosOfInvoiceAsync(repository, invoice, cancellationToken)
             };
+        }
+
+        private static async Task<List<SilaCreditMemoListItemDto>> CreditMemosOfInvoiceAsync(
+            IRepositoryWrapper repository, Invoice invoice, CancellationToken cancellationToken)
+        {
+            List<CreditMemo> memos = await repository.CreditMemo
+                .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.IsActive && x.ReferenceInvoiceId == invoice.Id)
+                .OrderByDescending(x => x.DateCreated)
+                .ToListAsync(cancellationToken);
+            List<Guid> postingIds = memos.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            return memos.Select(memo =>
+            {
+                InventoryErpPosting? posting = memo.ErpPostingId != null && postings.TryGetValue(memo.ErpPostingId.Value, out InventoryErpPosting? row) ? row : null;
+                return new SilaCreditMemoListItemDto
+                {
+                    Id = memo.Id,
+                    CreditMemoNumber = memo.CreditMemoNumber,
+                    ReferenceInvoiceId = memo.ReferenceInvoiceId,
+                    ReferenceSupplierInvoiceNumber = memo.ReferenceSupplierInvoiceNumber,
+                    ReferenceErpInvoiceId = memo.ReferenceErpInvoiceId,
+                    Status = memo.Status,
+                    GrossAmount = memo.GrossAmount,
+                    Currency = memo.Currency,
+                    CreatedOn = memo.DateCreated,
+                    ErpReference = posting?.ErpReference,
+                    FiscalYear = SilaCreditMemoPosting.ReadFiscalYear(posting?.ErpResponsePayload)
+                };
+            }).ToList();
         }
 
         /// <summary>Soft-deletes the active lines of the invoice, before they are replaced.</summary>
