@@ -272,6 +272,7 @@ namespace Buyer.Domain.Common
                 public const string SILA_INVOICE_PAID = "PAID";
                 public const string SILA_INVOICE_OVERDUE = "OVERDUE";
                 public const string SILA_APPROVAL_TYPE_INVOICE = "INVOICE";
+                public const string SILA_APPROVAL_TYPE_CREDIT_MEMO = "CREDIT_MEMO";
                 public const string SILA_PAYMENT_NOT_CONFIGURED = "NOT CONFIGURED";
                 public const string INTEGRATION_PROCESS_POST_GOODS_MOVEMENT = "POST_GOODS_MOVEMENT";
                 public const string INTEGRATION_PROCESS_POST_GRN = "POST_GRN";
@@ -311,6 +312,11 @@ namespace Buyer.Domain.Common
                 public const string SILA_REF_INVOICE = "INVOICE";
                 public const string SILA_REF_INVOICE_ATTACHMENT = "INVOICE_ATTACHMENT";
                 public const string SILA_REF_CREDIT_MEMO = "CREDIT_MEMO";
+                public const string SILA_REF_PO = "PO";
+                public const string SILA_REF_OPERATIONAL_TASK = "OPERATIONAL_TASK";
+                public const string SILA_REF_OPERATIONAL_ALERT = "OPERATIONAL_ALERT";
+                public const string SILA_CREDIT_MEMO_PENDING_APPROVAL = "PENDING_APPROVAL";
+                public const string SILA_CREDIT_MEMO_APPROVAL_REJECTED = "APPROVAL_REJECTED";
                 public const string SILA_MOVEMENT_CREDIT_MEMO = "CREDIT_MEMO";
                 public const string SILA_CREDIT_MEMO_DRAFT = "DRAFT";
                 public const string SILA_CREDIT_MEMO_READY_TO_POST = "READY_TO_POST";

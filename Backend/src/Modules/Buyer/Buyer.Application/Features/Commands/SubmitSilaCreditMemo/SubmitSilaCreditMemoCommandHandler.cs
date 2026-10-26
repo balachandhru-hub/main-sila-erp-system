@@ -79,6 +79,24 @@ namespace Buyer.Application.Features.Commands.SubmitSilaCreditMemo
                 await _repository.SaveAsync();
             }
 
+            bool approved = await SilaCreditMemoLifecycle.ApprovalCompleteAsync(_repository, memo.Id, cancellationToken);
+            if (!approved && await SilaCreditMemoLifecycle.ApprovalConfiguredAsync(_repository, buyer.Id, cancellationToken))
+            {
+                List<int> versions = await _repository.SilaApprovalStep
+                    .FindByCondition(x => x.ReferenceType == Common.SILA_REF_CREDIT_MEMO && x.ReferenceId == memo.Id && x.IsActive)
+                    .Select(x => x.Version)
+                    .ToListAsync(cancellationToken);
+                await SilaApprovals.StartAsync(
+                    _repository, _logger, buyer.Id, Common.SILA_APPROVAL_TYPE_CREDIT_MEMO, Common.SILA_REF_CREDIT_MEMO, memo.Id,
+                    versions.Count == 0 ? 1 : versions.Max() + 1,
+                    new ApprovalScope { CompanyCode = memo.CompanyCode ?? invoice.CompanyCode },
+                    cancellationToken);
+                memo.Status = Common.SILA_CREDIT_MEMO_PENDING_APPROVAL;
+                _repository.CreditMemo.Update(memo);
+                await _repository.SaveAsync();
+                return await SilaCreditMemoRules.ToDetailAsync(_repository, memo, cancellationToken);
+            }
+
             await SilaCreditMemoPosting.ContinueAsync(_repository, _mediator, buyer, memo, request.UserId, cancellationToken);
             memo = await SilaCreditMemoRules.GetAsync(_repository, _logger, buyer.Id, request.CreditMemoId);
             return await SilaCreditMemoRules.ToDetailAsync(_repository, memo, cancellationToken);

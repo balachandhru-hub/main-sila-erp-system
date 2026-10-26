@@ -746,6 +746,8 @@ export interface SilaReceivingActivity {
   status?: string | null;
   purchaseOrderId?: string | null;
   goodsReceiptId?: string | null;
+  invoiceId?: string | null;
+  creditMemoId?: string | null;
 }
 
 export interface SilaReceivingTeam {
@@ -759,12 +761,14 @@ export interface SilaReceivingTeam {
 export interface SilaHomeInvoiceKpis {
   readyForProcessing: number;
   inProgress: number;
+  pendingApproval?: number;
   postingFailed: number;
   postedRecently: number;
 }
 
 export interface SilaHomeCreditMemoKpis {
   inProgress: number;
+  pendingApproval?: number;
   postingFailed: number;
   postedRecently: number;
 }
@@ -827,8 +831,8 @@ export const getReceivingDashboard = async (filter?: {
     exceptions: list(data.exceptions),
     activity: list(data.activity),
     team: data.team ?? { receiptsCompleted: 0, grnsPosted: 0, partialReceipts: 0, reversals: 0, failures: 0 },
-    invoice: data.invoice ?? { readyForProcessing: 0, inProgress: 0, postingFailed: 0, postedRecently: 0 },
-    creditMemo: data.creditMemo ?? { inProgress: 0, postingFailed: 0, postedRecently: 0 },
+    invoice: data.invoice ?? { readyForProcessing: 0, inProgress: 0, pendingApproval: 0, postingFailed: 0, postedRecently: 0 },
+    creditMemo: data.creditMemo ?? { inProgress: 0, pendingApproval: 0, postingFailed: 0, postedRecently: 0 },
     approvals: list(data.approvals),
   };
 };
@@ -951,6 +955,7 @@ export interface SilaEligiblePurchaseOrder {
   id: string;
   poNumber: string;
   orderDate?: string | null;
+  createdOn?: string | null;
   companyCode?: string | null;
   currency?: string | null;
   totalAmount?: number | null;
@@ -959,6 +964,9 @@ export interface SilaEligiblePurchaseOrder {
   grnCount: number;
   status: string;
   supplierName?: string | null;
+  supplierCode?: string | null;
+  supplierId?: string | null;
+  silaSupplierId?: string | null;
 }
 
 export interface SilaEligibleGoodsReceiptLine {
@@ -1015,6 +1023,7 @@ export const getEligiblePurchaseOrders = async (params: {
   supplierId?: string | null;
   companyCode?: string | null;
   propertyId?: string | null;
+  search?: string | null;
 }): Promise<SilaEligiblePurchaseOrder[]> =>
   list(await call(() => axiosInstance.get<SilaEligiblePurchaseOrder[]>(`${BASE}/invoices/create/purchase-orders`, {
     params: {
@@ -1022,6 +1031,7 @@ export const getEligiblePurchaseOrders = async (params: {
       supplierId: params.supplierId || undefined,
       companyCode: params.companyCode || undefined,
       propertyId: params.propertyId || undefined,
+      search: params.search?.trim() || undefined,
     },
   }), "Could not load purchase orders."));
 
@@ -1351,3 +1361,6 @@ export const submitCreditMemo = async (creditMemoId: string): Promise<SilaCredit
 
 export const retryCreditMemo = async (creditMemoId: string): Promise<SilaCreditMemoDetail> =>
   normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}/retry`), "Could not retry credit memo posting."));
+
+export const decideCreditMemo = async (creditMemoId: string, approve: boolean, comment: string): Promise<SilaCreditMemoDetail> =>
+  normalizeCreditMemo(await call(() => axiosInstance.post<SilaCreditMemoDetail>(`${BASE}/credit-memos/${creditMemoId}/approval`, { approve, comment: comment.trim() || null }), "Could not record the credit memo approval."));

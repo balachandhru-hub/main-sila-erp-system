@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { loadSilaMePermissions } from '../../remote-buyer/src/api/silaMe/silaPermissionApi';
 import { silaMeRoleOf } from '../../remote-buyer/src/components/silaMe/silaMeRoles';
 import { silaMePermissions, type SilaMePermissions } from '../../remote-buyer/src/components/silaMe/silaMePermissions';
 import { loadPerson, type PersonDetailDto } from './person';
@@ -10,8 +11,8 @@ export interface AccessState {
   error: string | null;
   reload: () => void;
   /**
-   * What the UI offers, from the user's role (same mapping as the cloud screens). Until the profile is loaded
-   * nothing is offered; the API checks every call again.
+   * What the UI offers, from Identity permission codes (same model as Cloud).
+   * Until the profile and permission list are loaded nothing is offered; the API checks every call again.
    */
   can: SilaMePermissions;
 }
@@ -22,9 +23,27 @@ const NO_ACCESS: SilaMePermissions = Object.fromEntries(
 
 const AccessContext = createContext<AccessState | null>(null);
 
-/** Loads the signed-in user's profile once and derives what the app offers him. */
+/** Loads the signed-in user's profile and Identity permissions once. */
 export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { data, loading, error, reload } = useLoad(loadPerson, 'person');
+  const role = silaMeRoleOf(data?.roleName ?? '', false);
+  const [can, setCan] = useState<SilaMePermissions>(NO_ACCESS);
+
+  useEffect(() => {
+    let active = true;
+    if (!data) {
+      setCan(NO_ACCESS);
+      return undefined;
+    }
+    const fallback = silaMePermissions(role);
+    setCan(fallback);
+    loadSilaMePermissions(role).then((next) => {
+      if (active) setCan(next);
+    });
+    return () => {
+      active = false;
+    };
+  }, [data, role]);
 
   const value = useMemo<AccessState>(
     () => ({
@@ -32,9 +51,9 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       loading,
       error,
       reload,
-      can: data ? silaMePermissions(silaMeRoleOf(data.roleName ?? '', false)) : NO_ACCESS,
+      can,
     }),
-    [data, loading, error, reload],
+    [data, loading, error, reload, can],
   );
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;

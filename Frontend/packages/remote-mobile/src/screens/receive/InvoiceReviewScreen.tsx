@@ -86,9 +86,8 @@ const InvoiceReviewScreen: React.FC = () => {
   const posting = invoice ? postingTitle(invoice) : null;
   const failure = invoice ? safeErpMessage(invoice.erpMessage) : null;
   const pendingApproval = invoice ? statusOf(invoice) === 'PENDING_APPROVAL' : false;
-  const showDecision = pendingApproval && !decisionDenied;
+  const showDecision = pendingApproval && !decisionDenied && can.approveInvoice;
   const manageErp = can.manageErpPosting;
-  const canReceive = can.postGrn || can.manageErpPosting;
 
   const show = (updated: SilaInvoiceDetail) => {
     setReread((current) => ({ invoice: updated, version: (current?.version ?? 0) + 1 }));
@@ -262,9 +261,11 @@ const InvoiceReviewScreen: React.FC = () => {
                 <p className="sm-meta">Posting Date {invoice.postingData?.preparedAt ? formatDate(invoice.postingData.preparedAt) : '—'}</p>
                 <p className="sm-meta">Status {invoice.status}</p>
                 <div className="sm-actions">
-                  <button type="button" className="sm-btn sm-btn--primary" onClick={() => go(`receive/invoices/${invoice.id}/credit-memo`)}>
-                    Credit Memo
-                  </button>
+                  {can.processCreditMemo && (
+                    <button type="button" className="sm-btn sm-btn--primary" onClick={() => go(`receive/invoices/${invoice.id}/credit-memo`)}>
+                      Credit Memo
+                    </button>
+                  )}
                 </div>
               </section>
             )}
@@ -318,16 +319,16 @@ const InvoiceReviewScreen: React.FC = () => {
               </section>
             )}
             {invoiceFormVisible(invoice) && (
-              <InvoiceReviewForm key={`${invoice.id}-${reread?.version ?? 0}`} invoice={invoice} ocr={reading?.fields ?? null} />
+              <InvoiceReviewForm key={`${invoice.id}-${reread?.version ?? 0}`} invoice={invoice} ocr={reading?.fields ?? null} canProcess={can.processInvoice} />
             )}
-            {invoicePostingFailed(invoice) && manageErp && (
+            {invoicePostingFailed(invoice) && can.processInvoice && (
               <div className="sm-actions">
                 <button type="button" className="sm-btn sm-btn--primary" disabled={busy !== null} onClick={retry}>
                   {busy === 'retry' ? 'Submitting…' : 'Retry / Resubmit'}
                 </button>
               </div>
             )}
-            {canReceive && canRefreshPosting(invoice) && (
+            {manageErp && canRefreshPosting(invoice) && (
               <div className="sm-actions">
                 <button
                   type="button"
