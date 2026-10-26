@@ -1,5 +1,5 @@
 import axiosInstance from "../axiosInstance";
-import { readError } from "../readError";
+import { readError, readHttpStatus } from "../readError";
 
 /* ---------- Inventory dashboard ---------- */
 
@@ -317,6 +317,116 @@ export const createPurchaseRequest = (request: SilaPurchaseRequestWrite): Promis
 
 export const cancelPurchaseRequest = (requestId: string): Promise<unknown> =>
   call(() => axiosInstance.post(`${BASE}/purchase-requests/${requestId}/cancel`), "Could not cancel the purchase request.");
+
+export interface SilaPurchaseRecommendation {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  locationId: string;
+  locationName: string;
+  plantCode?: string | null;
+  storageLocationCode?: string | null;
+  currentStock: number;
+  minimumStock?: number | null;
+  reorderPoint?: number | null;
+  parLevel?: number | null;
+  openPoQty: number;
+  availableEffectiveStock: number;
+  recommendedQty: number;
+  purchaseUom: string;
+  baseUom: string;
+  catalogId?: string | null;
+  catalogSku?: string | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
+  unitPrice?: number | null;
+  currency?: string | null;
+  estimatedValue?: number | null;
+  reason: string;
+  configurationIssue?: string | null;
+  openPurchaseRequestNumber?: string | null;
+  openPurchaseRequestId?: string | null;
+  duplicateBlocked: boolean;
+  canAddToPo: boolean;
+}
+
+export interface SilaPurchaseRecommendationSkip {
+  materialId?: string | null;
+  materialCode?: string | null;
+  locationId?: string | null;
+  locationName?: string | null;
+  reason: string;
+}
+
+export interface SilaPurchaseRecommendationList {
+  stockOut: number;
+  belowMinimum: number;
+  belowPar: number;
+  recommendedPurchase: number;
+  estimatedValue?: number | null;
+  estimatedCurrency?: string | null;
+  items: SilaPurchaseRecommendation[];
+  skipped: SilaPurchaseRecommendationSkip[];
+}
+
+export interface SilaPurchaseRecommendationAcceptResult {
+  purchaseRequests: SilaPurchaseRequest[];
+  lines: {
+    materialId: string;
+    locationId: string;
+    purchaseRequestId?: string | null;
+    requestNumber?: string | null;
+    weeklyBucketId?: string | null;
+    bucketCode?: string | null;
+    error?: string | null;
+  }[];
+}
+
+const purchaseRecommendationError = (error: unknown, fallback: string): string => {
+  const status = readHttpStatus(error);
+  if (status === 404) return "Purchase Recommendations API is not available on the connected Buyer service.";
+  if (status === 403) return "You do not have permission to view purchase recommendations.";
+  if (status != null && status >= 500) return "Purchase recommendations could not be loaded.";
+  return readError(error, fallback);
+};
+
+export const getPurchaseRecommendations = async (filter?: {
+  locationId?: string;
+  propertyId?: string;
+}): Promise<SilaPurchaseRecommendationList> => {
+  let data: SilaPurchaseRecommendationList;
+  try {
+    data = (
+      await axiosInstance.get<SilaPurchaseRecommendationList>(`${BASE}/purchase-recommendations`, {
+        params: {
+          locationId: filter?.locationId || undefined,
+          propertyId: filter?.propertyId || undefined,
+        },
+      })
+    ).data;
+  } catch (error: unknown) {
+    throw new Error(purchaseRecommendationError(error, "Could not load purchase recommendations."));
+  }
+  return {
+    stockOut: data.stockOut ?? 0,
+    belowMinimum: data.belowMinimum ?? 0,
+    belowPar: data.belowPar ?? 0,
+    recommendedPurchase: data.recommendedPurchase ?? 0,
+    estimatedValue: data.estimatedValue,
+    estimatedCurrency: data.estimatedCurrency,
+    items: list(data.items),
+    skipped: list(data.skipped),
+  };
+};
+
+export const acceptPurchaseRecommendations = (
+  lines: { materialId: string; locationId: string; quantity: number; uom?: string }[],
+  addToBucket: boolean,
+): Promise<SilaPurchaseRecommendationAcceptResult> =>
+  call(
+    () => axiosInstance.post<SilaPurchaseRecommendationAcceptResult>(`${BASE}/purchase-recommendations/accept`, { lines, addToBucket }),
+    "Could not add the recommendations to purchasing.",
+  );
 
 /** Adds the request to the current weekly bucket of its outlet; returns the bucket code. */
 export const addPurchaseRequestToBucket = async (requestId: string, quantity?: number): Promise<string> => {

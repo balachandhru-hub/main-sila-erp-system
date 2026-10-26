@@ -49,6 +49,7 @@ namespace SharedKernel.Integration.Rules
             // Stock-count variances. Reuses goods-movement field mapping. The tested config name is FIVE_POS_UPDATE.
             [IntegrationProcessType.UPDATE_STOCK] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
             [IntegrationProcessType.POST_GRN] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
+            [IntegrationProcessType.POST_GRN_REVERSAL] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
             [IntegrationProcessType.GET_POS_SALE] = new IntegrationProcessInfo
             {
                 CanPull = true,

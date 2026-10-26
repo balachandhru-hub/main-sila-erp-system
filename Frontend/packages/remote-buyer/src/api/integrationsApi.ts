@@ -32,8 +32,10 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
   { value: "POST_GOODS_MOVEMENT", label: "Inventory goods movement (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME transfers, goods issues, adjustments, stock counts and POS consumption waiting for ERP posting. Mapping is optional: it renames the payload fields." },
   { value: "UPDATE_STOCK", label: "Stock count adjustment (UPDATE_STOCK)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called for an approved stock count when this API is active. Name the configuration FIVE_POS_UPDATE to use the tested SAP stock update. Shortage posts Z02 and surplus posts Z01, goods movement code 03, quantity always positive. An empty body sends the SAP material-document shape. A request body template is filled instead when one is saved." },
   { value: "POST_GRN", label: "Goods receipt (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME goods receipts waiting for ERP posting. Mapping is optional: it renames the payload fields." },
+  { value: "POST_GRN_REVERSAL", label: "Goods receipt reversal (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called when Reverse GRN is confirmed. The active configuration is named FIVE S4-GRN REVERSAL. Posts movement type 102 for full or partial quantity. Separate from normal GRN posting." },
   { value: "GET_POS_SALE", label: "POS sales (read from ERP)", side: "buyer", hasMapping: true, pull: "check" },
   { value: "POST_INVOICE", label: "Supplier invoice (post in ERP)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called every minute for SILA ME invoices once their goods receipt reached the ERP. Mapping is optional: it renames the payload fields (Invoice.*). Configure one per company code to route SAP or Ariba." },
+  { value: "SUPPLIER_INVOICE_ATTACHMENT", label: "API_CV_ATTACHMENT_SRV", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called after the supplier invoice is posted and the SAP invoice number and fiscal year are stored. The active configuration is named API_CV_ATTACHMENT_SRV, system SAP S/4, operation CreateUrlAsAttachment, business object BUS2081. A failed attachment does not change the invoice posting." },
   { value: "GET_SUPPLIER", label: "Supplier master (read from ERP)", side: "buyer", hasMapping: true, pull: "full" },
   { value: "GET_PO", label: "Purchase orders (read from ERP)", side: "buyer", hasMapping: true, pull: "full" },
   { value: "EXTRACT_INVOICE", label: "Invoice extraction (external OCR)", side: "buyer", hasMapping: true, pull: "none", calledWhen: "Called when an invoice is read and the OCR settings use the external reader. Sends {fileName, contentType, contentBase64}; map the answer to InvoiceExtraction.* fields." },
@@ -41,7 +43,7 @@ export const INTEGRATION_PROCESS_TYPES: IntegrationProcessType[] = [
 
 /** Push types send data to the external system (EXTRACT_INVOICE sends the file and reads the answer); every other type reads from it. */
 export const isPushProcess = (processType: string): boolean =>
-  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE" || processType.toUpperCase() === "UPDATE_STOCK";
+  processType.toUpperCase().startsWith("POST_") || processType.toUpperCase() === "EXTRACT_INVOICE" || processType.toUpperCase() === "UPDATE_STOCK" || processType.toUpperCase() === "SUPPLIER_INVOICE_ATTACHMENT";
 
 /** The API types one side can configure. */
 export const integrationProcessTypesFor = (side: IntegrationSide): IntegrationProcessType[] =>
@@ -89,9 +91,21 @@ export const integrationProcessOf = (processType: string): IntegrationProcessTyp
   };
 
 export const INTEGRATION_PROTOCOLS: { value: string; label: string }[] = [
-  { value: "ODATA_V4", label: "OData V4" },
   { value: "REST", label: "REST" },
+  { value: "ODATA_V2", label: "OData V2" },
+  { value: "ODATA_V4", label: "OData V4" },
+  { value: "SOAP", label: "SOAP" },
 ];
+
+/** Keep an already-stored protocol on the form even if it is a historical alias. */
+export const protocolOptionsFor = (current?: string | null): { value: string; label: string }[] => {
+  const list = [...INTEGRATION_PROTOCOLS];
+  const value = (current || "").trim();
+  if (value && !list.some((option) => option.value === value)) {
+    list.push({ value, label: value });
+  }
+  return list;
+};
 
 export const INTEGRATION_AUTH_TYPES: { value: string; label: string }[] = [
   { value: "NONE", label: "None" },

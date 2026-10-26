@@ -25,6 +25,10 @@ export const silaMeRoleOf = (roleName: string, isAdmin: boolean): SilaMeRole => 
       return "cost-controller";
     case "FNB_DIRECTOR":
       return "fnb-director";
+    case "FINANCE_MANAGER":
+      return "finance-manager";
+    case "AP_PROCESSOR":
+      return "ap-processor";
     default:
       return "buyer-user";
   }

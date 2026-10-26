@@ -4,14 +4,15 @@ using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.LoggerServices;
 
 namespace Buyer.Application.Features.Commands.ReconcileSilaErpPosting
 {
     /// <summary>
-    /// A posting whose ERP call ended without a clear answer (UNKNOWN) is never resent automatically: the user checks the
-    /// ERP and tells whether the document exists. Posted: POSTED with the ERP number. Not posted: PENDING, sent by the next run.
+    /// UNKNOWN is never resent automatically. Posted: persist the ERP number and run existing local
+    /// finalization only. Not posted: PENDING for the next send. SAP is not called here.
     /// </summary>
     public class ReconcileSilaErpPostingCommandHandler : IRequestHandler<ReconcileSilaErpPostingCommand, Guid>
     {
@@ -19,11 +20,19 @@ namespace Buyer.Application.Features.Commands.ReconcileSilaErpPosting
 
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
+        private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
 
-        public ReconcileSilaErpPostingCommandHandler(IRepositoryWrapper repository, ILoggerManager logger)
+        public ReconcileSilaErpPostingCommandHandler(
+            IRepositoryWrapper repository,
+            ILoggerManager logger,
+            IMediator mediator,
+            IConfiguration configuration)
         {
             _repository = repository;
             _logger = logger;
+            _mediator = mediator;
+            _configuration = configuration;
         }
 
         public async Task<Guid> Handle(ReconcileSilaErpPostingCommand request, CancellationToken cancellationToken)
@@ -53,26 +62,72 @@ namespace Buyer.Application.Features.Commands.ReconcileSilaErpPosting
 
             if (request.Request.Posted)
             {
-                posting.Status = Common.SILA_POSTING_POSTED;
-                posting.ErpReference = erpReference;
-                posting.PostedOn = DateTime.UtcNow;
+                string? sap = erpReference
+                    ?? posting.ErpReference
+                    ?? ReadReference(posting);
+                if (string.IsNullOrWhiteSpace(sap))
+                {
+                    throw new BadRequestCustomException("ERP reference is required.", "Enter the SAP document number that already exists.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(posting.ErpReference)
+                    && !posting.ErpReference.Trim().Equals(sap.Trim(), StringComparison.Ordinal))
+                {
+                    throw new BadRequestCustomException(
+                        "ERP reference does not match.",
+                        "This posting already has a different SAP document number. It cannot be overwritten.");
+                }
+
+                posting.ErpReference = sap.Trim();
+                posting.PostedOn ??= DateTime.UtcNow;
                 posting.ErrorMessage = null;
                 if (posting.ReferenceType == Common.SILA_REF_POS_SALE)
                 {
                     await MarkPosSalesPostedAsync(posting, cancellationToken);
                 }
+
+                await SilaPostingRecovery.FinalizeLocalAsync(
+                    _repository,
+                    _logger,
+                    posting,
+                    request.UserId,
+                    "Reconciled: SAP document exists.",
+                    cancellationToken,
+                    _configuration[Common.BASE_FOLDER_PATH],
+                    _mediator,
+                    _configuration[SilaInvoiceAttachment.PUBLIC_BASE]);
             }
             else
             {
-                // The ERP does not have it: send it again (fresh attempts, same idempotency key).
                 posting.Status = Common.SILA_POSTING_PENDING;
                 posting.Attempts = 0;
                 posting.ErrorMessage = "Reconciled: not found in the ERP, sending again.";
+                await _repository.SaveAsync();
             }
 
-            await _repository.SaveAsync();
             _logger.LogInfo($"ERP posting reconciled. PostingId: {posting.Id}, Status: {posting.Status}");
             return posting.Id;
+        }
+
+        private static string? ReadReference(InventoryErpPosting posting)
+        {
+            if (posting.ReferenceType == Common.SILA_REF_CREDIT_MEMO)
+            {
+                return SilaCreditMemoPosting.ReadSupplierInvoice(posting.ErpResponsePayload);
+            }
+
+            if (posting.ReferenceType == Common.SILA_REF_INVOICE)
+            {
+                return SilaInvoicePosting.ReadSupplierInvoice(posting.ErpResponsePayload);
+            }
+
+            if (posting.ReferenceType == Common.SILA_REF_GRN || posting.ReferenceType == Common.SILA_REF_GRN_REVERSAL)
+            {
+                (string? md, _) = SilaGrnSap.ReadMaterialDocument(posting.ErpResponsePayload, posting.ErpReference);
+                return md;
+            }
+
+            return null;
         }
 
         private async Task MarkPosSalesPostedAsync(InventoryErpPosting posting, CancellationToken cancellationToken)

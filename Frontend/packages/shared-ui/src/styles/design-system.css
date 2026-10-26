@@ -22,6 +22,8 @@
   --sila-primary-active: #123258;
   --sila-primary-soft: #e8f0f8;
   --sila-primary-border: #c5d7ea;
+  /* Brand chain mark green (from sila-logo.png) */
+  --sila-brand-chain: #5e9551;
 
   --sila-success: #1b7f4e;
   --sila-success-soft: #e8f6ee;

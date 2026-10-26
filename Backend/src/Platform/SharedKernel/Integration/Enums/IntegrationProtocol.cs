@@ -5,10 +5,12 @@ namespace SharedKernel.Integration.Enums
     /// <summary>
     /// Protocol of an external API. Sent and read as its name.
     /// </summary>
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonConverter(typeof(IntegrationProtocolJsonConverter))]
     public enum IntegrationProtocol
     {
         REST,
-        ODATA_V4
+        ODATA_V2,
+        ODATA_V4,
+        SOAP
     }
 }

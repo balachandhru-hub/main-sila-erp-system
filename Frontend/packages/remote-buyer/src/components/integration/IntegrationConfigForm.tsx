@@ -7,7 +7,7 @@ import {
   INTEGRATION_PAYLOAD_FORMATS,
   INTEGRATION_CONTRACT_BODY_TOKENS,
   INTEGRATION_PO_BODY_TOKENS,
-  INTEGRATION_PROTOCOLS,
+  protocolOptionsFor,
   INTEGRATION_SYSTEMS,
   NEW_API_TYPE,
   createIntegration,
@@ -454,7 +454,7 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
             <div className="sila-field">
               <label className="sila-label" htmlFor="integration-protocol">Protocol<span className="sila-required">*</span></label>
               <select id="integration-protocol" className="sila-select" value={form.protocol} onChange={(event) => setField("protocol", event.target.value)}>
-                {INTEGRATION_PROTOCOLS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                {protocolOptionsFor(form.protocol).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </div>
             <div className="sila-field">

@@ -14,6 +14,10 @@ namespace Buyer.Domain.Dtos
         public string? LocationName { get; set; }
         public Guid? InvoiceId { get; set; }
         public string? InvoiceNumber { get; set; }
+        /// <summary>Status of the invoice that holds this goods receipt, when one does.</summary>
+        public string? InvoiceStatus { get; set; }
+        /// <summary>ERP status of that invoice. Posted and accepted invoices keep the goods receipt.</summary>
+        public string? InvoiceErpStatus { get; set; }
         public string? DeliveryNote { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime ReceivedOn { get; set; }
@@ -21,5 +25,7 @@ namespace Buyer.Domain.Dtos
         public Guid? ErpPostingId { get; set; }
         public string? ErpStatus { get; set; }
         public string? ErpReference { get; set; }
+        public string? ReversalGrnNumber { get; set; }
+        public Guid? ParentGoodsReceiptId { get; set; }
     }
 }

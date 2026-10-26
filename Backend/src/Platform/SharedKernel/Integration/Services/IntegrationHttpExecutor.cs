@@ -30,8 +30,15 @@ namespace SharedKernel.Integration.Services
 
         public string BuildUrl(ApiIntegrationConfiguration configuration, bool testOnly)
         {
+            if (IsODataProtocol(configuration.Protocol) && IsODataAction(configuration.ResourcePath))
+            {
+                // An action (CreateUrlAsAttachment) rejects $top. A connection test reads the service document,
+                // which answers GET. A real call still uses the action path, with no query.
+                return testOnly ? ServiceDocumentUrl(configuration) : ResourceUrl(configuration);
+            }
+
             string url = Combine(configuration.BaseUrl, configuration.ResourcePath ?? string.Empty);
-            if (configuration.Protocol == IntegrationProtocol.ODATA_V4)
+            if (IsODataProtocol(configuration.Protocol))
             {
                 string query = testOnly ? "$top=1" : $"$top={configuration.PageSize ?? 100}";
                 if (!testOnly && !string.IsNullOrWhiteSpace(configuration.WatermarkField) && configuration.LastWatermark != null)
@@ -43,6 +50,11 @@ namespace SharedKernel.Integration.Services
             }
 
             return url;
+        }
+
+        private static bool IsODataProtocol(IntegrationProtocol protocol)
+        {
+            return protocol is IntegrationProtocol.ODATA_V2 or IntegrationProtocol.ODATA_V4;
         }
 
         public string ResourceUrl(ApiIntegrationConfiguration configuration)
@@ -201,8 +213,10 @@ namespace SharedKernel.Integration.Services
             HttpClient client,
             CancellationToken cancellationToken)
         {
-            string fetchUrl = configuration.Protocol == IntegrationProtocol.ODATA_V4
-                ? url + (url.Contains('?') ? "&" : "?") + "$top=0"
+            string fetchUrl = IsODataProtocol(configuration.Protocol)
+                ? (IsODataAction(configuration.ResourcePath)
+                    ? ServiceDocumentUrl(configuration)
+                    : url + (url.Contains('?') ? "&" : "?") + "$top=0")
                 : url;
             using HttpRequestMessage fetch = new HttpRequestMessage(HttpMethod.Get, fetchUrl);
             fetch.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -398,6 +412,35 @@ namespace SharedKernel.Integration.Services
                 IntegrationConstants.PAYLOAD_CXML => "application/xml",
                 _ => "application/json"
             };
+        }
+
+        /// <summary>
+        /// CreateUrlAsAttachment is an OData Function Import / action (not an entity set).
+        /// Query-string FunctionImport parameters must be ignored when detecting the last segment.
+        /// </summary>
+        private static bool IsODataAction(string? resourcePath)
+        {
+            string pathOnly = (resourcePath ?? string.Empty).Split('?', 2)[0];
+            string last = pathOnly.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
+            if (last.Length == 0 || last.StartsWith("A_", StringComparison.Ordinal) || last.EndsWith("Set", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return last.All(char.IsLetterOrDigit) && char.IsUpper(last[0]);
+        }
+
+        /// <summary>The OData service document (.../API_CV_ATTACHMENT_SRV/), which accepts GET.</summary>
+        private static string ServiceDocumentUrl(ApiIntegrationConfiguration configuration)
+        {
+            string combined = Combine(configuration.BaseUrl, configuration.ResourcePath ?? "");
+            int marker = combined.IndexOf("_SRV", StringComparison.OrdinalIgnoreCase);
+            if (marker < 0)
+            {
+                return Combine(configuration.BaseUrl, "");
+            }
+
+            return combined[..(marker + 4)].TrimEnd('/') + "/";
         }
 
         private static string Combine(string baseUrl, string path)
