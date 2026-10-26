@@ -107,7 +107,10 @@ namespace Buyer.Application.Features.Queries.ValidateSilaGoodsReceipt
             Dictionary<Guid, decimal> invoiceQuantities, SilaReceivingGrnValidationDto result)
         {
             decimal open = SilaReceivingRules.OpenQuantity(poItem);
-            bool stocked = !string.IsNullOrWhiteSpace(poItem.MaterialCode) && materials.ContainsKey(poItem.MaterialCode.Trim());
+            MaterialEntity? material = !string.IsNullOrWhiteSpace(poItem.MaterialCode) && materials.TryGetValue(poItem.MaterialCode.Trim(), out MaterialEntity? found)
+                ? found
+                : null;
+            bool stocked = material != null && SilaMaterialRules.HoldsStock(material);
             SilaReceivingGrnValidationLineDto checkedLine = new SilaReceivingGrnValidationLineDto
             {
                 PurchaseOrderItemId = poItem.Id,
@@ -154,7 +157,9 @@ namespace Buyer.Application.Features.Queries.ValidateSilaGoodsReceipt
 
             if (!stocked && line.AcceptedQty > 0)
             {
-                Warn(result, checkedLine, $"{label}: no Item Master material has code {poItem.MaterialCode}; it is received on the purchase order but not stocked.");
+                Warn(result, checkedLine, material == null
+                    ? $"{label}: no Item Master material has code {poItem.MaterialCode}; it is received on the purchase order but not stocked."
+                    : $"{label}: material {poItem.MaterialCode} is not an inventory stock item; it is received on the purchase order but not stocked or posted to S4.");
             }
 
             return checkedLine;

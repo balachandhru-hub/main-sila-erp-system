@@ -81,6 +81,9 @@ namespace Buyer.Application.Features.Commands.CreateSilaTransfer
 
             InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
             ledger.AddEvent(Common.SILA_REF_ITO, transfer.Id, Common.AUDIT_CREATED, transfer.Reason);
+            await SilaApprovals.StartAsync(
+                _repository, _logger, buyer.Id, Common.SILA_APPROVAL_TYPE_ITO, Common.SILA_REF_ITO, transfer.Id, 1,
+                new ApprovalScope { LocationId = from.Id, PropertyId = from.PropertyId }, cancellationToken);
             await _repository.SaveAsync();
 
             _logger.LogInfo($"Transfer created. TransferId: {transfer.Id}, ItoNumber: {transfer.ItoNumber}, Lines: {items.Count}");

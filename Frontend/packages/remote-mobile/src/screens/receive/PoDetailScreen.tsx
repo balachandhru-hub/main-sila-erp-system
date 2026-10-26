@@ -9,6 +9,7 @@ import { Empty, ErrorNotice, Loading } from '../../components/StateViews';
 import { formatDate, formatMoney } from '../../format';
 import { useGo } from '../../navigation';
 import { useLoad } from '../../useLoad';
+import DocumentTrackCard from './DocumentTrackCard';
 
 const PoDetailScreen: React.FC = () => {
   const { poId = '' } = useParams();
@@ -36,6 +37,7 @@ const PoDetailScreen: React.FC = () => {
                 Date {formatDate(data.orderDate)} · {data.currency ?? '—'} · Total {formatMoney(data.totalAmount, data.currency)}
               </p>
             </Card>
+            <DocumentTrackCard track={data.documentTrack} />
             {serviceOnly && <Empty text="SERVICE PO" description="None of its lines is a stocked material; it is not received into a store." />}
             <section className="sm-section" aria-labelledby="sm-po-lines">
               <h2 id="sm-po-lines">Items ({data.lines.length})</h2>

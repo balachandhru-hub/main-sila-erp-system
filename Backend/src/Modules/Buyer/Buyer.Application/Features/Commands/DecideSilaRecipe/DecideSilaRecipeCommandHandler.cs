@@ -46,7 +46,8 @@ namespace Buyer.Application.Features.Commands.DecideSilaRecipe
             }
 
             ApprovalDecision decision = await SilaApprovals.DecideAsync(
-                _repository, _logger, Common.SILA_REF_RECIPE, recipe.Id, recipe.Version, request.UserId, request.Approve, comment, cancellationToken);
+                _repository, _logger, Common.SILA_REF_RECIPE, recipe.Id, recipe.Version, request.UserId, request.Approve, comment, cancellationToken,
+                SilaAccess.IsAdministrator(request.RoleId));
 
             InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
             if (decision.Outcome == SilaApprovals.OUTCOME_REJECTED)

@@ -71,32 +71,92 @@ export const costPercent = (cost: number, price: number): number | null => (pric
 /** Margin % of a menu price: (price - cost) / price x 100, or null without a price. */
 export const marginPercent = (cost: number, price: number): number | null => (price > 0 ? ((price - cost) / price) * 100 : null);
 
-/** The units a material can be entered in: its base unit and every unit of its conversions. */
+const UOM_ALIASES: Record<string, string> = {
+  KILO: "KG",
+  KILOGRAM: "KG",
+  KILOGRAMS: "KG",
+  GRAM: "G",
+  GRAMS: "G",
+  LITRE: "L",
+  LITER: "L",
+  LITRES: "L",
+  LITERS: "L",
+  LT: "L",
+  MILLILITRE: "ML",
+  MILLILITER: "ML",
+  MILLILITERS: "ML",
+  MLS: "ML",
+  EACH: "EA",
+  UNIT: "EA",
+  UNITS: "EA",
+  PIECE: "PC",
+  PIECES: "PC",
+  PCS: "PC",
+  BOTTLE: "BTL",
+  BOTTLES: "BTL",
+  BOT: "BTL",
+  BT: "BTL",
+};
+
+/** One code for units the recipe treats as the same, e.g. BOTTLE and BTL. */
+export const canonicalUom = (uom?: string | null): string => {
+  const key = (uom ?? "").trim().toUpperCase();
+  return UOM_ALIASES[key] ?? key;
+};
+
+/** Units a recipe line can use even when the material is stocked as EA: a 750 ML bottle is entered as 30 ML. */
+const RECIPE_UNITS = ["ML", "L", "BTL", "G", "KG"];
+
+/** The material's own units, plus ML/L/BTL and G/KG so the line can ask for the 1-to-750 conversion. */
 export const materialUoms = (material: ConvertibleMaterial): string[] => {
-  const units = new Set<string>([material.baseUom.toUpperCase()]);
+  const units = new Set<string>([canonicalUom(material.baseUom), ...RECIPE_UNITS]);
   material.conversions.forEach((conversion) => {
-    units.add(conversion.fromUom.toUpperCase());
-    units.add(conversion.toUom.toUpperCase());
+    units.add(canonicalUom(conversion.fromUom));
+    units.add(canonicalUom(conversion.toUom));
   });
-  return Array.from(units);
+  return Array.from(units).filter(Boolean);
 };
 
 /**
- * The quantity in the material's base unit, like the API's UomConverter (1 fromUom = factor toUom, both directions).
- * null when the unit has no conversion.
+ * The quantity in the material's base unit, like the API's UomConverter.
+ * 1 fromUom = factor toUom, both directions, plus L/ML and KG/G. null when the unit has no path.
  */
 export const toBaseQuantity = (material: ConvertibleMaterial, quantity: number, uom: string): number | null => {
-  const base = material.baseUom.toUpperCase();
-  const unit = (uom || base).toUpperCase();
+  const base = canonicalUom(material.baseUom);
+  const unit = canonicalUom(uom) || base;
   if (unit === base) return quantity;
-  const forward = material.conversions.find(
-    (x) => x.fromUom.toUpperCase() === unit && x.toUom.toUpperCase() === base && x.factor > 0,
-  );
-  if (forward) return quantity * forward.factor;
-  const backward = material.conversions.find(
-    (x) => x.fromUom.toUpperCase() === base && x.toUom.toUpperCase() === unit && x.factor > 0,
-  );
-  if (backward) return quantity / backward.factor;
+
+  const edges = new Map<string, { to: string; factor: number }[]>();
+  const add = (left: string, right: string, factor: number) => {
+    if (!left || !right || left === right || factor === 0) return;
+    const list = edges.get(left) ?? [];
+    list.push({ to: right, factor });
+    edges.set(left, list);
+  };
+  add("KG", "G", 1000);
+  add("G", "KG", 0.001);
+  add("L", "ML", 1000);
+  add("ML", "L", 0.001);
+  material.conversions.forEach((conversion) => {
+    if (conversion.factor <= 0) return;
+    const from = canonicalUom(conversion.fromUom);
+    const to = canonicalUom(conversion.toUom);
+    add(from, to, conversion.factor);
+    add(to, from, 1 / conversion.factor);
+  });
+
+  const visited = new Map<string, number>([[unit, 1]]);
+  const queue = [unit];
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    for (const edge of edges.get(current) ?? []) {
+      if (visited.has(edge.to)) continue;
+      const scale = (visited.get(current) as number) * edge.factor;
+      if (edge.to === base) return Math.round(quantity * scale * 1e6) / 1e6;
+      visited.set(edge.to, scale);
+      queue.push(edge.to);
+    }
+  }
   return null;
 };
 
@@ -151,11 +211,13 @@ export const priceStatusBadgeClass = (status?: string | null): string => {
 export const unitPriceText = (status: string | null | undefined, unitCost: number | null | undefined, currency: string | null | undefined, uom: string): string =>
   (status ?? "").toUpperCase() === "APPROVED" && unitCost != null ? `${formatCost(unitCost, currency)} / ${uom}` : "PRICE MISSING";
 
-/** Pack / conversion summary of a material, e.g. "1 CS = 12 KG", or "Base: KG" without conversions. */
+/** Pack / conversion summary of a material, e.g. "1 BTL = 750 ML", or "Base: BTL" without conversions. */
 export const conversionSummary = (material: ConvertibleMaterial): string =>
   material.conversions.length === 0
-    ? `Base: ${material.baseUom}`
-    : material.conversions.map((x) => `1 ${x.fromUom} = ${formatQty(x.factor)} ${x.toUom}`).join(" · ");
+    ? `Base: ${canonicalUom(material.baseUom)}`
+    : material.conversions
+        .map((x) => `1 ${canonicalUom(x.fromUom)} = ${formatQty(x.factor)} ${canonicalUom(x.toUom)}`)
+        .join(" · ");
 
 /** Costing notes: "n MATERIAL PRICE(S) PENDING", "n MATERIAL PRICE(S) MISSING", "COST PENDING MATERIAL PRICE APPROVAL". */
 export const priceNotes = (statuses: (string | null | undefined)[]): string[] => {

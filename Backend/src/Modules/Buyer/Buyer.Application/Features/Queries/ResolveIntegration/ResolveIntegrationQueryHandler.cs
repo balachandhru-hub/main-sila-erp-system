@@ -25,9 +25,10 @@ namespace Buyer.Application.Features.Queries.ResolveIntegration
         public async Task<IntegrationApiDto> Handle(ResolveIntegrationQuery request, CancellationToken cancellationToken)
         {
             _logger.LogInfo($"Resolving integration. OrganizationId: {request.OrganizationId}, ProcessType: {request.ProcessType}, EntityCode: {request.EntityCode}");
+            string processType = request.ProcessType.ToString();
             List<ApiIntegrationConfiguration> active = await _repository.ApiIntegrationConfiguration
                 .FindByCondition(x => IntegrationLookup.BuyerIdsOf(_repository, request.OrganizationId).Contains(x.BuyerId)
-                    && x.ProcessType == request.ProcessType
+                    && x.ProcessType == processType
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .ToListAsync(cancellationToken);
@@ -49,6 +50,7 @@ namespace Buyer.Application.Features.Queries.ResolveIntegration
             return new IntegrationApiDto
             {
                 Configured = true,
+                ProcessType = IntegrationProcessTypes.ReadOrNull(configuration.ProcessType),
                 ConfigurationId = configuration.Id,
                 Name = configuration.Name,
                 SystemName = configuration.SystemName,

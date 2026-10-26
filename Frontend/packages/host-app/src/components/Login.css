@@ -164,7 +164,7 @@
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
-    padding: 0.7rem 0;
+    padding: 0.45rem 0;
     font-size: 0.8125rem;
     line-height: 1.4;
     color: rgba(255, 255, 255, 0.84);
@@ -194,13 +194,18 @@
 
 .vx-left-foot {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--sila-space-2);
     margin: auto 0 0;
     padding-top: var(--sila-space-4);
     border-top: 0.0625rem solid rgba(255, 255, 255, 0.18);
     font-size: var(--sila-text-xs);
     color: rgba(255, 255, 255, 0.78);
+}
+
+.vx-left-foot-next {
+    display: block;
+    padding-top: 0.25rem;
 }
 
 .vx-left-foot svg {

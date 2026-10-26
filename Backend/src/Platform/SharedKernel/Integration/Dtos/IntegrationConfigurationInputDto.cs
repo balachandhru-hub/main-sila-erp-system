@@ -7,7 +7,7 @@ namespace SharedKernel.Integration.Dtos
     {
         [Required] public string Name { get; set; } = string.Empty;
         [Required] public string EntityCode { get; set; } = "ALL";
-        public IntegrationProcessType ProcessType { get; set; }
+        [Required, MaxLength(30)] public string ProcessType { get; set; } = string.Empty;
         public IntegrationProtocol Protocol { get; set; } = IntegrationProtocol.ODATA_V4;
         [Required, Url] public string BaseUrl { get; set; } = string.Empty;
         public string? ResourcePath { get; set; }

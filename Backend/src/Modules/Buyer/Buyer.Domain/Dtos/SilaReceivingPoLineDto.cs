@@ -11,6 +11,8 @@ namespace Buyer.Domain.Dtos
         public Guid? MaterialId { get; set; }
         public string ProductName { get; set; } = string.Empty;
         public string? Uom { get; set; }
+        /// <summary>Tax code from the purchase order API.</summary>
+        public string? TaxCode { get; set; }
         public decimal? UnitPrice { get; set; }
         public decimal OrderedQty { get; set; }
         public decimal ReceivedQty { get; set; }
@@ -26,5 +28,11 @@ namespace Buyer.Domain.Dtos
         /// <summary>The material needs an expiry date on receipt.</summary>
         public bool ExpiryManaged { get; set; }
         public int? ShelfLifeDays { get; set; }
+        public decimal? DiscountPercent { get; set; }
+        public decimal LineAmount { get; set; }
+        public string? Sku { get; set; }
+        public string? StorageLocation { get; set; }
+        public string? CostCenter { get; set; }
+        public string? MaterialGroup { get; set; }
     }
 }

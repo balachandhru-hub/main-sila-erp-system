@@ -46,6 +46,9 @@ namespace Buyer.Domain.Common
                 public static Guid BUYER_ADMIN_ROLE_ID = new Guid("c95f5a1b-4aec-4647-9328-895a58193ec4");
                 public static Guid STORE_MANAGER_ROLE_ID = new Guid("b054de41-7da1-4b96-a2aa-d8387bfb0ef0");
                 public static Guid COST_CONTROLLER_ROLE_ID = new Guid("3f9d6c2e-5b1a-4e8f-9c7d-2a6b8e4f1c03");
+                public static Guid OUTLET_MANAGER_ROLE_ID = new Guid("7c4e1a90-6b2d-4f58-9c31-0e8a5d6f4b21");
+                public static Guid FNB_DIRECTOR_ROLE_ID = new Guid("8d2a6c40-1f7e-4b9a-9c55-6e3a1d8b4f02");
+                public static Guid FINANCE_MANAGER_ROLE_ID = new Guid("9e3b7d51-2a8f-4c0b-8d66-7f4b2e9c5a13");
                 public const string DEFAULT_TEMPLATE = "DEFAULT_TEMPLATE";
                 public const string BUYER = "BUYER";
                 public const string RADIO_BUTTON = "Radio";
@@ -166,6 +169,7 @@ namespace Buyer.Domain.Common
                 public const string SILA_REF_ENQUIRY = "ENQUIRY";
                 public const string SILA_REF_POS_SALE = "POS_SALE";
                 public const string SILA_REF_GRN = "GRN";
+                public const string SILA_REF_GRN_REVERSAL = "GRN_REVERSAL";
                 public const string SILA_REF_RECIPE = "RECIPE";
                 public const string SILA_POSTING_PENDING = "PENDING";
                 public const string SILA_POSTING_POSTED = "POSTED";
@@ -177,6 +181,7 @@ namespace Buyer.Domain.Common
                 public const string SILA_MOVEMENT_STOCK_COUNT = "STOCK_COUNT";
                 public const string SILA_MOVEMENT_CONSUMPTION = "CONSUMPTION";
                 public const string SILA_MOVEMENT_GRN = "GRN";
+                public const string SILA_MOVEMENT_GRN_REVERSAL = "102";
                 public const string SILA_ITO_STANDARD = "STANDARD";
                 public const string SILA_ITO_QUICK = "QUICK";
                 public const string SILA_ITO_PENDING_APPROVAL = "PENDING_APPROVAL";
@@ -238,6 +243,9 @@ namespace Buyer.Domain.Common
                 public const string SILA_POS_SOURCE_FILE = "FILE";
                 public const string SILA_POS_SOURCE_API = "API";
                 public const string SILA_GRN_POSTED = "POSTED";
+                public const string SILA_GRN_PARTIALLY_REVERSED = "PARTIALLY_REVERSED";
+                public const string SILA_GRN_REVERSED = "REVERSED";
+                public const string SILA_TXN_GOODS_RECEIPT_REVERSAL = "GOODS_RECEIPT_REVERSAL";
                 public const string SILA_PO_PARTIALLY_RECEIVED = "PARTIALLY_RECEIVED";
                 public const string SILA_PO_RECEIVED = "RECEIVED";
                 public const string SILA_INVOICE_UPLOADED = "UPLOADED";
@@ -245,12 +253,35 @@ namespace Buyer.Domain.Common
                 public const string SILA_INVOICE_OCR_FAILED = "OCR_FAILED";
                 public const string SILA_INVOICE_REVIEWED = "REVIEWED";
                 public const string SILA_INVOICE_GRN_POSTED = "GRN_POSTED";
+                public const string SILA_INVOICE_GRN_IN_PROGRESS = "GRN_IN_PROGRESS";
+                public const string SILA_INVOICE_GRN_FAILED = "GRN_FAILED";
+                public const string SILA_INVOICE_READY = "READY_FOR_INVOICE_SUBMISSION";
+                public const string SILA_INVOICE_PENDING_APPROVAL = "PENDING_APPROVAL";
+                public const string SILA_INVOICE_APPROVED = "APPROVED";
+                public const string SILA_INVOICE_APPROVAL_REJECTED = "APPROVAL_REJECTED";
+                public const string SILA_INVOICE_READY_TO_POST = "READY_TO_POST";
+                public const string SILA_INVOICE_POSTING = "POSTING";
+                public const string SILA_INVOICE_POSTED = "POSTED";
+                public const string SILA_INVOICE_POSTING_FAILED = "ERP_POSTING_FAILED";
+                public const string SILA_INVOICE_GET_PO_FAILED = "GET_PO_FAILED";
+                public const string SILA_INVOICE_VALIDATION_FAILED = "VALIDATION_FAILED";
+                public const string SILA_INVOICE_LOCAL_FAILED = "LOCAL_FINALIZATION_FAILED";
+                public const string SILA_INVOICE_POSTING_UNKNOWN = "POSTING_UNKNOWN";
+                public const string SILA_INVOICE_AWAITING_PAYMENT = "AWAITING_PAYMENT";
+                public const string SILA_INVOICE_PARTIALLY_PAID = "PARTIALLY_PAID";
+                public const string SILA_INVOICE_PAID = "PAID";
+                public const string SILA_INVOICE_OVERDUE = "OVERDUE";
+                public const string SILA_APPROVAL_TYPE_INVOICE = "INVOICE";
+                public const string SILA_APPROVAL_TYPE_CREDIT_MEMO = "CREDIT_MEMO";
+                public const string SILA_PAYMENT_NOT_CONFIGURED = "NOT CONFIGURED";
                 public const string INTEGRATION_PROCESS_POST_GOODS_MOVEMENT = "POST_GOODS_MOVEMENT";
                 public const string INTEGRATION_PROCESS_POST_GRN = "POST_GRN";
                 public const string INTEGRATION_PROCESS_GET_POS_SALE = "GET_POS_SALE";
                 // ---- SILA ME release 2
                 public const string SILA_APPROVAL_TYPE_RECIPE = "RECIPE";
                 public const string SILA_APPROVAL_TYPE_MATERIAL_PRICE = "MATERIAL_PRICE";
+                public const string SILA_APPROVAL_TYPE_ITO = "ITO";
+                public const string SILA_APPROVAL_TYPE_INVENTORY = "INVENTORY";
                 public const string SILA_SCOPE_ALL = "ALL";
                 public const string SILA_SCOPE_PROPERTY = "PROPERTY";
                 public const string SILA_SCOPE_OUTLET = "OUTLET";
@@ -269,19 +300,40 @@ namespace Buyer.Domain.Common
                 public const string SILA_PI_CANCELLED = "CANCELLED";
                 public const string SILA_ENQUIRY_MORE_INFORMATION = "MORE_INFORMATION_REQUIRED";
                 public const string SILA_POSTING_UNKNOWN = "UNKNOWN";
+                // SAP accepted the document. Local completion has not been saved yet, so the job must not send it again.
+                public const string SILA_POSTING_ERP_ACCEPTED = "ERP_ACCEPTED";
+                // SAP accepted the document and SILA failed while finishing the local record. Reprocess continues locally.
+                public const string SILA_POSTING_FAILED_LOCAL = "FAILED_LOCAL";
                 public const string SILA_POS_BATCH_PREVIEW = "PREVIEW";
                 public const string SILA_POS_BATCH_PROCESSED = "PROCESSED";
                 public const string SILA_PROPOSAL_PROPOSED = "PROPOSED";
                 public const string SILA_PROPOSAL_ACCEPTED = "ACCEPTED";
                 public const string SILA_PROPOSAL_DISMISSED = "DISMISSED";
                 public const string SILA_REF_INVOICE = "INVOICE";
+                public const string SILA_REF_INVOICE_ATTACHMENT = "INVOICE_ATTACHMENT";
+                public const string SILA_REF_CREDIT_MEMO = "CREDIT_MEMO";
+                public const string SILA_REF_PO = "PO";
+                public const string SILA_REF_OPERATIONAL_TASK = "OPERATIONAL_TASK";
+                public const string SILA_REF_OPERATIONAL_ALERT = "OPERATIONAL_ALERT";
+                public const string SILA_CREDIT_MEMO_PENDING_APPROVAL = "PENDING_APPROVAL";
+                public const string SILA_CREDIT_MEMO_APPROVAL_REJECTED = "APPROVAL_REJECTED";
+                public const string SILA_MOVEMENT_CREDIT_MEMO = "CREDIT_MEMO";
+                public const string SILA_CREDIT_MEMO_DRAFT = "DRAFT";
+                public const string SILA_CREDIT_MEMO_READY_TO_POST = "READY_TO_POST";
+                public const string SILA_CREDIT_MEMO_POSTING = "POSTING";
+                public const string SILA_CREDIT_MEMO_POSTED = "POSTED";
+                public const string SILA_CREDIT_MEMO_POSTING_FAILED = "ERP_POSTING_FAILED";
+                public const string SILA_CREDIT_MEMO_POSTING_UNKNOWN = "POSTING_UNKNOWN";
+                public const string SILA_CREDIT_MEMO_LOCAL_FAILED = "LOCAL_FINALIZATION_FAILED";
                 public const string SILA_REF_MATERIAL_PRICE = "MATERIAL_PRICE";
                 public const string SILA_REF_PURCHASE_REQUEST = "PURCHASE_REQUEST";
                 public const string SILA_REF_PHYSICAL_INVENTORY = "PHYSICAL_INVENTORY";
                 public const string SILA_REF_SUBSTITUTION = "SUBSTITUTION";
                 public const string SILA_REF_MASTER_DATA = "MASTER_DATA";
                 public const string SILA_MOVEMENT_INVOICE = "INVOICE";
+                public const string SILA_MOVEMENT_INVOICE_ATTACHMENT = "SUPPLIER_INVOICE_ATTACHMENT";
                 public const string INTEGRATION_PROCESS_POST_INVOICE = "POST_INVOICE";
+                public const string INTEGRATION_PROCESS_SUPPLIER_INVOICE_ATTACHMENT = "SUPPLIER_INVOICE_ATTACHMENT";
                 public const string INTEGRATION_PROCESS_GET_SUPPLIER = "GET_SUPPLIER";
                 public const string INTEGRATION_PROCESS_EXTRACT_INVOICE = "EXTRACT_INVOICE";
                 public const string INTEGRATION_PROCESS_GET_PO = "GET_PO";
@@ -289,6 +341,10 @@ namespace Buyer.Domain.Common
                 public static readonly string SCHEDULER_PHYSICAL_INVENTORY_CRON = "Scheduler:PhysicalInventoryCron";
                 public const string HTTP_CLIENT_OCR = "ocr";
                 public const string SILA_INVOICE_FOLDER = "sila/invoices";
+                /// <summary>Create Invoice mode: purchase-order and goods-receipt based.</summary>
+                public const string SILA_INVOICE_CREATION_PO = "PO";
+                /// <summary>Create Invoice mode: expense / GL account assignment, no PO or GRN.</summary>
+                public const string SILA_INVOICE_CREATION_NON_PO = "NON_PO";
                 public static readonly string OCR_SERVICE_URL = "InterCallService:OcrUrl";
                 public static readonly string SCHEDULER_ERP_POSTING_CRON = "Scheduler:InventoryErpPostingCron";
                 public static readonly string SCHEDULER_ALERT_CRON = "Scheduler:InventoryAlertCron";

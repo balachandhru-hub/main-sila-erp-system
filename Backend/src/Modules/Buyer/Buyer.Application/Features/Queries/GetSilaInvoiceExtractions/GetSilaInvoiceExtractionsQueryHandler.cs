@@ -27,6 +27,12 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoiceExtractions
             _logger.LogInfo($"Fetching invoice extraction history. InvoiceId: {request.InvoiceId}");
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             Invoice invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
+            List<string> grnNumbers = await _repository.GoodsReceipt
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)
+                .OrderBy(x => x.DateCreated)
+                .Select(x => x.GrnNumber)
+                .ToListAsync(cancellationToken);
+            string? linkedGrns = grnNumbers.Count == 0 ? null : string.Join(", ", grnNumbers);
             List<InvoiceExtraction> extractions = await _repository.InvoiceExtraction
                 .FindByCondition(x => x.InvoiceId == invoice.Id && x.IsActive)
                 .OrderByDescending(x => x.Attempt)
@@ -36,6 +42,12 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoiceExtractions
             List<SilaInvoiceExtractionDto> result = extractions.Select(extraction =>
             {
                 SilaInvoiceOcrResultDto? reading = SilaOcrSettings.ReadReading(extraction.FieldsJson);
+                string? poNumber = reading?.Fields?.PoNumber;
+                if (string.IsNullOrWhiteSpace(poNumber))
+                {
+                    poNumber = invoice.PoNumber;
+                }
+
                 return new SilaInvoiceExtractionDto
                 {
                     Id = extraction.Id,
@@ -46,6 +58,8 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoiceExtractions
                     Confidence = extraction.Confidence,
                     Message = extraction.Message,
                     Fields = reading?.Fields,
+                    PoNumber = poNumber,
+                    GrnNumber = linkedGrns,
                     LineCount = reading?.Lines?.Count ?? 0,
                     CreatedBy = extraction.CreatedBy == Guid.Empty ? null : extraction.CreatedBy,
                     CreatedOn = extraction.DateCreated,

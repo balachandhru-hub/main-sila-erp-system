@@ -33,7 +33,7 @@ const SilaErpPostings: React.FC<SilaErpPostingsProps> = ({ canReprocess }) => {
     setReprocessingId(postingId);
     try {
       await reprocessErpPosting(postingId);
-      toastService.success(`${reference} is queued and will be sent within a minute.`);
+      toastService.success(`${reference} sent to the ERP again.`);
       list.reload();
     } catch (err: unknown) {
       toastService.error(err instanceof Error ? err.message : "Could not reprocess the posting.");
@@ -83,7 +83,10 @@ const SilaErpPostings: React.FC<SilaErpPostingsProps> = ({ canReprocess }) => {
                         <span className="sila-cell-strong">{row.referenceNumber}</span>
                         <span className="srcv-sub">{receivingLabel(row.referenceType)}</span>
                       </td>
-                      <td>{receivingLabel(row.movementType)}</td>
+                      <td>
+                        {receivingLabel(row.movementType)}
+                        {row.integrationSystem && <span className="srcv-sub">{row.integrationSystem}</span>}
+                      </td>
                       <td>
                         {row.locationName || "—"}
                         {row.companyCode && <span className="srcv-sub">Company code {row.companyCode}</span>}

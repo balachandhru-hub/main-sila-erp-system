@@ -23,6 +23,9 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoice
             _logger.LogInfo($"Fetching invoice. InvoiceId: {request.InvoiceId}, OrganizationId: {request.OrganizationId}");
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             Invoice invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
+            await SilaInvoiceGrnGate.ReleaseBlockedInvoiceAsync(_repository, invoice, cancellationToken);
+            await _repository.SaveAsync();
+            invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
             SilaInvoiceDetailDto result = await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
             _logger.LogInfo($"Invoice fetched. InvoiceId: {invoice.Id}, Status: {invoice.Status}");
             return result;

@@ -5,16 +5,52 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { federationSafeAliases } from '../shared-ui/build/federationAliases';
+import { devCustomIntegrations } from './devCustomIntegrations';
+import { devGoodsReceiptLink } from './devGoodsReceiptLink';
+import { devInvoiceSubmit } from './devInvoiceSubmit';
+import { devGrnReversal } from './devGrnReversal';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootNodeModules = path.resolve(__dirname, '../../node_modules');
 
+/** Local Cursor Buyer.API. Dev-only. Production/cloud proxy is unchanged. */
+const localBuyerApi = (env) =>
+  (env.VITE_LOCAL_BUYER_API || 'http://127.0.0.1:8004').replace(/\/$/, '');
+
+const cloudApi = (env) => env.VITE_DEV_API_PROXY || 'https://sila-api.chervicaon.com';
+
+const proxyTo = (target) => ({
+  target,
+  changeOrigin: true,
+  secure: false,
+  configure: (proxy) => {
+    proxy.on('proxyRes', (proxyRes) => {
+      const cookies = proxyRes.headers['set-cookie'];
+      if (!cookies) return;
+      proxyRes.headers['set-cookie'] = cookies.map((cookie) =>
+        cookie
+          .replace(/;\s*Domain=[^;]*/i, '')
+          .replace(/;\s*SameSite=None/i, '; SameSite=Lax'),
+      );
+    });
+  },
+});
+
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const buyerApi = localBuyerApi(env);
+  const otherApi = cloudApi(env);
 
   return {
     plugins: [
       react(),
+      ...(command === 'serve' ? [
+        // Primary Buyer target is local :8004 so these plugins do not cloud-first.
+        devCustomIntegrations(buyerApi, path.resolve(__dirname, '../../.data/custom-integrations.json')),
+        devGoodsReceiptLink(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
+        devInvoiceSubmit(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
+        devGrnReversal(buyerApi),
+      ] : []),
       federation({
         remotes: command === 'serve' ? {} : {
           remoteBuyer: env.VITE_REMOTE_BUYER_URL || 'https://localhost:6002/assets/remoteEntry.js',
@@ -43,6 +79,8 @@ export default defineConfig(({ command, mode }) => {
               'remoteSupplier/ExternalSupplierBid': path.resolve(__dirname, '../remote-supplier/src/pages/ExternalSupplierBid.tsx'),
               'remotePlatformUser/PlatformUserApp': path.resolve(__dirname, '../remote-platform-user/src/PlatformUserApp.tsx'),
               'remoteMobile/MobileApp': path.resolve(__dirname, '../remote-mobile/src/MobileApp.tsx'),
+              // node_modules/@vosox/shared-ui follows the vosox checkout, which is behind this tree.
+              '@vosox/shared-ui': path.resolve(__dirname, '../shared-ui/src/index.ts'),
             }).map(([find, replacement]) => ({ find, replacement }))
           : []),
       ],
@@ -57,10 +95,14 @@ export default defineConfig(({ command, mode }) => {
         key: fs.existsSync('./localhost-key.pem') ? fs.readFileSync('./localhost-key.pem') : undefined,
         cert: fs.existsSync('./localhost.pem') ? fs.readFileSync('./localhost.pem') : undefined,
       },
-      // Local gateway: set VITE_DEV_API_PROXY (and leave VITE_AUTH_API_BASE empty) in .env.local so the browser stays same-origin.
-      proxy: env.VITE_DEV_API_PROXY
-        ? { '/api': { target: env.VITE_DEV_API_PROXY, changeOrigin: true } }
-        : undefined,
+      // Dev stays same-origin so the access_token cookie is not dropped as third-party.
+      // The API sets Domain=.chervicaon.com; strip that so the cookie belongs to localhost.
+      proxy: command === 'serve' ? {
+        '/api/v1/buyer': proxyTo(buyerApi),
+        '/api': proxyTo(otherApi),
+        '/buyermessageHub': { ...proxyTo(otherApi), ws: true },
+        '/suppliermessageHub': { ...proxyTo(otherApi), ws: true },
+      } : undefined,
     },
     build: {
       target: 'esnext',

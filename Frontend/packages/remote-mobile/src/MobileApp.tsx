@@ -2,20 +2,32 @@ import React, { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import TabBar from './components/TabBar';
 import { PoweredFooter } from './components/StateViews';
-import { AccessProvider } from './access';
+import { AccessProvider, useAccess } from './access';
 import { MyLocationProvider } from './location';
 import { MobileBaseProvider } from './navigation';
 import HomeScreen from './screens/home/HomeScreen';
 import ReceiveScreen from './screens/receive/ReceiveScreen';
 import ScanInvoiceScreen from './screens/receive/ScanInvoiceScreen';
+import InvoiceFileScreen from './screens/receive/InvoiceFileScreen';
 import InvoiceReviewScreen from './screens/receive/InvoiceReviewScreen';
+import PostedInvoicesScreen from './screens/receive/PostedInvoicesScreen';
+import CreditMemosScreen from './screens/receive/CreditMemosScreen';
+import CreditMemoScreen from './screens/receive/CreditMemoScreen';
 import GrnFormScreen from './screens/receive/GrnFormScreen';
 import GrnDetailScreen from './screens/receive/GrnDetailScreen';
+import GrnReverseScreen from './screens/receive/GrnReverseScreen';
 import OpenPosScreen from './screens/receive/OpenPosScreen';
 import PoDetailScreen from './screens/receive/PoDetailScreen';
 import HistoryScreen from './screens/receive/HistoryScreen';
 import PendingGrnScreen from './screens/receive/PendingGrnScreen';
 import PurchaseRequestsScreen from './screens/inventory/PurchaseRequestsScreen';
+import RecommendationsScreen from './screens/inventory/RecommendationsScreen';
+import GoodsIssuesScreen from './screens/inventory/GoodsIssuesScreen';
+import GoodsIssueFormScreen from './screens/inventory/GoodsIssueFormScreen';
+import GoodsIssueDetailScreen from './screens/inventory/GoodsIssueDetailScreen';
+import AdjustmentsScreen from './screens/inventory/AdjustmentsScreen';
+import AdjustmentFormScreen from './screens/inventory/AdjustmentFormScreen';
+import AdjustmentDetailScreen from './screens/inventory/AdjustmentDetailScreen';
 import SearchScreen from './screens/more/SearchScreen';
 import SuppliersScreen from './screens/more/SuppliersScreen';
 import SupplierDetailScreen from './screens/more/SupplierDetailScreen';
@@ -28,6 +40,8 @@ import TransfersScreen from './screens/inventory/TransfersScreen';
 import TransferFormScreen from './screens/inventory/TransferFormScreen';
 import TransferDetailScreen from './screens/inventory/TransferDetailScreen';
 import CountListScreen from './screens/count/CountListScreen';
+import RecipesScreen from './screens/recipes/RecipesScreen';
+import RecipeDetailScreen from './screens/recipes/RecipeDetailScreen';
 import CountSessionScreen from './screens/count/CountSessionScreen';
 import TasksScreen from './screens/tasks/TasksScreen';
 import EnquiryScreen from './screens/tasks/EnquiryScreen';
@@ -36,6 +50,9 @@ import SubstitutionScreen from './screens/tasks/SubstitutionScreen';
 import MoreScreen from './screens/more/MoreScreen';
 import ProfileScreen from './screens/more/ProfileScreen';
 import HelpScreen from './screens/more/HelpScreen';
+import { registerMobilePwa } from './pwa';
+import SupplierWorkspace from './supplier/SupplierWorkspace';
+import { isSupplierOnlyRole } from './supplier/roles';
 import './mobile.css';
 
 /** Path the parent route matched (e.g. /mobile): the current path without the splat part. */
@@ -62,14 +79,25 @@ const useInterFont = (): void => {
   }, []);
 };
 
-/** SILA Store: the mobile app of the SILA ME add-on, served by the host at /mobile. */
-const MobileApp: React.FC = () => {
-  const base = useAppBase();
-  useInterFont();
-
+/** SILA Store for buyer-side users. A supplier role stays inside the supplier workspace. */
+const MobileSurface: React.FC<{ base: string }> = ({ base }) => {
+  const { pathname } = useLocation();
+  const { person, loading } = useAccess();
+  const supplier = pathname === `${base}/supplier` || pathname.startsWith(`${base}/supplier/`);
+  if (loading && !person) {
+    return (
+      <div className="sm-root">
+        <div className="sm-app">
+          <p className="sm-meta">Opening SILA…</p>
+        </div>
+      </div>
+    );
+  }
+  if (isSupplierOnlyRole(person?.roleName, person?.roleId) && !supplier) {
+    return <Navigate to={`${base}/supplier`} replace />;
+  }
+  if (supplier) return <SupplierWorkspace />;
   return (
-    <MobileBaseProvider base={base}>
-      <AccessProvider>
         <MyLocationProvider>
           <div className="sm-root">
             <div className="sm-app">
@@ -80,8 +108,15 @@ const MobileApp: React.FC = () => {
                 <Route path="receive" element={<ReceiveScreen />} />
                 <Route path="receive/scan" element={<ScanInvoiceScreen />} />
                 <Route path="receive/invoices/:invoiceId" element={<InvoiceReviewScreen />} />
+                <Route path="receive/invoices/:invoiceId/credit-memo" element={<CreditMemoScreen />} />
+                <Route path="receive/invoices/:invoiceId/credit-memos/:creditMemoId" element={<CreditMemoScreen />} />
+                <Route path="receive/invoices/:invoiceId/file" element={<InvoiceFileScreen />} />
+                <Route path="receive/posted-invoices" element={<PostedInvoicesScreen />} />
+                <Route path="receive/credit-memos" element={<CreditMemosScreen />} />
+                <Route path="receive/credit-memos/:creditMemoId" element={<CreditMemoScreen />} />
                 <Route path="receive/grn/new" element={<GrnFormScreen />} />
                 <Route path="receive/grns/:grnId" element={<GrnDetailScreen />} />
+                <Route path="receive/grns/:grnId/reverse" element={<GrnReverseScreen />} />
                 <Route path="receive/pos" element={<OpenPosScreen />} />
                 <Route path="receive/pos/:poId" element={<PoDetailScreen />} />
                 <Route path="receive/history" element={<HistoryScreen />} />
@@ -93,9 +128,18 @@ const MobileApp: React.FC = () => {
                 <Route path="inventory/transfers" element={<TransfersScreen />} />
                 <Route path="inventory/transfers/new" element={<TransferFormScreen />} />
                 <Route path="inventory/transfers/:transferId" element={<TransferDetailScreen />} />
+                <Route path="recipes" element={<RecipesScreen />} />
+                <Route path="recipes/:recipeId" element={<RecipeDetailScreen />} />
                 <Route path="inventory/counts" element={<CountListScreen />} />
                 <Route path="inventory/counts/:stockCountId" element={<CountSessionScreen />} />
                 <Route path="inventory/purchase-requests" element={<PurchaseRequestsScreen />} />
+                <Route path="inventory/recommendations" element={<RecommendationsScreen />} />
+                <Route path="inventory/goods-issues" element={<GoodsIssuesScreen />} />
+                <Route path="inventory/goods-issues/new" element={<GoodsIssueFormScreen />} />
+                <Route path="inventory/goods-issues/:goodsIssueId" element={<GoodsIssueDetailScreen />} />
+                <Route path="inventory/adjustments" element={<AdjustmentsScreen />} />
+                <Route path="inventory/adjustments/new" element={<AdjustmentFormScreen />} />
+                <Route path="inventory/adjustments/:adjustmentId" element={<AdjustmentDetailScreen />} />
 
                 <Route path="tasks" element={<TasksScreen />} />
                 <Route path="tasks/alerts" element={<AlertsScreen />} />
@@ -118,6 +162,21 @@ const MobileApp: React.FC = () => {
             </div>
           </div>
         </MyLocationProvider>
+  );
+};
+
+/** SILA Store: the mobile app of the SILA ME add-on, served by the host at /mobile. */
+const MobileApp: React.FC = () => {
+  const base = useAppBase();
+  useInterFont();
+  useEffect(() => {
+    registerMobilePwa();
+  }, []);
+
+  return (
+    <MobileBaseProvider base={base}>
+      <AccessProvider>
+        <MobileSurface base={base} />
       </AccessProvider>
     </MobileBaseProvider>
   );

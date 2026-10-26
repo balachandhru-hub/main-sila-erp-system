@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { EmptyState, Loader, Modal, PageHeader, Pagination, toastService } from "@vosox/shared-ui";
 import { getMyLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import {
   SILA_COUNT_TYPES,
   createStockCount,
@@ -237,22 +238,14 @@ const SilaStockCounts: React.FC<SilaStockCountsProps> = ({ canApprove, initialCo
       >
         <div className="sila-root sila-me sc-stack">
           {locationsError && <div className="sila-alert sila-alert--danger" role="alert">{locationsError}</div>}
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="sc-new-location">Location<span className="sila-required">*</span></label>
-            <select
-              id="sc-new-location"
-              className="sila-select"
-              value={form.locationId}
-              onChange={(event) => setForm({ ...form, locationId: event.target.value })}
-            >
-              <option value="">Select a location</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.locationName} ({location.locationCode}){location.propertyName ? `, ${location.propertyName}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            required
+            placeholder="Select a location"
+            value={form.locationId}
+            options={silaLocationOptions(locations)}
+            onChange={(locationId) => setForm({ ...form, locationId })}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="sc-new-date">Business date<span className="sila-required">*</span></label>
             <input

@@ -239,7 +239,8 @@ namespace Buyer.Application.Features.Shared
                     InventoryEnabled = x.InventoryEnabled ?? true,
                     ConsumptionEnabled = x.ConsumptionEnabled ?? true,
                     Status = x.IsActive ? STATUS_ACTIVE : STATUS_INACTIVE,
-                    CompanyCode = properties.TryGetValue(x.PropertyId, out BuyerProperty? property) ? property.CompanyCode : null
+                    CompanyCode = properties.TryGetValue(x.PropertyId, out BuyerProperty? property) ? property.CompanyCode : null,
+                    PlantCode = properties.TryGetValue(x.PropertyId, out BuyerProperty? plantProperty) ? plantProperty.PlantCode : null
                 })
                 .ToList();
         }

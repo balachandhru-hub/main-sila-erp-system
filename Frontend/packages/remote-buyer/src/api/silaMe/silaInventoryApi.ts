@@ -38,8 +38,12 @@ export interface SilaLocation {
   consumptionEnabled?: boolean;
   /** ACTIVE | INACTIVE */
   status?: string;
-  /** Company code of the property. */
+  /** Company code of the property. Plant 1050 is stored here for SILA ME. */
   companyCode?: string | null;
+  /** Plant code of the property (often same as company code). */
+  plantCode?: string | null;
+  /** The signed-in user's own location. Live inventory opens on it. */
+  assigned?: boolean;
 }
 
 export interface SilaLocationWrite {

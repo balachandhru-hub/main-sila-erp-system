@@ -29,7 +29,7 @@ namespace Buyer.Application.Features.Shared
         public const string EXTRACTION_COMPLETED = "COMPLETED";
         public const string EXTRACTION_FAILED = "FAILED";
 
-        /// <summary>The saved settings, or the defaults (built-in reader, no automatic reading, 75 % confidence).</summary>
+        /// <summary>The saved settings, or the defaults (built-in reader, automatic reading on upload, 75 % confidence).</summary>
         public static async Task<SilaOcrConfiguration> GetAsync(IRepositoryWrapper repository, Guid buyerId, CancellationToken cancellationToken)
         {
             SilaOcrConfiguration? saved = await repository.SilaOcrConfiguration
@@ -39,7 +39,7 @@ namespace Buyer.Application.Features.Shared
             {
                 BuyerId = buyerId,
                 Provider = PROVIDER_BUILT_IN,
-                AutoExtractOnUpload = false,
+                AutoExtractOnUpload = true,
                 MinimumConfidence = DEFAULT_MINIMUM_CONFIDENCE
             };
         }
@@ -62,11 +62,13 @@ namespace Buyer.Application.Features.Shared
             }
         }
 
-        public static async Task<SilaOcrConfigurationDto> ToDtoAsync(IRepositoryWrapper repository, BuyerBusinessProfile buyer, SilaOcrConfiguration configuration, CancellationToken cancellationToken)
+        public static async Task<SilaOcrConfigurationDto> ToDtoAsync(
+            IRepositoryWrapper repository, BuyerBusinessProfile buyer, SilaOcrConfiguration configuration, CancellationToken cancellationToken, string? localBasePath = null)
         {
+            string extractInvoice = nameof(IntegrationProcessType.EXTRACT_INVOICE);
             bool externalConfigured = await repository.ApiIntegrationConfiguration
                 .FindByCondition(x => x.BuyerId == buyer.Id
-                    && x.ProcessType == IntegrationProcessType.EXTRACT_INVOICE
+                    && x.ProcessType == extractInvoice
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .AnyAsync(cancellationToken);
@@ -79,7 +81,7 @@ namespace Buyer.Application.Features.Shared
                 Saved = configuration.Id != Guid.Empty,
                 UpdatedOn = configuration.Id == Guid.Empty ? null : (configuration.DateUpdated == default ? configuration.DateCreated : configuration.DateUpdated)
             };
-            SilaOcrPolicy.Fill(dto, configuration);
+            SilaOcrPolicy.Fill(dto, configuration, localBasePath);
             return dto;
         }
     }

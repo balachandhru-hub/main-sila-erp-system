@@ -8,6 +8,7 @@ import {
 } from "../../../api/silaMe/silaControlApi";
 import type { SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import { formatDate } from "../../cart/lineFormat";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import { daysAgo } from "./controlFormat";
 
 const MAX_REASON = 500;
@@ -54,15 +55,14 @@ export const PhysicalInventoryRequestDialog: React.FC<RequestDialogProps> = ({ l
       }}
     >
       <div className="sila-root sila-me sctl-stack">
-        <div className="sila-field">
-          <label className="sila-label" htmlFor="spi-location">Location<span className="sila-required">*</span></label>
-          <select id="spi-location" className="sila-select" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-            <option value="">Select a location</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>{location.locationName}</option>
-            ))}
-          </select>
-        </div>
+        <SilaSearchableSelect
+          label="Location"
+          required
+          placeholder="Select a location"
+          value={locationId}
+          options={locations.map((location) => ({ value: location.id, label: location.locationName }))}
+          onChange={setLocationId}
+        />
         <div className="sila-field">
           <label className="sila-label" htmlFor="spi-reason">Reason<span className="sila-required">*</span></label>
           <textarea id="spi-reason" className="sila-textarea" rows={3} maxLength={MAX_REASON} value={reason} onChange={(e) => setReason(e.target.value)} />

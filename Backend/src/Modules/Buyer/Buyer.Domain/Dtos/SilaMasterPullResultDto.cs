@@ -12,6 +12,10 @@ namespace Buyer.Domain.Dtos
         public int Updated { get; set; }
         public int Unchanged { get; set; }
         public int Invalid { get; set; }
+        /// <summary>True when the checked rows were written to the database.</summary>
+        public bool Committed { get; set; }
+        /// <summary>The GET_PO API used when a filtered pull targeted one configuration.</summary>
+        public string? ConfigurationName { get; set; }
         /// <summary>The first problems found (at most 50).</summary>
         public List<string> Errors { get; set; } = new();
     }

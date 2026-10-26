@@ -20,8 +20,9 @@ namespace Buyer.Application.Features.Queries.GetSilaPosPullOrganizations
         public async Task<List<Guid>> Handle(GetSilaPosPullOrganizationsQuery request, CancellationToken cancellationToken)
         {
             _logger.LogInfo("Fetching organizations with an active POS sales API.");
+            string posSale = nameof(IntegrationProcessType.GET_POS_SALE);
             List<Guid> buyerIds = await _repository.ApiIntegrationConfiguration
-                .FindByCondition(x => x.ProcessType == IntegrationProcessType.GET_POS_SALE
+                .FindByCondition(x => x.ProcessType == posSale
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .Select(x => x.BuyerId)

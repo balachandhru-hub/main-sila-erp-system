@@ -23,7 +23,7 @@ const BarcodeEntry: React.FC<BarcodeEntryProps> = ({ stockCountId, onFound }) =>
       setCode('');
       onFound(found);
     } catch (caught: unknown) {
-      setError(errorText(caught, 'Barcode not recognised.'));
+      setError(errorText(caught, 'BARCODE NOT MAPPED. Search the material.'));
     } finally {
       setBusy(false);
     }

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using SharedKernel.Integration.Enums;
 
 namespace SharedKernel.Integration.Rules
@@ -46,7 +47,10 @@ namespace SharedKernel.Integration.Rules
             [IntegrationProcessType.POST_SALES_ORDER] = new IntegrationProcessInfo { Side = SIDE_SUPPLIER, IsPush = true },
             // SILA ME inventory documents. The push types may map their payload field names (optional).
             [IntegrationProcessType.POST_GOODS_MOVEMENT] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
+            // Stock-count variances. Reuses goods-movement field mapping. The tested config name is FIVE_POS_UPDATE.
+            [IntegrationProcessType.UPDATE_STOCK] = new IntegrationProcessInfo { IsPush = true, MappingArea = "GoodsMovement" },
             [IntegrationProcessType.POST_GRN] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
+            [IntegrationProcessType.POST_GRN_REVERSAL] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Grn" },
             [IntegrationProcessType.GET_POS_SALE] = new IntegrationProcessInfo
             {
                 CanPull = true,
@@ -55,6 +59,8 @@ namespace SharedKernel.Integration.Rules
             },
             // SILA ME receiving: the invoice is posted after its goods receipt; suppliers and purchase orders are read from the ERP.
             [IntegrationProcessType.POST_INVOICE] = new IntegrationProcessInfo { IsPush = true, MappingArea = "Invoice" },
+            // URL attachment on a supplier invoice that S/4 has already created. It does not post the invoice.
+            [IntegrationProcessType.SUPPLIER_INVOICE_ATTACHMENT] = new IntegrationProcessInfo { IsPush = true, MappingArea = "InvoiceAttachment" },
             [IntegrationProcessType.GET_SUPPLIER] = new IntegrationProcessInfo
             {
                 CanPull = true,
@@ -73,10 +79,68 @@ namespace SharedKernel.Integration.Rules
             [IntegrationProcessType.POST_CONTRACT] = new IntegrationProcessInfo { IsPush = true },
         };
 
+        // A type an organization adds itself. GET_ reads from the external system; POST_ sends to it.
+        // Built-in types such as UPDATE_STOCK are recognized before this pattern.
+        private static readonly Regex CustomCode = new Regex(@"^(GET_|POST_)[A-Z][A-Z0-9_]*$", RegexOptions.Compiled);
+
+        /// <summary>Trims and uppercases an API type code.</summary>
+        public static string Canonical(string? processType)
+        {
+            return (processType ?? string.Empty).Trim().ToUpperInvariant();
+        }
+
+        /// <summary>True when the code is one of the built-in API types.</summary>
+        public static bool TryKnown(string? processType, out IntegrationProcessType known)
+        {
+            if (Enum.TryParse(processType, ignoreCase: false, out known) && Enum.IsDefined(known) && known.ToString() == processType)
+            {
+                return true;
+            }
+
+            known = default;
+            return false;
+        }
+
+        /// <summary>True for a code an organization may add, such as GET_PRICE or POST_PAYMENT.</summary>
+        public static bool IsCustomCode(string? processType)
+        {
+            return !string.IsNullOrEmpty(processType)
+                && processType.Length <= 30
+                && !TryKnown(processType, out _)
+                && CustomCode.IsMatch(processType);
+        }
+
+        /// <summary>The API type's description. A custom code is a connection only: it is not pulled into application data.</summary>
+        public static IntegrationProcessInfo? Find(string? processType)
+        {
+            if (TryKnown(processType, out IntegrationProcessType known) && Processes.TryGetValue(known, out IntegrationProcessInfo? info))
+            {
+                return info;
+            }
+
+            if (!IsCustomCode(processType))
+            {
+                return null;
+            }
+
+            return new IntegrationProcessInfo { IsPush = processType!.StartsWith("POST_", StringComparison.Ordinal) };
+        }
+
         /// <summary>The API type's description, or null for a type that is not offered.</summary>
         public static IntegrationProcessInfo? Find(IntegrationProcessType processType)
         {
-            return Processes.TryGetValue(processType, out IntegrationProcessInfo? info) ? info : null;
+            return Find(processType.ToString());
+        }
+
+        /// <summary>Whether the API type belongs to the given side (the service that configures it). A custom code belongs to the service that stores it.</summary>
+        public static bool BelongsTo(string? processType, string side)
+        {
+            if (TryKnown(processType, out IntegrationProcessType known))
+            {
+                return BelongsTo(known, side);
+            }
+
+            return IsCustomCode(processType);
         }
 
         /// <summary>Whether the API type belongs to the given side (the service that configures it).</summary>
@@ -84,6 +148,26 @@ namespace SharedKernel.Integration.Rules
         {
             IntegrationProcessInfo? info = Find(processType);
             return info != null && string.Equals(info.Side, side, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Built-in API types whose mapped fields are listed. A custom code has none.</summary>
+        public static List<IntegrationProcessType> TargetTypes(string? processType, string side)
+        {
+            if (string.IsNullOrWhiteSpace(processType))
+            {
+                return Processes
+                    .Where(item => string.Equals(item.Value.Side, side, StringComparison.OrdinalIgnoreCase))
+                    .Select(item => item.Key)
+                    .ToList();
+            }
+
+            string code = Canonical(processType);
+            if (TryKnown(code, out IntegrationProcessType known) && BelongsTo(known, side))
+            {
+                return new List<IntegrationProcessType> { known };
+            }
+
+            return new List<IntegrationProcessType>();
         }
 
         /// <summary>The API types of the side that can be pulled by a manual or scheduled run.</summary>
@@ -96,10 +180,16 @@ namespace SharedKernel.Integration.Rules
         }
 
         /// <summary>Whether the target field belongs to the records of the API type, for example "Catalog." for the catalog.</summary>
-        public static bool OwnsTarget(IntegrationProcessType processType, string targetField)
+        public static bool OwnsTarget(string? processType, string targetField)
         {
             string? area = Find(processType)?.MappingArea;
             return area != null && targetField.StartsWith(area + ".", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Whether the target field belongs to the records of the API type, for example "Catalog." for the catalog.</summary>
+        public static bool OwnsTarget(IntegrationProcessType processType, string targetField)
+        {
+            return OwnsTarget(processType.ToString(), targetField);
         }
     }
 }

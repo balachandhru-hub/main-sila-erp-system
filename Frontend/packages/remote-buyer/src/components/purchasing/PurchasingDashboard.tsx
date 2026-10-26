@@ -11,6 +11,8 @@ import "./Purchasing.css";
 interface PurchasingDashboardProps {
   currentUserId: string | null;
   hasSilaMe: boolean;
+  /** False while the add-on check is still running. */
+  attentionReady?: boolean;
   /** How the user works with the weekly bucket; null when the role has no weekly bucket screen. */
   bucketRole: BucketRole;
   /** Class prefix of the hosting dashboard's recent-PO styles ("pud" buyer, "bad" administrator). */
@@ -23,8 +25,8 @@ const OPEN_PO_CHECK = 100;
 const CLOSED_PO_STATUSES = ["RECEIVED", "CLOSED", "CANCELLED", "COMPLETED"];
 
 /** Landing page of Purchasing: open POs, weekly bucket status, pending approvals and the newest POs. */
-const PurchasingDashboard: React.FC<PurchasingDashboardProps> = ({ currentUserId, hasSilaMe, bucketRole, classPrefix, onNavigate }) => {
-  const attention = useAttention({ currentUserId, hasSilaMe });
+const PurchasingDashboard: React.FC<PurchasingDashboardProps> = ({ currentUserId, hasSilaMe, attentionReady = true, bucketRole, classPrefix, onNavigate }) => {
+  const attention = useAttention({ currentUserId, hasSilaMe, ready: attentionReady });
   const [openOrders, setOpenOrders] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
 

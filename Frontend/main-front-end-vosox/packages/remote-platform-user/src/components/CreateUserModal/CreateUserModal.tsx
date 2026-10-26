@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FaEye, FaEyeSlash, FaChevronDown, FaSearch, FaTimes } from 'react-icons/fa';
 import type { User, UserRole } from '../../types';
 import { ROLE_ID_MAPPING } from '../../constants/roleMapping';
-import { getCountries } from '../../api/networkAdminApi';
+import { getAssignableRoles, getCountries, type AssignableRole } from '../../api/networkAdminApi';
+import { getOutlets, type Outlet } from '../../../../remote-buyer/src/api/outletApi';
 import type { CountryDto } from '../../dto/networkAdminDto';
-import { toastService } from '@vosox/shared-ui';
+import { Dropdown, toastService, type DropdownValue } from '@vosox/shared-ui';
 import './CreateUserModal.css';
 
 interface CreateUserModalProps {
@@ -12,6 +13,11 @@ interface CreateUserModalProps {
   onClose: () => void;
   onCreate: (user: User) => Promise<void> | void;
   createRole: UserRole;
+  /**
+   * When set, the form asks for the role: a dropdown of the roles from GET /api/v1/identity/roles
+   * that pass the filter. createRole is then only the fallback.
+   */
+  roleSelection?: { filter: (roleName: string) => boolean };
   isLoading?: boolean;
 }
 
@@ -28,6 +34,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   onCreate,
   isLoading = false,
   createRole,
+  roleSelection,
 }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -39,6 +46,19 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     password: '',
     confirmPassword: '',
   });
+
+  // The role comes from the dropdown when the form asks for it, otherwise from the button that opened it.
+  const asksForRole = Boolean(roleSelection);
+  const [roles, setRoles] = useState<AssignableRole[]>([]);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  const activeRole = (asksForRole ? selectedRole : createRole) as UserRole;
+
+  // An outlet manager works for an outlet, so the form asks for one (GET /api/v1/buyer/outlets).
+  const needsOutlet = activeRole === 'OUTLET_MANAGER';
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
+  const [outletId, setOutletId] = useState('');
+  const [isLoadingOutlets, setIsLoadingOutlets] = useState(false);
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -82,6 +102,67 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     },
     []
   );
+
+  useEffect(() => {
+    if (!isOpen || !asksForRole) return;
+
+    let active = true;
+    setIsLoadingRoles(true);
+    getAssignableRoles()
+      .then((result) => {
+        if (!active) return;
+        // The role table can hold a role name twice; the known role id wins, then the first one.
+        const byName = new Map<string, AssignableRole>();
+        for (const role of result) {
+          if (roleSelection && !roleSelection.filter(role.name)) continue;
+          const known = ROLE_ID_MAPPING[role.name];
+          const existing = byName.get(role.name);
+          if (!existing || (known && role.id.toLowerCase() === known.toLowerCase())) {
+            byName.set(role.name, role);
+          }
+        }
+        setRoles([...byName.values()]);
+      })
+      .catch(() => {
+        if (active) {
+          setRoles([]);
+          toastService.error('Unable to load roles. Please try again.');
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingRoles(false);
+      });
+
+    return () => {
+      active = false;
+    };
+    // The filter is a new function on every render of the parent; the roles only need loading when the form opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, asksForRole]);
+
+  useEffect(() => {
+    if (!isOpen || !needsOutlet) return;
+
+    let active = true;
+    setIsLoadingOutlets(true);
+    getOutlets()
+      .then((result) => {
+        if (active) setOutlets(result);
+      })
+      .catch(() => {
+        if (active) {
+          setOutlets([]);
+          toastService.error('Unable to load outlets. Please try again.');
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingOutlets(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, needsOutlet]);
 
   useEffect(() => {
     if (!isCountryDropdownOpen) return;
@@ -203,6 +284,14 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       errors.confirmPassword = 'Passwords do not match';
     }
 
+    if (asksForRole && !selectedRole) {
+      errors.role = 'Please select a role';
+    }
+
+    if (needsOutlet && !outletId) {
+      errors.outletId = 'Please select an outlet';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -215,8 +304,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       return;
     }
 
-    const roleToCreate = createRole;
-    const roleIdToUse = ROLE_ID_MAPPING[createRole];
+    const roleToCreate = activeRole;
+    const roleIdToUse = ROLE_ID_MAPPING[activeRole] ?? roles.find((role) => role.name === selectedRole)?.id;
 
     const newUser: User = {
       id: `temp-${Date.now()}`,
@@ -231,10 +320,13 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       userName: formData.userName,
       password: formData.password,
       roleId: roleIdToUse,
+      outletIds: needsOutlet ? [outletId] : undefined,
     };
 
     try {
       await onCreate(newUser);
+      setOutletId('');
+      setSelectedRole('');
 
       setFormData({
         name: '',
@@ -269,6 +361,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         confirmPassword: '',
       });
       setSelectedCountryLabel('');
+      setOutletId('');
+      setSelectedRole('');
       setFormErrors({});
       setIsCountryDropdownOpen(false);
       setCountrySearchQuery('');
@@ -304,6 +398,43 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
         <form onSubmit={handleSubmit} className="nad-modal-form">
           <div className="nad-modal-body">
+            {asksForRole && (
+              <div className="nad-form-group">
+                <label htmlFor="role" className="nad-label">
+                  Role <span className="nad-required sila-required" aria-hidden="true">*</span>
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  value={selectedRole}
+                  onChange={(e) => {
+                    setSelectedRole(e.target.value);
+                    setOutletId('');
+                    if (formErrors.role) setFormErrors((prev) => ({ ...prev, role: '' }));
+                  }}
+                  disabled={isLoading || isLoadingRoles}
+                  aria-invalid={formErrors.role ? true : undefined}
+                  aria-describedby={formErrors.role ? 'role-error' : undefined}
+                  className={`nad-input ${formErrors.role ? 'error' : ''}`}
+                >
+                  <option value="">
+                    {isLoadingRoles ? 'Loading roles...' : roles.length === 0 ? 'No roles available' : 'Select a role'}
+                  </option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {role.name
+                        .split('_')
+                        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+                        .join(' ')}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.role && (
+                  <span id="role-error" className="nad-error-text sila-error-text">{formErrors.role}</span>
+                )}
+              </div>
+            )}
+
             <div className="nad-form-row">
               <div className="nad-form-group">
                 <label htmlFor="name" className="nad-label">
@@ -485,6 +616,38 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   <span id="userName-error" className="nad-error-text sila-error-text">{formErrors.userName}</span>
                 )}
               </div>
+
+              {needsOutlet && (
+                <div className="nad-form-group">
+                  <Dropdown
+                    label="Outlet"
+                    isRequired
+                    isDisable={isLoading || isLoadingOutlets}
+                    isClearable
+                    placeholder={isLoadingOutlets ? 'Loading outlets...' : outlets.length === 0 ? 'No outlets available' : 'Select an outlet'}
+                    error={formErrors.outletId || undefined}
+                    options={outlets.map((outlet) => ({
+                      name: `${outlet.outletName}${outlet.outletCode ? ` (${outlet.outletCode})` : ''}`,
+                      value: outlet.id,
+                    }))}
+                    value={outletId
+                      ? {
+                          value: outletId,
+                          name: (() => {
+                            const outlet = outlets.find((item) => item.id === outletId);
+                            return outlet
+                              ? `${outlet.outletName}${outlet.outletCode ? ` (${outlet.outletCode})` : ''}`
+                              : outletId;
+                          })(),
+                        }
+                      : null}
+                    onChange={(next: DropdownValue | null) => {
+                      setOutletId(next?.value ?? '');
+                      if (formErrors.outletId) setFormErrors((prev) => ({ ...prev, outletId: '' }));
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="nad-form-row">

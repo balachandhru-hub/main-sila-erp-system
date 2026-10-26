@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { SilaPosTransaction } from "../../../api/silaMe/silaPosApi";
 import { formatDate } from "../../cart/lineFormat";
 import { formatQty } from "../recipes/recipeFormat";
@@ -15,6 +15,8 @@ interface SilaTransactionRowProps {
 
 /** One POS sale with its two steps: Step 1 SILA inventory (deduction), Step 2 ERP (SAP posting with the material document). */
 const SilaTransactionRow: React.FC<SilaTransactionRowProps> = ({ transaction, reprocessing, disabled, onReprocess, onOpen }) => {
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const messages = [transaction.step1Message, transaction.step2Message, transaction.failureMessage].filter((line): line is string => Boolean(line));
   const message = transaction.failureMessage
     ? `${transaction.failedStep ? `${posLabel(transaction.failedStep)}: ` : ""}${transaction.failureMessage}`
     : transaction.postedOn
@@ -72,7 +74,18 @@ const SilaTransactionRow: React.FC<SilaTransactionRowProps> = ({ transaction, re
         )}
       </td>
       <td><span className={posStatusBadgeClass(transaction.status)}>{posLabel(transaction.status)}</span></td>
-      <td className="srec-message">{message}</td>
+      <td className="srec-message">
+        <button
+          type="button"
+          className="sila-btn sila-btn--ghost sila-btn--sm"
+          aria-label={`Messages for ${transaction.sourceTransactionId} line ${transaction.lineNumber}`}
+          onClick={() => setMessagesOpen((open) => !open)}
+        >
+          i
+        </button>
+        {messagesOpen && messages.map((line) => <span key={line} className="srec-sub">{line}</span>)}
+        {!messagesOpen && message}
+      </td>
       <td>
         {transaction.canReprocess ? (
           <button

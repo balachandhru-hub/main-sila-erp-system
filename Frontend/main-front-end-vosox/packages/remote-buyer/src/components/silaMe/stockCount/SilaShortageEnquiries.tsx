@@ -178,7 +178,10 @@ const SilaShortageEnquiries: React.FC<SilaShortageEnquiriesProps> = ({ canReview
                       {row.materialName}
                       <span className="sc-sub">{row.materialCode}</span>
                     </td>
-                    <td>{row.locationName || "—"}</td>
+                    <td>
+                      {row.locationName || "—"}
+                      {row.managerConfigured === false && <span className="sc-sub">MANAGER NOT CONFIGURED</span>}
+                    </td>
                     <td className="sila-num">{formatQty(row.shortageQty)} {row.uom}</td>
                     <td className="sila-num">{formatMoney(row.shortageValue)}</td>
                     <td>{categoryLabel(row.justificationCategory)}</td>

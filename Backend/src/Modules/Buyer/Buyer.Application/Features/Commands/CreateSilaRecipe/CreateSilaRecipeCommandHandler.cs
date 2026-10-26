@@ -30,7 +30,7 @@ namespace Buyer.Application.Features.Commands.CreateSilaRecipe
             _logger.LogInfo($"Creating recipe. OrganizationId: {request.OrganizationId}, UserId: {request.UserId}, Name: {request.Request?.Name}");
 
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
-            string recipeCode = await DocumentNumber.NextAsync(_repository, buyer.Id, DocumentNumber.RECIPE, 5, cancellationToken);
+            string recipeCode = await DocumentNumber.NextAsync(_repository, buyer.Id, DocumentNumber.RECIPE, 8, cancellationToken);
             Recipe recipe = new Recipe
             {
                 Id = Guid.NewGuid(),

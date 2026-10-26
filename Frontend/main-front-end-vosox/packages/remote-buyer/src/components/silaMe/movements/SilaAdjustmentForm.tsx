@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Modal, toastService } from "@vosox/shared-ui";
 import type { SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import { SILA_ADJUSTMENT_TYPES, createAdjustment } from "../../../api/silaMe/silaMovementsApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import MovementLinesEditor, { toLineWrites, validateLines, type MovementLine } from "./MovementLinesEditor";
 import { movementLabel } from "./movementFormat";
 
@@ -94,23 +95,15 @@ const SilaAdjustmentForm: React.FC<SilaAdjustmentFormProps> = ({ locations, onCl
             </select>
             {TYPE_HELP[type] && <span id="smov-adj-type-help" className="sila-help">{TYPE_HELP[type]}</span>}
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="smov-adj-location">Location<span className="sila-required">*</span></label>
-            <select
-              id="smov-adj-location"
-              className="sila-select"
-              value={locationId}
-              disabled={saving}
-              onChange={(event) => setLocationId(event.target.value)}
-            >
-              <option value="">Select the location</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.locationName} ({location.locationCode}){location.propertyName ? ` — ${location.propertyName}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            required
+            placeholder="Select the location"
+            value={locationId}
+            disabled={saving}
+            options={silaLocationOptions(locations)}
+            onChange={setLocationId}
+          />
           <div className="sila-field sila-field--full">
             <label className="sila-label" htmlFor="smov-adj-reason">
               Reason{!opening && <span className="sila-required">*</span>}

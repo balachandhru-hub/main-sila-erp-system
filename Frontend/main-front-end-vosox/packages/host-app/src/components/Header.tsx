@@ -1,6 +1,6 @@
 import React from 'react';
 import './Header.css';
-import sila_logo from '../../public/assets/SILA_Logo.png';
+import sila_logo from '../../../shared-ui/src/assets/sila-logo.png';
 
 const Header: React.FC = () => {
   return (

@@ -24,9 +24,19 @@ const InvoiceDocuments: React.FC<InvoiceDocumentsProps> = ({ onOpenInvoices }) =
 
   const openFile = async (invoice: SilaInvoice) => {
     setOpeningId(invoice.id);
+    const tab = window.open("", "_blank");
     try {
-      openBlob(await getInvoiceFile(invoice.id));
+      const blob = await getInvoiceFile(invoice.id);
+      const url = URL.createObjectURL(blob);
+      if (tab) {
+        tab.location.href = url;
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } else {
+        URL.revokeObjectURL(url);
+        openBlob(blob);
+      }
     } catch (err: unknown) {
+      tab?.close();
       toastService.error(err instanceof Error ? err.message : "Could not open the invoice file.");
     } finally {
       setOpeningId(null);

@@ -32,7 +32,7 @@ export interface CreateMasterApprovalFlowPayload {
 }
 
 /** Approval types resolved per scope by SILA ME (most specific flow wins: store/outlet, property, company code, all). */
-export const SCOPED_APPROVAL_TYPES = ['RECIPE', 'MATERIAL_PRICE'];
+export const SCOPED_APPROVAL_TYPES = ['RECIPE', 'MATERIAL_PRICE', 'ITO', 'INVENTORY'];
 
 export const APPROVAL_SCOPE_KINDS = ['ALL', 'PROPERTY', 'OUTLET', 'STORE', 'COMPANY_CODE'] as const;
 

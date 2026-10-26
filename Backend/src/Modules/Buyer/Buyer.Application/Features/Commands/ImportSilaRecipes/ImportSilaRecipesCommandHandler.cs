@@ -72,7 +72,7 @@ namespace Buyer.Application.Features.Commands.ImportSilaRecipes
                     {
                         Id = Guid.NewGuid(),
                         BuyerId = buyer.Id,
-                        RecipeCode = await DocumentNumber.NextAsync(_repository, buyer.Id, DocumentNumber.RECIPE, 5, cancellationToken),
+                        RecipeCode = await DocumentNumber.NextAsync(_repository, buyer.Id, DocumentNumber.RECIPE, 8, cancellationToken),
                         Status = Common.SILA_RECIPE_DRAFT,
                         Version = 1,
                         ActiveVersion = 0,

@@ -1,3 +1,4 @@
+using Buyer.Application.Features.Commands.PostPendingErpPostings;
 using Buyer.Application.Features.Shared;
 using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
@@ -18,11 +19,13 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
 
         private readonly IRepositoryWrapper _repository;
         private readonly ILoggerManager _logger;
+        private readonly IMediator _mediator;
 
-        public PostSilaGoodsReceiptCommandHandler(IRepositoryWrapper repository, ILoggerManager logger)
+        public PostSilaGoodsReceiptCommandHandler(IRepositoryWrapper repository, ILoggerManager logger, IMediator mediator)
         {
             _repository = repository;
             _logger = logger;
+            _mediator = mediator;
         }
 
         public Task<Guid> Handle(PostSilaGoodsReceiptCommand request, CancellationToken cancellationToken)
@@ -123,8 +126,9 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
             };
             _repository.GoodsReceipt.Create(receipt);
 
+            // Step 1: update SILA stock for inventory materials. Step 2 (S4) is queued only when inventory was accepted.
             InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
-            decimal totalAccepted = 0;
+            bool inventoryAccepted = false;
             foreach (SilaReceivingGrnLineWriteDto line in lines)
             {
                 PurchaseOrderItem poItem = poItemsById[line.PurchaseOrderItemId];
@@ -152,8 +156,7 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
                     IsActive = true
                 });
 
-                // Lines without an Item Master material are received on the purchase order but not stocked.
-                if (material != null && line.AcceptedQty > 0)
+                if (material != null && SilaMaterialRules.HoldsStock(material) && line.AcceptedQty > 0)
                 {
                     decimal baseQuantity = UomConverter.ToBase(_logger, material, line.AcceptedQty, poItem.UnitOfMeasure, conversions);
                     await ledger.PostAsync(new InventoryMovement
@@ -170,24 +173,25 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
                         ReferenceId = receipt.Id,
                         ReferenceNumber = receipt.GrnNumber
                     }, cancellationToken);
+                    inventoryAccepted = true;
                 }
 
                 poItem.ReceivedQuantity += line.AcceptedQty;
                 _repository.PurchaseOrderItem.Update(poItem);
-                totalAccepted += line.AcceptedQty;
             }
 
             purchaseOrder.Status = poItems.All(x => SilaReceivingRules.OpenQuantity(x) <= TOLERANCE)
                 ? Common.SILA_PO_RECEIVED
                 : Common.SILA_PO_PARTIALLY_RECEIVED;
 
-            // The ERP API is chosen by the purchase order's company code (else by the store's property, filled by the job).
             string? companyCode = string.IsNullOrWhiteSpace(purchaseOrder.CompanyCode) ? null : purchaseOrder.CompanyCode.Trim();
-            if (totalAccepted > 0)
+            Guid? grnPostingId = null;
+            if (inventoryAccepted)
             {
                 InventoryErpPosting posting = ledger.QueueErpPosting(Common.SILA_REF_GRN, receipt.Id, receipt.GrnNumber, location.Id, Common.SILA_MOVEMENT_GRN);
                 posting.CompanyCode = companyCode;
                 receipt.ErpPostingId = posting.Id;
+                grnPostingId = posting.Id;
             }
 
             if (invoice != null)
@@ -198,9 +202,8 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
                 invoice.SupplierId ??= purchaseOrder.SupplierId;
                 invoice.SupplierName ??= purchaseOrder.SupplierName;
 
-                // "Post the GRN and post the invoice at once": the invoice is queued for POST_INVOICE once; the job sends it
-                // after its goods receipts have reached the ERP.
-                if (invoice.ErpPostingId == null && totalAccepted > 0)
+                // Invoice follows its GRN to the ERP when a GRN posting was queued.
+                if (invoice.ErpPostingId == null && inventoryAccepted)
                 {
                     InventoryErpPosting invoicePosting = ledger.QueueErpPosting(
                         Common.SILA_REF_INVOICE, invoice.Id, invoice.InvoiceNumber ?? invoice.FileName, location.Id, Common.SILA_MOVEMENT_INVOICE);
@@ -212,7 +215,20 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
             ledger.AddEvent(Common.SILA_REF_GRN, receipt.Id, EVENT_POSTED, receipt.DeliveryNote);
             await _repository.SaveAsync();
 
-            _logger.LogInfo($"Goods receipt posted. GoodsReceiptId: {receipt.Id}, GrnNumber: {receipt.GrnNumber}, PurchaseOrderStatus: {purchaseOrder.Status}");
+            // Step 2: send this GRN to S4 now; a failure leaves FAILED/PENDING for Reprocess (stock already saved).
+            if (grnPostingId != null)
+            {
+                try
+                {
+                    await _mediator.Send(new PostPendingErpPostingsCommand { BuyerId = buyer.Id, PostingId = grnPostingId }, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    _logger.LogError($"Immediate GRN ERP post failed after stock update. GoodsReceiptId: {receipt.Id}, PostingId: {grnPostingId}, Error: {SilaLogText.Short(exception.Message)}");
+                }
+            }
+
+            _logger.LogInfo($"Goods receipt posted. GoodsReceiptId: {receipt.Id}, GrnNumber: {receipt.GrnNumber}, InventoryAccepted: {inventoryAccepted}, PurchaseOrderStatus: {purchaseOrder.Status}");
             return receipt.Id;
         }
 
@@ -248,7 +264,6 @@ namespace Buyer.Application.Features.Commands.PostSilaGoodsReceipt
             }
         }
 
-        // The invoice the goods came with, when given: it must belong to the buyer and to this purchase order.
         private async Task<Invoice?> GetInvoiceAsync(Guid? invoiceId, Guid buyerId, PurchaseOrder purchaseOrder)
         {
             if (invoiceId == null || invoiceId == Guid.Empty)

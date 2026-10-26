@@ -28,7 +28,10 @@ export const MyLocationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const value = useMemo<MyLocationState>(() => {
     const locations = data ?? [];
-    const location = locations.find((item) => item.id === chosenId) ?? locations[0] ?? null;
+    const location = locations.find((item) => item.id === chosenId)
+      ?? locations.find((item) => item.assigned)
+      ?? locations[0]
+      ?? null;
     return { locations, loading, error, reload, location, setLocationId };
   }, [data, loading, error, reload, chosenId, setLocationId]);
 

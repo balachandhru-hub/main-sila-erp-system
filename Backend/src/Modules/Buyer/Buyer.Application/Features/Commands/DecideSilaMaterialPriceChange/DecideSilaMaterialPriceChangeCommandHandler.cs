@@ -52,7 +52,7 @@ namespace Buyer.Application.Features.Commands.DecideSilaMaterialPriceChange
 
             ApprovalDecision decision = await SilaApprovals.DecideAsync(
                 _repository, _logger, Common.SILA_REF_MATERIAL_PRICE, change.Id, SilaMaterialPricing.APPROVAL_VERSION,
-                request.UserId, request.Approve, request.Comment, cancellationToken);
+                request.UserId, request.Approve, request.Comment, cancellationToken, SilaAccess.IsAdministrator(request.RoleId));
 
             if (decision.Outcome == SilaApprovals.OUTCOME_APPROVED)
             {

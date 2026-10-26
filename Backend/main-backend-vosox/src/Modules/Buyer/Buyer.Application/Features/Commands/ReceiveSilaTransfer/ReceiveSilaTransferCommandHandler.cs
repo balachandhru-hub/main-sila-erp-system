@@ -106,7 +106,6 @@ namespace Buyer.Application.Features.Commands.ReceiveSilaTransfer
             transfer.ReceivedBy = request.UserId;
             transfer.ReceivedOn = DateTime.UtcNow;
 
-            ledger.QueueErpPosting(Common.SILA_REF_ITO, transfer.Id, transfer.ItoNumber, transfer.ToLocationId, Common.SILA_MOVEMENT_TRANSFER);
             List<string> notes = new List<string>();
             if (!string.IsNullOrWhiteSpace(request.Request.Comment))
             {

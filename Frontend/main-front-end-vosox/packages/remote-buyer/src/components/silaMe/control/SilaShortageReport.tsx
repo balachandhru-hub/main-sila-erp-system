@@ -9,6 +9,7 @@ import {
 } from "../../../api/silaMe/silaControlApi";
 import { getLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import { SILA_JUSTIFICATION_CATEGORIES } from "../../../api/silaMe/silaStockCountApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import { formatMoney, scLabel } from "../stockCount/stockCountFormat";
 import { ShortageGroupTable, ShortageLinesTable } from "./ShortageLinesTable";
 import { PAGE_SIZE, categoryLabel, daysAgo } from "./controlFormat";
@@ -125,15 +126,13 @@ const SilaShortageReport: React.FC<SilaShortageReportProps> = ({ onOpenCount }) 
             <label className="sila-label" htmlFor="ssr-to">To</label>
             <input id="ssr-to" type="date" className="sila-input" value={draft.to ?? ""} onChange={(e) => setDraft({ ...draft, to: e.target.value })} />
           </div>
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="ssr-location">Location</label>
-            <select id="ssr-location" className="sila-select" value={draft.locationId ?? ""} onChange={(e) => setDraft({ ...draft, locationId: e.target.value })}>
-              <option value="">All locations</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>{location.locationName}</option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            placeholder="All locations"
+            value={draft.locationId ?? ""}
+            options={locations.map((location) => ({ value: location.id, label: location.locationName }))}
+            onChange={(locationId) => setDraft({ ...draft, locationId })}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="ssr-category">Justification</label>
             <select id="ssr-category" className="sila-select" value={draft.category ?? ""} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>

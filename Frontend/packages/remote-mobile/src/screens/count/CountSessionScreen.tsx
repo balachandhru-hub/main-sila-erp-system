@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getStockCount, type SilaStockCountItem } from '../../../../remote-buyer/src/api/silaMe/silaStockCountApi';
+import { approveStockCount, getStockCount, type SilaStockCountItem } from '../../../../remote-buyer/src/api/silaMe/silaStockCountApi';
 import { silaLabel } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
 import MaterialPicker, { materialUoms } from '../../components/MaterialPicker';
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
 import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../components/StateViews';
+import { useAccess } from '../../access';
 import { useGo } from '../../navigation';
-import { useLoad } from '../../useLoad';
+import { errorText, useLoad } from '../../useLoad';
 import BarcodeEntry from './BarcodeEntry';
+import CountPhotoIdentify from './CountPhotoIdentify';
 import CountCounters from './CountCounters';
 import CountLineForm, { type CountTarget } from './CountLineForm';
 import CountSheet from './CountSheet';
@@ -31,11 +33,30 @@ const toTarget = (item: SilaStockCountItem, method: CountTarget['method']): Coun
 const CountSessionScreen: React.FC = () => {
   const { stockCountId = '' } = useParams();
   const go = useGo();
+  const { can } = useAccess();
   const { data, loading, error, reload } = useLoad(() => getStockCount(stockCountId), stockCountId || null);
   const [target, setTarget] = useState<CountTarget | null>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState(false);
+  const [approving, setApproving] = useState(false);
 
+  const canApproveNow = Boolean(can.approveCount && data && (data.status === 'SUBMITTED' || data.status === 'ENQUIRY_PENDING'));
   const editable = data?.status === 'IN_PROGRESS';
+
+  const approve = async () => {
+    if (!data) return;
+    setApproving(true);
+    try {
+      await approveStockCount(data.id);
+      setConfirmApprove(false);
+      setNotice({ tone: 'success', text: 'Stock count approved. Variances were posted to inventory.' });
+      reload();
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not approve the stock count.') });
+    } finally {
+      setApproving(false);
+    }
+  };
   // A submitted count sent back for recount (same rule as the backend): only lines marked for recount are counted.
   const reopened = editable && Boolean(data?.submittedOn);
   const recountLeft = (data?.items ?? []).filter((item) => item.recountRequested).length;
@@ -111,6 +132,26 @@ const CountSessionScreen: React.FC = () => {
                   }
                 />
                 {!reopened && (
+                  <CountPhotoIdentify
+                    stockCountId={data.id}
+                    onConfirm={(candidate) => {
+                      const onSheet = data.items.find((item) => item.materialId === candidate.materialId);
+                      openTarget(
+                        onSheet
+                          ? toTarget(onSheet, 'PHOTO')
+                          : {
+                              itemId: null,
+                              materialId: candidate.materialId,
+                              materialCode: candidate.materialCode,
+                              materialName: candidate.materialName,
+                              uoms: [candidate.baseUom],
+                              method: 'PHOTO',
+                            },
+                      );
+                    }}
+                  />
+                )}
+                {!reopened && (
                   <MaterialPicker
                     label="Search material"
                     onPick={(material) => {
@@ -136,6 +177,25 @@ const CountSessionScreen: React.FC = () => {
             <CountSheet items={data.items} editable={editable} reopened={reopened} onOpen={(item) => openTarget(toTarget(item, 'MANUAL'))} />
 
             {editable && <CountSubmit count={data} onSubmitted={reload} />}
+            {canApproveNow && (
+              <section className="sm-section" aria-label="Approve count">
+                {confirmApprove ? (
+                  <div className="sm-notice sm-notice--warning" role="alertdialog" aria-label="Approve count">
+                    <p>Approving posts the variances to inventory. Open shortage enquiries still block approval.</p>
+                    <div className="sm-grid-2">
+                      <button type="button" className="sm-btn" disabled={approving} onClick={() => setConfirmApprove(false)}>Back</button>
+                      <button type="button" className="sm-btn sm-btn--primary" disabled={approving} onClick={approve}>
+                        {approving ? 'Approving…' : 'Approve count'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="sm-btn sm-btn--primary sm-btn--block" onClick={() => setConfirmApprove(true)}>
+                    Review and approve
+                  </button>
+                )}
+              </section>
+            )}
             <button type="button" className="sm-btn sm-btn--block" onClick={() => go('tasks')}>
               Shortage tasks
             </button>

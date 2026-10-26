@@ -7,6 +7,7 @@ using Buyer.Application.Features.Commands.UpdateSilaLocation;
 using Buyer.Application.Features.Commands.UpdateSilaMaterialInventory;
 using Buyer.Application.Features.Commands.UpsertSilaMaterialConversion;
 using Buyer.Application.Features.Queries.GetMySilaLocations;
+using Buyer.Application.Features.Queries.GetSilaApprovalSetups;
 using Buyer.Application.Features.Queries.GetSilaInventoryHome;
 using Buyer.Application.Features.Queries.GetSilaInventoryTransactions;
 using Buyer.Application.Features.Queries.GetSilaLiveInventory;
@@ -394,6 +395,19 @@ namespace Buyer.API.Controllers
                 LocationId = locationId
             });
             _logger.LogDebug($"Inventory home fetched. LocationId: {result.LocationId}");
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("api/v1/buyer/sila/approval-setups")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVENTORY")]
+        [SwaggerOperation("GetSilaApprovalSetups")]
+        [SwaggerResponse(200, type: typeof(List<SilaApprovalSetupDto>))]
+        public async Task<IActionResult> ApprovalSetups()
+        {
+            _logger.LogDebug("Fetching approval setups.");
+            List<SilaApprovalSetupDto> result = await _mediator.Send(new GetSilaApprovalSetupsQuery { OrganizationId = GetOrganizationId() });
+            _logger.LogDebug($"Approval setups fetched. Areas: {result.Count}");
             return Ok(result);
         }
 

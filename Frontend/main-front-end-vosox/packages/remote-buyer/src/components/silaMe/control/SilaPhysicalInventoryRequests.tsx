@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { PageHeader, toastService } from "@vosox/shared-ui";
 import { getPhysicalInventories, type SilaPhysicalInventory } from "../../../api/silaMe/silaControlApi";
 import { getLocations, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
+import SilaSearchableSelect from "../SilaSearchableSelect";
 import type { SilaPage } from "../../../api/silaMe/silaReceivingApi";
 import { formatDate } from "../../cart/lineFormat";
 import PagedListBody from "../receiving/PagedListBody";
@@ -72,13 +73,13 @@ const SilaPhysicalInventoryRequests: React.FC<SilaPhysicalInventoryRequestsProps
               </select>
             </div>
             <div className="sila-field sc-filter">
-              <label className="sila-label" htmlFor="spi-location-filter">Location</label>
-              <select id="spi-location-filter" className="sila-select" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-                <option value="">All locations</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>{location.locationName}</option>
-                ))}
-              </select>
+              <SilaSearchableSelect
+                label="Location"
+                placeholder="All locations"
+                value={locationId}
+                options={locations.map((location) => ({ value: location.id, label: location.locationName }))}
+                onChange={setLocationId}
+              />
             </div>
           </div>
         </div>

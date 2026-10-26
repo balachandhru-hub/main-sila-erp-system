@@ -3,6 +3,7 @@ using Buyer.Domain.Common;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using SharedKernel.ExceptionHandler;
 using SharedKernel.LoggerServices;
 
@@ -30,7 +31,28 @@ namespace Buyer.Application.Features.Commands.ApproveSilaTransfer
             BuyerBusinessProfile buyer = await SilaAccess.GetBuyerAsync(_repository, _logger, request.OrganizationId);
             InternalTransferOrder transfer = await SilaTransferRules.GetTransferAsync(_repository, _logger, buyer.Id, request.TransferId);
             SilaTransferRules.EnsureStatus(_logger, transfer, "approved", Common.SILA_ITO_PENDING_APPROVAL);
-            await SilaAccess.EnsureLocationAccessAsync(_repository, _logger, buyer.Id, request.UserId, request.RoleId, transfer.FromLocationId, cancellationToken);
+            bool chained = await _repository.SilaApprovalStep
+                .FindByCondition(x => x.ReferenceType == Common.SILA_REF_ITO && x.ReferenceId == transfer.Id && x.Version == 1 && x.IsActive)
+                .AnyAsync(cancellationToken);
+            if (chained)
+            {
+                await EnsureEitherLocationAsync(buyer.Id, request.UserId, request.RoleId, transfer, cancellationToken);
+                ApprovalDecision decision = await SilaApprovals.DecideAsync(
+                    _repository, _logger, Common.SILA_REF_ITO, transfer.Id, 1, request.UserId, true, request.Request.Comment, cancellationToken,
+                    SilaAccess.IsAdministrator(request.RoleId));
+                if (decision.Outcome == SilaApprovals.OUTCOME_PENDING)
+                {
+                    InventoryLedger waiting = new InventoryLedger(_repository, buyer.Id, request.UserId);
+                    waiting.AddEvent(Common.SILA_REF_ITO, transfer.Id, "APPROVAL_LEVEL", $"Level {decision.Level} approved.");
+                    await _repository.SaveAsync();
+                    _logger.LogInfo($"Transfer approval advanced. TransferId: {transfer.Id}, Level: {decision.Level}");
+                    return Unit.Value;
+                }
+            }
+            else
+            {
+                await SilaAccess.EnsureLocationAccessAsync(_repository, _logger, buyer.Id, request.UserId, request.RoleId, transfer.FromLocationId, cancellationToken);
+            }
 
             List<InternalTransferOrderItem> items = await SilaTransferRules.GetItemsAsync(_repository, transfer.Id, cancellationToken);
             Dictionary<Guid, decimal> quantities = SilaTransferRules.ReadQuantities(_logger, transfer, items, request.Request);
@@ -87,6 +109,16 @@ namespace Buyer.Application.Features.Commands.ApproveSilaTransfer
 
             _logger.LogInfo($"Transfer approved. TransferId: {transfer.Id}, ChangedLines: {changes.Count}");
             return Unit.Value;
+        }
+
+        private async Task EnsureEitherLocationAsync(Guid buyerId, Guid userId, Guid roleId, InternalTransferOrder transfer, CancellationToken cancellationToken)
+        {
+            List<Guid> mine = await SilaAccess.GetLocationIdsAsync(_repository, buyerId, userId, roleId, cancellationToken);
+            if (!mine.Contains(transfer.FromLocationId) && !mine.Contains(transfer.ToLocationId))
+            {
+                _logger.LogError($"User has no access to the transfer locations. TransferId: {transfer.Id}, UserId: {userId}");
+                throw new ForBiddenCustomException("No access to this transfer.", "Approve a transfer for a location you are assigned to.");
+            }
         }
     }
 }

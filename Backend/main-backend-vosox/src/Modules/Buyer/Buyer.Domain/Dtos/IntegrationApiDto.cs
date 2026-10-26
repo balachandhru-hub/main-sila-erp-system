@@ -1,3 +1,5 @@
+using SharedKernel.Integration.Enums;
+
 namespace Buyer.Domain.Dtos
 {
     /// <summary>
@@ -7,6 +9,7 @@ namespace Buyer.Domain.Dtos
     public class IntegrationApiDto
     {
         public bool Configured { get; set; }
+        public IntegrationProcessType? ProcessType { get; set; }
         public Guid? ConfigurationId { get; set; }
         public string? Name { get; set; }
         public string? SystemName { get; set; }

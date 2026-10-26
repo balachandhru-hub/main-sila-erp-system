@@ -1,7 +1,7 @@
 import React from "react";
 import type { SilaRecipeListItem } from "../../../api/silaMe/silaRecipeApi";
 import { formatDateTime } from "../../cart/lineFormat";
-import { approvalEvent, costPerServing, formatCost, formatQty, readinessStatusBadgeClass, readinessText, recipeBadgeClass, recipeLabel } from "./recipeFormat";
+import { approvalEvent, costPerServing, formatCost, formatPercent, formatQty, readinessStatusBadgeClass, readinessText, recipeBadgeClass, recipeLabel } from "./recipeFormat";
 
 interface SilaRecipeTableProps {
   rows: SilaRecipeListItem[];
@@ -15,8 +15,8 @@ interface SilaRecipeTableProps {
 const Incomplete: React.FC = () => <span className="sila-me-flag">Incomplete</span>;
 
 /**
- * Recipe master columns of the prototype: POS code, title, serving, recipe id, family, category, menu prices,
- * recipe cost and cost per serving (or INCOMPLETE), status and readiness.
+ * Recipe master columns: POS code, title, serving, recipe id, family, category, menu price,
+ * recipe cost, cost per serving, cost % and margin (or INCOMPLETE / NO MENU PRICE), status and readiness.
  */
 const SilaRecipeTable: React.FC<SilaRecipeTableProps> = ({ rows, onOpen, openLabel = "Open", showEvent = false }) => (
   <div className="sila-table-wrap">
@@ -37,6 +37,8 @@ const SilaRecipeTable: React.FC<SilaRecipeTableProps> = ({ rows, onOpen, openLab
           <th scope="col">Menu price</th>
           <th scope="col" className="srec-num">Recipe cost</th>
           <th scope="col" className="srec-num">Cost / serving</th>
+          <th scope="col" className="srec-num">Cost %</th>
+          <th scope="col" className="srec-num">Margin</th>
           <th scope="col">Status</th>
           <th scope="col">Readiness</th>
           <th scope="col">Updated</th>
@@ -70,7 +72,8 @@ const SilaRecipeTable: React.FC<SilaRecipeTableProps> = ({ rows, onOpen, openLab
             <td>{row.category || "—"}</td>
             <td>{recipeLabel(row.itemMode)}</td>
             <td>
-              {row.outletCount > 0 ? `${row.outletCount} outlet${row.outletCount === 1 ? "" : "s"}` : <span className="sila-me-flag">No menu price</span>}
+              {row.menuPrice == null ? <span className="sila-me-flag">No menu price</span> : formatCost(row.menuPrice, row.currency)}
+              {row.outletCount > 1 && <span className="srec-sub">{row.outletCount} outlets</span>}
             </td>
             <td className="srec-num">
               {row.costComplete || row.activeVersion > 0 ? formatCost(row.totalCost, row.currency) : <Incomplete />}
@@ -80,6 +83,12 @@ const SilaRecipeTable: React.FC<SilaRecipeTableProps> = ({ rows, onOpen, openLab
               {row.costComplete || row.activeVersion > 0
                 ? formatCost(row.costPerServing ?? costPerServing(row.totalCost, row.servingQty), row.currency)
                 : <Incomplete />}
+            </td>
+            <td className="srec-num">
+              {!row.costComplete ? <Incomplete /> : row.menuPrice == null ? <span className="sila-me-flag">No menu price</span> : formatPercent(row.costPercent)}
+            </td>
+            <td className="srec-num">
+              {!row.costComplete ? <Incomplete /> : row.menuPrice == null ? <span className="sila-me-flag">No menu price</span> : formatCost(row.marginAmount, row.currency)}
             </td>
             <td>
               <span className="srec-badges">

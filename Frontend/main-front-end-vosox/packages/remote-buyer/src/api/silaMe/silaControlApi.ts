@@ -101,11 +101,15 @@ export interface SilaShortageReportSend {
   ccEmails?: string[];
   subject?: string;
   message?: string;
+  /** PDF, EXCEL or BOTH. The email service sends the summary; files stay as downloads. */
+  attachment?: string;
 }
 
 export interface SilaShortageReportSendResult {
   recipients: number;
   sent: number;
+  deliveryStatus?: string;
+  note?: string | null;
 }
 
 export interface SilaShortageReport {

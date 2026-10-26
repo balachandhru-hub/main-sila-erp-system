@@ -35,9 +35,10 @@ namespace Buyer.Application.Features.Queries.GetLiveStock
         {
             _logger.LogInfo($"Reading live stock. OrganizationId: {request.OrganizationId}");
             StockInHandResponseDto result = new StockInHandResponseDto();
+            string stock = nameof(IntegrationProcessType.GET_STOCK);
             List<ApiIntegrationConfiguration> configurations = await _repository.ApiIntegrationConfiguration
                 .FindByCondition(x => IntegrationLookup.BuyerIdsOf(_repository, request.OrganizationId).Contains(x.BuyerId)
-                    && x.ProcessType == IntegrationProcessType.GET_STOCK
+                    && x.ProcessType == stock
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive)
                 .ToListAsync(cancellationToken);

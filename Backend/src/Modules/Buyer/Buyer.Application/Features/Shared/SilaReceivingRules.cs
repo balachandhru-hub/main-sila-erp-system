@@ -224,6 +224,7 @@ namespace Buyer.Application.Features.Shared
                 ErrorMessage = posting.ErrorMessage,
                 PostedOn = posting.PostedOn,
                 CompanyCode = posting.CompanyCode,
+                IntegrationSystem = posting.IntegrationSystem,
                 CreatedOn = posting.DateCreated
             };
         }
@@ -237,6 +238,12 @@ namespace Buyer.Application.Features.Shared
             List<Guid> purchaseOrderIds = receipts.Select(x => x.PurchaseOrderId).Distinct().ToList();
             List<Guid> invoiceIds = receipts.Where(x => x.InvoiceId != null).Select(x => x.InvoiceId!.Value).Distinct().ToList();
             List<Guid> postingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            List<string> reversalGrnNumbers = receipts
+                .Where(x => x.ParentGoodsReceiptId != null)
+                .Select(x => x.GrnNumber)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
 
             Dictionary<Guid, string> locations = await repository.InventoryLocation
                 .FindByCondition(x => locationIds.Contains(x.Id))
@@ -244,12 +251,27 @@ namespace Buyer.Application.Features.Shared
             Dictionary<Guid, string?> suppliers = await repository.PurchaseOrder
                 .FindByCondition(x => purchaseOrderIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, x => x.SupplierName, cancellationToken);
-            Dictionary<Guid, string?> invoices = await repository.Invoice
-                .FindByCondition(x => invoiceIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, x => x.InvoiceNumber, cancellationToken);
-            Dictionary<Guid, InventoryErpPosting> postings = await repository.InventoryErpPosting
-                .FindByCondition(x => postingIds.Contains(x.Id))
-                .ToDictionaryAsync(x => x.Id, cancellationToken);
+            List<Invoice> invoiceRows = invoiceIds.Count == 0
+                ? new List<Invoice>()
+                : await repository.Invoice.FindByCondition(x => invoiceIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            Dictionary<Guid, Invoice> invoices = invoiceRows.ToDictionary(x => x.Id);
+            List<Guid> invoicePostingIds = invoiceRows.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> invoicePostings = invoicePostingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => invoicePostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting
+                    .FindByCondition(x => postingIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            Dictionary<string, InventoryErpPosting> reversalPostings = reversalGrnNumbers.Count == 0
+                ? new Dictionary<string, InventoryErpPosting>(StringComparer.OrdinalIgnoreCase)
+                : (await repository.InventoryErpPosting
+                    .FindByCondition(x => x.ReferenceType == Common.SILA_REF_GRN_REVERSAL && x.IsActive
+                        && x.ReferenceNumber != null && reversalGrnNumbers.Contains(x.ReferenceNumber))
+                    .ToListAsync(cancellationToken))
+                    .GroupBy(x => x.ReferenceNumber!, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(x => x.Key, x => x.OrderByDescending(p => p.DateCreated).First(), StringComparer.OrdinalIgnoreCase);
             List<Guid> lineReceiptIds = await repository.GoodsReceiptItem
                 .FindByCondition(x => receiptIds.Contains(x.GoodsReceiptId) && x.IsActive)
                 .Select(x => x.GoodsReceiptId)
@@ -258,6 +280,10 @@ namespace Buyer.Application.Features.Shared
             return receipts.Select(receipt =>
             {
                 InventoryErpPosting? posting = receipt.ErpPostingId != null && postings.TryGetValue(receipt.ErpPostingId.Value, out InventoryErpPosting? found) ? found : null;
+                if (posting == null && receipt.ParentGoodsReceiptId != null)
+                {
+                    reversalPostings.TryGetValue(receipt.GrnNumber, out posting);
+                }
                 return new SilaReceivingGrnListItemDto
                 {
                     Id = receipt.Id,
@@ -268,13 +294,18 @@ namespace Buyer.Application.Features.Shared
                     LocationId = receipt.LocationId,
                     LocationName = locations.TryGetValue(receipt.LocationId, out string? location) ? location : null,
                     InvoiceId = receipt.InvoiceId,
-                    InvoiceNumber = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out string? number) ? number : null,
+                    InvoiceNumber = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? held) ? held.InvoiceNumber : null,
+                    InvoiceStatus = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? heldStatus) ? heldStatus.Status : null,
+                    InvoiceErpStatus = receipt.InvoiceId != null && invoices.TryGetValue(receipt.InvoiceId.Value, out Invoice? heldErp) && heldErp.ErpPostingId != null && invoicePostings.TryGetValue(heldErp.ErpPostingId.Value, out InventoryErpPosting? heldPosting) ? heldPosting.Status : null,
                     DeliveryNote = receipt.DeliveryNote,
                     Status = receipt.Status,
                     ReceivedOn = receipt.DateCreated,
                     LineCount = lineReceiptIds.Count(id => id == receipt.Id),
+                    ErpPostingId = receipt.ErpPostingId ?? posting?.Id,
                     ErpStatus = posting?.Status,
-                    ErpReference = posting?.ErpReference
+                    ErpReference = posting?.ErpReference ?? receipt.MaterialDocument,
+                    ReversalGrnNumber = receipt.ReversalGrnNumber,
+                    ParentGoodsReceiptId = receipt.ParentGoodsReceiptId
                 };
             }).ToList();
         }
@@ -292,12 +323,99 @@ namespace Buyer.Application.Features.Shared
                 .ToListAsync(cancellationToken);
             bool failed = invoice.Status == Common.SILA_INVOICE_OCR_FAILED;
             SilaOcrConfiguration settings = await SilaOcrSettings.GetAsync(repository, invoice.BuyerId, cancellationToken);
-            string? supplierCode = invoice.SilaSupplierId == null
-                ? null
-                : await repository.SilaSupplier.FindByCondition(x => x.Id == invoice.SilaSupplierId.Value).Select(x => x.SupplierCode).FirstOrDefaultAsync(cancellationToken);
+            string? supplierCode = null;
             InventoryErpPosting? posting = invoice.ErpPostingId == null
                 ? null
                 : await repository.InventoryErpPosting.FindByCondition(x => x.Id == invoice.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
+            if (SilaInvoicePosting.AlignInvoiceStatus(invoice, posting))
+            {
+                repository.Invoice.Update(invoice);
+                await repository.SaveAsync();
+            }
+            List<Guid> grnPostingIds = receipts.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> grnPostings = grnPostingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => grnPostingIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+            bool service = IsServiceInvoice(invoice);
+            bool GrnConfirmed(GoodsReceipt receipt)
+            {
+                if (receipt.ErpPostingId == null)
+                {
+                    return true;
+                }
+
+                return grnPostings.TryGetValue(receipt.ErpPostingId.Value, out InventoryErpPosting? row)
+                    && (row.Status is Common.SILA_POSTING_POSTED or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_FAILED_LOCAL
+                        || !string.IsNullOrWhiteSpace(row.ErpReference));
+            }
+
+            bool grnConfirmed = receipts.Count > 0 && receipts.All(GrnConfirmed);
+            bool postingOpen = posting != null && (posting.Status is Common.SILA_POSTING_PENDING or Common.SILA_POSTING_UNKNOWN
+                or Common.SILA_POSTING_ERP_ACCEPTED or Common.SILA_POSTING_POSTED or Common.SILA_POSTING_FAILED_LOCAL
+                || !string.IsNullOrWhiteSpace(posting.ErpReference));
+            List<SilaInvoiceDocumentDto> documents = new List<SilaInvoiceDocumentDto>();
+            if (!string.IsNullOrWhiteSpace(invoice.FileName))
+            {
+                documents.Add(new SilaInvoiceDocumentDto
+                {
+                    DocumentType = "Original Supplier Invoice",
+                    PoNumber = invoice.PoNumber,
+                    FileName = invoice.FileName,
+                    GeneratedOn = invoice.DateCreated
+                });
+            }
+
+            List<Guid> detailPoItemIds = items.Where(x => x.PurchaseOrderItemId != null).Select(x => x.PurchaseOrderItemId!.Value).Distinct().ToList();
+            List<PurchaseOrderItem> detailPoItems = detailPoItemIds.Count == 0
+                ? new List<PurchaseOrderItem>()
+                : await repository.PurchaseOrderItem.FindByCondition(x => detailPoItemIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            List<Guid> detailPoIds = detailPoItems.Select(x => x.PurchaseOrderId).ToList();
+            if (invoice.PurchaseOrderId != null)
+            {
+                detailPoIds.Add(invoice.PurchaseOrderId.Value);
+            }
+
+            detailPoIds = detailPoIds.Distinct().ToList();
+            List<PurchaseOrder> detailOrders = detailPoIds.Count == 0
+                ? new List<PurchaseOrder>()
+                : await repository.PurchaseOrder.FindByCondition(x => detailPoIds.Contains(x.Id)).ToListAsync(cancellationToken);
+            Guid? poSupplierId = invoice.PurchaseOrderId == null
+                ? null
+                : detailOrders.FirstOrDefault(x => x.Id == invoice.PurchaseOrderId)?.SupplierId;
+            supplierCode = await ErpSupplierCodeAsync(repository, poSupplierId, invoice.SupplierId, invoice.SilaSupplierId, cancellationToken);
+            string? blocked = await SilaInvoicePosting.LatestBlockAsync(repository, invoice.Id, cancellationToken);
+            string? erpMessage = invoice.Status == Common.SILA_INVOICE_GET_PO_FAILED
+                ? blocked ?? posting?.ErrorMessage
+                : posting?.ErrorMessage ?? blocked;
+            if (grnConfirmed && SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(erpMessage))
+            {
+                erpMessage = null;
+            }
+
+            if (erpMessage != null
+                && invoice.Status is Common.SILA_INVOICE_READY or Common.SILA_INVOICE_READY_TO_POST
+                && erpMessage.Contains("GET PO", StringComparison.OrdinalIgnoreCase))
+            {
+                erpMessage = null;
+            }
+            string paymentIntegration = await SilaInvoicePosting.PaymentIntegrationAsync(repository, invoice.BuyerId, cancellationToken);
+            bool supplierMatched = invoice.SilaSupplierId != null || invoice.SupplierId != null || !string.IsNullOrWhiteSpace(invoice.SupplierName);
+            InventoryErpPosting? attachment = await repository.InventoryErpPosting
+                .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.IsActive
+                    && x.ReferenceType == Common.SILA_REF_INVOICE_ATTACHMENT && x.ReferenceId == invoice.Id)
+                .OrderByDescending(x => x.DateCreated)
+                .FirstOrDefaultAsync(cancellationToken);
+            string attachmentFile = SilaInvoiceAttachment.FileNameOf(invoice.FileName, invoice.InvoiceNumber);
+            string? attachmentUrl = SilaInvoiceAttachment.DocumentUrl(
+                SilaOcrPolicy.AttachmentStorage(settings),
+                settings.SharePointSiteUrl,
+                settings.SharePointLibrary,
+                settings.SharePointFolder,
+                settings.AttachmentPath,
+                "https://sila-api.chervicaon.com",
+                invoice.Id,
+                attachmentFile);
+            SilaInvoiceAttachmentDto attachmentScreen = SilaInvoiceAttachment.Describe(posting, attachment, invoice, attachmentUrl);
 
             return new SilaInvoiceDetailDto
             {
@@ -310,6 +428,11 @@ namespace Buyer.Application.Features.Shared
                 GrossAmount = invoice.GrossAmount,
                 PurchaseOrderId = invoice.PurchaseOrderId,
                 PoNumber = invoice.PoNumber,
+                PurchaseOrders = detailOrders
+                    .OrderBy(x => x.Id == invoice.PurchaseOrderId ? 0 : 1)
+                    .ThenBy(x => x.PoNumber)
+                    .Select(x => new SilaInvoicePurchaseOrderDto { Id = x.Id, PoNumber = x.PoNumber })
+                    .ToList(),
                 FileName = invoice.FileName,
                 Status = invoice.Status,
 
@@ -328,20 +451,42 @@ namespace Buyer.Application.Features.Shared
                     UnitPrice = item.UnitPrice,
                     Amount = item.Amount,
                     PurchaseOrderItemId = item.PurchaseOrderItemId,
+                    PurchaseOrderId = item.PurchaseOrderItemId == null ? null : detailPoItems.FirstOrDefault(x => x.Id == item.PurchaseOrderItemId)?.PurchaseOrderId,
+                    PoNumber = item.PurchaseOrderItemId == null ? null : detailOrders.FirstOrDefault(x => x.Id == detailPoItems.FirstOrDefault(line => line.Id == item.PurchaseOrderItemId)?.PurchaseOrderId)?.PoNumber,
                     Uom = item.Uom,
                     SupplierMaterialCode = item.SupplierMaterialCode,
                     TaxRate = item.TaxRate,
-                    MatchStatus = item.MatchStatus ?? (item.PurchaseOrderItemId == null ? MATCH_UNMATCHED : MATCH_MATCHED)
+                    MatchStatus = item.MatchStatus ?? (item.PurchaseOrderItemId == null ? MATCH_UNMATCHED : MATCH_MATCHED),
+                    TaxCode = item.TaxCode,
+                    GlAccount = item.GlAccount,
+                    CostCenter = item.CostCenter,
+                    ProfitCenter = item.ProfitCenter,
+                    InternalOrder = item.InternalOrder,
+                    WbsElement = item.WbsElement,
+                    BusinessArea = item.BusinessArea,
+                    AssignmentReference = item.AssignmentReference,
+                    DebitCreditCode = item.DebitCreditCode,
+                    LineText = item.LineText,
+                    GoodsReceiptItemId = item.GoodsReceiptItemId
                 }).ToList(),
                 GoodsReceipts = await ToGrnListAsync(repository, receipts, cancellationToken),
                 SilaSupplierId = invoice.SilaSupplierId,
                 SupplierCode = supplierCode,
                 ErpPostingId = invoice.ErpPostingId,
-                ErpStatus = posting?.Status,
+                ErpStatus = grnConfirmed && SilaInvoiceGrnGate.IsGoodsReceiptNotPostedMessage(posting?.ErrorMessage)
+                    ? null
+                    : posting?.Status,
                 ErpReference = posting?.ErpReference,
-                ErpMessage = posting?.ErrorMessage,
+                FiscalYear = SilaInvoicePosting.ReadFiscalYear(posting?.ErpResponsePayload),
+                ErpMessage = erpMessage,
+                Attachment = attachmentScreen,
                 NeedsReview = invoice.Status == SilaOcrSettings.INVOICE_REVIEW_REQUIRED,
                 InvoiceType = invoice.InvoiceType,
+                CreationType = string.IsNullOrWhiteSpace(invoice.CreationType)
+                    ? (invoice.PurchaseOrderId == null && !string.IsNullOrWhiteSpace(invoice.CompanyCode) ? Common.SILA_INVOICE_CREATION_NON_PO : Common.SILA_INVOICE_CREATION_PO)
+                    : invoice.CreationType,
+                CompanyCode = invoice.CompanyCode ?? posting?.CompanyCode,
+                PropertyId = invoice.PropertyId,
                 NetAmount = invoice.NetAmount,
                 TaxAmount = invoice.TaxAmount,
                 SupplierTaxNumber = invoice.SupplierTaxNumber,
@@ -350,8 +495,60 @@ namespace Buyer.Application.Features.Shared
                 ReconciliationWarning = SilaOcrPolicy.FinancialReconciliation(settings)
                     ? SilaOcrPolicy.ReconciliationWarning(invoice.NetAmount, invoice.TaxAmount, invoice.GrossAmount, SilaOcrPolicy.AmountTolerance(settings))
                     : null,
-                ContentHash = invoice.ContentHash
+                ContentHash = invoice.ContentHash,
+                CanSubmitInvoice = SilaInvoiceLifecycle.CanSubmit(invoice.Status, service, grnConfirmed, postingOpen, SilaInvoiceLifecycle.AlreadyPosted(invoice.Status, posting?.ErpReference)),
+                PaymentStatus = invoice.Status is Common.SILA_INVOICE_AWAITING_PAYMENT or Common.SILA_INVOICE_PARTIALLY_PAID or Common.SILA_INVOICE_PAID or Common.SILA_INVOICE_OVERDUE
+                    ? invoice.Status
+                    : null,
+                PaymentIntegration = paymentIntegration,
+                OutstandingAmount = invoice.Status is Common.SILA_INVOICE_AWAITING_PAYMENT or Common.SILA_INVOICE_OVERDUE ? invoice.GrossAmount
+                    : invoice.Status == Common.SILA_INVOICE_PAID ? 0 : null,
+                Documents = documents,
+                PostingData = SilaInvoicePostingData.ForScreen(invoice, items),
+                Timeline = SilaInvoiceLifecycle.Timeline(
+                    invoice.Status,
+                    supplierMatched,
+                    invoice.PurchaseOrderId != null,
+                    !service,
+                    receipts.Count > 0,
+                    grnConfirmed,
+                    posting?.Status,
+                    attachment?.Status),
+                DocumentTrack = await SilaDocumentTrack.ForInvoiceAsync(repository, invoice.BuyerId, invoice, cancellationToken),
+                CreditMemos = await CreditMemosOfInvoiceAsync(repository, invoice, cancellationToken)
             };
+        }
+
+        private static async Task<List<SilaCreditMemoListItemDto>> CreditMemosOfInvoiceAsync(
+            IRepositoryWrapper repository, Invoice invoice, CancellationToken cancellationToken)
+        {
+            List<CreditMemo> memos = await repository.CreditMemo
+                .FindByCondition(x => x.BuyerId == invoice.BuyerId && x.IsActive && x.ReferenceInvoiceId == invoice.Id)
+                .OrderByDescending(x => x.DateCreated)
+                .ToListAsync(cancellationToken);
+            List<Guid> postingIds = memos.Where(x => x.ErpPostingId != null).Select(x => x.ErpPostingId!.Value).ToList();
+            Dictionary<Guid, InventoryErpPosting> postings = postingIds.Count == 0
+                ? new Dictionary<Guid, InventoryErpPosting>()
+                : await repository.InventoryErpPosting.FindByCondition(x => postingIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, cancellationToken);
+            return memos.Select(memo =>
+            {
+                InventoryErpPosting? posting = memo.ErpPostingId != null && postings.TryGetValue(memo.ErpPostingId.Value, out InventoryErpPosting? row) ? row : null;
+                return new SilaCreditMemoListItemDto
+                {
+                    Id = memo.Id,
+                    CreditMemoNumber = memo.CreditMemoNumber,
+                    ReferenceInvoiceId = memo.ReferenceInvoiceId,
+                    ReferenceSupplierInvoiceNumber = memo.ReferenceSupplierInvoiceNumber,
+                    ReferenceErpInvoiceId = memo.ReferenceErpInvoiceId,
+                    Status = memo.Status,
+                    GrossAmount = memo.GrossAmount,
+                    Currency = memo.Currency,
+                    CreatedOn = memo.DateCreated,
+                    ErpReference = posting?.ErpReference,
+                    FiscalYear = SilaCreditMemoPosting.ReadFiscalYear(posting?.ErpResponsePayload)
+                };
+            }).ToList();
         }
 
         /// <summary>Soft-deletes the active lines of the invoice, before they are replaced.</summary>
@@ -365,6 +562,51 @@ namespace Buyer.Application.Features.Shared
                 item.IsActive = false;
                 repository.InvoiceItem.Update(item);
             }
+        }
+
+        /// <summary>An ERP supplier number. A system id is not a supplier number.</summary>
+        public static string? ErpCode(string? code)
+        {
+            string? text = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+            return text != null && Guid.TryParse(text, out _) ? null : text;
+        }
+
+        /// <summary>The ERP supplier number, preferring the purchase order's supplier over a matched row whose code is a system id.</summary>
+        public static async Task<string?> ErpSupplierCodeAsync(
+            IRepositoryWrapper repository,
+            Guid? purchaseOrderSupplierId,
+            Guid? invoiceSupplierId,
+            Guid? silaSupplierId,
+            CancellationToken cancellationToken)
+        {
+            List<Guid> ids = new[] { purchaseOrderSupplierId, invoiceSupplierId, silaSupplierId }
+                .Where(x => x != null && x != Guid.Empty)
+                .Select(x => x!.Value)
+                .Distinct()
+                .ToList();
+            if (ids.Count == 0)
+            {
+                return null;
+            }
+
+            List<SilaSupplier> suppliers = await repository.SilaSupplier
+                .FindByCondition(x => ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+            foreach (Guid? id in new[] { purchaseOrderSupplierId, invoiceSupplierId, silaSupplierId })
+            {
+                if (id == null)
+                {
+                    continue;
+                }
+
+                string? code = ErpCode(suppliers.FirstOrDefault(x => x.Id == id)?.SupplierCode);
+                if (code != null)
+                {
+                    return code;
+                }
+            }
+
+            return null;
         }
     }
 }

@@ -1,4 +1,5 @@
 using Buyer.Application.Features.Shared;
+using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
@@ -108,6 +109,15 @@ namespace Buyer.Application.Features.Commands.CountSilaStockCountItem
             }
 
             SilaStockCountRules.ApplyCount(item, countedQty, SilaStockCountRules.NormalizeMethod(request.Request.Method), request.UserId);
+            string openText = request.Request.OpenQty is > 0
+                ? $" + {request.Request.OpenQty:0.####} {request.Request.OpenUom}"
+                : string.Empty;
+            InventoryLedger ledger = new InventoryLedger(_repository, buyer.Id, request.UserId);
+            ledger.AddEvent(
+                Common.SILA_REF_STOCK_COUNT,
+                count.Id,
+                "COUNTED",
+                $"{item.MaterialCode}: {request.Request.FullQty:0.####} {request.Request.FullUom}{openText} = {item.CountedQty:0.####} {item.BaseUom}. Inventory was not changed.");
             await _repository.SaveAsync();
 
             bool canSee = SilaStockCountRules.CanSeeSystemQty(count, request.RoleId);

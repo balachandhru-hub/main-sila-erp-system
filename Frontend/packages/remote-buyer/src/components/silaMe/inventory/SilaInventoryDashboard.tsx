@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { BarList, ChartCard, EmptyState, KpiCard, Loader, PageHeader } from "@vosox/shared-ui";
+import { BarList, Card, ChartCard, EmptyState, KpiCard, Loader, PageHeader } from "@vosox/shared-ui";
 import { formatQty, getMyLocations, silaLabel, type SilaLocation } from "../../../api/silaMe/silaInventoryApi";
 import {
   getInventoryDashboard,
   type SilaDashboardFilter,
   type SilaInventoryDashboard as Dashboard,
 } from "../../../api/silaMe/silaInventoryControlApi";
+import SilaSearchableSelect, { silaLocationOptions } from "../SilaSearchableSelect";
 import SilaDashboardActions from "./SilaDashboardActions";
 import SilaDashboardReplenishment from "./SilaDashboardReplenishment";
 import SilaDashboardSearch, { type SilaDashboardTarget } from "./SilaDashboardSearch";
 import SilaStockHealthCard from "./SilaStockHealthCard";
+import "../../purchasing/Purchasing.css";
 import "../silaMeTheme.css";
 import "./SilaInventory.css";
 
@@ -78,32 +80,22 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
   const kpiValue = (key: string, value: string | number) => (note(key)?.configured === false ? "Not configured" : value);
 
   return (
-    <div className="sila-me sinv-page">
+    <div className="pdash-page">
       <PageHeader
-        className="pud-page-header"
         title="Inventory Control Center"
         description="Real-time stock visibility, replenishment, transfers and inventory exceptions."
         actions={onNavigate ? <SilaDashboardSearch onNavigate={onNavigate} canTransfer={canTransfer} /> : undefined}
       />
 
-      <section className="sila-card">
+      <Card title="Filters" flush>
         <div className="sinv-filters">
-          <div className="sila-field">
-            <label className="sila-label" htmlFor="sinv-dash-location">Location</label>
-            <select
-              id="sinv-dash-location"
-              className="sila-select"
-              value={filter.locationId ?? ""}
-              onChange={(event) => setFilter((current) => ({ ...current, locationId: event.target.value || undefined }))}
-            >
-              <option value="">All my locations</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.locationName} ({location.locationCode}){location.locationType === "VENUE" ? " · venue" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SilaSearchableSelect
+            label="Location"
+            placeholder="All my locations"
+            value={filter.locationId ?? ""}
+            options={silaLocationOptions(locations)}
+            onChange={(locationId) => setFilter((current) => ({ ...current, locationId: locationId || undefined }))}
+          />
           <div className="sila-field">
             <label className="sila-label" htmlFor="sinv-dash-date">Business date</label>
             <input
@@ -150,7 +142,7 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
             Refresh
           </button>
         </div>
-      </section>
+      </Card>
 
       {loading && !dashboard ? (
         <Loader size={24} message="Loading the dashboard..." />
@@ -163,7 +155,7 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
         />
       ) : !dashboard ? null : (
         <>
-          <div className="sila-kpi-grid">
+          <div className="pdash-kpis">
             <KpiCard label="Stock value" value={kpiValue("STOCK_VALUE", money(dashboard.kpis.stockValue, currency))} meta={note("STOCK_VALUE")?.note} tone="primary" />
             <KpiCard
               label="Low stock"
@@ -193,12 +185,9 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
             />
           </div>
 
-          <div className="sila-dash-grid">
-            <div className="sila-span-6">
-              <SilaStockHealthCard health={dashboard.health} month={dashboard.month} />
-            </div>
-            <div className="sila-span-6">
-              <ChartCard
+          <div className="pdash-panels">
+            <SilaStockHealthCard health={dashboard.health} month={dashboard.month} />
+            <ChartCard
                 title="Transfer Center"
                 empty={dashboard.transferStages.every((stage) => stage.count === 0)}
                 emptyText="No transfers currently in transit."
@@ -208,7 +197,6 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
                   items={dashboard.transferStages.map((stage) => ({ key: stage.status, label: stage.label || silaLabel(stage.status), value: stage.count }))}
                 />
               </ChartCard>
-            </div>
           </div>
 
           <SilaDashboardActions actions={dashboard.actions} canRequestPurchase={canRequestPurchase} canTransfer={canTransfer} onChanged={reload} />
@@ -219,8 +207,7 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
             onChanged={reload}
           />
 
-          <div className="sila-dash-grid">
-            <div className="sila-span-6">
+          <div className="pdash-panels">
               <ChartCard
                 title="Inventory Movement Today"
                 empty={dashboard.movementToday.every((bucket) => bucket.count === 0)}
@@ -242,8 +229,6 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
                   }))}
                 />
               </ChartCard>
-            </div>
-            <div className="sila-span-6">
               <ChartCard
                 title="Inventory by Location"
                 empty={dashboard.valueByLocation.length === 0}
@@ -259,8 +244,8 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
                   }))}
                 />
               </ChartCard>
-            </div>
-            <div className="sila-span-12">
+          </div>
+          <div className="pdash-panels">
               <ChartCard
                 title="Top Consumption"
                 subtitle="Last 7 days"
@@ -277,7 +262,6 @@ const SilaInventoryDashboard: React.FC<SilaInventoryDashboardProps> = ({ canTran
                   }))}
                 />
               </ChartCard>
-            </div>
           </div>
         </>
       )}

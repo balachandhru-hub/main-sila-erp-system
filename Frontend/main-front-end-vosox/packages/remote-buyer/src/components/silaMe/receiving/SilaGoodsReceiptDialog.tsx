@@ -1,18 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { EmptyState, Loader, Modal } from "@vosox/shared-ui";
-import { getGoodsReceipt, type SilaGoodsReceiptDetail } from "../../../api/silaMe/silaReceivingApi";
+import { EmptyState, Loader, Modal, toastService } from "@vosox/shared-ui";
+import { getGoodsReceipt, reprocessErpPosting, type SilaGoodsReceiptDetail } from "../../../api/silaMe/silaReceivingApi";
 import { formatDateTime } from "../../cart/lineFormat";
 import { formatQtyUom, receivingBadgeClass, receivingLabel } from "./receivingFormat";
 
 interface SilaGoodsReceiptDialogProps {
   goodsReceiptId: string;
+  canReprocess?: boolean;
   onClose: () => void;
+  onChanged?: () => void;
 }
 
-/** A goods receipt with its lines and the status of its ERP posting. */
-const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsReceiptId, onClose }) => {
+/** A goods receipt with its lines, step 1 stock / step 2 S4 status, and reprocess for failed ERP posts. */
+const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsReceiptId, canReprocess = false, onClose, onChanged }) => {
   const [receipt, setReceipt] = useState<SilaGoodsReceiptDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reprocessing, setReprocessing] = useState(false);
+
+  const load = () => {
+    setError(null);
+    getGoodsReceipt(goodsReceiptId)
+      .then(setReceipt)
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Could not load the goods receipt.");
+      });
+  };
 
   useEffect(() => {
     let active = true;
@@ -29,6 +41,23 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
   }, [goodsReceiptId]);
 
   const posting = receipt?.erpPosting;
+  const stockedLines = receipt?.items.filter((item) => item.stocked && item.acceptedQty > 0).length ?? 0;
+  const canSendAgain = canReprocess && posting != null && (posting.status === "FAILED" || posting.status === "SKIPPED");
+
+  const handleReprocess = async () => {
+    if (!posting) return;
+    setReprocessing(true);
+    try {
+      await reprocessErpPosting(posting.id);
+      toastService.success(`${receipt?.grnNumber ?? "GRN"} sent to S4 again.`);
+      load();
+      onChanged?.();
+    } catch (err: unknown) {
+      toastService.error(err instanceof Error ? err.message : "Could not reprocess the posting.");
+    } finally {
+      setReprocessing(false);
+    }
+  };
 
   return (
     <Modal
@@ -36,7 +65,12 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
       onClose={onClose}
       size="xl"
       headerProps={{ heading: receipt ? `Goods receipt ${receipt.grnNumber}` : "Goods receipt" }}
-      footerProps={{ secondaryButton: { text: "Close", onClick: onClose } }}
+      footerProps={{
+        secondaryButton: { text: "Close", onClick: onClose },
+        primaryButton: canSendAgain
+          ? { text: "Reprocess S4", onClick: handleReprocess, loading: reprocessing, disabled: reprocessing }
+          : undefined,
+      }}
     >
       <div className="sila-root sila-me srcv-dialog">
         {error ? (
@@ -45,6 +79,27 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
           <Loader size={24} message="Loading goods receipt..." />
         ) : (
           <>
+            <h3 className="sila-section-title">Posting steps</h3>
+            <dl className="srcv-facts">
+              <div>
+                <dt>Step 1 — Internal stock</dt>
+                <dd>
+                  {stockedLines > 0
+                    ? `Updated (${stockedLines} inventory line${stockedLines === 1 ? "" : "s"})`
+                    : "No inventory materials — stock not changed"}
+                </dd>
+              </div>
+              <div>
+                <dt>Step 2 — S4 ERP</dt>
+                <dd>
+                  {posting ? (
+                    <span className={receivingBadgeClass(posting.status)}>{receivingLabel(posting.status)}</span>
+                  ) : (
+                    "Not required (no inventory lines)"
+                  )}
+                </dd>
+              </div>
+            </dl>
             <h3 className="sila-section-title">Receipt details</h3>
             <dl className="srcv-facts">
               <div><dt>Purchase order</dt><dd>{receipt.poNumber}</dd></div>
@@ -56,7 +111,7 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
               <div><dt>Status</dt><dd><span className={receivingBadgeClass(receipt.status)}>{receivingLabel(receipt.status)}</span></dd></div>
             </dl>
             <h3 className="sila-section-title">Received lines</h3>
-            <p className="srcv-sub">Receipt quantities are never inferred from invoice quantities.</p>
+            <p className="srcv-sub">Receipt quantities are never inferred from invoice quantities. Inventory lines update stock and post to S4.</p>
             {receipt.items.length === 0 ? (
               <EmptyState title="No receipt lines" description="This receipt has no recorded quantities." />
             ) : (
@@ -111,7 +166,7 @@ const SilaGoodsReceiptDialog: React.FC<SilaGoodsReceiptDialogProps> = ({ goodsRe
                 <div><dt>Posted at</dt><dd>{posting.postedOn ? formatDateTime(posting.postedOn) : "—"}</dd></div>
               </dl>
             ) : (
-              <p className="srcv-sub">Not posted (nothing accepted).</p>
+              <p className="srcv-sub">Not posted to S4 (no inventory materials accepted).</p>
             )}
             {posting?.errorMessage && (
               <div className={posting.status === "FAILED" ? "sila-alert sila-alert--danger" : "sila-alert sila-alert--warning"} role="status">

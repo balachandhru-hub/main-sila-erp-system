@@ -97,6 +97,12 @@ namespace Buyer.Application.Features.Shared
                 IsActive = true
             }).ToList();
             repository.SilaApprovalStep.CreateRange(steps);
+            SilaApprovalStep? current = steps.OrderBy(x => x.Order).FirstOrDefault();
+            if (current != null)
+            {
+                await SilaOperations.OnApprovalStepAsync(repository, current, approvalType, cancellationToken);
+            }
+
             return steps;
         }
 
@@ -113,7 +119,8 @@ namespace Buyer.Application.Features.Shared
             Guid userId,
             bool approve,
             string? comment,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool administrator = false)
         {
             List<SilaApprovalStep> steps = await repository.SilaApprovalStep
                 .FindByCondition(x => x.ReferenceType == referenceType && x.ReferenceId == referenceId && x.Version == version && x.IsActive)
@@ -126,7 +133,7 @@ namespace Buyer.Application.Features.Shared
                 throw new BadRequestCustomException("Nothing is waiting for approval.", "This version has no pending approval.");
             }
 
-            if (current.UserId != userId)
+            if (current.UserId != userId && !administrator)
             {
                 bool laterLevel = steps.Any(x => x.UserId == userId && x.Status == Common.SILA_APPROVAL_PENDING);
                 logger.LogError($"Not the user's turn. ReferenceId: {referenceId}, UserId: {userId}, CurrentLevel: {current.Order}");
@@ -148,6 +155,7 @@ namespace Buyer.Application.Features.Shared
             current.Comment = comment?.Trim();
             current.ActedOn = DateTime.UtcNow;
             repository.SilaApprovalStep.Update(current);
+            await SilaOperations.CompleteApprovalStepAsync(repository, current, userId, cancellationToken);
 
             if (!approve)
             {
@@ -155,19 +163,49 @@ namespace Buyer.Application.Features.Shared
                 foreach (SilaApprovalStep step in remaining)
                 {
                     step.Status = STEP_CANCELLED;
+                    await SilaOperations.CompleteApprovalStepAsync(repository, step, userId, cancellationToken);
                 }
 
                 repository.SilaApprovalStep.UpdateRange(remaining);
                 return new ApprovalDecision { Outcome = OUTCOME_REJECTED, Level = current.Order };
             }
 
+            // ponytail: the buyer administrator closes every remaining level in one decision.
+            if (administrator)
+            {
+                List<SilaApprovalStep> rest = steps.Where(x => x.Id != current.Id && x.Status == Common.SILA_APPROVAL_PENDING).ToList();
+                foreach (SilaApprovalStep step in rest)
+                {
+                    step.Status = Common.SILA_APPROVAL_APPROVED;
+                    step.ActedOn = DateTime.UtcNow;
+                    step.Comment = comment?.Trim();
+                    await SilaOperations.CompleteApprovalStepAsync(repository, step, userId, cancellationToken);
+                }
+
+                if (rest.Count > 0)
+                {
+                    repository.SilaApprovalStep.UpdateRange(rest);
+                }
+
+                return new ApprovalDecision { Outcome = OUTCOME_APPROVED, Level = current.Order };
+            }
+
             bool last = steps.All(x => x.Id == current.Id || x.Status == Common.SILA_APPROVAL_APPROVED);
+            if (!last)
+            {
+                SilaApprovalStep? next = steps.Where(x => x.Status == Common.SILA_APPROVAL_PENDING).OrderBy(x => x.Order).FirstOrDefault();
+                if (next != null)
+                {
+                    await SilaOperations.OnApprovalStepAsync(repository, next, next.ApprovalType, cancellationToken);
+                }
+            }
+
             return new ApprovalDecision { Outcome = last ? OUTCOME_APPROVED : OUTCOME_PENDING, Level = current.Order };
         }
 
         /// <summary>Ids of the documents of the type whose current pending level is the user's.</summary>
         public static async Task<List<Guid>> PendingForUserAsync(
-            IRepositoryWrapper repository, Guid buyerId, string referenceType, Guid userId, CancellationToken cancellationToken)
+            IRepositoryWrapper repository, Guid buyerId, string referenceType, Guid userId, CancellationToken cancellationToken, bool administrator = false)
         {
             List<SilaApprovalStep> pending = await repository.SilaApprovalStep
                 .FindByCondition(x => x.BuyerId == buyerId && x.ReferenceType == referenceType && x.IsActive && x.Status == Common.SILA_APPROVAL_PENDING)
@@ -175,7 +213,7 @@ namespace Buyer.Application.Features.Shared
             return pending
                 .GroupBy(x => new { x.ReferenceId, x.Version })
                 .Select(group => group.OrderBy(x => x.Order).First())
-                .Where(x => x.UserId == userId)
+                .Where(x => administrator || x.UserId == userId)
                 .Select(x => x.ReferenceId)
                 .Distinct()
                 .ToList();

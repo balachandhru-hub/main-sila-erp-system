@@ -51,9 +51,10 @@ namespace Supplier.Application.Features.Commands.SendSalesOrderToSupplierErp
                 throw new NotFoundCustomException("Supplier not found.", "No supplier exists for this purchase order.");
             }
 
+            string salesOrder = nameof(IntegrationProcessType.POST_SALES_ORDER);
             ApiIntegrationConfiguration? configuration = await _repository.ApiIntegrationConfiguration.FindFirstByConditionAsync(
                 x => x.OrganizationId == supplier.OrganizationId
-                    && x.ProcessType == IntegrationProcessType.POST_SALES_ORDER
+                    && x.ProcessType == salesOrder
                     && x.Status == IntegrationConfigurationStatus.ACTIVE
                     && x.IsActive);
             if (configuration == null)

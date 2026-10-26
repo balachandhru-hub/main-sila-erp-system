@@ -59,7 +59,7 @@ export const login = async (userName: string, password: string) => {
 
 export const getTokenClaims = async (skipRefresh = false) => {
     try {
-        const response = await axiosInstance.get('api/v1/identity/token-claim', {
+        const response = await axiosInstance.get('/api/v1/identity/token-claim', {
             ...({ _skipRefresh: skipRefresh } as any)
         });
         return response.data;

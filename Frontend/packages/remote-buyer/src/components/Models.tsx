@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaArrowRight, FaCube, FaChevronDown, FaChevronUp, FaBoxes, FaUtensils, FaTruck, FaShieldAlt, FaCogs, FaCheckCircle } from 'react-icons/fa';
+import { FaArrowRight, FaCube, FaChevronDown, FaChevronUp, FaBoxes, FaUtensils, FaTruck, FaShieldAlt, FaCogs, FaCheckCircle, FaHome } from 'react-icons/fa';
 import { getMyOrganizationModels } from '../api/modelApi';
 import type { ModelDto } from '../api/modelApi';
 import { EmptyState, Loader, isErrorResponse } from '@vosox/shared-ui';
@@ -14,6 +14,7 @@ interface ModelsProps {
 }
 
 const SECTION_ICONS: Record<string, React.ReactNode> = {
+  "Home": <FaHome />,
   "Inventory": <FaBoxes />,
   "Recipe Management": <FaUtensils />,
   "Receiving": <FaTruck />,
@@ -60,6 +61,10 @@ const Models: React.FC<ModelsProps> = ({ silaMeRole, onNavigate, onOpenModel }) 
   };
 
   const handleOpen = (model: ModelDto) => {
+    if (model.key === SILA_ME_MODEL_KEY && onNavigate) {
+      onNavigate("silaDashboard");
+      return;
+    }
     if (onOpenModel?.(model)) return;
     window.alert(`"${model.modelName}" is not available to launch yet. Please check back soon.`);
   };
@@ -143,7 +148,7 @@ const Models: React.FC<ModelsProps> = ({ silaMeRole, onNavigate, onOpenModel }) 
                               <span className="models-section-label">{group.label}</span>
                             </div>
                             <div className="models-feature-chips">
-                              {group.items.map((item) => (
+                              {group.items.flatMap((item) => ("items" in item ? item.items : [item])).map((item) => (
                                 <button
                                   type="button"
                                   key={item.key}

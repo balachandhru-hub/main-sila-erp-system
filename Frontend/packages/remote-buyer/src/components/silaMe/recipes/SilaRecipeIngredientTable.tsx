@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import type { SilaRecipeMode } from "../../../api/silaMe/silaRecipeApi";
 import type { IngredientLine, IngredientMaterial, LineCost } from "./recipeEditorModel";
-import { conversionSummary, formatCost, formatQty, materialUoms, priceStatusBadgeClass, priceStatusLabel, unitPriceText } from "./recipeFormat";
+import { canonicalUom, conversionSummary, formatCost, formatQty, materialUoms, priceStatusBadgeClass, priceStatusLabel, unitPriceText } from "./recipeFormat";
 
 interface SilaRecipeIngredientTableProps {
   lines: IngredientLine[];
@@ -14,6 +14,8 @@ interface SilaRecipeIngredientTableProps {
   onRemove: (key: string) => void;
   /** Opens the material price panel; absent when the user may not request prices. */
   onUpdatePrice?: (material: IngredientMaterial) => void;
+  /** Saves 1 base unit = factor recipe units, e.g. 1 BTL = 750 ML. */
+  onSaveConversion?: (material: IngredientMaterial, fromUom: string, toUom: string, factor: number) => Promise<void>;
 }
 
 /** The ingredient grid (prototype columns): recipe qty/UOM, base UOM, pack, unit and price UOM, price status, inventory consumption, cost and cost %. */
@@ -26,8 +28,11 @@ const SilaRecipeIngredientTable: React.FC<SilaRecipeIngredientTableProps> = ({
   onChange,
   onRemove,
   onUpdatePrice,
+  onSaveConversion,
 }) => {
   const direct = mode === "DIRECT";
+  const [factors, setFactors] = useState<Record<string, string>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
   return (
     <div className="sila-table-wrap">
       <table className="sila-table">
@@ -91,7 +96,39 @@ const SilaRecipeIngredientTable: React.FC<SilaRecipeIngredientTableProps> = ({
                   )}
                 </td>
                 <td>{cost.baseUom || "—"}</td>
-                <td className="srec-message">{line.material ? conversionSummary(line.material) : `Per serving (${cost.baseUom})`}</td>
+                <td className="srec-message">
+                  {line.material ? conversionSummary(line.material) : `Per serving (${cost.baseUom})`}
+                  {line.material && cost.baseQuantity == null && canonicalUom(line.uom) !== cost.baseUom && onSaveConversion && (
+                    <span className="srec-conversion">
+                      <span>1 {cost.baseUom} =</span>
+                      <input
+                        className="sila-input srec-cell-input"
+                        type="number"
+                        min="0"
+                        step="any"
+                        aria-label={`How many ${canonicalUom(line.uom)} in one ${cost.baseUom}`}
+                        placeholder="750"
+                        value={factors[line.key] ?? ""}
+                        onChange={(e) => setFactors((current) => ({ ...current, [line.key]: e.target.value }))}
+                      />
+                      <span>{canonicalUom(line.uom)}</span>
+                      <button
+                        type="button"
+                        className="sila-btn sila-btn--secondary sila-btn--sm"
+                        disabled={savingKey === line.key}
+                        onClick={() => {
+                          const factor = Number(factors[line.key]);
+                          if (!(factor > 0) || !line.material) return;
+                          setSavingKey(line.key);
+                          onSaveConversion(line.material, cost.baseUom, canonicalUom(line.uom), factor)
+                            .finally(() => setSavingKey(null));
+                        }}
+                      >
+                        {savingKey === line.key ? "Saving..." : "Save"}
+                      </button>
+                    </span>
+                  )}
+                </td>
                 <td className="srec-num">
                   {line.material ? (
                     cost.priceStatus === "APPROVED" ? (

@@ -152,6 +152,13 @@ namespace Buyer.Application.Features.Commands.CreateSilaQuickTransfer
                 }, cancellationToken);
             }
 
+            if (transfer.Status == Common.SILA_ITO_PENDING_APPROVAL)
+            {
+                await SilaApprovals.StartAsync(
+                    _repository, _logger, buyer.Id, Common.SILA_APPROVAL_TYPE_ITO, Common.SILA_REF_ITO, transfer.Id, 1,
+                    new ApprovalScope { LocationId = from.Id, PropertyId = from.PropertyId }, cancellationToken);
+            }
+
             _repository.InternalTransferOrder.Create(transfer);
             foreach (InternalTransferOrderItem item in items)
             {
