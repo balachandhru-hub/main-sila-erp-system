@@ -27,6 +27,7 @@ namespace Buyer.Application.Features.Shared
         public const string PHYSICAL_INVENTORY = "PI";
         public const string SUBSTITUTION = "RS";
         public const string PURCHASE_ORDER = "PO";
+        public const string CREDIT_MEMO = "CM";
 
         private const int SEED_CANDIDATES = 50;
 
@@ -110,6 +111,7 @@ namespace Buyer.Application.Features.Shared
                 PHYSICAL_INVENTORY => repository.PhysicalInventoryRequest.FindByCondition(x => x.BuyerId == buyerId).Select(x => x.RequestNumber),
                 SUBSTITUTION => repository.RecipeSubstitutionProposal.FindByCondition(x => x.BuyerId == buyerId).Select(x => x.ProposalNumber),
                 PURCHASE_ORDER => repository.PurchaseOrder.FindByCondition(x => x.BuyerId == buyerId && x.ContractId != null).Select(x => x.PoNumber),
+                CREDIT_MEMO => repository.CreditMemo.FindByCondition(x => x.BuyerId == buyerId && x.CreditMemoNumber != null).Select(x => x.CreditMemoNumber!),
                 _ => throw new ArgumentOutOfRangeException(nameof(prefix), prefix, "Unknown SILA document number prefix.")
             };
 

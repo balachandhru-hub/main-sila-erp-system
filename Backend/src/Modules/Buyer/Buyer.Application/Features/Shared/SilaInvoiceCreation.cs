@@ -107,6 +107,7 @@ namespace Buyer.Application.Features.Shared
             Guid? silaSupplierId,
             Guid? supplierId,
             string? companyCode,
+            string? search,
             CancellationToken cancellationToken)
         {
             IQueryable<PurchaseOrder> query = repository.PurchaseOrder.FindByCondition(x =>
@@ -120,7 +121,40 @@ namespace Buyer.Application.Features.Shared
                 query = query.Where(x => x.CompanyCode == company);
             }
 
-            List<PurchaseOrder> orders = await query.OrderByDescending(x => x.OrderDate).Take(200).ToListAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string term = search.Trim();
+                if (Guid.TryParse(term, out Guid supplierKey))
+                {
+                    query = query.Where(x => x.SupplierId == supplierKey || x.PoNumber.Contains(term));
+                }
+                else if (TrySearchDate(term, out DateTime day))
+                {
+                    DateTime start = day.Date;
+                    DateTime end = start.AddDays(1);
+                    query = query.Where(x =>
+                        (x.OrderDate >= start && x.OrderDate < end)
+                        || (x.DateCreated >= start && x.DateCreated < end));
+                }
+                else
+                {
+                    List<SilaSupplier> matchedSuppliers = await repository.SilaSupplier
+                        .FindByCondition(x => x.BuyerId == buyerId && x.IsActive
+                            && (x.SupplierCode.Contains(term) || x.Name.Contains(term)))
+                        .Take(40)
+                        .ToListAsync(cancellationToken);
+                    List<string> supplierCodes = matchedSuppliers.Select(x => x.SupplierCode).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                    List<string> supplierNames = matchedSuppliers.Select(x => x.Name).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                    query = query.Where(x =>
+                        x.PoNumber.Contains(term)
+                        || (x.ErpPurchaseOrderId != null && x.ErpPurchaseOrderId.Contains(term))
+                        || (x.SupplierName != null && x.SupplierName.Contains(term))
+                        || (x.SupplierName != null && supplierCodes.Contains(x.SupplierName))
+                        || (x.SupplierName != null && supplierNames.Contains(x.SupplierName)));
+                }
+            }
+
+            List<PurchaseOrder> orders = await query.OrderByDescending(x => x.OrderDate).Take(50).ToListAsync(cancellationToken);
             if (silaSupplierId != null || supplierId != null)
             {
                 SilaSupplier? sila = silaSupplierId == null
@@ -186,6 +220,7 @@ namespace Buyer.Application.Features.Shared
                     Id = order.Id,
                     PoNumber = order.PoNumber,
                     OrderDate = order.OrderDate,
+                    CreatedOn = order.DateCreated,
                     CompanyCode = order.CompanyCode,
                     Currency = order.Currency,
                     TotalAmount = order.TotalAmount,
@@ -193,8 +228,28 @@ namespace Buyer.Application.Features.Shared
                     ReceivedQuantity = received,
                     GrnCount = orderReceipts.Count,
                     Status = order.Status,
-                    SupplierName = order.SupplierName
+                    SupplierName = order.SupplierName,
+                    SupplierId = order.SupplierId
                 });
+            }
+
+            if (result.Count > 0)
+            {
+                List<SilaSupplier> sila = await repository.SilaSupplier
+                    .FindByCondition(x => x.BuyerId == buyerId && x.IsActive)
+                    .ToListAsync(cancellationToken);
+                foreach (SilaEligiblePurchaseOrderDto row in result)
+                {
+                    SilaSupplier? match = sila.FirstOrDefault(supplier =>
+                        (!string.IsNullOrWhiteSpace(row.SupplierName)
+                            && string.Equals(supplier.Name.Trim(), row.SupplierName.Trim(), StringComparison.OrdinalIgnoreCase))
+                        || (!string.IsNullOrWhiteSpace(row.SupplierName)
+                            && !string.IsNullOrWhiteSpace(supplier.SupplierCode)
+                            && (row.SupplierName.Contains(supplier.SupplierCode, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(row.SupplierName.Trim(), supplier.SupplierCode, StringComparison.OrdinalIgnoreCase))));
+                    row.SilaSupplierId = match?.Id;
+                    row.SupplierCode = match?.SupplierCode;
+                }
             }
 
             return result;
@@ -352,6 +407,34 @@ namespace Buyer.Application.Features.Shared
 
             return items;
         }
+
+        private static readonly string[] SearchDateFormats =
+        {
+            "yyyy-MM-dd", "dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "dd.MM.yyyy", "d/M/yyyy"
+        };
+
+        private static bool TrySearchDate(string term, out DateTime day)
+        {
+            if (DateTime.TryParseExact(term, SearchDateFormats, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out day))
+            {
+                return true;
+            }
+
+            if (DateTime.TryParse(term, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeLocal, out day)
+                && term.IndexOfAny(new[] { '-', '/', '.' }) >= 0)
+            {
+                return true;
+            }
+
+            day = default;
+            return false;
+        }
+
+        /// <summary>Posted goods receipt that may still be converted to an invoice.</summary>
+        public static bool IsPostedForInvoice(GoodsReceipt receipt, IReadOnlyDictionary<Guid, InventoryErpPosting> postings)
+            => EligibleReceipt(receipt, postings);
 
         private static bool EligibleReceipt(GoodsReceipt receipt, IReadOnlyDictionary<Guid, InventoryErpPosting> postings)
         {
