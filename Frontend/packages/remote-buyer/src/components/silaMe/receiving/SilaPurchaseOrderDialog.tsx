@@ -156,7 +156,7 @@ const SilaPurchaseOrderDialog: React.FC<SilaPurchaseOrderDialogProps> = ({ purch
 
             {tab === "track" && (
               <div className="srcv-stack" role="tabpanel">
-                <SilaDocumentTrackPanel track={order.documentTrack} historyAsPanel />
+                <SilaDocumentTrackPanel track={order.documentTrack} historyAsPanel startCollapsed={false} />
                 {!order.documentTrack && <p className="srcv-sub">No related documents yet.</p>}
               </div>
             )}

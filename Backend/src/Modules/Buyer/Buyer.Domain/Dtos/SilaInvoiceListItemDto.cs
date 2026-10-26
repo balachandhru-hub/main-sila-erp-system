@@ -28,5 +28,8 @@ namespace Buyer.Domain.Dtos
         public string? SupplierTaxNumber { get; set; }
         /// <summary>False for a SERVICE invoice: no goods receipt can be posted for it.</summary>
         public bool GoodsReceiptApplicable { get; set; } = true;
+        public string? ErpReference { get; set; }
+        public string? FiscalYear { get; set; }
+        public DateTime? PostingDate { get; set; }
     }
 }

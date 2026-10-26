@@ -14,7 +14,7 @@ namespace Buyer.Domain.Dtos
 
     public class SilaDocumentTrackNodeDto
     {
-        /// <summary>PO | GRN | INVOICE | ATTACHMENT | PAYMENT | SOA</summary>
+        /// <summary>PO | GRN | INVOICE | CREDIT_MEMO | ATTACHMENT | PAYMENT | SOA</summary>
         public string Kind { get; set; } = string.Empty;
         public Guid? Id { get; set; }
         public string Label { get; set; } = string.Empty;

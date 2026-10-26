@@ -18,9 +18,13 @@ import GrnErpCard from './GrnErpCard';
 const INVOICE_SUBMIT_OK = new Set([
   'GRN_POSTED',
   'READY_FOR_INVOICE_SUBMISSION',
+  'READY_TO_POST',
   'REVIEWED',
   'EXTRACTED',
   'APPROVED',
+  'VALIDATION_FAILED',
+  'GET_PO_FAILED',
+  'POSTING_FAILED',
 ]);
 
 /** A goods receipt; right after posting it is the result screen. */
@@ -115,7 +119,7 @@ const GrnDetailScreen: React.FC = () => {
             </Card>
 
             <GrnErpCard grn={data} onChanged={reload} />
-            <DocumentTrackCard track={data.documentTrack} />
+            <DocumentTrackCard track={data.documentTrack} linkedInvoiceId={data.invoiceId} />
 
             {(showReverse || canPostInvoice) && (
               <div className="sm-actions sm-grid-2">

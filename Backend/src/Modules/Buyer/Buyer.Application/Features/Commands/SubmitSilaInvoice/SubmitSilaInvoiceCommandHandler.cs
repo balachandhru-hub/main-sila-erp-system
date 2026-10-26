@@ -105,10 +105,54 @@ namespace Buyer.Application.Features.Commands.SubmitSilaInvoice
                 return await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
             }
 
+            await PrepareMissingPostingDataAsync(invoice, items, request.UserId, cancellationToken);
             await SilaInvoicePosting.ContinueAsync(_repository, _logger, _mediator, _executor, buyer, invoice, request.UserId, cancellationToken);
             invoice = await SilaReceivingRules.GetInvoiceAsync(_repository, _logger, buyer.Id, request.InvoiceId);
             _logger.LogInfo($"Invoice submission finished. InvoiceId: {invoice.Id}, Status: {invoice.Status}");
             return await SilaReceivingRules.ToInvoiceDetailAsync(_repository, invoice, cancellationToken);
+        }
+
+        /// <summary>
+        /// PWA submit has no Refresh/GET PO step. Persist posting data from this invoice's
+        /// current linked posted GRN before ContinueAsync. Does not resolve GRNs by PO.
+        /// </summary>
+        private async Task PrepareMissingPostingDataAsync(
+            Invoice invoice, List<InvoiceItem> items, Guid userId, CancellationToken cancellationToken)
+        {
+            if (SilaInvoicePostingData.Read(invoice.PostingData) != null)
+            {
+                return;
+            }
+
+            List<GoodsReceipt> receipts = await _repository.GoodsReceipt
+                .FindByCondition(x => x.InvoiceId == invoice.Id && x.BuyerId == invoice.BuyerId && x.IsActive)
+                .ToListAsync(cancellationToken);
+            if (receipts.Count == 0 || receipts.Any(x => x.Status != Common.SILA_GRN_POSTED))
+            {
+                throw new BadRequestCustomException(
+                    "Invoice is not ready to submit.",
+                    "Submit the invoice after the goods receipt has been confirmed.");
+            }
+
+            if (!await SilaInvoiceGrnGate.AllGoodsReceiptsPostedAsync(_repository, invoice, cancellationToken))
+            {
+                throw new BadRequestCustomException(
+                    "Invoice is not ready to submit.",
+                    "Submit the invoice after the goods receipt has been confirmed.");
+            }
+
+            Guid? purchaseOrderSupplierId = invoice.PurchaseOrderId == null
+                ? null
+                : await _repository.PurchaseOrder
+                    .FindByCondition(x => x.Id == invoice.PurchaseOrderId)
+                    .Select(x => (Guid?)x.SupplierId)
+                    .FirstOrDefaultAsync(cancellationToken);
+            string? supplierCode = await SilaReceivingRules.ErpSupplierCodeAsync(
+                _repository, purchaseOrderSupplierId, invoice.SupplierId, invoice.SilaSupplierId, cancellationToken);
+            await SilaInvoicePostingData.StoreFromLocalAsync(
+                _repository, invoice, items, userId, supplierCode, cancellationToken);
+            _repository.Invoice.Update(invoice);
+            await _repository.SaveAsync();
         }
 
         private async Task GuardAsync(Invoice invoice, CancellationToken cancellationToken)

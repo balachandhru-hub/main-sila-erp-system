@@ -80,6 +80,44 @@ const described = (status: number, message: string, description: string) => ({
 
 const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 
+const sameName = (left: unknown, right: unknown): boolean =>
+  text(left).toLowerCase() === text(right).toLowerCase() && text(left) !== "";
+
+/** A local draft that reused the display name of an API already stored on Buyer.API. */
+const remoteWithSameName = (remoteRows: Record<string, unknown>[], name: unknown): Record<string, unknown> | undefined =>
+  remoteRows.find((row) => sameName(row.name, name));
+
+const writeFromRemote = (remote: Record<string, unknown>, payload: Record<string, unknown>): Record<string, unknown> => ({
+  name: remote.name,
+  entityCode: remote.entityCode ?? "ALL",
+  processType: remote.processType,
+  systemName: remote.systemName ?? null,
+  protocol: remote.protocol,
+  baseUrl: remote.baseUrl,
+  resourcePath: remote.resourcePath ?? null,
+  httpMethod: remote.httpMethod ?? "POST",
+  payloadFormat: remote.payloadFormat ?? "JSON",
+  requestBody: remote.requestBody ?? null,
+  headers: remote.headers ?? null,
+  authenticationType: remote.authenticationType,
+  username: text(payload.username) || remote.username || null,
+  password: payload.password ?? null,
+  apiKeyHeader: remote.apiKeyHeader ?? null,
+  apiKey: payload.apiKey ?? null,
+  clientId: payload.clientId ?? null,
+  clientSecret: payload.clientSecret ?? null,
+  bearerToken: payload.bearerToken ?? null,
+  tokenEndpoint: remote.tokenEndpoint ?? null,
+  tokenScope: remote.tokenScope ?? null,
+  tokenHeaders: remote.tokenHeaders ?? null,
+  tokenBody: remote.tokenBody ?? null,
+  timeoutSeconds: remote.timeoutSeconds ?? 30,
+  retryCount: remote.retryCount ?? 2,
+  pageSize: remote.pageSize ?? null,
+  watermarkField: remote.watermarkField ?? null,
+  scheduleCron: remote.scheduleCron ?? null,
+});
+
 const credentialStatus = (authenticationType: string, secrets: Record<string, string>): string => {
   if (authenticationType === "NONE") return "Not required";
   const configured = Boolean(secrets.password || secrets.clientSecret || secrets.bearerToken || secrets.apiKey);
@@ -194,6 +232,37 @@ const passThrough = (res: ServerResponse, upstream: { status: number; body: stri
   res.end(upstream.body);
 };
 
+const forwardPath = async (
+  target: string,
+  req: IncomingMessage,
+  method: string,
+  path: string,
+  body: string | null,
+): Promise<{ status: number; body: string; contentType: string }> => {
+  const url = new URL(path, target.endsWith("/") ? target : `${target}/`);
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (req.headers.cookie) headers.Cookie = req.headers.cookie;
+  if (req.headers.authorization) headers.Authorization = String(req.headers.authorization);
+  if (body != null) headers["Content-Type"] = "application/json";
+  const response = await fetch(url, { method, headers, body: body ?? undefined });
+  return {
+    status: response.status,
+    body: await response.text(),
+    contentType: response.headers.get("content-type") || "application/json",
+  };
+};
+
+const listRemote = async (target: string, req: IncomingMessage, side: Side): Promise<Record<string, unknown>[]> => {
+  const upstream = await forwardPath(target, req, "GET", `/api/v1/${side}/integrations`, null);
+  if (upstream.status !== 200) return [];
+  try {
+    const parsed: unknown = JSON.parse(upstream.body);
+    return Array.isArray(parsed) ? parsed as Record<string, unknown>[] : [];
+  } catch {
+    return [];
+  }
+};
+
 /** Dev-only bridge so Save draft of a new API type succeeds while the connected API still rejects it. */
 export const devCustomIntegrations = (target: string, filePath: string): Plugin => {
   return {
@@ -259,7 +328,10 @@ const handle = async (
     }
     const remoteRows = Array.isArray(remote) ? remote as Record<string, unknown>[] : [];
     const remoteIds = new Set(remoteRows.map((row) => row.id));
-    const localRows = rows().map((row) => row.public).filter((row) => !remoteIds.has(row.id));
+    // A local draft that reused a stored API name (for example FIVE S4-GRN REVERSAL)
+    // must not appear beside the Buyer.API row. Save on that draft never reached :8004.
+    const localRows = rows().map((row) => row.public).filter((row) =>
+      !remoteIds.has(row.id) && !remoteWithSameName(remoteRows, row.name));
     sendJson(res, 200, [...remoteRows, ...localRows]);
     return;
   }
@@ -323,7 +395,8 @@ const handle = async (
   }
 
   if (req.method === "GET" && parts.length === 1) {
-    sendJson(res, 200, saved.public);
+    const remote = remoteWithSameName(await listRemote(target, req, side), saved.public.name);
+    sendJson(res, 200, remote ?? saved.public);
     return;
   }
 
@@ -337,6 +410,19 @@ const handle = async (
 
   if (req.method === "PUT" && parts.length === 1) {
     const payload = JSON.parse(await readRequestBody(req) || "{}") as Record<string, unknown>;
+    const remote = remoteWithSameName(await listRemote(target, req, side), saved.public.name);
+    if (remote?.id) {
+      // Keep the stored endpoint/process. Only the submitted credentials go to Buyer.API.
+      const upstream = await forwardPath(
+        target,
+        req,
+        "PUT",
+        `/api/v1/${side}/integrations/${remote.id}`,
+        JSON.stringify(writeFromRemote(remote, payload)),
+      );
+      passThrough(res, upstream);
+      return;
+    }
     const problem = validate({ ...payload, processType: saved.public.processType });
     if (problem) {
       sendJson(res, 400, described(400, "Integration could not be saved.", problem));
