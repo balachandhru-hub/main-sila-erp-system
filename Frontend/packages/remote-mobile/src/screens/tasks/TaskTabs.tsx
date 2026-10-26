@@ -1,7 +1,9 @@
 import React from 'react';
+import { getReceivingDashboard } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { getTransfers } from '../../../../remote-buyer/src/api/silaMe/silaMovementsApi';
 import { decidePriceChange, getPriceApprovals } from '../../../../remote-buyer/src/api/silaMe/silaMaterialsApi';
 import { approveRecipe, getRecipeApprovals, rejectRecipe } from '../../../../remote-buyer/src/api/silaMe/silaRecipeApi';
+import { inboxItemsFromDashboard, mobilePathForInbox } from '../../../../remote-buyer/src/components/silaMe/silaNotifications';
 import StatusBadge from '../../components/StatusBadge';
 import { Empty, ErrorNotice, Loading } from '../../components/StateViews';
 import { useAccess } from '../../access';
@@ -64,14 +66,19 @@ const DecisionActions: React.FC<{ busy: boolean; onDecide: (approve: boolean, co
   );
 };
 
-/** Price and recipe approvals waiting for me, decided with the same calls as the SILA ME cloud screens. */
+/** Price, recipe, invoice and credit memo approvals waiting for me. */
 export const CloudApprovals: React.FC = () => {
+  const go = useGo();
   const { can } = useAccess();
+  const inbox = useLoad(() => getReceivingDashboard().then(inboxItemsFromDashboard), 'tasks-inbox');
   const prices = useLoad(() => getPriceApprovals(0, 50), can.approvePrice ? 'tasks-prices' : null);
   const recipes = useLoad(getRecipeApprovals, can.approveRecipe ? 'tasks-recipes' : null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  if (!can.approvePrice && !can.approveRecipe) return <Empty text="No approvals for your role." />;
+  const documentApprovals = (inbox.data ?? []).filter((item) => item.kind === 'approval');
+  if (!can.approvePrice && !can.approveRecipe && documentApprovals.length === 0 && !inbox.loading) {
+    return <Empty text="No approvals for your role." />;
+  }
 
   const decide = async (id: string, run: () => Promise<unknown>, reload: () => void) => {
     setError(null);
@@ -89,6 +96,24 @@ export const CloudApprovals: React.FC = () => {
   return (
     <>
       {error && <ErrorNotice message={error} />}
+      {inbox.error && <ErrorNotice message={inbox.error} onRetry={inbox.reload} />}
+      <section className="sm-section" aria-labelledby="sm-doc-approvals">
+        <h2 id="sm-doc-approvals">Waiting for my approval · {inbox.loading ? '…' : documentApprovals.length}</h2>
+        {!inbox.loading && documentApprovals.length === 0 && <Empty text="No invoice, credit memo or transfer approvals waiting for you." />}
+        <ul className="sm-list">
+          {documentApprovals.map((item) => (
+            <li key={item.key}>
+              <button type="button" className="sm-list-btn" onClick={() => go(mobilePathForInbox(item))}>
+                <span className="sm-row">
+                  <strong>{item.title}</strong>
+                  <StatusBadge status={item.status || 'PENDING_APPROVAL'} />
+                </span>
+                <span className="sm-meta">{item.detail}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
       {can.approvePrice && (
         <section className="sm-section" aria-labelledby="sm-price-approvals">
           <h2 id="sm-price-approvals">Price approvals waiting for me · {prices.loading ? '…' : (prices.data ?? []).length}</h2>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { reprocessErpPosting, type SilaGoodsReceiptDetail } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
+import { reconcileErpPosting, reprocessErpPosting, type SilaGoodsReceiptDetail } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import StatusBadge from '../../components/StatusBadge';
 import { Notice, type NoticeMessage } from '../../components/StateViews';
 import { useAccess } from '../../access';
@@ -16,14 +16,17 @@ const GrnErpCard: React.FC<GrnErpCardProps> = ({ grn, onChanged }) => {
   const { can } = useAccess();
   const [busy, setBusy] = useState<boolean>(false);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
+  const [sapReference, setSapReference] = useState('');
   const erp = grn.erpPosting;
   const status = (erp?.status ?? (erp ? 'PENDING' : 'N/A')).toUpperCase();
   const posted = status === 'POSTED';
   const failed = status === 'FAILED';
   const skipped = status === 'SKIPPED';
   const unknown = status === 'UNKNOWN';
+  const localFailed = status === 'FAILED_LOCAL';
   const stockedLines = grn.items.filter((item) => item.stocked && item.acceptedQty > 0).length;
-  const canReprocess = (failed || skipped) && can.manageErpPosting && !!erp;
+  const manageErp = can.manageErpPosting;
+  const canReprocess = (failed || skipped) && manageErp && !!erp && !unknown;
 
   const resend = async () => {
     if (!erp) return;
@@ -32,6 +35,41 @@ const GrnErpCard: React.FC<GrnErpCardProps> = ({ grn, onChanged }) => {
     try {
       await reprocessErpPosting(erp.id);
       setNotice({ tone: 'success', text: 'Sent to S4 again. Stock was already updated in step 1.' });
+      onChanged();
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reconcile = async (postedInSap: boolean) => {
+    if (!erp) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await reconcileErpPosting(erp.id, postedInSap, postedInSap ? sapReference : '');
+      setNotice({
+        tone: 'success',
+        text: postedInSap
+          ? 'Reconciled as posted. Local finalization only. 101 was not sent.'
+          : 'Reconciled as not posted. 101 was not sent.',
+      });
+      onChanged();
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const completeLocal = async () => {
+    if (!erp) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await reprocessErpPosting(erp.id);
+      setNotice({ tone: 'success', text: 'Local finalization completed. SAP was not called.' });
       onChanged();
     } catch (caught: unknown) {
       setNotice({ tone: 'error', text: errorText(caught) });
@@ -72,7 +110,46 @@ const GrnErpCard: React.FC<GrnErpCardProps> = ({ grn, onChanged }) => {
       <span className="sm-meta">Posted Date: {formatDateTime(erp?.postedOn ?? grn.receivedOn)}</span>
       {erp?.errorMessage && <p className="sm-notice sm-notice--error">{erp.errorMessage}</p>}
       {failed && !erp?.errorMessage && <p className="sm-notice sm-notice--error">ERP returned a confirmed failure.</p>}
-      {unknown && <p className="sm-notice sm-notice--error">ERP outcome is unknown. Reconcile before posting again.</p>}
+      {unknown && (
+        <p className="sm-notice sm-notice--error">ERP outcome is unknown. Reconcile before posting again. 101 will not be sent.</p>
+      )}
+      {localFailed && (
+        <p className="sm-notice sm-notice--warning">
+          SAP goods receipt was created successfully. Complete local finalization only. SAP will not be called.
+        </p>
+      )}
+      {unknown && manageErp && erp && (
+        <>
+          <label className="sm-label" htmlFor={`sm-grn-sap-ref-${erp.id}`}>SAP receipt reference</label>
+          <input
+            id={`sm-grn-sap-ref-${erp.id}`}
+            className="sm-input"
+            value={sapReference}
+            onChange={(event) => setSapReference(event.target.value)}
+            placeholder="Material document number"
+          />
+          <div className="sm-actions">
+            <button
+              type="button"
+              className="sm-btn sm-btn--small sm-btn--primary"
+              disabled={busy || sapReference.trim() === ''}
+              onClick={() => void reconcile(true)}
+            >
+              {busy ? 'Reconciling…' : 'Reconcile'}
+            </button>
+            <button type="button" className="sm-btn sm-btn--small" disabled={busy} onClick={() => void reconcile(false)}>
+              Not posted
+            </button>
+          </div>
+        </>
+      )}
+      {localFailed && manageErp && erp && (
+        <div className="sm-actions">
+          <button type="button" className="sm-btn sm-btn--small sm-btn--primary" disabled={busy} onClick={() => void completeLocal()}>
+            {busy ? 'Completing…' : 'Complete local finalization'}
+          </button>
+        </div>
+      )}
       <Notice notice={notice} />
       <div className="sm-grid-2">
         <button type="button" className="sm-btn sm-btn--small" disabled={busy} onClick={onChanged}>
@@ -84,8 +161,8 @@ const GrnErpCard: React.FC<GrnErpCardProps> = ({ grn, onChanged }) => {
           </button>
         )}
       </div>
-      {(failed || unknown || skipped) && !can.manageErpPosting && (
-        <p className="sm-meta">Your administrator resends or reconciles it from ERP postings.</p>
+      {(failed || unknown || skipped || localFailed) && !manageErp && (
+        <p className="sm-meta">Recovery requires ERP posting management. This user can view the status only.</p>
       )}
     </section>
   );
