@@ -110,7 +110,8 @@ const ReceiveScreen: React.FC = () => {
         <section className="sm-section" aria-labelledby="sm-recv-quick">
           <h2 id="sm-recv-quick">Quick actions</h2>
           <div className="sm-actions">
-            <button type="button" className="sm-btn sm-btn--primary sm-btn--block" onClick={() => go('receive/scan')}>Receive / Scan</button>
+            {can.processInvoice && <button type="button" className="sm-btn sm-btn--primary sm-btn--block" onClick={() => go('receive/scan')}>Scan invoice</button>}
+            {can.postGrn && <button type="button" className="sm-btn sm-btn--primary sm-btn--block" onClick={() => go('receive/pos?mode=receive')}>Receive goods</button>}
             <button type="button" className="sm-btn sm-btn--block" onClick={() => go('receive/pos')}>Find PO</button>
             <button type="button" className="sm-btn sm-btn--block" onClick={() => go('receive/history')}>GRN History</button>
           </div>

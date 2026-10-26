@@ -25,6 +25,8 @@ import SilaDocumentTrackPanel from "./SilaDocumentTrack";
 interface SilaCreditMemoDialogProps {
   invoiceId?: string | null;
   creditMemoId?: string | null;
+  canProcess?: boolean;
+  canApprove?: boolean;
   showKindToggle?: boolean;
   onSelectInvoice?: () => void;
   onClose: () => void;
@@ -44,6 +46,8 @@ interface LineDraft {
 const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
   invoiceId,
   creditMemoId,
+  canProcess = false,
+  canApprove = false,
   showKindToggle,
   onSelectInvoice,
   onClose,
@@ -230,7 +234,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
       size="xl"
       headerProps={{ heading: "Credit Memo" }}
       footerProps={{
-        primaryButton: posted || unknown || pendingApproval ? undefined : { text: busy === "submit" ? "Submitting..." : "Post credit memo", onClick: submit, loading: busy === "submit", disabled: busy !== null || !reference },
+        primaryButton: !canProcess || posted || unknown || pendingApproval ? undefined : { text: busy === "submit" ? "Submitting..." : "Post credit memo", onClick: submit, loading: busy === "submit", disabled: busy !== null || !reference },
         secondaryButton: { text: "Close", onClick: onClose, disabled: busy !== null },
       }}
     >
@@ -295,10 +299,14 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
                 <p><strong>Waiting for approval</strong></p>
                 <label className="sila-label" htmlFor="srcv-cm-approval-comment">Comment</label>
                 <input id="srcv-cm-approval-comment" className="sila-input" value={comment} onChange={(event) => setComment(event.target.value)} />
-                <div className="srcv-actions">
-                  <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => decide(true)}>Approve</button>
-                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => decide(false)}>Reject</button>
-                </div>
+                {canApprove ? (
+                  <div className="srcv-actions">
+                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => decide(true)}>Approve</button>
+                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => decide(false)}>Reject</button>
+                  </div>
+                ) : (
+                  <p className="srcv-sub">Waiting for an eligible approver. Permission and the active approval step are both required.</p>
+                )}
               </div>
             )}
             <div className="sila-form-grid">
@@ -387,7 +395,7 @@ const SilaCreditMemoDialog: React.FC<SilaCreditMemoDialogProps> = ({
                 </tbody>
               </table>
             </div>
-            {!posted && !unknown && (
+            {canProcess && !posted && !unknown && (
               <div className="srcv-actions">
                 <button type="button" className="sila-btn sila-btn--secondary" disabled={busy !== null} onClick={() => void save()}>
                   {busy === "save" ? "Saving..." : "Save draft"}

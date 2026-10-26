@@ -20,6 +20,8 @@ export interface SilaHomeCapabilities {
   receive: boolean;
   processInvoices: boolean;
   processCreditMemos: boolean;
+  approveInvoices: boolean;
+  approveCreditMemos: boolean;
   supervisor: boolean;
   approveTransfer: boolean;
   approveCount: boolean;
@@ -73,6 +75,8 @@ const NONE: SilaHomeCapabilities = {
   receive: false,
   processInvoices: false,
   processCreditMemos: false,
+  approveInvoices: false,
+  approveCreditMemos: false,
   supervisor: false,
   approveTransfer: false,
   approveCount: false,
@@ -93,24 +97,16 @@ const withAccess = (partial: Partial<SilaHomeCapabilities>): SilaHomeCapabilitie
   return next;
 };
 
-/** Receiver: receiving work. Invoice / CM only when those capabilities are granted. Preview includes invoice because the Receiver template historically processes invoices with POST_SILA_GRN. */
+/** Receiver preview: receiving only. Invoice / CM appear when those permissions are assigned to the signed-in user. */
 const RECEIVER = withAccess({
   receiving: true,
   receive: true,
-  invoice: true,
-  processInvoices: true,
-  creditMemo: true,
-  processCreditMemos: true,
 });
 
 const SUPERVISOR = withAccess({
   receiving: true,
   receive: true,
   supervisor: true,
-  invoice: true,
-  processInvoices: true,
-  creditMemo: true,
-  processCreditMemos: true,
   approvals: true,
   erp: true,
   audit: true,
@@ -162,20 +158,19 @@ const PURCHASING_DIRECTOR = withAccess({
   supervisor: true,
 });
 
-/** AP Processor preview: invoice / credit memo composition. There is no dedicated invoice permission; production AP still uses POST_SILA_GRN to process. */
 const AP_PROCESSOR = withAccess({
   invoice: true,
   processInvoices: true,
   creditMemo: true,
   processCreditMemos: true,
-  approvals: true,
 });
 
 const FINANCIAL_CONTROLLER = withAccess({
   invoice: true,
   creditMemo: true,
   approvals: true,
-  erp: true,
+  approveInvoices: true,
+  approveCreditMemos: true,
   audit: true,
 });
 
@@ -230,14 +225,16 @@ export const personaLabel = (persona: SilaHomePersona): string =>
 export const silaHomeCapabilities = (hasSilaMe: boolean, can: SilaMePermissions): SilaHomeCapabilities => {
   if (!hasSilaMe) return NONE;
   const receiving = can.viewReceiving || can.postGrn;
+  const invoice = can.viewInvoice || can.processInvoice || can.approveInvoice;
+  const creditMemo = can.viewCreditMemo || can.processCreditMemo || can.approveCreditMemo;
   const inventory = can.viewInventory || can.manageTransfer || can.manageCount || can.postGoodsIssue || can.postAdjustment || can.initiateCount || can.requestPurchase;
   const recommendation = can.requestPurchase;
-  const approvals = can.approveTransfer || can.approveCount || can.approveRecipe || can.approvePrice;
+  const approvals = can.approveTransfer || can.approveCount || can.approveRecipe || can.approvePrice || can.approveInvoice || can.approveCreditMemo;
   return {
     hasSilaMe: true,
     receiving,
-    invoice: receiving || can.postGrn,
-    creditMemo: receiving || can.postGrn,
+    invoice,
+    creditMemo,
     inventory,
     purchasing: recommendation,
     recommendation,
@@ -246,16 +243,18 @@ export const silaHomeCapabilities = (hasSilaMe: boolean, can: SilaMePermissions)
     audit: can.viewAudit,
     admin: can.manageLocation || can.manageMasterData,
     receive: can.postGrn,
-    processInvoices: can.postGrn,
-    processCreditMemos: can.postGrn,
+    processInvoices: can.processInvoice,
+    processCreditMemos: can.processCreditMemo,
+    approveInvoices: can.approveInvoice,
+    approveCreditMemos: can.approveCreditMemo,
     supervisor: can.manageErpPosting || can.viewAudit,
     approveTransfer: can.approveTransfer,
     approveCount: can.approveCount,
     approveRecipe: can.approveRecipe,
     approvePrice: can.approvePrice,
     viewReceiving: receiving,
-    viewInvoices: receiving || can.postGrn,
-    viewCreditMemos: receiving || can.postGrn,
+    viewInvoices: invoice,
+    viewCreditMemos: creditMemo,
     viewInventory: inventory,
   };
 };

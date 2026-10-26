@@ -12,6 +12,8 @@ import {
   getCreditMemoLines,
   getInvoice,
   mergeCreditMemoEligibleLines,
+  reconcileErpPosting,
+  reprocessErpPosting,
   retryCreditMemo,
   submitCreditMemo,
   type SilaCreditMemoDetail,
@@ -21,6 +23,7 @@ import {
 import ScreenHeader from '../../components/ScreenHeader';
 import StatusBadge from '../../components/StatusBadge';
 import { ErrorNotice, Loading, Notice, type NoticeMessage } from '../../components/StateViews';
+import { useAccess } from '../../access';
 import { useGo } from '../../navigation';
 import { errorText, useLoad } from '../../useLoad';
 import DocumentTrackCard from './DocumentTrackCard';
@@ -41,6 +44,7 @@ const postingField = (invoice: SilaInvoiceDetail | null, name: string): string |
 const CreditMemoScreen: React.FC = () => {
   const { invoiceId = '', creditMemoId = '' } = useParams();
   const go = useGo();
+  const { can } = useAccess();
   const memoLoad = useLoad(() => getCreditMemo(creditMemoId), creditMemoId || null);
   const resolvedInvoiceId = invoiceId || memoLoad.data?.referenceInvoiceId || '';
   const invoiceLoad = useLoad(() => getInvoice(resolvedInvoiceId), resolvedInvoiceId || null);
@@ -55,6 +59,7 @@ const CreditMemoScreen: React.FC = () => {
   const [memo, setMemo] = useState<SilaCreditMemoDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
+  const [sapReference, setSapReference] = useState('');
 
   const invoice = invoiceLoad.data;
   const loadedMemo = memo ?? memoLoad.data;
@@ -142,8 +147,10 @@ const CreditMemoScreen: React.FC = () => {
   };
 
   const unknown = loadedMemo?.status === 'POSTING_UNKNOWN' || loadedMemo?.erpStatus === 'UNKNOWN';
+  const localFailed = loadedMemo?.status === 'LOCAL_FINALIZATION_FAILED' || loadedMemo?.erpStatus === 'FAILED_LOCAL';
   const pendingApproval = loadedMemo?.status === 'PENDING_APPROVAL';
   const posted = loadedMemo?.status === 'POSTED';
+  const manageErp = can.manageErpPosting;
 
   const decide = async (approve: boolean) => {
     if (!loadedMemo) return;
@@ -160,6 +167,41 @@ const CreditMemoScreen: React.FC = () => {
       setNotice({ tone: 'success', text: approve ? 'Approval recorded.' : 'Credit memo rejected. SAP was not called.' });
     } catch (caught: unknown) {
       setNotice({ tone: 'error', text: errorText(caught, 'Could not record the approval.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reconcile = async (postedInSap: boolean) => {
+    if (!loadedMemo?.erpPostingId) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await reconcileErpPosting(loadedMemo.erpPostingId, postedInSap, postedInSap ? sapReference : '');
+      setMemo(await getCreditMemo(loadedMemo.id));
+      setNotice({
+        tone: 'success',
+        text: postedInSap
+          ? 'Reconciled as posted. Local finalization only.'
+          : 'Reconciled as not posted. The next send is allowed.',
+      });
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not reconcile the credit memo.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const completeLocal = async () => {
+    if (!loadedMemo?.erpPostingId) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await reprocessErpPosting(loadedMemo.erpPostingId);
+      setMemo(await getCreditMemo(loadedMemo.id));
+      setNotice({ tone: 'success', text: 'Local finalization completed. SAP was not called.' });
+    } catch (caught: unknown) {
+      setNotice({ tone: 'error', text: errorText(caught, 'Could not complete local finalization.') });
     } finally {
       setBusy(false);
     }
@@ -189,17 +231,78 @@ const CreditMemoScreen: React.FC = () => {
             {loadedMemo?.erpMessage && (
               <p className={posted ? 'sm-notice sm-notice--success' : 'sm-notice sm-notice--error'}>{safeErpMessage(loadedMemo.erpMessage)}</p>
             )}
-            {unknown && <p className="sm-notice sm-notice--warning">Posting status unknown. Reconcile before SAP is called again.</p>}
+            {unknown && (
+              <section className="sm-section">
+                <p className="sm-notice sm-notice--warning">
+                  Posting status unknown. Reconcile with SAP before anything is sent again. Retry is not available.
+                </p>
+                {manageErp && loadedMemo?.erpPostingId ? (
+                  <>
+                    <label className="sm-label" htmlFor="sm-cm-sap-ref">SAP credit memo reference</label>
+                    <input
+                      id="sm-cm-sap-ref"
+                      className="sm-input"
+                      value={sapReference}
+                      onChange={(event) => setSapReference(event.target.value)}
+                      placeholder="Credit memo number"
+                    />
+                    <div className="sm-actions">
+                      <button
+                        type="button"
+                        className="sm-btn sm-btn--primary"
+                        disabled={busy || sapReference.trim() === ''}
+                        onClick={() => void reconcile(true)}
+                      >
+                        {busy ? 'Reconciling…' : 'Reconcile'}
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-btn"
+                        disabled={busy}
+                        onClick={() => void reconcile(false)}
+                      >
+                        Not posted
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="sm-notice">Recovery requires ERP posting management. This user can view the status only.</p>
+                )}
+              </section>
+            )}
+            {localFailed && (
+              <section className="sm-section">
+                <p className="sm-notice sm-notice--warning">
+                  SAP credit memo was created successfully. Complete local finalization only. SAP will not be called.
+                </p>
+                <p className="sm-meta">SAP Credit Memo: {loadedMemo?.erpReference || '—'}</p>
+                {manageErp && loadedMemo?.erpPostingId ? (
+                  <div className="sm-actions">
+                    <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void completeLocal()}>
+                      {busy ? 'Completing…' : 'Complete local finalization'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="sm-notice">Recovery requires ERP posting management. This user can view the status only.</p>
+                )}
+              </section>
+            )}
             {pendingApproval && (
               <section className="sm-section">
                 <h2>Approval</h2>
-                <p className="sm-meta">Waiting for approval. The API decides eligibility.</p>
-                <label className="sm-label" htmlFor="sm-cm-approval-comment">Comment</label>
-                <input id="sm-cm-approval-comment" className="sm-input" value={comment} onChange={(event) => setComment(event.target.value)} />
-                <div className="sm-actions">
-                  <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void decide(true)}>Approve</button>
-                  <button type="button" className="sm-btn" disabled={busy} onClick={() => void decide(false)}>Reject</button>
-                </div>
+                <p className="sm-meta">Waiting for approval. Permission and the active approval step are both required.</p>
+                {can.approveCreditMemo ? (
+                  <>
+                    <label className="sm-label" htmlFor="sm-cm-approval-comment">Comment</label>
+                    <input id="sm-cm-approval-comment" className="sm-input" value={comment} onChange={(event) => setComment(event.target.value)} />
+                    <div className="sm-actions">
+                      <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void decide(true)}>Approve</button>
+                      <button type="button" className="sm-btn" disabled={busy} onClick={() => void decide(false)}>Reject</button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="sm-notice">This user cannot decide this credit memo.</p>
+                )}
               </section>
             )}
             <div className="sm-field">
@@ -273,7 +376,7 @@ const CreditMemoScreen: React.FC = () => {
                 </section>
               );
             })}
-            {!unknown && !pendingApproval && (
+            {can.processCreditMemo && !unknown && !localFailed && !pendingApproval && (
               <div className="sm-actions">
                 <button type="button" className="sm-btn sm-btn--primary" disabled={busy} onClick={() => void submit()}>
                   {busy ? 'Submitting…' : loadedMemo?.canRetry ? 'Retry Credit Memo Posting' : 'Post credit memo'}

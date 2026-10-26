@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using SharedKernel.ExceptionHandler;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
@@ -22,6 +23,12 @@ namespace SharedKernel.Attributes
         /// Permission required to access the API.
         /// </summary>
         public string? Name { get; set; }
+
+        /// <summary>
+        /// When set, any one of these comma- or pipe-separated permissions is enough.
+        /// Used for shared Home / operations reads that span receiving and finance.
+        /// </summary>
+        public string? AnyOf { get; set; }
 
         /// <summary>
         /// Validate the token and populate the principal, but skip the
@@ -42,9 +49,15 @@ namespace SharedKernel.Attributes
         /// </summary>
         public static string PermissionCacheKey(Guid roleId) => $"permissions:role:{roleId}";
 
+        /// <summary>
+        /// HttpContext.Items key for the authenticated role's permission codes.
+        /// Handlers that span modules (Home dashboard) filter rows from this list.
+        /// </summary>
+        public const string PermissionItemsKey = "sila.permissions";
+
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
         {
-            if (!TokenOnly && string.IsNullOrWhiteSpace(Name))
+            if (!TokenOnly && string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(AnyOf))
             {
                 throw new ForBiddenCustomException(
                     "Not authorized",
@@ -142,9 +155,12 @@ namespace SharedKernel.Attributes
                 context,
                 token,
                 parsedRoleId);
+            context.HttpContext.Items[PermissionItemsKey] = permissions;
 
-            // Validate Permission
-            if (!permissions.Contains(Name, StringComparer.OrdinalIgnoreCase))
+            string[] accepted = !string.IsNullOrWhiteSpace(AnyOf)
+                ? AnyOf.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : new[] { Name! };
+            if (!accepted.Any(code => permissions.Contains(code, StringComparer.OrdinalIgnoreCase)))
             {
                 throw new ForBiddenCustomException(
                     "Forbidden",

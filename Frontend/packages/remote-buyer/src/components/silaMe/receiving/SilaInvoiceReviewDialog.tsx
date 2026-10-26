@@ -38,7 +38,11 @@ import type { ReceivePrefill } from "./SilaReceiveGoodsDialog";
 
 interface SilaInvoiceReviewDialogProps {
   invoiceId: string;
-  canPost: boolean;
+  canProcess: boolean;
+  canApprove?: boolean;
+  canReceive?: boolean;
+  canManageErp?: boolean;
+  canProcessCreditMemo?: boolean;
   onClose: () => void;
   /** The invoice changed (read, saved). */
   onChanged: () => void;
@@ -87,7 +91,9 @@ const attachmentStatus = (invoice: SilaInvoiceDetail): string => {
 };
 
 /** OCR result and review form of an invoice: fields, supplier/PO/line matching, reading history; then receive the goods. */
-const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoiceId, canPost, onClose, onChanged, onReceive, onCopied }) => {
+const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({
+  invoiceId, canProcess, canApprove = false, canReceive = false, canManageErp = false, canProcessCreditMemo = false, onClose, onChanged, onReceive, onCopied,
+}) => {
   const [invoice, setInvoice] = useState<SilaInvoiceDetail | null>(null);
   const [form, setForm] = useState<InvoiceForm | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -172,9 +178,9 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
     "POSTING_UNKNOWN", "AWAITING_PAYMENT", "PARTIALLY_PAID", "PAID", "OVERDUE",
   ].includes(invoice.status);
   const retry = invoice != null && ["GET_PO_FAILED", "VALIDATION_FAILED", "ERP_POSTING_FAILED", "APPROVAL_REJECTED", "READY_TO_POST"].includes(invoice.status);
-  const canExtract = canPost && invoice !== null && ["UPLOADED", "OCR_FAILED", "EXTRACTED", "REVIEW_REQUIRED"].includes(invoice.status);
+  const canExtract = canProcess && invoice !== null && ["UPLOADED", "OCR_FAILED", "EXTRACTED", "REVIEW_REQUIRED"].includes(invoice.status);
   // A re-read keeps the fields the user corrected; it is the only reading of a reviewed invoice.
-  const canReread = canPost && invoice !== null && ["EXTRACTED", "REVIEW_REQUIRED", "REVIEWED"].includes(invoice.status);
+  const canReread = canProcess && invoice !== null && ["EXTRACTED", "REVIEW_REQUIRED", "REVIEWED"].includes(invoice.status);
   const grn = invoice?.goodsReceipts.find((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference)) ?? invoice?.goodsReceipts[0];
   const postedGrns = (invoice?.goodsReceipts ?? []).filter((receipt) => receipt.status === "POSTED" || receipt.erpStatus === "POSTED" || receipt.erpStatus === "ERP_ACCEPTED" || Boolean(receipt.erpReference));
   const supplierKey = invoice?.silaSupplierId || invoice?.supplierId;
@@ -183,7 +189,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const serviceReady = invoice?.goodsReceiptApplicable === false && (invoice.status === "REVIEWED" || invoice.status === "READY_FOR_INVOICE_SUBMISSION");
   const receiptAlreadyConfirmed = invoice?.status === "GRN_POSTED" || invoice?.status === "READY_FOR_INVOICE_SUBMISSION" || invoice?.status === "APPROVED";
   const readyToSubmit = Boolean(
-    canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
+    canProcess && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
     && (serviceReady || (readyStatus && (postedGrns.length >= 1 || receiptAlreadyConfirmed)))
     && !erpAccepted
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
@@ -193,12 +199,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   const sealed = !postingFailed && (posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED" || invoice?.status === "GRN_IN_PROGRESS");
   const grnLocked = posted || invoice?.status === "POSTING" || invoice?.status === "PENDING_APPROVAL" || invoice?.status === "POSTING_UNKNOWN" || invoice?.status === "LOCAL_FINALIZATION_FAILED";
   const prefill = invoice && !grnLocked && invoice.goodsReceiptApplicable !== false ? toReceivePrefill(invoice) : null;
-  const canEdit = Boolean(canPost && invoice && pastReceipt && !sealed);
-  const fieldsLocked = !canPost || sealed || (pastReceipt && !editing);
+  const canEdit = Boolean(canProcess && invoice && pastReceipt && !sealed);
+  const fieldsLocked = !canProcess || sealed || (pastReceipt && !editing);
   const failedPosting = retry || postingFailed;
   const showSubmit = !failedPosting && (readyToSubmit || Boolean(invoice?.canSubmitInvoice));
   const showResubmit = Boolean(
-    failedPosting && canPost && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
+    failedPosting && canProcess && invoice && supplierKey && invoice.invoiceNumber && invoice.poNumber && invoice.purchaseOrderId
     && !erpAccepted
     && invoice.erpStatus !== "PENDING" && invoice.erpStatus !== "UNKNOWN" && invoice.erpStatus !== "FAILED_LOCAL",
   );
@@ -314,7 +320,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
   }, [invoice, poKey, receiptKey]);
 
   useEffect(() => {
-    if (!canPost || !invoice || invoice.goodsReceiptApplicable === false || grnLocked || grnPick !== null) return undefined;
+    if (!canProcess || !invoice || invoice.goodsReceiptApplicable === false || grnLocked || grnPick !== null) return undefined;
     if (candidates.length === 0) {
       setMatchReason(null);
       return undefined;
@@ -398,7 +404,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
       active = false;
       if (!settled && autoLinkKey.current.startsWith(`${invoice.id}:`)) autoLinkKey.current = "";
     };
-  }, [candidates, canPost, demandKey, grnLocked, grnPick, invoice]);
+  }, [candidates, canProcess, demandKey, grnLocked, grnPick, invoice]);
 
   const toggleGrn = (id: string) => {
     setGrnPick(selectedGrns.includes(id) ? selectedGrns.filter((row) => row !== id) : [...selectedGrns, id]);
@@ -488,12 +494,12 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Hide file
                 </button>
               )}
-              {canPost && prefill && (
+              {canReceive && prefill && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => onReceive(prefill)}>
                   Create GRN from invoice
                 </button>
               )}
-              {canPost && (
+              {canProcess && (
                 <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("copy", async () => {
                   const created = await copyInvoice(invoiceId);
                   toastService.success("Invoice copied. The copy is not posted to SAP.");
@@ -511,7 +517,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   Edit
                 </button>
               )}
-              {canPost && !posted && invoice.purchaseOrderId && invoice.status !== "POSTING" && invoice.status !== "POSTING_UNKNOWN" && (
+              {canManageErp && !posted && invoice.purchaseOrderId && invoice.status !== "POSTING" && invoice.status !== "POSTING_UNKNOWN" && (
                 <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("refresh", async () => {
                   show(await refreshInvoicePosting(invoiceId));
                   onChanged();
@@ -531,7 +537,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   {resubmitLabel}
                 </button>
               )}
-              {canPost && posted && (
+              {canProcessCreditMemo && posted && (
                 <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => { setCreditMemoId(null); setCreditMemoOpen(true); }}>
                   Credit Memo
                 </button>
@@ -593,7 +599,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p><strong>SAP invoice was created successfully. SILA local finalization requires reprocessing.</strong></p>
                 <p>Reprocessing will update SILA only. SAP will not be called again.</p>
                 <p>SAP Invoice: {invoice.erpReference || "—"}</p>
-                {invoice.erpPostingId && (
+                {canManageErp && invoice.erpPostingId && (
                   <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => run("reprocess", async () => {
                     await reprocessErpPosting(invoice.erpPostingId!);
                     show(await getInvoice(invoiceId));
@@ -608,7 +614,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
               <div className="sila-alert sila-alert--warning" role="status">
                 <p><strong>Posting status unknown</strong></p>
                 <p>SAP may have created the invoice. Reconcile it before anything is sent again. There is no blind retry.</p>
-                {invoice.erpPostingId && (
+                {canManageErp && invoice.erpPostingId && (
                   <div className="srcv-actions">
                     <input className="sila-input" placeholder="SAP invoice reference" value={sapReference} onChange={(event) => setSapReference(event.target.value)} />
                     <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null || sapReference.trim() === ""} onClick={() => run("reconcile", async () => {
@@ -634,10 +640,14 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                 <p><strong>Waiting for approval</strong></p>
                 <label className="sila-label" htmlFor="srcv-approval-comment">Comment</label>
                 <input id="srcv-approval-comment" className="sila-input" value={comment} onChange={(event) => setComment(event.target.value)} />
-                <div className="srcv-actions">
-                  <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => handleDecision(true)}>Approve</button>
-                  <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => handleDecision(false)}>Reject</button>
-                </div>
+                {canApprove ? (
+                  <div className="srcv-actions">
+                    <button type="button" className="sila-btn sila-btn--primary sila-btn--sm" disabled={busy !== null} onClick={() => handleDecision(true)}>Approve</button>
+                    <button type="button" className="sila-btn sila-btn--secondary sila-btn--sm" disabled={busy !== null} onClick={() => handleDecision(false)}>Reject</button>
+                  </div>
+                ) : (
+                  <p className="srcv-sub">Waiting for an eligible approver. Permission and the active approval step are both required.</p>
+                )}
               </div>
             )}
             {previewUrl && (
@@ -705,7 +715,7 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
                   posting={invoice.postingData}
                   invoice={invoice}
                   order={order}
-                  canRefresh={canPost && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
+                  canRefresh={canManageErp && invoice.status !== "POSTING" && invoice.status !== "POSTED" && invoice.status !== "POSTING_UNKNOWN" && invoice.status !== "LOCAL_FINALIZATION_FAILED"}
                   busy={busy !== null}
                   onRefresh={() => run("refresh", async () => {
                     show(await refreshInvoicePosting(invoiceId));
@@ -934,6 +944,8 @@ const SilaInvoiceReviewDialog: React.FC<SilaInvoiceReviewDialogProps> = ({ invoi
       <SilaCreditMemoDialog
         invoiceId={creditMemoId ? undefined : invoiceId}
         creditMemoId={creditMemoId}
+        canProcess={canProcessCreditMemo}
+        canApprove={canApprove}
         onClose={() => setCreditMemoOpen(false)}
         onChanged={() => {
           onChanged();

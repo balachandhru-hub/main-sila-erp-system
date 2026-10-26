@@ -1,5 +1,5 @@
 import axiosInstance from "../axiosInstance";
-import { readError } from "../readError";
+import { readError, readHttpStatus } from "../readError";
 
 /* ---------- Inventory dashboard ---------- */
 
@@ -382,20 +382,31 @@ export interface SilaPurchaseRecommendationAcceptResult {
   }[];
 }
 
+const purchaseRecommendationError = (error: unknown, fallback: string): string => {
+  const status = readHttpStatus(error);
+  if (status === 404) return "Purchase Recommendations API is not available on the connected Buyer service.";
+  if (status === 403) return "You do not have permission to view purchase recommendations.";
+  if (status != null && status >= 500) return "Purchase recommendations could not be loaded.";
+  return readError(error, fallback);
+};
+
 export const getPurchaseRecommendations = async (filter?: {
   locationId?: string;
   propertyId?: string;
 }): Promise<SilaPurchaseRecommendationList> => {
-  const data = await call(
-    () =>
-      axiosInstance.get<SilaPurchaseRecommendationList>(`${BASE}/purchase-recommendations`, {
+  let data: SilaPurchaseRecommendationList;
+  try {
+    data = (
+      await axiosInstance.get<SilaPurchaseRecommendationList>(`${BASE}/purchase-recommendations`, {
         params: {
           locationId: filter?.locationId || undefined,
           propertyId: filter?.propertyId || undefined,
         },
-      }),
-    "Could not load purchase recommendations.",
-  );
+      })
+    ).data;
+  } catch (error: unknown) {
+    throw new Error(purchaseRecommendationError(error, "Could not load purchase recommendations."));
+  }
   return {
     stockOut: data.stockOut ?? 0,
     belowMinimum: data.belowMinimum ?? 0,
