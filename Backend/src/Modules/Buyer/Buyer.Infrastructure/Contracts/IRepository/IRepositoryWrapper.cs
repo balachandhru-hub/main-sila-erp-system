@@ -127,6 +127,12 @@ namespace Buyer.Infrastructure.Contracts.IRepository
         ICreditMemoItemRepository CreditMemoItem { get; }
         IOperationalTaskRepository OperationalTask { get; }
         IOperationalAlertRepository OperationalAlert { get; }
+        IMenuItemRepository MenuItem { get; }
+        IMenuPlanRepository MenuPlan { get; }
+        IMenuPlanLineRepository MenuPlanLine { get; }
+        IMenuPosMappingRepository MenuPosMapping { get; }
+        IPmsDemandSnapshotRepository PmsDemandSnapshot { get; }
+        IMenuEngineeringSettingsRepository MenuEngineeringSettings { get; }
         bool Save();
         Task<bool> SaveAsync();
     }

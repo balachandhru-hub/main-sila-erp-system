@@ -11,10 +11,11 @@ interface TabDef {
   icon: MobileIconName;
 }
 
-const TABS: (TabDef & { show?: (caps: ReturnType<typeof silaHomeCapabilities>) => boolean })[] = [
+const TABS: (TabDef & { show?: (caps: ReturnType<typeof silaHomeCapabilities>, can: ReturnType<typeof useAccess>['can']) => boolean })[] = [
   { key: 'home', label: 'Home', icon: 'home' },
   { key: 'receive', label: 'Receive', icon: 'receive', show: (caps) => caps.viewReceiving },
   { key: 'inventory', label: 'Inventory', icon: 'inventory', show: (caps) => caps.viewInventory },
+  { key: 'menu', label: 'Menu', icon: 'recipes', show: (_caps, can) => can.viewMenuEngineering },
   { key: 'tasks', label: 'Tasks', icon: 'tasks' },
   { key: 'more', label: 'More', icon: 'more' },
 ];
@@ -30,7 +31,7 @@ const TabBar: React.FC = () => {
 
   return (
     <nav className="sm-tabbar" aria-label="Main">
-      {TABS.filter((tab) => !tab.show || tab.show(caps)).map((tab) => (
+      {TABS.filter((tab) => !tab.show || tab.show(caps, can)).map((tab) => (
         <button
           key={tab.key}
           type="button"

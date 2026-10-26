@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { getInventoryHome, getRecentAlerts } from '../../../../remote-buyer/src/api/silaMe/silaInventoryApi';
+import { getMenuEngineering } from '../../../../remote-buyer/src/api/silaMe/silaMenuEngineeringApi';
 import { getPurchaseRecommendations } from '../../../../remote-buyer/src/api/silaMe/silaInventoryControlApi';
 import { getReceivingDashboard, type SilaReceivingTask } from '../../../../remote-buyer/src/api/silaMe/silaReceivingApi';
 import { silaHomeCapabilities } from '../../../../remote-buyer/src/components/silaMe/silaHomeCapabilities';
@@ -49,6 +50,10 @@ const HomeScreen: React.FC = () => {
     () => getPurchaseRecommendations({ locationId: location?.id }),
     caps.recommendation ? (location ? `home-rec-${location.id}` : 'home-rec') : null,
   );
+  const menu = useLoad(
+    () => getMenuEngineering('dashboard', { dateFrom: new Date().toISOString().slice(0, 10), dateTo: new Date().toISOString().slice(0, 10) }),
+    can.viewMenuEngineering ? 'home-menu' : null,
+  );
   const data = dashboard.data;
   const kpis = data?.kpis;
   const tasks = (data?.tasks ?? []).filter((task) => {
@@ -77,6 +82,7 @@ const HomeScreen: React.FC = () => {
     { label: 'Invoices', icon: 'scan', to: 'receive/posted-invoices', show: caps.viewInvoices },
     { label: 'Credit memos', icon: 'scan', to: 'receive/credit-memos', show: caps.viewCreditMemos },
     { label: 'Recommendations', icon: 'purchaseOrders', to: 'inventory/recommendations', show: caps.recommendation },
+    { label: 'Menu Engineering', icon: 'recipes', to: 'menu', show: can.viewMenuEngineering },
     { label: 'Live Stock', icon: 'inventory', to: 'inventory/stock', show: caps.viewInventory },
     { label: 'Raise ITO', icon: 'transfer', to: 'inventory/transfers/new', show: caps.viewInventory && can.manageTransfer },
     { label: 'Approvals', icon: 'approvals', to: 'tasks', show: caps.approveCount || caps.approveTransfer || caps.approveRecipe || caps.approvePrice || caps.approveInvoices || caps.approveCreditMemos },
@@ -227,6 +233,20 @@ const HomeScreen: React.FC = () => {
                 <button type="button" className="sm-stat" onClick={() => go('receive/credit-memos?status=IN_PROGRESS')}><span className="sm-muted">Credit memos</span><strong>{count(data?.creditMemo.inProgress, dashboard.loading)}</strong></button>
               )}
             </div>
+          </section>
+        )}
+
+        {can.viewMenuEngineering && (
+          <section className="sm-section" aria-labelledby="sm-menu">
+            <h2 id="sm-menu">Menu Engineering</h2>
+            {menu.error && <ErrorNotice message={menu.error} onRetry={menu.reload} />}
+            <div className="sm-grid-2">
+              <button type="button" className="sm-stat" onClick={() => go('menu/demand')}><span className="sm-muted">Covers</span><strong>{count(menu.data?.dashboard?.expectedCovers, menu.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('menu/recommendations')}><span className="sm-muted">Shortage</span><strong>{count(menu.data?.dashboard?.forecastShortage, menu.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('menu')}><span className="sm-muted">Attention</span><strong>{count(menu.data?.dashboard?.attention.length, menu.loading)}</strong></button>
+              <button type="button" className="sm-stat" onClick={() => go('menu/intelligence')}><span className="sm-muted">AI insights</span><strong>{count(menu.data?.dashboard?.insights.length, menu.loading)}</strong></button>
+            </div>
+            <button type="button" className="sm-btn" onClick={() => go('menu')}>Open Menu Engineering</button>
           </section>
         )}
 

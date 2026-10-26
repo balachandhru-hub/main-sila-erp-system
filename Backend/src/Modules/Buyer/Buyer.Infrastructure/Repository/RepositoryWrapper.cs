@@ -64,6 +64,12 @@ namespace Buyer.Infrastructure.Repository
         private ICreditMemoItemRepository? _creditMemoItem;
         private IOperationalTaskRepository? _operationalTask;
         private IOperationalAlertRepository? _operationalAlert;
+        private IMenuItemRepository? _menuItem;
+        private IMenuPlanRepository? _menuPlan;
+        private IMenuPlanLineRepository? _menuPlanLine;
+        private IMenuPosMappingRepository? _menuPosMapping;
+        private IPmsDemandSnapshotRepository? _pmsDemandSnapshot;
+        private IMenuEngineeringSettingsRepository? _menuEngineeringSettings;
         private IBuyerBusinessProfileRepository _buyerBusinessProfileRepository;
         private IBuyerCategoryRepository _buyerCategoryRepository;
         private IAssetRepository _assetRepository;
@@ -1364,6 +1370,60 @@ namespace Buyer.Infrastructure.Repository
             {
                 _silaDocumentSequence ??= new SilaDocumentSequenceRepository(_context);
                 return _silaDocumentSequence;
+            }
+        }
+
+        public IMenuItemRepository MenuItem
+        {
+            get
+            {
+                _menuItem ??= new MenuItemRepository(_context);
+                return _menuItem;
+            }
+        }
+
+        public IMenuPlanRepository MenuPlan
+        {
+            get
+            {
+                _menuPlan ??= new MenuPlanRepository(_context);
+                return _menuPlan;
+            }
+        }
+
+        public IMenuPlanLineRepository MenuPlanLine
+        {
+            get
+            {
+                _menuPlanLine ??= new MenuPlanLineRepository(_context);
+                return _menuPlanLine;
+            }
+        }
+
+        public IMenuPosMappingRepository MenuPosMapping
+        {
+            get
+            {
+                _menuPosMapping ??= new MenuPosMappingRepository(_context);
+                return _menuPosMapping;
+            }
+        }
+
+        public IPmsDemandSnapshotRepository PmsDemandSnapshot
+        {
+            get
+            {
+                _pmsDemandSnapshot ??= new PmsDemandSnapshotRepository(_context);
+                return _pmsDemandSnapshot;
+            }
+        }
+
+        public IMenuEngineeringSettingsRepository MenuEngineeringSettings
+        {
+            get
+            {
+                _menuEngineeringSettings ??= new MenuEngineeringSettingsRepository(_context);
+                return _menuEngineeringSettings;
             }
         }
 

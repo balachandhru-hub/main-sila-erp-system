@@ -12,6 +12,7 @@ import {
   type SilaRecipeWrite,
 } from "../../../api/silaMe/silaRecipeApi";
 import { getRecipeMasters, type SilaIngredientOption, type SilaRecipeMaster } from "../../../api/silaMe/silaRecipeToolsApi";
+import { getMenuEngineering, saveMenuEngineering, type MenuItemDetail } from "../../../api/silaMe/silaMenuEngineeringApi";
 import SilaMaterialPricePanel from "../materials/SilaMaterialPricePanel";
 import {
   editorIssues,
@@ -76,6 +77,10 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState<Saving>("");
+  const [menuSearch, setMenuSearch] = useState("");
+  const [menuMatches, setMenuMatches] = useState<MenuItemDetail[]>([]);
+  const [linkedMenuItem, setLinkedMenuItem] = useState<MenuItemDetail | null>(null);
+  const [linkingMenu, setLinkingMenu] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -111,6 +116,50 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
       active = false;
     };
   }, [recipe]);
+
+  useEffect(() => {
+    if (!recipe?.id) return;
+    let active = true;
+    getMenuEngineering("items", { search: recipe.name, limit: 50 })
+      .then((envelope) => {
+        if (!active) return;
+        const found = (envelope.items?.items ?? []).find((row) => row.linkedRecipeId === recipe.id) ?? null;
+        setLinkedMenuItem(found);
+      })
+      .catch(() => {
+        if (active) setLinkedMenuItem(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [recipe?.id, recipe?.name]);
+
+  const searchMenuItems = async () => {
+    try {
+      const envelope = await getMenuEngineering("items", { search: menuSearch.trim(), limit: 30 });
+      setMenuMatches(envelope.items?.items ?? []);
+    } catch (err: unknown) {
+      toastService.error(err instanceof Error ? err.message : "Could not search menu items.");
+    }
+  };
+
+  const linkMenuItem = async (menuItemId?: string) => {
+    if (!recipe?.id || !menuItemId) {
+      toastService.error("Save the recipe first, then link a menu item.");
+      return;
+    }
+    setLinkingMenu(true);
+    try {
+      await saveMenuEngineering({ action: "LINK_RECIPE", menuItemId, recipeId: recipe.id });
+      const envelope = await getMenuEngineering("item", { menuItemId });
+      setLinkedMenuItem(envelope.item ?? null);
+      toastService.success("Menu item linked. Selling price stays on the menu item.");
+    } catch (err: unknown) {
+      toastService.error(err instanceof Error ? err.message : "Could not link the menu item.");
+    } finally {
+      setLinkingMenu(false);
+    }
+  };
 
   const pricedOutletIds = useMemo(() => Object.keys(prices).filter((id) => prices[id].trim() !== ""), [prices]);
   const pricedOutlets = pricedOutletIds.length;
@@ -297,6 +346,56 @@ const SilaRecipeEditor: React.FC<SilaRecipeEditorProps> = ({ recipe, canRequestP
         lastSaleDate={recipe?.lastSaleDate}
         onChange={changeHeader}
       />
+      <section className="sila-card">
+        <div className="sila-card-header">
+          <h2 className="sila-card-title">Link menu item</h2>
+        </div>
+        <div className="sila-card-body srec-stack">
+          <span className="sila-help">Recipe owns ingredients and production. Menu Item owns selling price and planning. Linking does not copy fields forever.</span>
+          {!recipe?.id && <span className="sila-help">Save the recipe first, then search and link a menu item.</span>}
+          {linkedMenuItem && (
+            <p>
+              Linked to <strong>{linkedMenuItem.name}</strong> ({linkedMenuItem.menuItemCode}) · {linkedMenuItem.recipeLinkStatus}
+            </p>
+          )}
+          <div className="srec-filters srec-filters--flush">
+            <div className="sila-field srec-grow">
+              <label className="sila-label" htmlFor="srec-menu-item">Search menu items</label>
+              <input
+                id="srec-menu-item"
+                className="sila-input"
+                value={menuSearch}
+                placeholder="Name or code"
+                onChange={(e) => setMenuSearch(e.target.value)}
+                disabled={!recipe?.id}
+              />
+            </div>
+            <button type="button" className="sila-btn sila-btn--secondary" onClick={searchMenuItems} disabled={!recipe?.id || linkingMenu}>Search</button>
+          </div>
+          {menuMatches.length === 0 ? (
+            <EmptyState title="No menu items in this search." description="Create a menu item in Menu Engineering, then link it here." />
+          ) : (
+            <ul className="srec-stack">
+              {menuMatches.map((row) => (
+                <li key={row.id} className="srec-filters srec-filters--flush">
+                  <span>
+                    <strong>{row.name}</strong>
+                    <span className="sila-help"> {row.menuItemCode} · {row.recipeLinkStatus} · {row.sellingPrice ?? "no price"}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="sila-btn sila-btn--primary sila-btn--sm"
+                    disabled={!recipe?.id || linkingMenu}
+                    onClick={() => linkMenuItem(row.id)}
+                  >
+                    Link menu item
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
       <SilaRecipeCostSummary
         totalCost={totalCost}
         servingQty={toNumber(header.servingQty)}

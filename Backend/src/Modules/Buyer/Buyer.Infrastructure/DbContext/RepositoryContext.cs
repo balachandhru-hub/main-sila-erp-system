@@ -138,6 +138,12 @@ namespace Buyer.Infrastructure.DbContext
         public DbSet<CreditMemoItem> CreditMemoItem { get; set; }
         public DbSet<OperationalTask> OperationalTask { get; set; }
         public DbSet<OperationalAlert> OperationalAlert { get; set; }
+        public DbSet<MenuItem> MenuItem { get; set; }
+        public DbSet<MenuPlan> MenuPlan { get; set; }
+        public DbSet<MenuPlanLine> MenuPlanLine { get; set; }
+        public DbSet<MenuPosMapping> MenuPosMapping { get; set; }
+        public DbSet<PmsDemandSnapshot> PmsDemandSnapshot { get; set; }
+        public DbSet<MenuEngineeringSettings> MenuEngineeringSettings { get; set; }
 
 
         protected override void OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder)
