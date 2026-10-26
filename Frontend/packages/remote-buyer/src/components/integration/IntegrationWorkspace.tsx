@@ -78,12 +78,13 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
   readOnly = false,
 }) => {
   // The tabs of one integration: those of the screen's half that its API type has.
-  const tabsFor = (processType: string): { key: Tab; label: string }[] => {
+  const tabsFor = (processType: string, name?: string | null, resourcePath?: string | null): { key: Tab; label: string }[] => {
     const process = integrationProcessOf(processType);
+    const attachment = name === "API_CV_ATTACHMENT_SRV" || (resourcePath ?? "").includes("API_CV_ATTACHMENT_SRV");
     return TABS.filter((item) => {
       if (item.key === "mapping" && !process.hasMapping) return false;
       // The body editor saves through the Buyer API, for the types the application sends to.
-      if (item.key === "body" && (side !== "buyer" || !isPushProcess(processType))) return false;
+      if (item.key === "body" && (side !== "buyer" || !(isPushProcess(processType) || attachment))) return false;
       return mode === "connection" ? CONNECTION_TABS.includes(item.key) : WORKFLOW_TABS.includes(item.key);
     });
   };
@@ -111,7 +112,7 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
           setView({ name: "create" });
           return;
         }
-        setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType)[0].key });
+        setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType, configuration.name, configuration.resourcePath)[0].key });
       })
       .catch((err: unknown) => {
         if (!active) return;
@@ -126,7 +127,7 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
   const openWorkspace = (configuration: IntegrationConfiguration) => {
     setTestResult(null);
     setDraftFrom(null);
-    setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType)[0].key });
+    setView({ name: "workspace", configuration, tab: tabsFor(configuration.processType, configuration.name, configuration.resourcePath)[0].key });
   };
 
   const startCopy = () => {
@@ -167,7 +168,8 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
   const isActive = configuration.status === "ACTIVE";
   const canActivate = configuration.status === "TESTED" || configuration.status === "INACTIVE";
   const process = integrationProcessOf(configuration.processType);
-  const visibleTabs = tabsFor(configuration.processType);
+  const attachmentApi = configuration.name === "API_CV_ATTACHMENT_SRV" || (configuration.resourcePath ?? "").includes("API_CV_ATTACHMENT_SRV");
+  const visibleTabs = tabsFor(configuration.processType, configuration.name, configuration.resourcePath);
   // A check reads the API and validates the mapping without storing anything.
   const isCheck = process.pull === "check";
   const pullName = isCheck ? "Check" : "Pull";
@@ -252,7 +254,7 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
       <PageHeader
         className="pud-page-header"
         title={configuration.name}
-        description={`${labelOf(INTEGRATION_PROCESS_TYPES, configuration.processType)} · ${labelOf(INTEGRATION_PROTOCOLS, configuration.protocol)} · entity ${configuration.entityCode}`}
+        description={`${attachmentApi ? "API_CV_ATTACHMENT_SRV" : labelOf(INTEGRATION_PROCESS_TYPES, configuration.processType)} · ${labelOf(INTEGRATION_PROTOCOLS, configuration.protocol)} · entity ${configuration.entityCode}`}
         meta={<span className={statusBadgeClass(configuration.status)}>{statusLabel(configuration.status)}</span>}
         onBack={onExit}
         backLabel="Back to integrations"

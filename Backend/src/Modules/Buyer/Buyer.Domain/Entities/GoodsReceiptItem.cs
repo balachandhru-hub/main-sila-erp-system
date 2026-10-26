@@ -54,5 +54,12 @@ namespace Buyer.Domain.Entities
         public string? BatchNumber { get; set; }
 
         public DateTime? ExpiryDate { get; set; }
+
+        /// <summary>Original SAP Material Document Item (0001). Audit / CancelItem; full Cancel uses header.</summary>
+        public string? MaterialDocumentItem { get; set; }
+
+        /// <summary>Quantity already reversed against this line (full Cancel sets to AcceptedQty).</summary>
+        [Precision(18, 4)]
+        public decimal ReversedQty { get; set; }
     }
 }

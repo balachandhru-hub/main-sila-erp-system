@@ -1,3 +1,4 @@
+export { default as SilaReceivingDashboard } from "./SilaReceivingDashboard";
 export { default as SilaPurchaseOrdersOpen } from "./SilaPurchaseOrdersOpen";
 export { default as SilaGoodsReceipts } from "./SilaGoodsReceipts";
 export { default as SilaInvoices } from "./SilaInvoices";

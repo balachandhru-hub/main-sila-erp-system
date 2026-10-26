@@ -37,8 +37,10 @@ type View =
   | { name: "create"; processType: string; copyFromId?: string }
   | { name: "open"; configurationId: string };
 
-const purposeOf = (processType: string): string =>
-  INTEGRATION_PROCESS_TYPES.find((type) => type.value === processType)?.label ?? statusLabel(processType);
+const purposeOf = (processType: string, name?: string | null, resourcePath?: string | null): string => {
+  if (name === "API_CV_ATTACHMENT_SRV" || (resourcePath ?? "").includes("API_CV_ATTACHMENT_SRV")) return "API_CV_ATTACHMENT_SRV";
+  return INTEGRATION_PROCESS_TYPES.find((type) => type.value === processType)?.label ?? statusLabel(processType);
+};
 
 /**
  * The application's single place for external APIs, for every API type of the buyer or the supplier.
@@ -239,8 +241,13 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
               <tbody>
                 {visibleRows.map((row) => (
                   <tr key={row.id}>
-                    <td className="sila-cell-strong">{purposeOf(row.processType)}</td>
-                    <td>{row.name}</td>
+                    <td className="sila-cell-strong">{purposeOf(row.processType, row.name, row.resourcePath)}</td>
+                    <td>
+                      {row.name}
+                      {row.resourcePath?.includes("API_CV_ATTACHMENT_SRV") && row.name !== "API_CV_ATTACHMENT_SRV" && (
+                        <span className="srcv-sub">API_CV_ATTACHMENT_SRV</span>
+                      )}
+                    </td>
                     <td>{row.systemName || "—"}</td>
                     <td>{row.baseUrl || "—"}</td>
                     <td>{row.entityCode || "—"}</td>

@@ -9,6 +9,8 @@ namespace Buyer.Application.Features.Commands.MatchSilaInvoicePurchaseOrder
         public Guid OrganizationId { get; set; }
         public Guid UserId { get; set; }
         public Guid InvoiceId { get; set; }
+        /// <summary>Keeps the purchase order already on the invoice and matches only the lines that are still open.</summary>
+        public bool Append { get; set; }
         public SilaInvoiceMatchPoDto Request { get; set; } = new();
     }
 }

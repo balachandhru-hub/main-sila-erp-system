@@ -18,7 +18,18 @@ namespace Buyer.Domain.Dtos
         public string Status { get; set; } = string.Empty;
         public Guid ReceivedBy { get; set; }
         public DateTime ReceivedOn { get; set; }
+        public string? MaterialDocument { get; set; }
+        public string? MaterialDocumentYear { get; set; }
+        public string? ReversalMaterialDocument { get; set; }
+        public string? ReversalMaterialDocumentYear { get; set; }
+        public string? ReversalGrnNumber { get; set; }
+        public Guid? ReversalGoodsReceiptId { get; set; }
+        public Guid? ParentGoodsReceiptId { get; set; }
+        public string? ReversalStatus { get; set; }
+        public string? InvoiceStatus { get; set; }
         public SilaErpPostingListItemDto? ErpPosting { get; set; }
         public List<SilaReceivingGrnItemDto> Items { get; set; } = new();
+        /// <summary>PO → GRN → Invoice track for this goods receipt.</summary>
+        public SilaDocumentTrackDto? DocumentTrack { get; set; }
     }
 }

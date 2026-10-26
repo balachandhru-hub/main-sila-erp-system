@@ -37,6 +37,9 @@ namespace Buyer.Domain.Dtos
         /// <summary>Company code of the property.</summary>
         public string? CompanyCode { get; set; }
 
+        /// <summary>Plant code of the property (often same as company code for FIVE).</summary>
+        public string? PlantCode { get; set; }
+
         /// <summary>The caller's own location. Live inventory opens on this assignment.</summary>
         public bool Assigned { get; set; }
     }

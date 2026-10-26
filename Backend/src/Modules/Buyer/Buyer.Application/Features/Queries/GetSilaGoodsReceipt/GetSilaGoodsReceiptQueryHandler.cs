@@ -1,4 +1,5 @@
 using Buyer.Application.Features.Shared;
+using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
 using Buyer.Domain.Entities;
 using Buyer.Infrastructure.Contracts.IRepository;
@@ -48,6 +49,17 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
             InventoryErpPosting? posting = receipt.ErpPostingId == null
                 ? null
                 : await _repository.InventoryErpPosting.FindByCondition(x => x.Id == receipt.ErpPostingId.Value).FirstOrDefaultAsync(cancellationToken);
+            if (posting == null && receipt.ParentGoodsReceiptId != null)
+            {
+                posting = await _repository.InventoryErpPosting
+                    .FindByCondition(x => x.BuyerId == buyer.Id && x.IsActive
+                        && x.ReferenceType == Common.SILA_REF_GRN_REVERSAL
+                        && (x.ReferenceId == receipt.Id
+                            || x.ReferenceNumber == receipt.GrnNumber
+                            || (receipt.MaterialDocument != null && x.ErpReference == receipt.MaterialDocument)))
+                    .OrderByDescending(x => x.DateCreated)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
 
             SilaReceivingGrnDetailDto result = new SilaReceivingGrnDetailDto
             {
@@ -64,6 +76,15 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
                 Status = receipt.Status,
                 ReceivedBy = receipt.ReceivedBy,
                 ReceivedOn = receipt.DateCreated,
+                MaterialDocument = receipt.MaterialDocument ?? posting?.ErpReference,
+                MaterialDocumentYear = receipt.MaterialDocumentYear,
+                ReversalMaterialDocument = receipt.ReversalMaterialDocument,
+                ReversalMaterialDocumentYear = receipt.ReversalMaterialDocumentYear,
+                ReversalGrnNumber = receipt.ReversalGrnNumber,
+                ReversalGoodsReceiptId = receipt.ReversalGoodsReceiptId,
+                ParentGoodsReceiptId = receipt.ParentGoodsReceiptId,
+                ReversalStatus = receipt.ReversalStatus,
+                InvoiceStatus = header.InvoiceStatus,
                 ErpPosting = posting == null ? null : SilaReceivingRules.ToPostingDto(posting, header.LocationName),
                 Items = items.Select(item => new SilaReceivingGrnItemDto
                 {
@@ -86,6 +107,7 @@ namespace Buyer.Application.Features.Queries.GetSilaGoodsReceipt
                 }).ToList()
             };
 
+            result.DocumentTrack = await SilaDocumentTrack.ForGoodsReceiptAsync(_repository, buyer.Id, receipt, cancellationToken);
             _logger.LogInfo($"Goods receipt fetched. GoodsReceiptId: {receipt.Id}, Lines: {result.Items.Count}");
             return result;
         }

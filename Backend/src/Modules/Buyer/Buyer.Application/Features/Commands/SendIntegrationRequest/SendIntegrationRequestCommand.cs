@@ -17,5 +17,10 @@ namespace Buyer.Application.Features.Commands.SendIntegrationRequest
 
         /// <summary>Characters of the answer kept; an answer that is read (an invoice extraction) needs more than the default.</summary>
         public int ResponseLimit { get; set; } = 4000;
+
+        /// <summary>
+        /// Optional path for this call only (e.g. API_MATERIAL_DOCUMENT_SRV/Cancel). Does not change the saved configuration.
+        /// </summary>
+        public string? ResourcePathOverride { get; set; }
     }
 }

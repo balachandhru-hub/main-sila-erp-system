@@ -40,6 +40,8 @@ const PRICE_APPROVALS_NAV_KEY = "silaPriceApprovals";
 interface AttentionOptions {
   currentUserId: string | null;
   hasSilaMe: boolean;
+  /** False while the SILA ME add-on check is still running. The panel waits, then loads once. */
+  ready?: boolean;
 }
 
 const settle = async <T>(name: string, run: () => Promise<T>, failed: string[]): Promise<T | null> => {
@@ -56,7 +58,7 @@ const settle = async <T>(name: string, run: () => Promise<T>, failed: string[]):
  * What waits for the signed-in user: approvals (material, contract, weekly bucket, SILA ME recipes and prices),
  * SILA ME alerts and invoices to review, and the weekly buckets the next actions are suggested from.
  */
-export const useAttention = ({ currentUserId, hasSilaMe }: AttentionOptions): AttentionState => {
+export const useAttention = ({ currentUserId, hasSilaMe, ready = true }: AttentionOptions): AttentionState => {
   const [state, setState] = useState<Omit<AttentionState, "reload">>({
     loading: true,
     approvals: [],
@@ -68,9 +70,15 @@ export const useAttention = ({ currentUserId, hasSilaMe }: AttentionOptions): At
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
+    if (!ready) return undefined;
     let active = true;
     const failed: string[] = [];
-    setState((previous) => ({ ...previous, loading: true }));
+    // A later refresh (the user id arrives) keeps the figures on screen. Replacing them with the
+    // loader is what made every dashboard look like it was reloading.
+    setState((previous) => ({
+      ...previous,
+      loading: previous.buckets === null && previous.approvals.length === 0 && previous.alerts.length === 0,
+    }));
 
     const run = async () => {
       const bucketsPromise = settle("weekly buckets", loadRecentBuckets, failed);
@@ -109,7 +117,7 @@ export const useAttention = ({ currentUserId, hasSilaMe }: AttentionOptions): At
     return () => {
       active = false;
     };
-  }, [currentUserId, hasSilaMe, version]);
+  }, [currentUserId, hasSilaMe, ready, version]);
 
   const reload = useCallback(() => setVersion((current) => current + 1), []);
 

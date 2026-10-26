@@ -1864,6 +1864,20 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("location_id");
 
+                    b.Property<string>("MaterialDocument")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("material_document");
+
+                    b.Property<string>("MaterialDocumentYear")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)")
+                        .HasColumnName("material_document_year");
+
+                    b.Property<Guid?>("ParentGoodsReceiptId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("parent_goods_receipt_id");
+
                     b.Property<string>("PoNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -1876,6 +1890,47 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<Guid>("ReceivedBy")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("received_by");
+
+                    b.Property<Guid?>("ReversalErpPostingId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("reversal_erp_posting_id");
+
+                    b.Property<Guid?>("ReversalGoodsReceiptId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("reversal_goods_receipt_id");
+
+                    b.Property<string>("ReversalGrnNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("reversal_grn_number");
+
+                    b.Property<string>("ReversalMaterialDocument")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("reversal_material_document");
+
+                    b.Property<string>("ReversalMaterialDocumentYear")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)")
+                        .HasColumnName("reversal_material_document_year");
+
+                    b.Property<string>("ReversalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("reversal_reason");
+
+                    b.Property<string>("ReversalStatus")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)")
+                        .HasColumnName("reversal_status");
+
+                    b.Property<Guid?>("ReversedBy")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("reversed_by");
+
+                    b.Property<DateTime?>("ReversedOn")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("reversed_on");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1959,6 +2014,11 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("material_code");
 
+                    b.Property<string>("MaterialDocumentItem")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("material_document_item");
+
                     b.Property<Guid?>("MaterialId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("material_id");
@@ -1991,6 +2051,11 @@ namespace Buyer.Infrastructure.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("rejected_qty");
+
+                    b.Property<decimal>("ReversedQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)")
+                        .HasColumnName("reversed_qty");
 
                     b.Property<string>("Uom")
                         .HasColumnType("nvarchar(max)")
@@ -3048,6 +3113,10 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("buyer_id");
 
+                    b.Property<string>("CompanyCode")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("company_code");
+
                     b.Property<string>("ContentHash")
                         .HasColumnType("nvarchar(450)")
                         .HasColumnName("content_hash");
@@ -3055,6 +3124,10 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("created_by");
+
+                    b.Property<string>("CreationType")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("creation_type");
 
                     b.Property<string>("Currency")
                         .HasColumnType("nvarchar(max)")
@@ -3120,6 +3193,14 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<string>("PoNumber")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("po_number");
+
+                    b.Property<string>("PostingData")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("posting_data");
+
+                    b.Property<Guid?>("PropertyId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("property_id");
 
                     b.Property<Guid?>("PurchaseOrderId")
                         .HasColumnType("uniqueidentifier")
@@ -3276,6 +3357,18 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("amount");
 
+                    b.Property<string>("AssignmentReference")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("assignment_reference");
+
+                    b.Property<string>("BusinessArea")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("business_area");
+
+                    b.Property<string>("CostCenter")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("cost_center");
+
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("created_by");
@@ -3288,10 +3381,26 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("date_updated");
 
+                    b.Property<string>("DebitCreditCode")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("debit_credit_code");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
+
+                    b.Property<string>("GlAccount")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("gl_account");
+
+                    b.Property<Guid?>("GoodsReceiptItemId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("goods_receipt_item_id");
+
+                    b.Property<string>("InternalOrder")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("internal_order");
 
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uniqueidentifier")
@@ -3305,9 +3414,17 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("line_number");
 
+                    b.Property<string>("LineText")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("line_text");
+
                     b.Property<string>("MatchStatus")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("match_status");
+
+                    b.Property<string>("ProfitCenter")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("profit_center");
 
                     b.Property<Guid?>("PurchaseOrderItemId")
                         .HasColumnType("uniqueidentifier")
@@ -3321,6 +3438,10 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<string>("SupplierMaterialCode")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("supplier_material_code");
+
+                    b.Property<string>("TaxCode")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("tax_code");
 
                     b.Property<decimal?>("TaxRate")
                         .HasPrecision(9, 4)
@@ -3339,6 +3460,10 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<Guid>("UpdatedBy")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("updated_by");
+
+                    b.Property<string>("WbsElement")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("wbs_element");
 
                     b.HasKey("Id")
                         .HasName("pk_invoice_item");
@@ -5534,6 +5659,10 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("storage_location");
 
+                    b.Property<string>("TaxCode")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("tax_code");
+
                     b.Property<string>("UnitOfMeasure")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("unit_of_measure");
@@ -7310,6 +7439,16 @@ namespace Buyer.Infrastructure.Migrations
                         .HasColumnType("decimal(18,4)")
                         .HasColumnName("amount_tolerance");
 
+                    b.Property<string>("AttachmentPath")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("attachment_path");
+
+                    b.Property<string>("AttachmentStorage")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("attachment_storage");
+
                     b.Property<bool>("AutoExtractOnUpload")
                         .HasColumnType("bit")
                         .HasColumnName("auto_extract_on_upload");
@@ -7371,6 +7510,21 @@ namespace Buyer.Infrastructure.Migrations
                     b.Property<bool?>("ReuseCachedOcr")
                         .HasColumnType("bit")
                         .HasColumnName("reuse_cached_ocr");
+
+                    b.Property<string>("SharePointFolder")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)")
+                        .HasColumnName("share_point_folder");
+
+                    b.Property<string>("SharePointLibrary")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("share_point_library");
+
+                    b.Property<string>("SharePointSiteUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("share_point_site_url");
 
                     b.Property<bool?>("SupplierValidation")
                         .HasColumnType("bit")
@@ -9124,6 +9278,7 @@ namespace Buyer.Infrastructure.Migrations
 
                     b.Property<string>("ProcessType")
                         .IsRequired()
+                        .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)")
                         .HasColumnName("process_type");
 

@@ -2,6 +2,7 @@ using Buyer.Application.Features.Shared;
 using Buyer.Domain.Common;
 using Buyer.Domain.Dtos;
 using Buyer.Domain.Entities;
+using SharedKernel.ExceptionHandler;
 
 namespace Buyer.Tests.Shared
 {
@@ -79,6 +80,51 @@ namespace Buyer.Tests.Shared
             Assert.Equal(30, SilaOcrPolicy.TimeoutSeconds(settings));
             Assert.True(SilaOcrPolicy.ReuseCachedOcr(settings));
             Assert.Equal(SilaOcrPolicy.DEFAULT_RETRY_COUNT, SilaOcrPolicy.RetryCount(settings));
+        }
+
+        [Fact]
+        public void AttachmentStorage_DefaultsToTheLocalDownloadsPath()
+        {
+            SilaOcrConfiguration settings = new SilaOcrConfiguration { AttachmentStorage = SilaOcrPolicy.STORAGE_SHAREPOINT, SharePointSiteUrl = "https://contoso.sharepoint.com/sites/finance" };
+            Assert.Equal(SilaOcrPolicy.STORAGE_LOCAL, SilaOcrPolicy.AttachmentStorage(new SilaOcrConfiguration()));
+            Assert.Equal("/srv/vosox/buyer", SilaOcrPolicy.AttachmentWriteRoot(settings, "/srv/vosox/buyer"));
+            Assert.Equal(Path.Combine("/srv/vosox/buyer", "sila/invoices"), SilaOcrPolicy.AttachmentLocalFolder("/srv/vosox/buyer"));
+
+            Buyer.Tests.Support.FakeLogger logger = new Buyer.Tests.Support.FakeLogger();
+            SilaOcrPolicy.Apply(logger, settings, new SilaOcrConfigurationWriteDto
+            {
+                AttachmentStorage = SilaOcrPolicy.STORAGE_FILE_PATH,
+                AttachmentPath = @"D:\invoices\incoming"
+            });
+            Assert.Equal(SilaOcrPolicy.STORAGE_FILE_PATH, settings.AttachmentStorage);
+            Assert.Equal(@"D:\invoices\incoming", settings.AttachmentPath);
+            Assert.Equal("/srv/vosox/buyer", SilaOcrPolicy.AttachmentWriteRoot(settings, "/srv/vosox/buyer"));
+
+            SilaOcrPolicy.Apply(logger, settings, new SilaOcrConfigurationWriteDto
+            {
+                AttachmentStorage = SilaOcrPolicy.STORAGE_SHAREPOINT,
+                SharePointSiteUrl = "https://contoso.sharepoint.com/sites/finance/",
+                SharePointLibrary = "Invoices",
+                SharePointFolder = "2026"
+            });
+            Assert.Equal("https://contoso.sharepoint.com/sites/finance", settings.SharePointSiteUrl);
+            Assert.Equal("Invoices", settings.SharePointLibrary);
+            Assert.Equal("/srv/vosox/buyer", SilaOcrPolicy.AttachmentWriteRoot(settings, "/srv/vosox/buyer"));
+        }
+
+        [Fact]
+        public void AttachmentStorage_RequiresTheChosenLocation()
+        {
+            Buyer.Tests.Support.FakeLogger logger = new Buyer.Tests.Support.FakeLogger();
+            SilaOcrConfiguration settings = new SilaOcrConfiguration();
+            Assert.Throws<BadRequestCustomException>(() => SilaOcrPolicy.Apply(logger, settings, new SilaOcrConfigurationWriteDto { AttachmentStorage = "FILE_PATH" }));
+            Assert.Throws<BadRequestCustomException>(() => SilaOcrPolicy.Apply(logger, settings, new SilaOcrConfigurationWriteDto
+            {
+                AttachmentStorage = "SHAREPOINT",
+                SharePointSiteUrl = "https://user:secret@contoso.sharepoint.com/sites/finance",
+                SharePointLibrary = "Invoices"
+            }));
+            Assert.Equal(SilaOcrPolicy.STORAGE_LOCAL, SilaOcrPolicy.AttachmentStorage(settings));
         }
     }
 }
