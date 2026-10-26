@@ -62,6 +62,8 @@ namespace Buyer.Infrastructure.Repository
         private IInvoiceItemRepository? _invoiceItem;
         private ICreditMemoRepository? _creditMemo;
         private ICreditMemoItemRepository? _creditMemoItem;
+        private IOperationalTaskRepository? _operationalTask;
+        private IOperationalAlertRepository? _operationalAlert;
         private IBuyerBusinessProfileRepository _buyerBusinessProfileRepository;
         private IBuyerCategoryRepository _buyerCategoryRepository;
         private IAssetRepository _assetRepository;
@@ -1182,6 +1184,24 @@ namespace Buyer.Infrastructure.Repository
             {
                 _creditMemoItem ??= new CreditMemoItemRepository(_context);
                 return _creditMemoItem;
+            }
+        }
+
+        public IOperationalTaskRepository OperationalTask
+        {
+            get
+            {
+                _operationalTask ??= new OperationalTaskRepository(_context);
+                return _operationalTask;
+            }
+        }
+
+        public IOperationalAlertRepository OperationalAlert
+        {
+            get
+            {
+                _operationalAlert ??= new OperationalAlertRepository(_context);
+                return _operationalAlert;
             }
         }
 

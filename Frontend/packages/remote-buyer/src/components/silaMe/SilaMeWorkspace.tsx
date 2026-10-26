@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { SilaMeNavKey, SilaMeRole } from "./silaMeNav";
-import { silaMePermissions } from "./silaMePermissions";
+import { silaMePermissions, type SilaMePermissions } from "./silaMePermissions";
 import SilaHomeDashboard from "./SilaHomeDashboard";
 import {
   silaHomeCapabilities,
@@ -14,6 +14,7 @@ import SilaInventoryTransactions from "./inventory/SilaInventoryTransactions";
 import SilaLocationMaster from "./inventory/SilaLocationMaster";
 import SilaMaterialInventory from "./inventory/SilaMaterialInventory";
 import SilaPurchaseRequests from "./inventory/SilaPurchaseRequests";
+import SilaRecommendations from "./purchasing/SilaRecommendations";
 import SilaQuickTransferPolicy from "./inventory/SilaQuickTransferPolicy";
 import SilaTransfers from "./movements/SilaTransfers";
 import SilaGoodsIssue from "./movements/SilaGoodsIssue";
@@ -47,6 +48,7 @@ import "./SilaMeWorkspace.css";
 interface SilaMeWorkspaceProps {
   navKey: SilaMeNavKey;
   role: SilaMeRole;
+  permissions?: SilaMePermissions;
   capabilities?: SilaHomeCapabilities;
   /** Opens another SILA ME screen or navigation route (e.g. 'models'). */
   onNavigate: (key: any) => void;
@@ -56,8 +58,8 @@ interface SilaMeWorkspaceProps {
  * The SILA ME (hospitality add-on) screens. The role decides which actions a screen offers (silaMePermissions);
  * every action is authorised again by the API.
  */
-const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, capabilities, onNavigate }) => {
-  const can = silaMePermissions(role);
+const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, permissions, capabilities, onNavigate }) => {
+  const can = permissions ?? silaMePermissions(role);
   const homeCaps = capabilities ?? silaHomeCapabilities(true, can);
   const [previewPersona, setPreviewPersona] = useState<SilaHomePersona>("self");
   // Screens that open a specific record in another screen pass it through here.
@@ -118,6 +120,13 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, capabil
         return (
           <SilaAlerts onCountRequested={openCount} onPhysicalInventoryRequested={() => onNavigate("silaPhysicalInventory")} />
         );
+      case "silaRecommendations":
+        return (
+          <SilaRecommendations
+            readOnly={role === "admin" && previewPersona !== "self"}
+            onOpenPurchaseRequests={() => onNavigate("silaPurchaseRequests")}
+          />
+        );
       case "silaPurchaseRequests":
         return <SilaPurchaseRequests canAddToBucket={role === "admin" || role === "store-manager"} />;
       case "silaRecipeDashboard":
@@ -168,9 +177,17 @@ const SilaMeWorkspace: React.FC<SilaMeWorkspaceProps> = ({ navKey, role, capabil
       case "silaGoodsReceipts":
         return <SilaGoodsReceipts canPost={can.postGrn} canReprocess={can.manageErpPosting} />;
       case "silaInvoices":
-        return <SilaInvoices canPost={can.postGrn} />;
+        return (
+          <SilaInvoices
+            canProcess={can.processInvoice}
+            canApprove={can.approveInvoice}
+            canReceive={can.postGrn}
+            canManageErp={can.manageErpPosting}
+            canProcessCreditMemo={can.processCreditMemo}
+          />
+        );
       case "silaCreditMemos":
-        return <SilaCreditMemos canPost={can.postGrn} />;
+        return <SilaCreditMemos canProcess={can.processCreditMemo} canApprove={can.approveCreditMemo} />;
       case "silaPriceApprovals":
         return <SilaPriceApprovals />;
       case "silaAuditLog":

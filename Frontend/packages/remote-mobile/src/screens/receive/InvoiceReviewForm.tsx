@@ -18,6 +18,7 @@ interface InvoiceReviewFormProps {
   invoice: SilaInvoiceDetail;
   /** Fields of the newest OCR reading (what was read, before corrections). */
   ocr: SilaInvoiceOcrFields | null;
+  canProcess?: boolean;
 }
 
 /** yyyy-mm-dd part of an ISO date, for the date input. */
@@ -31,7 +32,7 @@ const matchedOf = (invoice: SilaInvoiceDetail): MatchedSupplier | null =>
 type Field = 'number' | 'date' | 'currency' | 'gross';
 
 /** Supplier, invoice fields and purchase order of a scanned invoice; saving leads to Finalize GRN. */
-const InvoiceReviewForm: React.FC<InvoiceReviewFormProps> = ({ invoice, ocr }) => {
+const InvoiceReviewForm: React.FC<InvoiceReviewFormProps> = ({ invoice, ocr, canProcess = false }) => {
   const go = useGo();
   const [supplier, setSupplier] = useState<MatchedSupplier | null>(() => matchedOf(invoice));
   const [invoiceNumber, setInvoiceNumber] = useState<string>(invoice.invoiceNumber ?? '');
@@ -164,7 +165,7 @@ const InvoiceReviewForm: React.FC<InvoiceReviewFormProps> = ({ invoice, ocr }) =
       <InvoiceItemsCard items={invoice.items} currency={currency || invoice.currency || null} />
 
       <Notice notice={notice} />
-      {!invoiceEditLocked(invoice.status) && (
+      {canProcess && !invoiceEditLocked(invoice.status) && (
         <button type="button" className="sm-btn sm-btn--primary sm-btn--block" disabled={saving} onClick={save}>
           {saving ? 'Saving…' : 'SAVE AND CONTINUE'}
         </button>

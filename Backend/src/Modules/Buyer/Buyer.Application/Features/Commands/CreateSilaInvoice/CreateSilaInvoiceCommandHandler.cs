@@ -40,49 +40,34 @@ namespace Buyer.Application.Features.Commands.CreateSilaInvoice
                 throw new BadRequestCustomException("Supplier is required.", "Select a supplier.");
             }
 
+            if (body.Content == null || body.Content.Length == 0)
+            {
+                throw new BadRequestCustomException("An invoice attachment is required.", "Upload one PDF, JPEG or PNG.");
+            }
+
             Guid invoiceId = Guid.NewGuid();
-            string fileName = "create-invoice.txt";
-            string relativePath = Path.Combine(Common.SILA_INVOICE_FOLDER, invoiceId.ToString(), "placeholder.txt");
-            if (body.Content.Length > 0)
+            string kind = SilaFileRules.Validate(
+                _logger, "Invoice", body.FileName ?? "invoice.pdf", body.Content,
+                new[] { SilaFileRules.KIND_PDF, SilaFileRules.KIND_JPEG, SilaFileRules.KIND_PNG }, SilaReceivingRules.MAX_INVOICE_BYTES);
+            string basePath = _configuration[Common.BASE_FOLDER_PATH] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(basePath))
             {
-                string kind = SilaFileRules.Validate(
-                    _logger, "Invoice", body.FileName ?? "invoice.pdf", body.Content,
-                    new[] { SilaFileRules.KIND_PDF, SilaFileRules.KIND_JPEG, SilaFileRules.KIND_PNG }, SilaReceivingRules.MAX_INVOICE_BYTES);
-                string basePath = _configuration[Common.BASE_FOLDER_PATH] ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(basePath))
-                {
-                    throw new FailedDependencyCustomException("File storage is not configured.", "Ask your administrator to configure the local downloads path.");
-                }
-
-                SilaOcrConfiguration storage = await SilaOcrSettings.GetAsync(_repository, buyer.Id, cancellationToken);
-                string? writeRoot = SilaOcrPolicy.AttachmentWriteRoot(storage, basePath);
-                string storedName = SilaFileRules.StoredName(invoiceId, kind);
-                relativePath = Path.Combine(Common.SILA_INVOICE_FOLDER, invoiceId.ToString(), storedName);
-                string? fullPath = SilaFileRules.ResolveUnderRoot(writeRoot, relativePath);
-                if (fullPath == null)
-                {
-                    throw new FailedDependencyCustomException("File storage is not configured.", "Ask your administrator to check the file storage folder.");
-                }
-
-                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-                await File.WriteAllBytesAsync(fullPath, body.Content, cancellationToken);
-                fileName = SilaFileRules.SafeDisplayName(body.FileName, $"invoice-{DateTime.UtcNow:yyyyMMddHHmmss}", kind);
+                throw new FailedDependencyCustomException("File storage is not configured.", "Ask your administrator to configure the local downloads path.");
             }
-            else
+
+            SilaOcrConfiguration storage = await SilaOcrSettings.GetAsync(_repository, buyer.Id, cancellationToken);
+            string? writeRoot = SilaOcrPolicy.AttachmentWriteRoot(storage, basePath);
+            string storedName = SilaFileRules.StoredName(invoiceId, kind);
+            string relativePath = Path.Combine(Common.SILA_INVOICE_FOLDER, invoiceId.ToString(), storedName);
+            string? fullPath = SilaFileRules.ResolveUnderRoot(writeRoot, relativePath);
+            if (fullPath == null)
             {
-                string basePath = _configuration[Common.BASE_FOLDER_PATH] ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(basePath))
-                {
-                    SilaOcrConfiguration storage = await SilaOcrSettings.GetAsync(_repository, buyer.Id, cancellationToken);
-                    string? writeRoot = SilaOcrPolicy.AttachmentWriteRoot(storage, basePath);
-                    string? fullPath = SilaFileRules.ResolveUnderRoot(writeRoot, relativePath);
-                    if (fullPath != null)
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-                        await File.WriteAllTextAsync(fullPath, "Create Invoice draft", cancellationToken);
-                    }
-                }
+                throw new FailedDependencyCustomException("File storage is not configured.", "Ask your administrator to check the file storage folder.");
             }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+            await File.WriteAllBytesAsync(fullPath, body.Content, cancellationToken);
+            string fileName = SilaFileRules.SafeDisplayName(body.FileName, $"invoice-{DateTime.UtcNow:yyyyMMddHHmmss}", kind);
 
             DateTime invoiceDate = body.InvoiceDate?.Date ?? DateTime.UtcNow.Date;
             Invoice invoice = new Invoice

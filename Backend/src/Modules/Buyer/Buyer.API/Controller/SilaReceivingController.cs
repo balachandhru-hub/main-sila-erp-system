@@ -1,5 +1,6 @@
 using Buyer.Application.Features.Commands.CopySilaInvoice;
 using Buyer.Application.Features.Commands.CreateSilaInvoice;
+using Buyer.Application.Features.Commands.DecideSilaCreditMemo;
 using Buyer.Application.Features.Commands.DecideSilaInvoice;
 using Buyer.Application.Features.Commands.PrepareSilaCreateInvoice;
 using Buyer.Application.Features.Commands.ExtractSilaInvoice;
@@ -65,7 +66,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/receiving/dashboard")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(AnyOf = "VIEW_SILA_RECEIVING,VIEW_SILA_INVOICE,VIEW_SILA_CREDIT_MEMO")]
         [SwaggerOperation("GetSilaReceivingDashboard")]
         [SwaggerResponse(200, type: typeof(SilaReceivingDashboardDto))]
         public async Task<IActionResult> GetReceivingDashboard(
@@ -80,7 +81,9 @@ namespace Buyer.API.Controllers
                 RoleId = GetRoleId(),
                 LocationId = locationId,
                 PropertyId = propertyId,
-                Supplier = supplier
+                Supplier = supplier,
+                PermissionCodes = HttpContext.Items[ApiAuthorizationAttribute.PermissionItemsKey] as List<string>
+                    ?? new List<string>()
             });
             return Ok(result);
         }
@@ -249,7 +252,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoices")]
         [SwaggerResponse(200, type: typeof(List<SilaInvoiceListItemDto>))]
         public async Task<IActionResult> ListInvoices([FromQuery] string? search, [FromQuery] string? status, [FromQuery] int index = 0, [FromQuery] int limit = 20)
@@ -269,7 +272,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/create/masters")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("GetSilaCreateInvoiceMasters")]
         [SwaggerResponse(200, type: typeof(SilaCreateInvoiceMastersDto))]
         public async Task<IActionResult> CreateMasters()
@@ -279,14 +282,15 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/create/purchase-orders")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("GetSilaEligiblePurchaseOrders")]
         [SwaggerResponse(200, type: typeof(List<SilaEligiblePurchaseOrderDto>))]
         public async Task<IActionResult> EligiblePurchaseOrders(
             [FromQuery] Guid? silaSupplierId,
             [FromQuery] Guid? supplierId,
             [FromQuery] string? companyCode,
-            [FromQuery] Guid? propertyId)
+            [FromQuery] Guid? propertyId,
+            [FromQuery] string? search)
         {
             return Ok(await _mediator.Send(new GetSilaEligiblePurchaseOrdersQuery
             {
@@ -294,13 +298,14 @@ namespace Buyer.API.Controllers
                 SilaSupplierId = silaSupplierId,
                 SupplierId = supplierId,
                 CompanyCode = companyCode,
-                PropertyId = propertyId
+                PropertyId = propertyId,
+                Search = search
             }));
         }
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/create/purchase-orders/{purchaseOrderId}/goods-receipts")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("GetSilaEligibleGoodsReceipts")]
         [SwaggerResponse(200, type: typeof(List<SilaEligibleGoodsReceiptDto>))]
         public async Task<IActionResult> EligibleGoodsReceipts([FromRoute] Guid purchaseOrderId)
@@ -314,7 +319,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/create")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("CreateSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
         public async Task<IActionResult> CreateInvoice([FromBody] SilaCreateInvoiceRequestDto request)
@@ -336,7 +341,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/prepare-create")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("PrepareSilaCreateInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> PrepareCreate([FromRoute] Guid invoiceId, [FromBody] SilaCreateInvoiceRequestDto request)
@@ -353,7 +358,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/upload")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(UPLOAD_LIMIT)]
         [SwaggerOperation("UploadSilaInvoice")]
@@ -392,7 +397,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/copy")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("CopySilaInvoice")]
         [SwaggerResponse(200, type: typeof(SuccessResponseDto))]
         public async Task<IActionResult> CopyInvoice([FromRoute] Guid invoiceId)
@@ -416,7 +421,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> GetInvoice([FromRoute] Guid invoiceId)
@@ -433,7 +438,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/file")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoiceFile")]
         [SwaggerResponse(200, type: typeof(FileContentResult))]
         public async Task<IActionResult> GetInvoiceFile([FromRoute] Guid invoiceId)
@@ -455,7 +460,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/extract")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("ExtractSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> ExtractInvoice([FromRoute] Guid invoiceId)
@@ -473,7 +478,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/reread")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("RereadSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> RereadInvoice([FromRoute] Guid invoiceId)
@@ -492,7 +497,7 @@ namespace Buyer.API.Controllers
 
         [HttpPut]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("UpdateSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> UpdateInvoice([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceWriteDto request)
@@ -511,7 +516,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/grn-pdf/{goodsReceiptId}")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_INVOICE")]
         [SwaggerOperation("GetSilaInvoiceGrnFile")]
         [SwaggerResponse(200, type: typeof(FileContentResult))]
         public async Task<IActionResult> GetInvoiceGrnFile([FromRoute] Guid invoiceId, [FromRoute] Guid goodsReceiptId)
@@ -533,7 +538,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/goods-receipts")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("LinkSilaInvoiceGoodsReceipts")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> LinkGoodsReceipts([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceLinkGrnDto request)
@@ -552,7 +557,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/submit")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("SubmitSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> SubmitInvoice([FromRoute] Guid invoiceId)
@@ -571,7 +576,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/refresh-posting")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "MANAGE_SILA_ERP_POSTING")]
         [SwaggerOperation("RefreshSilaInvoicePosting")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> RefreshPosting([FromRoute] Guid invoiceId)
@@ -589,7 +594,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/attachment/reprocess")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_INVOICE")]
         [SwaggerOperation("ReprocessSilaInvoiceAttachment")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> ReprocessAttachment([FromRoute] Guid invoiceId)
@@ -607,7 +612,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/approval")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "APPROVE_SILA_INVOICE")]
         [SwaggerOperation("DecideSilaInvoice")]
         [SwaggerResponse(200, type: typeof(SilaInvoiceDetailDto))]
         public async Task<IActionResult> DecideInvoice([FromRoute] Guid invoiceId, [FromBody] SilaInvoiceDecisionDto request)
@@ -627,7 +632,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/credit-memos/reference-invoices")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(AnyOf = "VIEW_SILA_CREDIT_MEMO,PROCESS_SILA_CREDIT_MEMO")]
         [SwaggerOperation("LookupSilaCreditMemoInvoice")]
         [SwaggerResponse(200, type: typeof(List<SilaCreditMemoReferenceInvoiceDto>))]
         public async Task<IActionResult> LookupCreditMemoInvoice([FromQuery] Guid? invoiceId, [FromQuery] string? invoiceNumber, [FromQuery] string? erpInvoiceId, [FromQuery] int limit = 20)
@@ -644,7 +649,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/invoices/{invoiceId}/credit-memo-lines")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(AnyOf = "VIEW_SILA_CREDIT_MEMO,PROCESS_SILA_CREDIT_MEMO")]
         [SwaggerOperation("GetSilaCreditMemoEligibleLines")]
         [SwaggerResponse(200, type: typeof(List<SilaCreditMemoEligibleLineDto>))]
         public async Task<IActionResult> CreditMemoLines([FromRoute] Guid invoiceId)
@@ -658,7 +663,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/credit-memos")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_CREDIT_MEMO")]
         [SwaggerOperation("GetSilaCreditMemos")]
         [SwaggerResponse(200, type: typeof(List<SilaCreditMemoListItemDto>))]
         public async Task<IActionResult> ListCreditMemos([FromQuery] string? search, [FromQuery] string? status, [FromQuery] int index = 0, [FromQuery] int limit = 20)
@@ -678,7 +683,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/credit-memos")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_CREDIT_MEMO")]
         [SwaggerOperation("CreateSilaCreditMemo")]
         [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
         public async Task<IActionResult> CreateCreditMemo([FromBody] SilaCreditMemoWriteDto request)
@@ -693,7 +698,7 @@ namespace Buyer.API.Controllers
 
         [HttpGet]
         [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}")]
-        [ApiAuthorization(Name = "VIEW_SILA_RECEIVING")]
+        [ApiAuthorization(Name = "VIEW_SILA_CREDIT_MEMO")]
         [SwaggerOperation("GetSilaCreditMemo")]
         [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
         public async Task<IActionResult> GetCreditMemo([FromRoute] Guid creditMemoId)
@@ -707,7 +712,7 @@ namespace Buyer.API.Controllers
 
         [HttpPut]
         [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_CREDIT_MEMO")]
         [SwaggerOperation("UpdateSilaCreditMemo")]
         [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
         public async Task<IActionResult> UpdateCreditMemo([FromRoute] Guid creditMemoId, [FromBody] SilaCreditMemoWriteDto request)
@@ -723,7 +728,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}/submit")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_CREDIT_MEMO")]
         [SwaggerOperation("SubmitSilaCreditMemo")]
         [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
         public async Task<IActionResult> SubmitCreditMemo([FromRoute] Guid creditMemoId)
@@ -738,7 +743,7 @@ namespace Buyer.API.Controllers
 
         [HttpPost]
         [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}/retry")]
-        [ApiAuthorization(Name = "POST_SILA_GRN")]
+        [ApiAuthorization(Name = "PROCESS_SILA_CREDIT_MEMO")]
         [SwaggerOperation("RetrySilaCreditMemo")]
         [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
         public async Task<IActionResult> RetryCreditMemo([FromRoute] Guid creditMemoId)
@@ -749,6 +754,23 @@ namespace Buyer.API.Controllers
                 UserId = GetUserId(),
                 CreditMemoId = creditMemoId,
                 Retry = true
+            }));
+        }
+
+        [HttpPost]
+        [Route("api/v1/buyer/sila/credit-memos/{creditMemoId}/approval")]
+        [ApiAuthorization(Name = "APPROVE_SILA_CREDIT_MEMO")]
+        [SwaggerOperation("DecideSilaCreditMemo")]
+        [SwaggerResponse(200, type: typeof(SilaCreditMemoDetailDto))]
+        public async Task<IActionResult> DecideCreditMemo([FromRoute] Guid creditMemoId, [FromBody] SilaInvoiceDecisionDto request)
+        {
+            return Ok(await _mediator.Send(new DecideSilaCreditMemoCommand
+            {
+                OrganizationId = GetOrganizationId(),
+                UserId = GetUserId(),
+                RoleId = GetRoleId(),
+                CreditMemoId = creditMemoId,
+                Request = request ?? new SilaInvoiceDecisionDto()
             }));
         }
     }

@@ -19,6 +19,7 @@ namespace Buyer.Domain.Dtos
     {
         public int ReadyForProcessing { get; set; }
         public int InProgress { get; set; }
+        public int PendingApproval { get; set; }
         public int PostingFailed { get; set; }
         public int PostedRecently { get; set; }
     }
@@ -26,6 +27,7 @@ namespace Buyer.Domain.Dtos
     public class SilaHomeCreditMemoKpisDto
     {
         public int InProgress { get; set; }
+        public int PendingApproval { get; set; }
         public int PostingFailed { get; set; }
         public int PostedRecently { get; set; }
     }
@@ -146,6 +148,8 @@ namespace Buyer.Domain.Dtos
         public string? Status { get; set; }
         public Guid? PurchaseOrderId { get; set; }
         public Guid? GoodsReceiptId { get; set; }
+        public Guid? InvoiceId { get; set; }
+        public Guid? CreditMemoId { get; set; }
     }
 
     public class SilaReceivingTeamDto

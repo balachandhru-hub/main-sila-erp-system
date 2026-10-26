@@ -125,6 +125,8 @@ namespace Buyer.Infrastructure.Contracts.IRepository
         IInvoiceItemRepository InvoiceItem { get; }
         ICreditMemoRepository CreditMemo { get; }
         ICreditMemoItemRepository CreditMemoItem { get; }
+        IOperationalTaskRepository OperationalTask { get; }
+        IOperationalAlertRepository OperationalAlert { get; }
         bool Save();
         Task<bool> SaveAsync();
     }
