@@ -289,7 +289,8 @@ namespace Buyer.API.Controllers
             [FromQuery] Guid? silaSupplierId,
             [FromQuery] Guid? supplierId,
             [FromQuery] string? companyCode,
-            [FromQuery] Guid? propertyId)
+            [FromQuery] Guid? propertyId,
+            [FromQuery] string? search)
         {
             return Ok(await _mediator.Send(new GetSilaEligiblePurchaseOrdersQuery
             {
@@ -297,7 +298,8 @@ namespace Buyer.API.Controllers
                 SilaSupplierId = silaSupplierId,
                 SupplierId = supplierId,
                 CompanyCode = companyCode,
-                PropertyId = propertyId
+                PropertyId = propertyId,
+                Search = search
             }));
         }
 

@@ -40,9 +40,11 @@ namespace Buyer.Application.Features.Queries.GetSilaInvoices
                     string status = SilaInputRules.OneOf(_logger, request.Status, new[]
                     {
                         Common.SILA_INVOICE_UPLOADED, Common.SILA_INVOICE_EXTRACTED, Common.SILA_INVOICE_OCR_FAILED,
-                        Common.SILA_INVOICE_REVIEWED, Common.SILA_INVOICE_GRN_POSTED,
-                        Common.SILA_INVOICE_AWAITING_PAYMENT, Common.SILA_INVOICE_PARTIALLY_PAID,
-                        Common.SILA_INVOICE_PAID, Common.SILA_INVOICE_OVERDUE, Common.SILA_INVOICE_LOCAL_FAILED
+                        Common.SILA_INVOICE_REVIEWED, Common.SILA_INVOICE_GRN_POSTED, Common.SILA_INVOICE_READY,
+                        Common.SILA_INVOICE_PENDING_APPROVAL, Common.SILA_INVOICE_APPROVED,
+                        Common.SILA_INVOICE_POSTING_FAILED, Common.SILA_INVOICE_AWAITING_PAYMENT,
+                        Common.SILA_INVOICE_PARTIALLY_PAID, Common.SILA_INVOICE_PAID, Common.SILA_INVOICE_OVERDUE,
+                        Common.SILA_INVOICE_LOCAL_FAILED, SilaOcrSettings.INVOICE_REVIEW_REQUIRED
                     }, "invoice status");
                     query = query.Where(x => x.Status == status);
                 }

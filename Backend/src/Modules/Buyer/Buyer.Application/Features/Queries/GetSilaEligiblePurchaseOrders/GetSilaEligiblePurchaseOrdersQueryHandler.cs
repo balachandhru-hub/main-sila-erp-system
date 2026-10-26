@@ -24,7 +24,7 @@ namespace Buyer.Application.Features.Queries.GetSilaEligiblePurchaseOrders
             string? company = await SilaInvoiceCreation.ResolveCompanyCodeAsync(
                 _repository, buyer.Id, request.PropertyId, request.CompanyCode, cancellationToken);
             return await SilaInvoiceCreation.EligiblePurchaseOrdersAsync(
-                _repository, buyer.Id, request.SilaSupplierId, request.SupplierId, company, cancellationToken);
+                _repository, buyer.Id, request.SilaSupplierId, request.SupplierId, company, request.Search, cancellationToken);
         }
     }
 }
