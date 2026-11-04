@@ -201,18 +201,41 @@ const validate = (payload: Record<string, unknown>): string | null => {
 const rejectedByEnum = (status: number, body: string): boolean =>
   status === 400 && body.includes("IntegrationProcessType");
 
-const localBuyerUrl = (): string =>
-  (process.env.VITE_LOCAL_BUYER_API || "http://127.0.0.1:8004").replace(/\/$/, "");
+const cloudBuyerUrl = (): string =>
+  (process.env.VITE_DEV_API_PROXY || "https://sila-api.chervicaon.com").replace(/\/$/, "");
+
+type Upstream = { status: number; body: string; contentType: string };
 
 /** Cloud Buyer.API still maps process_type as an enum and dies on POST_GRN_REVERSAL. */
 const cannotReadProcessType = (status: number, body: string): boolean =>
   status >= 400 && body.includes("IntegrationProcessType") && /Cannot convert string value|is not a valid/i.test(body);
 
+const unreachable = (target: string): Upstream => ({
+  status: 503,
+  body: JSON.stringify(described(
+    503,
+    "Couldn't reach Buyer API.",
+    `No service answered at ${target.replace(/\/$/, "")}.`,
+  )),
+  contentType: "application/json; charset=utf-8",
+});
+
+const shouldFallback = (upstream: Upstream): boolean =>
+  upstream.status === 503 || upstream.status >= 500 || cannotReadProcessType(upstream.status, upstream.body);
+
+const tryCall = async (target: string, run: () => Promise<Upstream>): Promise<Upstream> => {
+  try {
+    return await run();
+  } catch {
+    return unreachable(target);
+  }
+};
+
 const forward = async (
   target: string,
   req: IncomingMessage,
   body: string | null,
-): Promise<{ status: number; body: string; contentType: string }> => {
+): Promise<Upstream> => {
   const url = new URL(req.url || "/", target);
   const headers: Record<string, string> = { Accept: "application/json" };
   if (req.headers.cookie) headers.Cookie = req.headers.cookie;
@@ -224,6 +247,20 @@ const forward = async (
     body: await response.text(),
     contentType: response.headers.get("content-type") || "application/json",
   };
+};
+
+/** Local :8004 first. If it is down or cannot read a process type, use the cloud Buyer API. */
+const preferForward = async (
+  primary: string,
+  fallback: string | undefined,
+  req: IncomingMessage,
+  body: string | null,
+): Promise<Upstream> => {
+  const first = await tryCall(primary, () => forward(primary, req, body));
+  if (!shouldFallback(first) || !fallback || fallback === primary) return first;
+  const second = await tryCall(fallback, () => forward(fallback, req, body));
+  if (second.status === 503) return first;
+  return second;
 };
 
 const passThrough = (res: ServerResponse, upstream: { status: number; body: string; contentType: string }): void => {
@@ -238,7 +275,7 @@ const forwardPath = async (
   method: string,
   path: string,
   body: string | null,
-): Promise<{ status: number; body: string; contentType: string }> => {
+): Promise<Upstream> => {
   const url = new URL(path, target.endsWith("/") ? target : `${target}/`);
   const headers: Record<string, string> = { Accept: "application/json" };
   if (req.headers.cookie) headers.Cookie = req.headers.cookie;
@@ -252,8 +289,28 @@ const forwardPath = async (
   };
 };
 
-const listRemote = async (target: string, req: IncomingMessage, side: Side): Promise<Record<string, unknown>[]> => {
-  const upstream = await forwardPath(target, req, "GET", `/api/v1/${side}/integrations`, null);
+const preferPath = async (
+  primary: string,
+  fallback: string | undefined,
+  req: IncomingMessage,
+  method: string,
+  path: string,
+  body: string | null,
+): Promise<Upstream> => {
+  const first = await tryCall(primary, () => forwardPath(primary, req, method, path, body));
+  if (!shouldFallback(first) || !fallback || fallback === primary) return first;
+  const second = await tryCall(fallback, () => forwardPath(fallback, req, method, path, body));
+  if (second.status === 503) return first;
+  return second;
+};
+
+const listRemote = async (
+  primary: string,
+  fallback: string | undefined,
+  req: IncomingMessage,
+  side: Side,
+): Promise<Record<string, unknown>[]> => {
+  const upstream = await preferPath(primary, fallback, req, "GET", `/api/v1/${side}/integrations`, null);
   if (upstream.status !== 200) return [];
   try {
     const parsed: unknown = JSON.parse(upstream.body);
@@ -264,7 +321,8 @@ const listRemote = async (target: string, req: IncomingMessage, side: Side): Pro
 };
 
 /** Dev-only bridge so Save draft of a new API type succeeds while the connected API still rejects it. */
-export const devCustomIntegrations = (target: string, filePath: string): Plugin => {
+export const devCustomIntegrations = (target: string, filePath: string, fallback?: string): Plugin => {
+  const cloud = fallback || cloudBuyerUrl();
   return {
     name: "dev-custom-integrations",
     apply: "serve",
@@ -276,9 +334,14 @@ export const devCustomIntegrations = (target: string, filePath: string): Plugin 
           next();
           return;
         }
-        void handle(target, filePath, match[1] as Side, req, res, next).catch(() => {
+        void handle(target, cloud, filePath, match[1] as Side, req, res, next).catch(() => {
           if (!res.headersSent) {
-            sendJson(res, 500, described(500, "Could not save the integration.", "The draft could not be stored. Try again."));
+            const get = (req.method || "").toUpperCase() === "GET";
+            sendJson(res, 500, described(
+              500,
+              get ? "Could not load the integrations." : "Could not save the integration.",
+              get ? "The integration list could not be loaded. Try again." : "The draft could not be stored. Try again.",
+            ));
           }
         });
       });
@@ -286,8 +349,18 @@ export const devCustomIntegrations = (target: string, filePath: string): Plugin 
   };
 };
 
+const persistStore = (filePath: string, store: StoreFile): string | null => {
+  try {
+    writeStore(filePath, store);
+    return null;
+  } catch {
+    return "The draft file could not be written on this machine.";
+  }
+};
+
 const handle = async (
   target: string,
+  fallback: string,
   filePath: string,
   side: Side,
   req: IncomingMessage,
@@ -304,18 +377,13 @@ const handle = async (
   const find = (id: string) => rows().find((row) => row.public.id === id);
 
   if (req.method === "GET" && parts.length === 0) {
-    let upstream = await forward(target, req, null);
-    if (cannotReadProcessType(upstream.status, upstream.body) || upstream.status >= 500) {
-      try {
-        const local = await forward(localBuyerUrl(), req, null);
-        if (local.status === 200) {
-          upstream = local;
-        }
-      } catch {
-        // Local Buyer.API is not running; return the cloud error.
-      }
-    }
+    const upstream = await preferForward(target, fallback, req, null);
     if (upstream.status !== 200) {
+      const localRows = rows().map((row) => row.public);
+      if (localRows.length > 0) {
+        sendJson(res, 200, localRows);
+        return;
+      }
       passThrough(res, upstream);
       return;
     }
@@ -340,11 +408,15 @@ const handle = async (
     const raw = await readRequestBody(req);
     const payload = JSON.parse(raw || "{}") as Record<string, unknown>;
     if (!isCustomProcessType(payload.processType)) {
-      passThrough(res, await forward(target, req, raw));
+      passThrough(res, await preferForward(target, fallback, req, raw));
       return;
     }
-    const upstream = await forward(target, req, raw);
-    if (!rejectedByEnum(upstream.status, upstream.body)) {
+    const upstream = await preferForward(target, fallback, req, raw);
+    if (upstream.status === 200 || upstream.status === 201) {
+      passThrough(res, upstream);
+      return;
+    }
+    if (!rejectedByEnum(upstream.status, upstream.body) && upstream.status !== 503 && upstream.status < 500) {
       passThrough(res, upstream);
       return;
     }
@@ -369,7 +441,11 @@ const handle = async (
     const secrets = secretsFrom(payload, {});
     const created: StoredIntegration = { public: publicFrom(payload, null, secrets), secrets };
     current[side].push(created);
-    writeStore(filePath, current);
+    const writeProblem = persistStore(filePath, current);
+    if (writeProblem) {
+      sendJson(res, 500, described(500, "Could not save the integration.", writeProblem));
+      return;
+    }
     sendJson(res, 200, created.public);
     return;
   }
@@ -379,23 +455,12 @@ const handle = async (
   const saved = id ? find(id) : undefined;
   if (!saved) {
     const raw = req.method === "GET" || req.method === "DELETE" ? null : await readRequestBody(req);
-    let upstream = await forward(target, req, raw);
-    if (cannotReadProcessType(upstream.status, upstream.body) || upstream.status >= 500) {
-      try {
-        const local = await forward(localBuyerUrl(), req, raw);
-        if (local.status === 200 || (local.status < 500 && cannotReadProcessType(upstream.status, upstream.body))) {
-          upstream = local;
-        }
-      } catch {
-        // Local Buyer.API is not running; return the cloud error.
-      }
-    }
-    passThrough(res, upstream);
+    passThrough(res, await preferForward(target, fallback, req, raw));
     return;
   }
 
   if (req.method === "GET" && parts.length === 1) {
-    const remote = remoteWithSameName(await listRemote(target, req, side), saved.public.name);
+    const remote = remoteWithSameName(await listRemote(target, fallback, req, side), saved.public.name);
     sendJson(res, 200, remote ?? saved.public);
     return;
   }
@@ -403,18 +468,23 @@ const handle = async (
   if (req.method === "DELETE" && parts.length === 1) {
     const current = store();
     current[side] = current[side].filter((row) => row.public.id !== id);
-    writeStore(filePath, current);
+    const writeProblem = persistStore(filePath, current);
+    if (writeProblem) {
+      sendJson(res, 500, described(500, "Could not delete the integration.", writeProblem));
+      return;
+    }
     sendJson(res, 200, {});
     return;
   }
 
   if (req.method === "PUT" && parts.length === 1) {
     const payload = JSON.parse(await readRequestBody(req) || "{}") as Record<string, unknown>;
-    const remote = remoteWithSameName(await listRemote(target, req, side), saved.public.name);
+    const remote = remoteWithSameName(await listRemote(target, fallback, req, side), saved.public.name);
     if (remote?.id) {
       // Keep the stored endpoint/process. Only the submitted credentials go to Buyer.API.
-      const upstream = await forwardPath(
+      const upstream = await preferPath(
         target,
+        fallback,
         req,
         "PUT",
         `/api/v1/${side}/integrations/${remote.id}`,
@@ -435,7 +505,11 @@ const handle = async (
     };
     const current = store();
     current[side] = current[side].map((row) => (row.public.id === id ? updated : row));
-    writeStore(filePath, current);
+    const writeProblem = persistStore(filePath, current);
+    if (writeProblem) {
+      sendJson(res, 500, described(500, "Could not save the integration.", writeProblem));
+      return;
+    }
     sendJson(res, 200, updated.public);
     return;
   }
@@ -457,7 +531,11 @@ const handle = async (
         },
       };
     });
-    writeStore(filePath, current);
+    const writeProblem = persistStore(filePath, current);
+    if (writeProblem) {
+      sendJson(res, 500, described(500, "Could not save the integration.", writeProblem));
+      return;
+    }
     sendJson(res, 200, result);
     return;
   }
@@ -468,7 +546,11 @@ const handle = async (
     current[side] = current[side].map((row) => (
       row.public.id === id ? { ...row, public: { ...row.public, status: nextStatus, updatedAt: new Date().toISOString() } } : row
     ));
-    writeStore(filePath, current);
+    const writeProblem = persistStore(filePath, current);
+    if (writeProblem) {
+      sendJson(res, 500, described(500, "Could not save the integration.", writeProblem));
+      return;
+    }
     sendJson(res, 200, {});
     return;
   }
