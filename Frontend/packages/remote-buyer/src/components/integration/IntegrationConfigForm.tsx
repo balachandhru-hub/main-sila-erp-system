@@ -38,6 +38,10 @@ interface IntegrationConfigFormProps {
   side?: IntegrationSide;
   /** The API type a new integration starts with. */
   initialProcessType?: string;
+  /** Suggested Integration Settings name (for example FIVE_POS_UPDATE). */
+  initialName?: string;
+  /** Suggested system name, such as SAP S/4. Endpoint and credentials stay empty. */
+  initialSystemName?: string;
   /** View only: the fields are shown but cannot be changed. */
   readOnly?: boolean;
   onSaved: (configuration: IntegrationConfiguration) => void;
@@ -129,6 +133,8 @@ const toForm = (
   configuration: IntegrationConfiguration | null,
   newProcessType: string,
   draftFrom: IntegrationConfiguration | null = null,
+  initialName = "",
+  initialSystemName = "",
 ): ConfigForm => {
   if (configuration) return formFromConfiguration(configuration);
   if (draftFrom) {
@@ -143,7 +149,13 @@ const toForm = (
       bearerToken: "",
     };
   }
-  return { ...NEW_FORM, processType: newProcessType, httpMethod: defaultHttpMethod(newProcessType) };
+  return {
+    ...NEW_FORM,
+    processType: newProcessType,
+    name: initialName,
+    systemName: initialSystemName,
+    httpMethod: defaultHttpMethod(newProcessType),
+  };
 };
 
 /** "name=value" lines to an object; null when nothing was entered. Throws on a line without "=". */
@@ -186,6 +198,8 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
   draftFrom = null,
   side = "buyer",
   initialProcessType,
+  initialName = "",
+  initialSystemName = "",
   readOnly = false,
   onSaved,
   onCancel,
@@ -194,7 +208,7 @@ const IntegrationConfigForm: React.FC<IntegrationConfigFormProps> = ({
   const startingType = initialProcessType ?? draftFrom?.processType ?? "";
   const startingIsCustom = Boolean(startingType) && !offeredTypes.some((type) => type.value === startingType);
   const [form, setForm] = useState<ConfigForm>(() =>
-    toForm(configuration, startingType, draftFrom));
+    toForm(configuration, startingType, draftFrom, initialName, initialSystemName));
   const [addingType, setAddingType] = useState(startingIsCustom && !configuration);
   const [customDraft, setCustomDraft] = useState(startingIsCustom ? startingType.replace(/^(GET_|POST_)/, "") : "");
   const [customDirection, setCustomDirection] = useState<ApiTypeDirection>(isPushProcess(startingType) ? "send" : "read");

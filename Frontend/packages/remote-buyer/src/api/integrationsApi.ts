@@ -49,6 +49,203 @@ export const isPushProcess = (processType: string): boolean =>
 export const integrationProcessTypesFor = (side: IntegrationSide): IntegrationProcessType[] =>
   INTEGRATION_PROCESS_TYPES.filter((type) => type.side === side);
 
+/**
+ * Named inventory / stock-movement APIs the application already looks up.
+ * Integration Hub lists saved rows only; these definitions restore the catalogue of
+ * expected names when a tenant has configured GRN 101/102 and nothing else.
+ * Mapping notes come from SilaGrnSap, SilaStockCountSap and SilaInventorySap. No SAP URL is stored here.
+ */
+export type InventoryIntegrationKind = "erp" | "internal" | "unimplemented";
+
+export interface InventoryIntegrationDefinition {
+  id: string;
+  title: string;
+  kind: InventoryIntegrationKind;
+  /** Integration Settings name the poster requires, when lookup is by name. */
+  configurationName?: string;
+  aliases?: string[];
+  processType?: string;
+  suggestedSystem?: string;
+  mapping: string;
+  usedFor: string;
+}
+
+export const INVENTORY_INTEGRATION_DEFINITIONS: InventoryIntegrationDefinition[] = [
+  {
+    id: "grn-101",
+    title: "Goods Receipt (SAP 101)",
+    kind: "erp",
+    configurationName: "FIVE S4-GRN POSTING",
+    aliases: ["FIVE S4 - POST GRN"],
+    processType: "POST_GRN",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementCode 01, GoodsMovementType 101. Plant and storage from the GRN location.",
+    usedFor: "SILA GRN posting. Looked up by this name only.",
+  },
+  {
+    id: "grn-102",
+    title: "GRN Reversal (SAP 102)",
+    kind: "erp",
+    configurationName: "FIVE S4-GRN REVERSAL",
+    processType: "POST_GRN_REVERSAL",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementType 102. Full or partial quantity. Separate from POST_GRN.",
+    usedFor: "SILA Reverse GRN. Looked up by this name only.",
+  },
+  {
+    id: "pos-update",
+    title: "POS / stock-count update",
+    kind: "erp",
+    configurationName: "FIVE_POS_UPDATE",
+    processType: "UPDATE_STOCK",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementCode 03. Surplus/return Z01, shortage/consumption Z02. Quantity always positive. Plant and storage from the store or outlet.",
+    usedFor: "Approved stock-count variance and POS recipe consumption when this named UPDATE_STOCK API is active.",
+  },
+  {
+    id: "transfer-stock",
+    title: "Stock transfer (same plant)",
+    kind: "erp",
+    configurationName: "FIVE S4 - Transfer Stock",
+    processType: "POST_GOODS_MOVEMENT",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementCode 04, GoodsMovementType 311. Source plant/storage and receiving storage from the ITO locations.",
+    usedFor: "Standard and quick internal transfers in the same plant. SILA ledger TRANSFER_OUT then TRANSFER_IN.",
+  },
+  {
+    id: "plant-transfer",
+    title: "Stock transfer (plant to plant)",
+    kind: "erp",
+    configurationName: "FIVE S4 - Plant Transfer Stock",
+    processType: "POST_GOODS_MOVEMENT",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementCode 04, GoodsMovementType 301. Receiving plant is named on the item.",
+    usedFor: "ITO when source and destination plants differ in the same company code.",
+  },
+  {
+    id: "goods-issue",
+    title: "Goods Issue",
+    kind: "erp",
+    configurationName: "FIVE S4 - Goods Issue",
+    processType: "POST_GOODS_MOVEMENT",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementCode 03, GoodsMovementType Z02. Plant and storage from the issuing location.",
+    usedFor: "SILA GOODS_ISSUE_OUT, waste/damage/spoilage, and outbound adjustments.",
+  },
+  {
+    id: "positive-adjustment",
+    title: "Positive stock adjustment",
+    kind: "erp",
+    configurationName: "FIVE S4 - Positive Stock Adjustment",
+    processType: "POST_GOODS_MOVEMENT",
+    suggestedSystem: "SAP S/4",
+    mapping: "GoodsMovementCode 03, GoodsMovementType Z01. Plant and storage from the location.",
+    usedFor: "SILA inbound adjustments and POS returns of stock.",
+  },
+  {
+    id: "get-stock",
+    title: "Inventory balance / material stock",
+    kind: "erp",
+    processType: "GET_STOCK",
+    mapping: "Stock.MaterialCode, Stock.Quantity; optional Stock.Plant, Stock.StorageLocation, Stock.Uom.",
+    usedFor: "Read ERP stock in hand. Check-only; does not write the SILA ledger.",
+  },
+  {
+    id: "get-material",
+    title: "Material master",
+    kind: "erp",
+    processType: "GET_MATERIAL",
+    mapping: "Material.Code and optional description, UOM, group, price.",
+    usedFor: "Material Inventory ERP pull per company code. Not a scheduled Hub pull.",
+  },
+  {
+    id: "opening-stock",
+    title: "Opening stock",
+    kind: "internal",
+    mapping: "SILA ledger OPENING_STOCK (IN).",
+    usedFor: "Waste & Adjustments. No separate SAP Integration record.",
+  },
+  {
+    id: "ito",
+    title: "Internal Transfer Order",
+    kind: "internal",
+    mapping: "SILA TRANSFER_OUT then TRANSFER_IN. ERP uses FIVE S4 - Transfer Stock / Plant Transfer Stock.",
+    usedFor: "Create → approve → dispatch → receive. APIs under /sila/transfers.",
+  },
+  {
+    id: "quick-ito",
+    title: "Quick Internal Transfer",
+    kind: "internal",
+    mapping: "Same TRANSFER_OUT / TRANSFER_IN ledger as standard ITO. Mode QUICK.",
+    usedFor: "Quick transfer policy. QUICK_TRANSFER_OUT / QUICK_TRANSFER_IN were never separate SAP types.",
+  },
+  {
+    id: "recipe-pos",
+    title: "Recipe / POS consumption",
+    kind: "internal",
+    mapping: "SILA RECIPE_CONSUMPTION / GOODS_ISSUE_OUT. ERP via FIVE_POS_UPDATE or FIVE S4 - Goods Issue (Z02).",
+    usedFor: "POS batch processing explodes recipes. Does not deduct on import unless the approved POS process posts consumption.",
+  },
+  {
+    id: "stock-count",
+    title: "Physical stock count",
+    kind: "internal",
+    mapping: "SILA STOCK_COUNT_ADJUSTMENT. ERP via FIVE_POS_UPDATE (Z01 surplus, Z02 shortage).",
+    usedFor: "Stock count approve posts the ledger, then queues ERP posting.",
+  },
+  {
+    id: "waste",
+    title: "Waste / damage / spoilage",
+    kind: "internal",
+    mapping: "SILA WASTE, DAMAGE, BREAKAGE, SPOILAGE, EXPIRED. ERP Z02 through FIVE S4 - Goods Issue.",
+    usedFor: "Waste & Adjustments. No direct balance write.",
+  },
+  {
+    id: "live-stock",
+    title: "Stock availability",
+    kind: "internal",
+    mapping: "SILA /sila/inventory/live by location (store/outlet), property via location master.",
+    usedFor: "Cloud and PWA live inventory. Company/plant/storage are location fields, not tenant selectors.",
+  },
+  {
+    id: "movement-history",
+    title: "Stock movement history",
+    kind: "internal",
+    mapping: "SILA /sila/inventory/transactions.",
+    usedFor: "Inventory ledger. Direction OUT / GOODS_ISSUE_OUT conventions unchanged.",
+  },
+  {
+    id: "reconciliation",
+    title: "Inventory reconciliation",
+    kind: "internal",
+    mapping: "SILA /sila/erp-postings/{id}/reconcile.",
+    usedFor: "Manual posting reconcile. Local ERP schedulers stay PARKED. Not a live SAP stock sync.",
+  },
+  {
+    id: "stock-return-api",
+    title: "Stock return (separate SAP API)",
+    kind: "unimplemented",
+    mapping: "Not found as a named Integration type. POS returns use Z01 via FIVE_POS_UPDATE or Positive Stock Adjustment.",
+    usedFor: "No STOCK_RETURN process type in repository history.",
+  },
+];
+
+export const matchInventoryConfigurations = (
+  definition: InventoryIntegrationDefinition,
+  rows: IntegrationConfiguration[],
+): IntegrationConfiguration[] => {
+  const names = [definition.configurationName, ...(definition.aliases ?? [])]
+    .filter((name): name is string => Boolean(name))
+    .map((name) => name.trim().toLowerCase());
+  if (names.length > 0) {
+    return rows.filter((row) => names.includes(row.name.trim().toLowerCase()));
+  }
+  if (definition.processType) {
+    return rows.filter((row) => row.processType === definition.processType);
+  }
+  return [];
+};
+
 /** Select value that opens the fields for a code that is not in the built-in list. */
 export const NEW_API_TYPE = "__new__";
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { EmptyState, Loader, Modal, PageHeader, toastService } from "@vosox/shared-ui";
 import {
+  INVENTORY_INTEGRATION_DEFINITIONS,
   INTEGRATION_PROCESS_TYPES,
   NEW_API_TYPE,
   customApiTypeCode,
@@ -8,6 +9,7 @@ import {
   getIntegrations,
   integrationProcessTypesFor,
   isAcceptableProcessType,
+  matchInventoryConfigurations,
   type ApiTypeDirection,
   type IntegrationConfiguration,
   type IntegrationSide,
@@ -34,7 +36,7 @@ const CONNECTED_STATUSES = ["TESTED", "ACTIVE", "INACTIVE"];
 
 type View =
   | { name: "list" }
-  | { name: "create"; processType: string; copyFromId?: string }
+  | { name: "create"; processType: string; copyFromId?: string; suggestedName?: string; suggestedSystem?: string }
   | { name: "open"; configurationId: string };
 
 const purposeOf = (processType: string, name?: string | null, resourcePath?: string | null): string => {
@@ -106,6 +108,8 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
       <IntegrationWorkspace
         startWith={view.name === "create" ? "create" : { configurationId: view.configurationId }}
         initialProcessType={view.name === "create" ? view.processType : undefined}
+        initialName={view.name === "create" ? view.suggestedName : undefined}
+        initialSystemName={view.name === "create" ? view.suggestedSystem : undefined}
         copyFromId={view.name === "create" ? view.copyFromId : undefined}
         onExit={backToList}
         mode={isWorkflow ? "workflow" : "connection"}
@@ -288,6 +292,100 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({
           </div>
         )}
       </section>
+      {!isWorkflow && side === "buyer" && !loading && (
+        <section className="sila-card">
+          <div className="sila-card-body">
+            <h2 className="sila-card-title">Inventory and stock movement APIs</h2>
+            <p className="sila-help">
+              Saved connections are listed above. This catalogue is the SILA inventory set from source:
+              configured, available but not configured, internal SILA APIs, and types not found in history.
+              Configure does not invent a SAP URL or credentials.
+            </p>
+            <div className="sila-table-wrap">
+              <table className="sila-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Integration</th>
+                    <th scope="col">Name / type</th>
+                    <th scope="col">Mapping</th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {INVENTORY_INTEGRATION_DEFINITIONS.map((definition) => {
+                    const matches = matchInventoryConfigurations(definition, rows);
+                    const configured = matches[0];
+                    const kindLabel = definition.kind === "erp"
+                      ? "External ERP"
+                      : definition.kind === "internal"
+                        ? "Internal SILA API"
+                        : "Not in history";
+                    const statusText = definition.kind === "unimplemented"
+                      ? "Not implemented"
+                      : definition.kind === "internal"
+                        ? "Internal only"
+                        : configured
+                          ? statusLabel(configured.status)
+                          : "Available — not configured";
+                    const statusClass = definition.kind === "unimplemented"
+                      ? "sila-badge sila-badge--neutral"
+                      : definition.kind === "internal"
+                        ? "sila-badge sila-badge--info"
+                        : configured
+                          ? statusBadgeClass(configured.status)
+                          : "sila-badge sila-badge--warning";
+                    return (
+                      <tr key={definition.id}>
+                        <td>
+                          <div className="sila-cell-strong">{definition.title}</div>
+                          <p className="ops-muted">{definition.usedFor}</p>
+                        </td>
+                        <td>
+                          {definition.configurationName || definition.processType || "—"}
+                          {definition.processType && definition.configurationName ? (
+                            <span className="srcv-sub">{definition.processType}</span>
+                          ) : null}
+                        </td>
+                        <td>{definition.mapping}</td>
+                        <td>{kindLabel}</td>
+                        <td><span className={statusClass}>{statusText}</span></td>
+                        <td>
+                          {configured ? (
+                            <button
+                              type="button"
+                              className="sila-btn sila-btn--secondary sila-btn--sm"
+                              onClick={() => setView({ name: "open", configurationId: configured.id })}
+                            >
+                              {readOnly ? "View" : "Open"}
+                            </button>
+                          ) : definition.kind === "erp" && canCreate && definition.processType ? (
+                            <button
+                              type="button"
+                              className="sila-btn sila-btn--secondary sila-btn--sm"
+                              onClick={() => setView({
+                                name: "create",
+                                processType: definition.processType!,
+                                suggestedName: definition.configurationName,
+                                suggestedSystem: definition.suggestedSystem,
+                              })}
+                            >
+                              Configure
+                            </button>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
       <Modal
         isOpen={pendingDelete !== null}
         onClose={() => { if (!deleting) setPendingDelete(null); }}
