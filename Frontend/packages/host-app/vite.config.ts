@@ -46,7 +46,7 @@ export default defineConfig(({ command, mode }) => {
       react(),
       ...(command === 'serve' ? [
         // Primary Buyer target is local :8004 so these plugins do not cloud-first.
-        devCustomIntegrations(buyerApi, path.resolve(__dirname, '../../.data/custom-integrations.json')),
+        devCustomIntegrations(buyerApi, path.resolve(__dirname, '../../.data/custom-integrations.json'), otherApi),
         devGoodsReceiptLink(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
         devInvoiceSubmit(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
         devGrnReversal(buyerApi),
