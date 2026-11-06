@@ -379,12 +379,9 @@ const handle = async (
   if (req.method === "GET" && parts.length === 0) {
     const upstream = await preferForward(target, fallback, req, null);
     if (upstream.status !== 200) {
-      const localRows = rows().map((row) => row.public);
-      if (localRows.length > 0) {
-        sendJson(res, 200, localRows);
-        return;
-      }
-      passThrough(res, upstream);
+      // Cloud Buyer.API still dies on unknown process_type enum values. Keep the Hub
+      // listable so GET_STOCK / POST_GOODS_MOVEMENT / POST_GRN and local drafts remain usable.
+      sendJson(res, 200, rows().map((row) => row.public));
       return;
     }
     let remote: unknown;
