@@ -9,6 +9,7 @@ import { devCustomIntegrations } from './devCustomIntegrations';
 import { devGoodsReceiptLink } from './devGoodsReceiptLink';
 import { devInvoiceSubmit } from './devInvoiceSubmit';
 import { devGrnReversal } from './devGrnReversal';
+import { devBuyerApiFallback } from './devBuyerApiFallback';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootNodeModules = path.resolve(__dirname, '../../node_modules');
@@ -50,6 +51,8 @@ export default defineConfig(({ command, mode }) => {
         devGoodsReceiptLink(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
         devInvoiceSubmit(buyerApi, path.resolve(__dirname, '../../../Backend/src/Modules/Buyer/Buyer.API/appsettings.UAT.json')),
         devGrnReversal(buyerApi),
+        // After the path-specific plugins. Local :8004 first; cloud when it is down.
+        devBuyerApiFallback(buyerApi, otherApi),
       ] : []),
       federation({
         remotes: command === 'serve' ? {} : {
