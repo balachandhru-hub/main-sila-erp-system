@@ -58,6 +58,9 @@ interface IntegrationWorkspaceProps {
   side: IntegrationSide;
   /** The API type a new integration starts with. */
   initialProcessType?: string;
+  /** Suggested configuration name when creating from the inventory catalogue. */
+  initialName?: string;
+  initialSystemName?: string;
   /** Prefill the create form from this configuration (copy). */
   copyFromId?: string;
   /** View only: the integration is shown but cannot be changed, tested, activated or pulled. */
@@ -74,6 +77,8 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
   mode,
   side,
   initialProcessType,
+  initialName,
+  initialSystemName,
   copyFromId,
   readOnly = false,
 }) => {
@@ -156,6 +161,8 @@ const IntegrationWorkspace: React.FC<IntegrationWorkspaceProps> = ({
           draftFrom={draftFrom}
           side={side}
           initialProcessType={initialProcessType}
+          initialName={initialName}
+          initialSystemName={initialSystemName}
           onCancel={onExit}
           onSaved={openWorkspace}
         />
